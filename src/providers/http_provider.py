@@ -8,7 +8,7 @@ from urllib.parse import urljoin, urlparse
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
-from requests import JSONDecodeError, Session
+from requests import JSONDecodeError, Session, Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -95,6 +95,17 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         if not host.endswith('/'):
             host += '/'
         return urljoin(host, url)
+
+    def _post(self, endpoint: str, data: dict) -> dict:
+        # TODO: proper implementation
+        for host in self.hosts:
+            resp = self.session.post(
+                self._urljoin(host, endpoint),
+                json=data,
+                timeout=self.request_timeout,
+            )
+            return resp.json()
+        raise ValueError("No hosts provided")
 
     def _get(
         self,

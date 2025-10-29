@@ -112,7 +112,34 @@ def _create_app(db_path: str) -> Flask:
         except Exception as e:
             return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
 
-    # TODO: POST endpoint for setting l_epoch and r_epoch for FrameCheckpointsIterator
+    @app.post("/epochs/demand")
+    def set_epochs_demand():
+        try:
+            data = request.get_json()
+            if not data or "consumer" not in data or "l_epoch" not in data or "r_epoch" not in data:
+                return jsonify({"error": "Missing 'consumer' or 'l_epoch' or 'r_epoch' in request body"}), 400
+
+            consumer = data["consumer"]
+            l_epoch = data["l_epoch"]
+            r_epoch = data["r_epoch"]
+
+            if not isinstance(l_epoch, int) or not isinstance(r_epoch, int) or l_epoch > r_epoch:
+                return jsonify({"error": "'l_epoch' and 'r_epoch' must be integers, and 'l_epoch' <= 'r_epoch'"}), 400
+
+            db = DutiesDB(app.config["DB_PATH"])
+            db.store_demand(consumer, l_epoch, r_epoch)
+
+            return jsonify({"status": "ok", "consumer": consumer, "l_epoch": l_epoch, "r_epoch": r_epoch})
+        except Exception as e:
+            return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
+
+    @app.get("/epochs/demand")
+    def get_epochs_demand():
+        try:
+            db = DutiesDB(app.config["DB_PATH"])
+            return jsonify({"result": db.epochs_demand()})
+        except Exception as e:
+            return jsonify({"error": repr(e), "trace": traceback.format_exc()}), 500
 
     return app
 

@@ -22,8 +22,6 @@ def csm_module(web3: Web3):
 
 @pytest.fixture()
 def performance_collector(web3: Web3, frame_config: FrameConfig):
-    variables.PERFORMANCE_COLLECTOR_SERVER_START_EPOCH = frame_config.initial_epoch - frame_config.epochs_per_frame
-    variables.PERFORMANCE_COLLECTOR_SERVER_END_EPOCH = frame_config.initial_epoch
     yield PerformanceCollector(web3)
 
 
@@ -78,7 +76,6 @@ def test_csm_module_report(performance_collector, module, set_oracle_members, ru
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
         # NOTE: Patch the var to bypass `FrameCheckpointsIterator.MIN_CHECKPOINT_STEP`
-        variables.PERFORMANCE_COLLECTOR_SERVER_END_EPOCH = report_frame.ref_slot // 32
 
     last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
     assert (

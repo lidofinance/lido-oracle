@@ -6,7 +6,7 @@ from src.modules.performance_collector.codec import (
     SyncDuty,
     SyncDutiesCodec,
     AttDutiesMissCodec,
-    EpochBlobCodec,
+    EpochDataCodec,
 )
 
 
@@ -254,8 +254,8 @@ def test_epoch_blob_codec_roundtrip():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochBlobCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
-    att_decoded, proposals_decoded, syncs_decoded = EpochBlobCodec.decode(blob)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    att_decoded, proposals_decoded, syncs_decoded = EpochDataCodec.decode(blob)
 
     # att_decoded may be a set (non-empty) or BitMap; normalize to set
     from pyroaring import BitMap  # type: ignore
@@ -274,17 +274,17 @@ def test_epoch_blob_codec_bad_version():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochBlobCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
 
     bad = bytes([255]) + blob[1:]
     with pytest.raises(ValueError):
-        EpochBlobCodec.decode(bad)
+        EpochDataCodec.decode(bad)
 
 
 @pytest.mark.unit
 def test_epoch_blob_codec_short_header():
     with pytest.raises(ValueError):
-        EpochBlobCodec.decode(b"\x01\x00")
+        EpochDataCodec.decode(b"\x01\x00")
 
 
 @pytest.mark.unit
@@ -293,8 +293,8 @@ def test_epoch_blob_codec_truncated_payload():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochBlobCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
     bad_blob = blob[:-1]
 
     with pytest.raises(ValueError):
-        EpochBlobCodec.decode(bad_blob)
+        EpochDataCodec.decode(bad_blob)

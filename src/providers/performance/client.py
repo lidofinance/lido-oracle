@@ -17,6 +17,7 @@ class PerformanceClient(HTTPProvider):
     API_EPOCHS_CHECK = 'epochs/check'
     API_EPOCHS_MISSING = 'epochs/missing'
     API_EPOCHS_BLOB = 'epochs/blob'
+    API_EPOCHS_DEMAND = 'epochs/demand'
 
     def is_range_available(self, l_epoch: int, r_epoch: int) -> bool:
         data, _ = self._get(
@@ -60,3 +61,18 @@ class PerformanceClient(HTTPProvider):
     def get_epoch(self, epoch: int) -> EpochData | None:
         blob = self.get_epoch_blob(epoch)
         return EpochDataCodec.decode(bytes.fromhex(blob)) if blob else None
+
+    def get_epochs_demand(self) -> dict[str, tuple[EpochNumber, EpochNumber]]:
+        data, _ = self._get(
+            self.API_EPOCHS_DEMAND,
+            retval_validator=data_is_dict,
+        )
+        return data['result']
+
+    def post_epochs_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+        # TODO: proper implementation
+        resp = self._post(
+            self.API_EPOCHS_DEMAND,
+            data={'consumer': consumer, 'l_epoch': l_epoch, 'r_epoch': r_epoch},
+        )
+

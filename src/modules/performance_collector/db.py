@@ -25,6 +25,16 @@ class DutiesDB:
             );
             """
         )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS epochs_demand
+            (
+                consumer STRING PRIMARY KEY,
+                l_epoch INTEGER,
+                r_epoch INTEGER
+            )
+            """
+        )
         self._conn.commit()
 
     def __del__(self):
@@ -38,6 +48,13 @@ class DutiesDB:
             yield self._conn.cursor()
         finally:
             self._conn.commit()
+
+    def store_demand(self, consumer: str, l_epoch: int, r_epoch: int) -> None:
+        with self.connection() as cur:
+            cur.execute(
+                "INSERT OR REPLACE INTO epochs_demand(consumer, l_epoch, r_epoch) VALUES(?, ?, ?)",
+                (consumer, l_epoch, r_epoch),
+            )
 
     def store_epoch(
         self,
@@ -65,6 +82,7 @@ class DutiesDB:
         if threshold <= 0:
             return
         with self.connection() as cur:
+            # TODO: logging?
             cur.execute("DELETE FROM duties WHERE epoch < ?", (threshold,))
 
     def is_range_available(self, l_epoch: int, r_epoch: int) -> bool:
@@ -128,21 +146,49 @@ class DutiesDB:
             val = int(cur.fetchone()[0] or 0)
         return val
 
-    def min_unprocessed_epoch(self) -> int:
+    def min_unprocessed_epoch(self, l_epoch: int, r_epoch: int) -> int | None:
         with self.connection() as cur:
-            cur.execute("SELECT MIN(epoch), MAX(epoch) FROM duties")
-            row = cur.fetchone()
-            if not row or row[0] is None or row[1] is None:
-                return 0
-            l_epoch, r_epoch = int(row[0]), int(row[1])
             cur.execute(
-                """
-                SELECT MIN(t.epoch + 1)
-                FROM duties t
-                LEFT JOIN duties d2 ON d2.epoch = t.epoch + 1
-                WHERE t.epoch BETWEEN ? AND ? AND d2.epoch IS NULL
-                """,
+                "SELECT COUNT(*) FROM duties WHERE epoch BETWEEN ? AND ?",
                 (l_epoch, r_epoch),
             )
-            (missing,) = cur.fetchone()
-        return int(missing) if missing else (r_epoch + 1)
+            (count,) = cur.fetchone()
+            expected_count = r_epoch - l_epoch + 1
+
+            if count >= expected_count:
+                # No gaps in the requested range
+                return None
+
+            cur.execute("SELECT 1 FROM duties WHERE epoch = ? LIMIT 1", (l_epoch,))
+            if cur.fetchone() is None:
+                return l_epoch
+
+            # Find first gap in the requested range
+            cur.execute(
+                """
+                SELECT epoch + 1 as missing_epoch
+                FROM (
+                    SELECT
+                        epoch,
+                        LAG(epoch, 1, epoch - 1) OVER (ORDER BY epoch) as prev_epoch
+                    FROM duties
+                    WHERE epoch BETWEEN ? AND ?
+                    ORDER BY epoch
+                )
+                WHERE epoch - prev_epoch > 1
+                LIMIT 1
+                """,
+                (l_epoch, r_epoch)
+            )
+
+            result = cur.fetchone()
+            return result[0] if result else None
+
+    def epochs_demand(self) -> dict[str, tuple[int, int]]:
+        data = {}
+        with self.connection() as cur:
+            cur.execute("SELECT consumer, l_epoch, r_epoch FROM epochs_demand")
+            demands = cur.fetchall()
+            for consumer, l_epoch, r_epoch in demands:
+                data[consumer] = (int(l_epoch), int(r_epoch))
+        return data

@@ -53,12 +53,19 @@ class PerformanceCollector(BaseModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         converter = self._build_converter()
 
-        db_min_unprocessed_epoch = self.db.min_unprocessed_epoch()
-        start_epoch = EpochNumber(
-            max(db_min_unprocessed_epoch, variables.PERFORMANCE_COLLECTOR_SERVER_START_EPOCH)
-        )
-        end_epoch = variables.PERFORMANCE_COLLECTOR_SERVER_END_EPOCH
-        # TODO: adjust range by incoming POST requests
+        epochs_range = self.define_epochs_to_process_range()
+        if not epochs_range:
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+        start_epoch, end_epoch = epochs_range
+
+        db_min_unprocessed_epoch_in_range = self.db.min_unprocessed_epoch(start_epoch, end_epoch)
+        logger.info({
+            "msg": "Adjust collecting data range by already processed epochs from DB",
+            "start_epoch": start_epoch,
+            "end_epoch": end_epoch,
+            "db_min_unprocessed_epoch_in_range": db_min_unprocessed_epoch_in_range
+        })
+        start_epoch = max(start_epoch, EpochNumber(db_min_unprocessed_epoch_in_range or 0))
 
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
@@ -67,7 +74,6 @@ class PerformanceCollector(BaseModule):
             'start_epoch': start_epoch,
             'end_epoch': end_epoch,
             'finalized_epoch': finalized_epoch,
-            'db_min_unprocessed_epoch': db_min_unprocessed_epoch
         })
 
         try:
@@ -84,6 +90,16 @@ class PerformanceCollector(BaseModule):
 
         checkpoint_count = 0
         for checkpoint in checkpoints:
+            # Check if new epochs demand is found during processing
+            new_epochs_range = self.define_epochs_to_process_range()
+            if new_epochs_range:
+                new_start_epoch, new_end_epoch = new_epochs_range
+                if new_start_epoch != start_epoch or new_end_epoch != end_epoch:
+                    logger.info({
+                        "msg": "New epochs range to process is found, stopping current epochs range processing"
+                    })
+                    return ModuleExecuteDelay.NEXT_SLOT
+
             processed_epochs = processor.exec(checkpoint)
             checkpoint_count += 1
             logger.info({
@@ -100,3 +116,33 @@ class PerformanceCollector(BaseModule):
         })
 
         return ModuleExecuteDelay.NEXT_SLOT
+
+    def define_epochs_to_process_range(self) -> tuple[EpochNumber, EpochNumber] | None:
+        start_epoch = end_epoch = None
+
+        epochs_demand = self.db.epochs_demand()
+        for consumer, (l_epoch, r_epoch) in epochs_demand.items():
+            logger.info({
+                "msg": "Epochs demand is found",
+                "consumer": consumer,
+                "l_epoch": l_epoch,
+                "r_epoch": r_epoch
+            })
+            satisfied = self.db.is_range_available(l_epoch, r_epoch)
+            if satisfied:
+                logger.info({
+                    "msg": "Epochs demand is already satisfied, skipping",
+                    "start_epoch": l_epoch,
+                    "end_epoch": r_epoch
+                })
+                continue
+            # To collect little data range first
+            # TODO: might be issue. need to check with finalized epoch
+            start_epoch = max(start_epoch, l_epoch) if start_epoch else l_epoch
+            end_epoch = min(end_epoch, r_epoch) if end_epoch else r_epoch
+
+        if not start_epoch and not end_epoch:
+            logger.info({'msg': 'No epochs demand to process, waiting for any next demand'})
+            return None
+
+        return start_epoch, end_epoch

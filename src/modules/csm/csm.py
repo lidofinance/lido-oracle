@@ -71,6 +71,8 @@ class CSOracle(BaseModule, ConsensusModule):
         if not self._check_compatability(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+        self.send_epochs_to_collect_demand(last_finalized_blockstamp)
+
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
@@ -82,6 +84,20 @@ class CSOracle(BaseModule, ConsensusModule):
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
 
+    def send_epochs_to_collect_demand(self, blockstamp: BlockStamp):
+        consumer = self.__class__.__name__
+        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        current_demands = self.w3.performance.get_epochs_demand()
+        current_demand = current_demands.get(consumer, (-1, -1))
+        curr_l_epoch, curr_r_epoch = EpochNumber(current_demand[0]), EpochNumber(current_demand[1])
+        if (curr_l_epoch, curr_r_epoch) != (l_epoch, r_epoch):
+            logger.info({
+                "msg": f"Updating epochs demand for {consumer} for Performance Collector",
+                "old": (curr_l_epoch, curr_r_epoch),
+                "new": (l_epoch, r_epoch)
+            })
+            self.w3.performance.post_epochs_demand(consumer, l_epoch, r_epoch)
+
     @duration_meter()
     def collect_data(self, blockstamp: ReferenceBlockStamp) -> bool:
         logger.info({"msg": "Collecting data for the report"})
@@ -89,7 +105,7 @@ class CSOracle(BaseModule, ConsensusModule):
         converter = self.converter(blockstamp)
 
         l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
-        logger.info({"msg": f"Epochs range for performance data collect: [{l_epoch};{r_epoch}]"})
+        logger.info({"msg": f"Epochs range for performance data collection: [{l_epoch};{r_epoch}]"})
 
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
@@ -105,8 +121,11 @@ class CSOracle(BaseModule, ConsensusModule):
                     l_epoch_, r_epoch_
                 )
                 if not is_data_range_available:
-                    logger.warning({"msg": f"Performance data range is not available yet for [{l_epoch_};{r_epoch_}] frame"})
-                    # TODO: set r_epoch r_epoch for FrameCheckpointsIterator softly through POST request
+                    logger.warning({
+                        "msg": f"Performance data range is not available yet",
+                        "start_epoch": l_epoch_,
+                        "end_epoch": r_epoch_
+                    })
                     return False
                 else:
                     logger.info({
@@ -121,7 +140,8 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
+        r_epoch = blockstamp.ref_epoch
         self.state.validate(l_epoch, r_epoch)
 
         last_report = self._get_last_report(blockstamp)
@@ -286,7 +306,7 @@ class CSOracle(BaseModule, ConsensusModule):
         return log_cid
 
     @lru_cache(maxsize=1)
-    def get_epochs_range_to_process(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, EpochNumber]:
+    def get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         converter = self.converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
@@ -294,29 +314,45 @@ class CSOracle(BaseModule, ConsensusModule):
             raise ValueError("CSM oracle initial epoch is not set yet")
 
         l_ref_slot = last_processing_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
         if last_processing_ref_slot > blockstamp.slot_number:
             raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
 
         # The very first report, no previous ref slot.
         if not last_processing_ref_slot:
-            initial_ref_slot = self.get_initial_ref_slot(blockstamp)
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise CSMError("Invalid frame configuration for the current network")
 
-        r_ref_slot = blockstamp.slot_number
+        # NOTE: before the initial slot the contract can't return current frame
+        if blockstamp.slot_number > initial_ref_slot:
+            r_ref_slot = self.get_initial_or_current_frame(blockstamp).ref_slot
+
+        # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
+        # to calculate epochs range to collect the data.
+        if l_ref_slot == r_ref_slot:
+            r_ref_slot = converter.get_epoch_last_slot(
+                EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
+            )
+
         if l_ref_slot < last_processing_ref_slot:
             raise CSMError(f"Got invalid epochs range: {l_ref_slot=} < {last_processing_ref_slot=}")
         if l_ref_slot >= r_ref_slot:
             raise CSMError(f"Got invalid epochs range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
-        r_epoch = blockstamp.ref_epoch
+        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
         CSM_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
         CSM_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
+
+        logger.info({
+            "msg": "Epochs range for the report",
+            "l_epoch": l_epoch,
+            "r_epoch": r_epoch
+        })
 
         return l_epoch, r_epoch
 
