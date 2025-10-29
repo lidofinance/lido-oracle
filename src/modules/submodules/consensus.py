@@ -483,7 +483,7 @@ class ConsensusModule(ABC):
     @lru_cache(maxsize=1)
     def get_frame_number_by_slot(self, blockstamp: ReferenceBlockStamp) -> FrameNumber:
         converter = self._get_web3_converter(blockstamp)
-        frame_number = converter.get_frame_by_slot(blockstamp.ref_slot)
+        frame_number = converter.get_frame_by_slot(SlotNumber(blockstamp.ref_slot + 1))
         logger.info({
             "msg": "Get current frame from blockstamp",
             "frame": frame_number,
