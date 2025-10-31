@@ -357,8 +357,8 @@ class Accounting(BaseModule, ConsensusModule):
                 withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
                 amount_gwei=deposit.amount,
                 signature=hex_str_to_bytes(deposit.signature),
-                genesis_validators_root=bytes.fromhex(genesis_validators_root),
-                fork_version=bytes.fromhex(genesis_fork_version),
+                genesis_validators_root=bytes.fromhex(genesis_validators_root[2:]),
+                fork_version=bytes.fromhex(genesis_fork_version[2:]),
             )
 
             if not is_valid:
