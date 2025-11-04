@@ -96,17 +96,6 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             host += '/'
         return urljoin(host, url)
 
-    def _post(self, endpoint: str, data: dict) -> dict:
-        # TODO: proper implementation
-        for host in self.hosts:
-            resp = self.session.post(
-                self._urljoin(host, endpoint),
-                json=data,
-                timeout=self.request_timeout,
-            )
-            return resp.json()
-        raise ValueError("No hosts provided")
-
     def _get(
         self,
         endpoint: str,
@@ -117,7 +106,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         stream: bool = False,
     ) -> tuple[Any, dict]:
         """
-        Get plain or streamed request with fallbacks
+        Plain or streamed GET request with fallbacks
         Returns (data, meta) or raises exception
 
         force_raise - function that returns an Exception if it should be thrown immediately.
@@ -163,7 +152,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         retval_validator: ReturnValueValidator = data_is_any,
     ) -> tuple[Any, dict]:
         """
-        Simple get request without fallbacks
+        Simple GET request without fallbacks
         Returns (data, meta) or raises an exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
@@ -221,6 +210,118 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 meta = json_response
         except KeyError:
             # NOTE: Used by KeysAPIClient only.
+            data = json_response
+            meta = {}
+
+        retval_validator(data, meta, endpoint=endpoint)
+        return data, meta
+
+    def _post(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        """
+        Plain POST request with fallbacks
+        Returns (data, meta) or raises exception
+
+        force_raise - function that returns an Exception if it should be thrown immediately.
+        Sometimes NotOk response from first provider is the response that we are expecting.
+        """
+        errors: list[Exception] = []
+
+        for host in self.hosts:
+            try:
+                return self._post_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    body_data,
+                    retval_validator=retval_validator,
+                )
+            except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+
+                # Check if exception should be raised immediately
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
+
+                logger.warning(
+                    {
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
+                        'error': str(e),
+                        'provider': urlparse(host).netloc,
+                    }
+                )
+
+        # Raise error from last provider.
+        raise errors[-1]
+
+    def _post_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        """
+        Simple POST request without fallbacks
+        Returns (data, meta) or raises an exception
+        """
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response = self.session.post(
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
+                    params=query_params,
+                    json=body_data,
+                    timeout=self.request_timeout,
+                )
+            except Exception as error:
+                logger.error({'msg': str(error)})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
+
+            if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
+
+            try:
+                json_response = response.json()
+            except JSONDecodeError as error:
+                response_fail_msg = (
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
+
+        try:
+            data = json_response["data"]
+            del json_response["data"]
+            meta = json_response
+        except KeyError:
             data = json_response
             meta = {}
 

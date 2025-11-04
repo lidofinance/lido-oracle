@@ -67,12 +67,13 @@ class PerformanceClient(HTTPProvider):
             self.API_EPOCHS_DEMAND,
             retval_validator=data_is_dict,
         )
-        return data['result']
+        return {
+            consumer: (EpochNumber(demand[0]), EpochNumber(demand[1]))
+            for consumer, demand in data['result'].items()
+        }
 
     def post_epochs_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-        # TODO: proper implementation
-        resp = self._post(
+        self._post(
             self.API_EPOCHS_DEMAND,
-            data={'consumer': consumer, 'l_epoch': l_epoch, 'r_epoch': r_epoch},
+            body_data={'consumer': consumer, 'l_epoch': l_epoch, 'r_epoch': r_epoch},
         )
-
