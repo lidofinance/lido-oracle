@@ -71,63 +71,59 @@ class CSOracle(BaseModule, ConsensusModule):
         if not self._check_compatability(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self.send_epochs_to_collect_demand(last_finalized_blockstamp)
+        self.set_epochs_range_to_collect(last_finalized_blockstamp)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        collected = self.collect_data(report_blockstamp)
+        collected = self.collect_data()
         if not collected:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
 
-    def send_epochs_to_collect_demand(self, blockstamp: BlockStamp):
+    @duration_meter()
+    def set_epochs_range_to_collect(self, blockstamp: BlockStamp):
         consumer = self.__class__.__name__
+        converter = self.converter(blockstamp)
+
         l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
+        self.state.log_progress()
+
         current_demands = self.w3.performance.get_epochs_demand()
-        current_demand = current_demands.get(consumer, (-1, -1))
-        curr_l_epoch, curr_r_epoch = EpochNumber(current_demand[0]), EpochNumber(current_demand[1])
-        if (curr_l_epoch, curr_r_epoch) != (l_epoch, r_epoch):
+        current_demand = current_demands.get(consumer)
+        if current_demand != (l_epoch, r_epoch):
             logger.info({
-                "msg": f"Updating epochs demand for {consumer} for Performance Collector",
-                "old": (curr_l_epoch, curr_r_epoch),
+                "msg": f"Updating {consumer} epochs demand for Performance Collector",
+                "old": current_demand,
                 "new": (l_epoch, r_epoch)
             })
             self.w3.performance.post_epochs_demand(consumer, l_epoch, r_epoch)
 
     @duration_meter()
-    def collect_data(self, blockstamp: ReferenceBlockStamp) -> bool:
-        logger.info({"msg": "Collecting data for the report"})
-
-        converter = self.converter(blockstamp)
-
-        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
-        r_epoch = blockstamp.ref_epoch
-        logger.info({"msg": f"Epochs range for performance data collection: [{l_epoch};{r_epoch}]"})
-
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
-        self.state.log_progress()
+    def collect_data(self) -> bool:
+        logger.info({"msg": "Collecting data for the report from Performance Collector"})
 
         if not self.state.is_fulfilled:
-            for l_epoch_, r_epoch_ in self.state.frames:
+            for l_epoch, r_epoch in self.state.frames:
                 is_data_range_available = self.w3.performance.is_range_available(
-                    l_epoch_, r_epoch_
+                    l_epoch, r_epoch
                 )
                 if not is_data_range_available:
                     logger.warning({
                         "msg": f"Performance data range is not available yet",
-                        "start_epoch": l_epoch_,
-                        "end_epoch": r_epoch_
+                        "start_epoch": l_epoch,
+                        "end_epoch": r_epoch
                     })
                     return False
                 else:
                     logger.info({
                         "msg": "Performance data range is available",
-                        "start_epoch": l_epoch_,
-                        "end_epoch": r_epoch_
+                        "start_epoch": l_epoch,
+                        "end_epoch": r_epoch
                     })
             self.fulfill_state()
 
