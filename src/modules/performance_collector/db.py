@@ -83,7 +83,6 @@ class DutiesDB:
         if threshold <= 0:
             return
         with self.connection() as cur:
-            # TODO: logging?
             cur.execute("DELETE FROM duties WHERE epoch < ?", (threshold,))
 
     def is_range_available(self, l_epoch: int, r_epoch: int) -> bool:

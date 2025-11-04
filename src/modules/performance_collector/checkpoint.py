@@ -299,7 +299,6 @@ class FrameCheckpointProcessor:
                 raise ValueError(f"Invalid number of propose duties prepared in epoch {duty_epoch}")
             if len(sync_duties) > SYNC_COMMITTEE_SIZE:
                 raise ValueError(f"Invalid number of sync duties prepared in epoch {duty_epoch}")
-            # TODO: log progress with remaining time?
             self.db.store_epoch(
                 duty_epoch,
                 att_misses=att_misses,
