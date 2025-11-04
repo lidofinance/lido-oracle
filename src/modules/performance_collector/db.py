@@ -5,6 +5,7 @@ from typing import Optional
 from src import variables
 from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, EpochDataCodec, AttDutyMisses
 from src.types import EpochNumber
+from src.utils.range import sequence
 
 
 class DutiesDB:
@@ -106,15 +107,9 @@ class DutiesDB:
             )
             present = [int(row[0]) for row in cur.fetchall()]
         missing = []
-        exp = l_epoch
-        for e in present:
-            while exp < e:
-                missing.append(exp)
-                exp += 1
-            exp = e + 1
-        while exp <= r_epoch:
-            missing.append(exp)
-            exp += 1
+        for epoch in sequence(l_epoch, r_epoch):
+            if epoch not in present:
+                missing.append(epoch)
         return missing
 
     def _get_entry(self, epoch: int) -> Optional[bytes]:
@@ -145,44 +140,6 @@ class DutiesDB:
             cur.execute("SELECT MAX(epoch) FROM duties")
             val = int(cur.fetchone()[0] or 0)
         return val
-
-    def min_unprocessed_epoch(self, l_epoch: int, r_epoch: int) -> int | None:
-        with self.connection() as cur:
-            cur.execute(
-                "SELECT COUNT(*) FROM duties WHERE epoch BETWEEN ? AND ?",
-                (l_epoch, r_epoch),
-            )
-            (count,) = cur.fetchone()
-            expected_count = r_epoch - l_epoch + 1
-
-            if count >= expected_count:
-                # No gaps in the requested range
-                return None
-
-            cur.execute("SELECT 1 FROM duties WHERE epoch = ? LIMIT 1", (l_epoch,))
-            if cur.fetchone() is None:
-                return l_epoch
-
-            # Find first gap in the requested range
-            cur.execute(
-                """
-                SELECT epoch + 1 as missing_epoch
-                FROM (
-                    SELECT
-                        epoch,
-                        LAG(epoch, 1, epoch - 1) OVER (ORDER BY epoch) as prev_epoch
-                    FROM duties
-                    WHERE epoch BETWEEN ? AND ?
-                    ORDER BY epoch
-                )
-                WHERE epoch - prev_epoch > 1
-                LIMIT 1
-                """,
-                (l_epoch, r_epoch)
-            )
-
-            result = cur.fetchone()
-            return result[0] if result else None
 
     def epochs_demand(self) -> dict[str, tuple[int, int]]:
         data = {}
