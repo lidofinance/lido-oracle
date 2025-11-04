@@ -11,7 +11,9 @@ from src.utils.range import sequence
 class DutiesDB:
     def __init__(self, path: str):
         self._path = path
-        self._conn = sqlite3.connect(self._path, check_same_thread=False, timeout=30.0)  # TODO: Timeout?
+        self._conn = sqlite3.connect(
+            self._path, check_same_thread=False, timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT
+        )
         # Optimize SQLite for performance: WAL mode for concurrent access,
         # normal sync for speed/safety balance, memory temp storage
         self._conn.execute("PRAGMA journal_mode=WAL;")
@@ -77,9 +79,9 @@ class DutiesDB:
             )
 
     def _auto_prune(self, current_epoch: int) -> None:
-        if variables.PERFORMANCE_COLLECTOR_RETENTION_EPOCHS <= 0:
+        if variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS <= 0:
             return
-        threshold = int(current_epoch) - variables.PERFORMANCE_COLLECTOR_RETENTION_EPOCHS
+        threshold = int(current_epoch) - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS
         if threshold <= 0:
             return
         with self.connection() as cur:
