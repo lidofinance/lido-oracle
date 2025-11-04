@@ -104,7 +104,8 @@ class CSOracle(BaseModule, ConsensusModule):
 
         converter = self.converter(blockstamp)
 
-        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
+        r_epoch = blockstamp.ref_epoch
         logger.info({"msg": f"Epochs range for performance data collection: [{l_epoch};{r_epoch}]"})
 
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
@@ -112,11 +113,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
         if not self.state.is_fulfilled:
             for l_epoch_, r_epoch_ in self.state.frames:
-                logger.info({
-                    "msg": "Requesting performance data availability check",
-                    "start_epoch": l_epoch_,
-                    "end_epoch": r_epoch_
-                })
                 is_data_range_available = self.w3.performance.is_range_available(
                     l_epoch_, r_epoch_
                 )
