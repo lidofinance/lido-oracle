@@ -38,7 +38,6 @@ class Web3Converter(ChainConverter):
     frame_config: FrameConfig
 
     def __init__(self, chain_config: ChainConfig, frame_config: FrameConfig):
-        # TODO: fix SafeBorder inheritance issue in Web3Converter
         super().__init__(chain_config)
         self.frame_config = frame_config
 
