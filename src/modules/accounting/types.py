@@ -424,3 +424,10 @@ class ValidatorStage(Enum):
     PROVEN = 2
     ACTIVATED = 3
     COMPENSATED = 4
+
+
+@dataclass(frozen=True)
+class ValidatorStatus:
+    stage: ValidatorStage
+    staking_vault: ChecksumAddress
+    node_operator: ChecksumAddress

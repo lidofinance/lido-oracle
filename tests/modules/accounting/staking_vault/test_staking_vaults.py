@@ -26,6 +26,7 @@ from src.modules.accounting.types import (
     OnChainIpfsVaultReportData,
     StakingVaultIpfsReport,
     ValidatorStage,
+    ValidatorStatus,
     VaultFee,
     VaultFeeMap,
     VaultInfo,
@@ -454,6 +455,79 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_doppelganger_pubkey(self):
+        '''
+        This test checks that the vaults total values are calculated correctly when a validator has a doppelganger pubkey.
+        A doppelganger pubkey is a pubkey that is associated with a different vault withdrawal credentials.
+
+        In this case, the validator is associated with vault 0 wc, but the pubkey is associated with vault 1 wc in PDG.
+        The validator should not be included in the total values calculation for both vault 0 and vault 1.
+        '''
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
+
+        validators: list[Validator] = [
+            # Deposited validator with 1 ETH and vault 0 wc
+            Validator(
+                index=ValidatorIndex(1),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey=pubkey,
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = []
+
+        validator_statuses = {
+            # predeposited but for vault 1 wc
+            pubkey: ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_1,
+                node_operator="0x0000000000000000000000000000000000000000",
+            )
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,  # vault 0 EL aggregated balance
+                # no balance for validator added because of wrong wc
+            ]
+        )
+
+        expected_vault_adr_1 = sum(
+            [
+                self.vaults[self.vault_adr_1].aggregated_balance,
+                # no balance for validator added because of wrong wc
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: expected_vault_adr_1,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
     def test_get_vaults_total_values_with_lazy_oracle_stages(self):
         validators: list[Validator] = [
             # Activated validator with 32 ETH effective balance
@@ -566,16 +640,32 @@ class TestStakingVaults:
         ]
 
         validator_stages = {
-            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002": ValidatorStage.PREDEPOSITED,
-            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003": ValidatorStage.PROVEN,
-            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99004": ValidatorStage.NONE,
-            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005": ValidatorStage.ACTIVATED,
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002": ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003": ValidatorStatus(
+                stage=ValidatorStage.PROVEN,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99004": ValidatorStatus(
+                stage=5,  # will be treated as unknown stage NONE and not counted
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005": ValidatorStatus(
+                stage=ValidatorStage.ACTIVATED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
         }
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
@@ -586,8 +676,10 @@ class TestStakingVaults:
             [
                 self.vaults[self.vault_adr_0].aggregated_balance,  # vault 0 EL aggregated balance
                 gwei_to_wei(validators[0].balance),  # activated validator 1 full balance
-                gwei_to_wei(Gwei(1000000000)),  # predeposited validator 2 as 1 ETH only (note, balance is 2 ETH)
-                gwei_to_wei(Gwei(0)),  # validator 3 not counted, as deposited and even proven
+                gwei_to_wei(
+                    Gwei(1000000000)
+                ),  # predeposited validator 2 as 1 ETH only (note, balance is 2 ETH but only 1 ETH counts)
+                gwei_to_wei(Gwei(0)),  # validator 3 not counted, as deposited and proven
                 gwei_to_wei(Gwei(0)),  # validator 4 not counted, as side-deposited with not enough effective balance
                 gwei_to_wei(validators[4].balance),  # validator 5 CL balance included as ACTIVATED
                 gwei_to_wei(pending_deposits[0].amount),  # validator 1 extra pending deposit
@@ -687,15 +779,27 @@ class TestStakingVaults:
         ]
 
         validator_stages = {
-            "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStage.PROVEN,
-            "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce": ValidatorStage.ACTIVATED,
-            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124": ValidatorStage.ACTIVATED,
+            "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStatus(
+                stage=ValidatorStage.PROVEN,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce": ValidatorStatus(
+                stage=ValidatorStage.ACTIVATED,
+                staking_vault=self.vault_adr_1,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124": ValidatorStatus(
+                stage=ValidatorStage.ACTIVATED,
+                staking_vault=self.vault_adr_2,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
         }
 
         # --- Web3 Mock ---
         w3_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_stages = MagicMock(return_value=validator_stages)
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)

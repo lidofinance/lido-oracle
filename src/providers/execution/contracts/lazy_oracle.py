@@ -8,6 +8,7 @@ from src import variables
 from src.modules.accounting.types import (
     OnChainIpfsVaultReportData,
     ValidatorStage,
+    ValidatorStatus,
     VaultInfo,
 )
 from src.providers.execution.base_interface import ContractInterface
@@ -105,28 +106,35 @@ class LazyOracleContract(ContractInterface):
 
         return vaults
 
-    def get_validator_stages(
+    def get_validator_statuses(
         self,
         pubkeys: list[str],
         batch_size: int = variables.VAULT_VALIDATOR_STAGES_BATCH_SIZE,
-        block_identifier: BlockIdentifier = 'latest'
-    ) -> dict[str, ValidatorStage]:
+        block_identifier: BlockIdentifier = 'latest',
+    ) -> dict[str, ValidatorStatus]:
         """
-        Fetch validator stages for a list of pubkeys, batching requests for efficiency.
+        Fetch validator statuses for a list of pubkeys, batching requests for efficiency.
         """
-        out: dict[str, ValidatorStage] = {}
+        out: dict[str, ValidatorStatus] = {}
 
         for i in range(0, len(pubkeys), batch_size):
             batch = list(map(HexBytes, pubkeys[i : i + batch_size]))
-            response = self.functions.batchValidatorStages(batch).call(block_identifier=block_identifier)
+            response = self.functions.batchValidatorStatuses(batch).call(block_identifier=block_identifier)
 
             logger.debug({
-                'msg': 'Call `batchValidatorStages()`.',
+                'msg': 'Call `batchValidatorStatuses()`.',
                 'count': len(batch),
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
             })
 
-            out.update({ pk.to_0x_hex(): ValidatorStage(stage) for pk, stage in zip(batch, response) })
+            out.update({
+                pk.to_0x_hex(): ValidatorStatus(
+                    stage=ValidatorStage(status.stage) if isinstance(status.stage, int) else ValidatorStage.NONE,
+                    staking_vault=status.stakingVault,
+                    node_operator=status.nodeOperator,
+                )
+                for pk, status in zip(batch, response)
+            })
 
         return out
