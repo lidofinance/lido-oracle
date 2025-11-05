@@ -117,15 +117,14 @@ class StakingVaultsService:
                 # - ACTIVATED: add full balance + pending deposits
                 # All other stages are skipped as not related to the non-eligible for activation validators
                 else:
-                    status = inactive_validator_statuses.get(validator_pubkey, None)
+                    status = inactive_validator_statuses.get(validator_pubkey)
                     # Skip if validator pubkey in PDG is not associated with the current vault
                     if status is None or status.staking_vault != vault_address:
                         continue
 
-                    stage = status.stage if isinstance(status.stage, ValidatorStage) else ValidatorStage.NONE
-                    if stage == ValidatorStage.PREDEPOSITED:
+                    if status.stage == ValidatorStage.PREDEPOSITED:
                         vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
-                    elif stage == ValidatorStage.ACTIVATED:
+                    elif status.stage == ValidatorStage.ACTIVATED:
                         vault_total += int(total_validator_balance)
 
             total_values[vault_address] = Wei(vault_total)

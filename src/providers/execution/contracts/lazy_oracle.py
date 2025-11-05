@@ -130,7 +130,7 @@ class LazyOracleContract(ContractInterface):
 
             out.update({
                 pk.to_0x_hex(): ValidatorStatus(
-                    stage=ValidatorStage(status.stage) if isinstance(status.stage, int) else ValidatorStage.NONE,
+                    stage=ValidatorStage(status.stage) if isinstance(status.stage, ValidatorStage) else ValidatorStage.NONE,
                     staking_vault=status.stakingVault,
                     node_operator=status.nodeOperator,
                 )
