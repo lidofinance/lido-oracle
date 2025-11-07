@@ -56,10 +56,14 @@ class PerformanceCollector(BaseModule):
 
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
-        epochs_range = self.define_epochs_to_process_range(finalized_epoch)
-        if not epochs_range:
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-        start_epoch, end_epoch = epochs_range
+        epochs_range_demand = self.define_epochs_to_process_range(finalized_epoch)
+        if epochs_range_demand:
+            start_epoch, end_epoch = epochs_range_demand
+        else:
+            logger.info({'msg': 'No epochs demand to process. Default epochs range is used.'})
+            gap = FrameCheckpointsIterator.MIN_CHECKPOINT_STEP + FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+            start_epoch = self.db.max_epoch() or max(0, finalized_epoch - gap)
+            end_epoch = finalized_epoch
 
         min_unprocessed_epoch = min(self.db.missing_epochs_in(start_epoch, end_epoch), default=None)
         if not min_unprocessed_epoch:
@@ -87,17 +91,6 @@ class PerformanceCollector(BaseModule):
 
         checkpoint_count = 0
         for checkpoint in checkpoints:
-            curr_finalized_slot = self._receive_last_finalized_slot()
-            curr_finalized_epoch = EpochNumber(converter.get_epoch_by_slot(curr_finalized_slot.slot_number) - 1)
-            new_epochs_range = self.define_epochs_to_process_range(curr_finalized_epoch, log=False)
-            if new_epochs_range:
-                new_start_epoch, new_end_epoch = new_epochs_range
-                if new_start_epoch != start_epoch or new_end_epoch != end_epoch:
-                    logger.info({
-                        "msg": "New epochs range to process is found, stopping current epochs range processing"
-                    })
-                    return ModuleExecuteDelay.NEXT_SLOT
-
             processed_epochs = processor.exec(checkpoint)
             checkpoint_count += 1
             logger.info({
@@ -108,12 +101,30 @@ class PerformanceCollector(BaseModule):
             # Reset BaseOracle cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
+            if self.new_epochs_range_demand_appeared(converter, start_epoch, end_epoch):
+                logger.info({
+                    "msg": "New epochs range to process is found, stopping current epochs range processing"
+                })
+                return ModuleExecuteDelay.NEXT_SLOT
+
         logger.info({
             'msg': 'All checkpoints processing completed',
             'total_checkpoints_processed': checkpoint_count
         })
 
         return ModuleExecuteDelay.NEXT_SLOT
+
+    def new_epochs_range_demand_appeared(
+        self, converter: ChainConverter, start_epoch: EpochNumber, end_epoch: EpochNumber
+    ) -> bool:
+        curr_finalized_slot = self._receive_last_finalized_slot()
+        curr_finalized_epoch = EpochNumber(converter.get_epoch_by_slot(curr_finalized_slot.slot_number) - 1)
+        new_epochs_range = self.define_epochs_to_process_range(curr_finalized_epoch, log=False)
+        if new_epochs_range:
+            new_start_epoch, new_end_epoch = new_epochs_range
+            if new_start_epoch != start_epoch or new_end_epoch != end_epoch:
+                return True
+        return False
 
     def define_epochs_to_process_range(self, finalized_epoch: EpochNumber, log=True) -> tuple[EpochNumber, EpochNumber] | None:
         unsatisfied_demands = []
@@ -138,8 +149,6 @@ class PerformanceCollector(BaseModule):
             unsatisfied_demands.append((consumer, l_epoch, r_epoch))
 
         if not unsatisfied_demands:
-            if log:
-                logger.info({'msg': 'No epochs demand to process, waiting for any next demand'})
             return None
 
         faced_deadline = []

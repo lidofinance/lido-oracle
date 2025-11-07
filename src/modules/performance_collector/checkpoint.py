@@ -58,7 +58,6 @@ class FrameCheckpointsIterator:
     max_available_epoch_to_check: EpochNumber
 
     # Min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
-    # FIXME: frame might change while waiting for the next checkpoint
     MIN_CHECKPOINT_STEP = 10
     # Max checkpoint step is 255 epochs because block_roots size from state is 8192 slots (256 epochs)
     # to check duty of every epoch, we need to check 64 slots (32 slots of duty epoch + 32 slots of next epoch).
