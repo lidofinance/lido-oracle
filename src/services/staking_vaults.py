@@ -32,6 +32,7 @@ from src.modules.accounting.types import (
     Shares,
     StakingVaultIpfsReport,
     ValidatorStage,
+    ValidatorStatus,
     VaultFee,
     VaultFeeMap,
     VaultInfo,
@@ -95,7 +96,7 @@ class StakingVaultsService:
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
-        inactive_validator_stages = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
+        inactive_validator_statuses = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -116,10 +117,14 @@ class StakingVaultsService:
                 # - ACTIVATED: add full balance + pending deposits
                 # All other stages are skipped as not related to the non-eligible for activation validators
                 else:
-                    stage = inactive_validator_stages.get(validator_pubkey, ValidatorStage.NONE)
-                    if stage == ValidatorStage.PREDEPOSITED:
+                    status = inactive_validator_statuses.get(validator_pubkey)
+                    # Skip if validator pubkey in PDG is not associated with the current vault
+                    if status is None or status.staking_vault != vault_address:
+                        continue
+
+                    if status.stage == ValidatorStage.PREDEPOSITED:
                         vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
-                    elif stage == ValidatorStage.ACTIVATED:
+                    elif status.stage == ValidatorStage.ACTIVATED:
                         vault_total += int(total_validator_balance)
 
             total_values[vault_address] = Wei(vault_total)
@@ -135,7 +140,7 @@ class StakingVaultsService:
         validators: list[Validator],
         vaults: VaultsMap,
         block_identifier: BlockIdentifier = 'latest',
-    ) -> dict[str, ValidatorStage]:
+    ) -> dict[str, ValidatorStatus]:
         """
         Get PDG validator stages for non-activated validators for connected vaults from the lazy oracle.
         """
@@ -148,7 +153,7 @@ class StakingVaultsService:
             and v.validator.withdrawal_credentials in vault_wcs
         ]
 
-        return self.w3.lido_contracts.lazy_oracle.get_validator_stages(
+        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
             pubkeys=pubkeys,
             block_identifier=block_identifier,
         )
