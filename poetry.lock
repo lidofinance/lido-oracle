@@ -199,7 +199,7 @@ tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 name = "base58"
 version = "2.1.1"
 description = "Base58 and Base58Check implementation."
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.5"
 files = [
@@ -209,6 +209,25 @@ files = [
 
 [package.extras]
 tests = ["PyHamcrest (>=2.0.2)", "mypy", "pytest (>=4.6)", "pytest-benchmark", "pytest-cov", "pytest-flake8"]
+
+[[package]]
+name = "bases"
+version = "0.3.0"
+description = "Python library for general Base-N encodings."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "bases-0.3.0-py3-none-any.whl", hash = "sha256:a2fef3366f3e522ff473d2e95c21523fe8e44251038d5c6150c01481585ebf5b"},
+    {file = "bases-0.3.0.tar.gz", hash = "sha256:70f04a4a45d63245787f9e89095ca11042685b6b64b542ad916575ba3ccd1570"},
+]
+
+[package.dependencies]
+typing-extensions = ">=4.6.0"
+typing-validation = ">=1.1.0"
+
+[package.extras]
+dev = ["base58", "mypy", "pylint", "pytest", "pytest-cov"]
 
 [[package]]
 name = "bitarray"
@@ -874,6 +893,23 @@ toolz = ">=0.8.0"
 cython = ["cython"]
 
 [[package]]
+name = "dag-cbor"
+version = "0.3.3"
+description = "Python implementation of the DAG-CBOR codec."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "dag-cbor-0.3.3.tar.gz", hash = "sha256:d8d1e7c7a022af758932e5343b7a2c9d7afa1cc64860246cae22f90cab1c9d8a"},
+    {file = "dag_cbor-0.3.3-py3-none-any.whl", hash = "sha256:e0d1c45427ed1fa21bbd103163d4b250f4ce9066337d6ffb976da1fac3a67454"},
+]
+
+[package.dependencies]
+multiformats = ">=0.3.1"
+typing-extensions = ">=4.6.0"
+typing-validation = ">=1.1.0"
+
+[[package]]
 name = "decorator"
 version = "5.2.1"
 description = "Decorators for Humans"
@@ -1410,6 +1446,18 @@ multiaddr = ">=0.0.7"
 requests = ">=2.11"
 
 [[package]]
+name = "ipld-dag-pb"
+version = "0.0.1"
+description = "An implementation of the DAG-PB spec for Python."
+category = "main"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "ipld_dag_pb-0.0.1-py3-none-any.whl", hash = "sha256:fc5fee4bff126571446a4ae5ac8342c05221759f995e7d4ded22ad9df33c8c89"},
+    {file = "ipld_dag_pb-0.0.1.tar.gz", hash = "sha256:e205f613d6a0f4b276bfc2d40f0c07db173a0fd2f938862f867ce05f2eddd417"},
+]
+
+[[package]]
 name = "ipython"
 version = "9.3.0"
 description = "IPython: Productive Interactive Computing"
@@ -1646,17 +1694,6 @@ files = [
 ]
 
 [[package]]
-name = "morphys"
-version = "1.0"
-description = "Smart conversions between unicode and bytes types for common cases"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "morphys-1.0-py2.py3-none-any.whl", hash = "sha256:76d6dbaa4d65f597e59d332c81da786d83e4669387b9b2a750cfec74e7beec20"},
-]
-
-[[package]]
 name = "multiaddr"
 version = "0.0.9"
 description = "Python implementation of jbenet's multiaddr"
@@ -1787,6 +1824,46 @@ files = [
     {file = "multidict-6.4.4-py3-none-any.whl", hash = "sha256:bd4557071b561a8b3b6075c3ce93cf9bfb6182cb241805c3d66ced3b75eff4ac"},
     {file = "multidict-6.4.4.tar.gz", hash = "sha256:69ee9e6ba214b5245031b76233dd95408a0fd57fdb019ddcc1ead4790932a8e8"},
 ]
+
+[[package]]
+name = "multiformats"
+version = "0.3.1.post4"
+description = "Python implementation of multiformats protocols."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "multiformats-0.3.1.post4-py3-none-any.whl", hash = "sha256:5b1d61bd8275c9e817bdbee38dbd501b26629011962ee3c86c46e7ccd0b14129"},
+    {file = "multiformats-0.3.1.post4.tar.gz", hash = "sha256:d00074fdbc7d603c2084b4c38fa17bbc28173cf2750f51f46fbbc5c4d5605fbb"},
+]
+
+[package.dependencies]
+bases = ">=0.3.0"
+multiformats-config = ">=0.3.0"
+typing-extensions = ">=4.6.0"
+typing-validation = ">=1.1.0"
+
+[package.extras]
+dev = ["blake3", "mmh3", "mypy", "pycryptodomex", "pylint", "pyskein", "pytest", "pytest-cov", "rich"]
+full = ["blake3", "mmh3", "pycryptodomex", "pyskein", "rich"]
+
+[[package]]
+name = "multiformats-config"
+version = "0.3.1"
+description = "Pre-loading configuration module for the 'multiformats' package."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "multiformats-config-0.3.1.tar.gz", hash = "sha256:7eaa80ef5d9c5ee9b86612d21f93a087c4a655cbcb68960457e61adbc62b47a7"},
+    {file = "multiformats_config-0.3.1-py3-none-any.whl", hash = "sha256:dec4c9d42ed0d9305889b67440f72e8e8d74b82b80abd7219667764b5b0a8e1d"},
+]
+
+[package.dependencies]
+multiformats = "*"
+
+[package.extras]
+dev = ["mypy", "pylint", "pytest", "pytest-cov"]
 
 [[package]]
 name = "mypy"
@@ -2187,6 +2264,25 @@ files = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "6.31.1"
+description = ""
+category = "main"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "protobuf-6.31.1-cp310-abi3-win32.whl", hash = "sha256:7fa17d5a29c2e04b7d90e5e32388b8bfd0e7107cd8e616feef7ed3fa6bdab5c9"},
+    {file = "protobuf-6.31.1-cp310-abi3-win_amd64.whl", hash = "sha256:426f59d2964864a1a366254fa703b8632dcec0790d8862d30034d8245e1cd447"},
+    {file = "protobuf-6.31.1-cp39-abi3-macosx_10_9_universal2.whl", hash = "sha256:6f1227473dc43d44ed644425268eb7c2e488ae245d51c6866d19fe158e207402"},
+    {file = "protobuf-6.31.1-cp39-abi3-manylinux2014_aarch64.whl", hash = "sha256:a40fc12b84c154884d7d4c4ebd675d5b3b5283e155f324049ae396b95ddebc39"},
+    {file = "protobuf-6.31.1-cp39-abi3-manylinux2014_x86_64.whl", hash = "sha256:4ee898bf66f7a8b0bd21bce523814e6fbd8c6add948045ce958b73af7e8878c6"},
+    {file = "protobuf-6.31.1-cp39-cp39-win32.whl", hash = "sha256:0414e3aa5a5f3ff423828e1e6a6e907d6c65c1d5b7e6e975793d5590bdeecc16"},
+    {file = "protobuf-6.31.1-cp39-cp39-win_amd64.whl", hash = "sha256:8764cf4587791e7564051b35524b72844f845ad0bb011704c3736cce762d8fe9"},
+    {file = "protobuf-6.31.1-py3-none-any.whl", hash = "sha256:720a6c7e6b77288b85063569baae8536671b39f15cc22037ec7045658d80489e"},
+    {file = "protobuf-6.31.1.tar.gz", hash = "sha256:d8cac4c982f0b957a4dc73a80e2ea24fab08e679c0de9deb835f4a12d69aca9a"},
+]
+
+[[package]]
 name = "ptyprocess"
 version = "0.7.0"
 description = "Run a subprocess in a pseudo terminal"
@@ -2212,76 +2308,6 @@ files = [
 
 [package.extras]
 tests = ["pytest"]
-
-[[package]]
-name = "py-multibase"
-version = "1.0.3"
-description = "Multibase implementation for Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multibase-1.0.3.tar.gz", hash = "sha256:d28a20efcbb61eec28f55827a0bf329c7cea80fffd933aecaea6ae8431267fe4"},
-    {file = "py_multibase-1.0.3-py2.py3-none-any.whl", hash = "sha256:2677c1fafcc0ae15ddb9c7f444c5becc2530b3889124fd4fa2959ddfefb8c15b"},
-]
-
-[package.dependencies]
-morphys = ">=1.0,<2.0"
-python-baseconv = ">=1.2.0,<2.0"
-six = ">=1.10.0,<2.0"
-
-[[package]]
-name = "py-multicodec"
-version = "0.2.1"
-description = "Multicodec implementation in Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multicodec-0.2.1.tar.gz", hash = "sha256:83021ffe8c0e272d19b5b86bc5b39efa67c8e9f4735ce6cafdbc1ace767ec647"},
-    {file = "py_multicodec-0.2.1-py2.py3-none-any.whl", hash = "sha256:55b6bb53088a63e56c434cb11b29795e8805652bac43d50a8f2a9bcf5ca84e1f"},
-]
-
-[package.dependencies]
-morphys = ">=1.0,<2.0"
-six = ">=1.10.0,<2.0"
-varint = ">=1.0.2,<2.0.0"
-
-[[package]]
-name = "py-multiformats-cid"
-version = "0.4.4"
-description = "Self-describing content-addressed identifiers for distributed systems"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "py_multiformats_cid-0.4.4-py2.py3-none-any.whl", hash = "sha256:83f6c3109ed56664799c7367703a68d1724b1e9bd79b45c8935c77660560d1dd"},
-]
-
-[package.dependencies]
-base58 = "*"
-morphys = "*"
-py-multibase = "*"
-py-multicodec = "*"
-py-multihash = "*"
-
-[[package]]
-name = "py-multihash"
-version = "2.0.1"
-description = "Multihash implementation in Python"
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "py-multihash-2.0.1.tar.gz", hash = "sha256:b97511a87b7091f8b37a3d74ccb4a898e133529e7c5e431f9a27f78248a75e60"},
-    {file = "py_multihash-2.0.1-py2.py3-none-any.whl", hash = "sha256:c388728b3456d35cd6668b42a3d9ba32dd640493c8e93b992979668dcf2c0676"},
-]
-
-[package.dependencies]
-base58 = ">=1.0.2,<3.0"
-morphys = ">=1.0,<2.0"
-six = ">=1.10.0,<2.0"
-varint = ">=1.0.2,<2.0"
 
 [[package]]
 name = "pycryptodome"
@@ -2573,17 +2599,6 @@ setproctitle = ["setproctitle"]
 testing = ["filelock"]
 
 [[package]]
-name = "python-baseconv"
-version = "1.2.2"
-description = "Convert numbers from base 10 integers to base X strings and back again."
-category = "main"
-optional = false
-python-versions = "*"
-files = [
-    {file = "python-baseconv-1.2.2.tar.gz", hash = "sha256:0539f8bd0464013b05ad62e0a1673f0ac9086c76b43ebf9f833053527cd9931b"},
-]
-
-[[package]]
 name = "pyunormalize"
 version = "16.0.0"
 description = "Unicode normalization forms (NFC, NFKC, NFD, NFKD). A library independent of the Python core Unicode database."
@@ -2871,7 +2886,7 @@ doc = ["Sphinx", "sphinx-rtd-theme"]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 files = [
@@ -2963,6 +2978,18 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=3.0.3)", "mypy (>=1.7.0)", "pre-commit", "pytest (>=7.0,<8.2)", "pytest-mock", "pytest-mypy-testing"]
 
 [[package]]
+name = "types-protobuf"
+version = "6.30.2.20250703"
+description = "Typing stubs for protobuf"
+category = "dev"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "types_protobuf-6.30.2.20250703-py3-none-any.whl", hash = "sha256:fa5aff9036e9ef432d703abbdd801b436a249b6802e4df5ef74513e272434e57"},
+    {file = "types_protobuf-6.30.2.20250703.tar.gz", hash = "sha256:609a974754bbb71fa178fc641f51050395e8e1849f49d0420a6281ed8d1ddf46"},
+]
+
+[[package]]
 name = "types-requests"
 version = "2.32.0.20250602"
 description = "Typing stubs for requests"
@@ -3029,6 +3056,21 @@ files = [
 typing-extensions = ">=4.12.0"
 
 [[package]]
+name = "typing-validation"
+version = "1.2.12"
+description = "A simple library for runtime type-checking."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "typing_validation-1.2.12-py3-none-any.whl", hash = "sha256:d68e22a41bf2b98ae91e5d6407db56e9ef83e9e5600164a7aff64aaa082fc232"},
+    {file = "typing_validation-1.2.12.tar.gz", hash = "sha256:7ea9463a18bd04922e799cac1954f687e68e9564773f81db491536852ffe1d54"},
+]
+
+[package.extras]
+dev = ["mypy", "pylint", "pytest", "pytest-cov", "rich"]
+
+[[package]]
 name = "tzdata"
 version = "2025.2"
 description = "Provider of IANA time zone data"
@@ -3062,7 +3104,7 @@ zstd = ["zstandard (>=0.18.0)"]
 name = "varint"
 version = "1.0.2"
 description = "Simple python varint implementation"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -3356,4 +3398,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "63c47c4b0458b836354679141d29a99d233396674927c338c0e8c0b71e3631d4"
+content-hash = "36187176ac532be8ce97651694793ffdd23510271d6ae9310d59e5f3db653683"

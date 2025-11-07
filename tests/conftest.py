@@ -9,19 +9,20 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
+from src.main import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
-from src.providers.ipfs import MultiIPFSProvider
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     CSM,
+    IPFS,
     ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from src.web3py.extensions import FallbackProviderModule
 
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
@@ -101,7 +102,7 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79CEf36D84743222f37765204Bec41E92a93E59d')
+        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
     yield
 
@@ -147,7 +148,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             # Modules relying on network level highly - mocked fully
             'cc': lambda: Mock(spec=ConsensusClientModule),
             'kac': lambda: Mock(spec=KeysAPIClientModule),
-            'ipfs': lambda: Mock(spec=MultiIPFSProvider),
+            'ipfs': lambda: Mock(spec=IPFS),
         }
     )
 
@@ -172,6 +173,7 @@ def web3_integration() -> Generator[Web3, None, None]:
             'transaction': TransactionUtils,
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
+            'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
         }
     )
 

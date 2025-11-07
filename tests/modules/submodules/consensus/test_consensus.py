@@ -414,3 +414,25 @@ def test_get_web3_converter(consensus):
 
     assert converter.frame_config == fc
     assert converter.chain_config == cc
+
+
+@pytest.mark.unit
+def test_get_frame_number_by_slot__known_slot_and_config__returns_expected_frame_number(consensus):
+    blockstamp = ReferenceBlockStampFactory.build(ref_slot=1000000)
+
+    chain_config = ChainConfigFactory.build(
+        slots_per_epoch=32,
+        genesis_time=1606824023,
+    )
+    frame_config = FrameConfigFactory.build(
+        initial_epoch=0,
+        epochs_per_frame=225,
+    )
+
+    consensus.get_chain_config = Mock(return_value=chain_config)
+    consensus.get_frame_config = Mock(return_value=frame_config)
+
+    result = consensus.get_frame_number_by_slot(blockstamp)
+
+    expected_frame = 138
+    assert result == expected_frame
