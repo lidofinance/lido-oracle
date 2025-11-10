@@ -18,10 +18,10 @@ class CSAccountingContract(ContractInterface):
     def fee_distributor(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
         """Returns the address of the CSFeeDistributor contract"""
 
-        resp = self.functions.feeDistributor().call(block_identifier=block_identifier)
+        resp = self.functions.FEE_DISTRIBUTOR().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call `feeDistributor()`.",
+                "msg": "Call `FEE_DISTRIBUTOR()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }
