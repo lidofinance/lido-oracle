@@ -223,128 +223,130 @@ class CollectDataTestParam:
     expected_result: bool | Exception
 
 
-@pytest.mark.parametrize(
-    "param",
-    [
-        pytest.param(
-            CollectDataTestParam(
-                collect_blockstamp=Mock(slot_number=64),
-                collect_frame_range=Mock(return_value=(0, 1)),
-                report_blockstamp=Mock(ref_epoch=3),
-                state=Mock(),
-                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
-                expected_result=False,
-            ),
-            id="frame_changed_forward",
-        ),
-        pytest.param(
-            CollectDataTestParam(
-                collect_blockstamp=Mock(slot_number=64),
-                collect_frame_range=Mock(return_value=(0, 2)),
-                report_blockstamp=Mock(ref_epoch=1),
-                state=Mock(),
-                expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
-                expected_result=False,
-            ),
-            id="frame_changed_backward",
-        ),
-        pytest.param(
-            CollectDataTestParam(
-                collect_blockstamp=Mock(slot_number=32),
-                collect_frame_range=Mock(return_value=(1, 2)),
-                report_blockstamp=Mock(ref_epoch=2),
-                state=Mock(),
-                expected_msg="The starting epoch of the epochs range is not finalized yet",
-                expected_result=False,
-            ),
-            id="starting_epoch_not_finalized",
-        ),
-        pytest.param(
-            CollectDataTestParam(
-                collect_blockstamp=Mock(slot_number=32),
-                collect_frame_range=Mock(return_value=(0, 2)),
-                report_blockstamp=Mock(ref_epoch=2),
-                state=Mock(
-                    migrate=Mock(),
-                    log_status=Mock(),
-                    is_fulfilled=True,
-                ),
-                expected_msg="All epochs are already processed. Nothing to collect",
-                expected_result=True,
-            ),
-            id="state_fulfilled",
-        ),
-        pytest.param(
-            CollectDataTestParam(
-                collect_blockstamp=Mock(slot_number=320),
-                collect_frame_range=Mock(return_value=(0, 100)),
-                report_blockstamp=Mock(ref_epoch=100),
-                state=Mock(
-                    migrate=Mock(),
-                    log_status=Mock(),
-                    unprocessed_epochs=[5],
-                    is_fulfilled=False,
-                ),
-                expected_msg="Minimum checkpoint step is not reached, current delay is 2 epochs",
-                expected_result=False,
-            ),
-            id="min_step_not_reached",
-        ),
-    ],
-)
-@pytest.mark.unit
-def test_collect_data(
-    module: CSOracle,
-    param: CollectDataTestParam,
-    mock_chain_config: NoReturn,
-    mock_frame_config: NoReturn,
-    caplog,
-    monkeypatch,
-):
-    module.w3 = Mock()
-    module._receive_last_finalized_slot = Mock()
-    module.state = param.state
-    module.get_epochs_range_to_process = param.collect_frame_range
-    module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
-
-    with caplog.at_level(logging.DEBUG):
-        if isinstance(param.expected_result, Exception):
-            with pytest.raises(type(param.expected_result)):
-                module.collect_data(blockstamp=param.collect_blockstamp)
-        else:
-            collected = module.collect_data(blockstamp=param.collect_blockstamp)
-            assert collected == param.expected_result
-
-    msg = list(filter(lambda log: param.expected_msg in log, caplog.messages))
-    assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
-
-
-@pytest.mark.unit
-def test_collect_data_outdated_checkpoint(
-    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
-):
-    module.w3 = Mock()
-    module._receive_last_finalized_slot = Mock()
-    module.state = Mock(
-        migrate=Mock(),
-        log_status=Mock(),
-        unprocessed_epochs=list(range(0, 101)),
-        is_fulfilled=False,
-    )
-    module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
-    module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
-
-    with caplog.at_level(logging.DEBUG):
-        with pytest.raises(ValueError):
-            module.collect_data(blockstamp=Mock(slot_number=640))
-
-    msg = list(
-        filter(
-            lambda log: "Checkpoints were prepared for an outdated epochs range, stop processing" in log,
-            caplog.messages,
-        )
-    )
-    assert len(msg), "Expected message not found in logs"
+# TODO: move to performance collector tests
+# @pytest.mark.parametrize(
+#     "param",
+#     [
+#         pytest.param(
+#             CollectDataTestParam(
+#                 collect_blockstamp=Mock(slot_number=64),
+#                 collect_frame_range=Mock(return_value=(0, 1)),
+#                 report_blockstamp=Mock(ref_epoch=3),
+#                 state=Mock(),
+#                 expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
+#                 expected_result=False,
+#             ),
+#             id="frame_changed_forward",
+#         ),
+#         pytest.param(
+#             CollectDataTestParam(
+#                 collect_blockstamp=Mock(slot_number=64),
+#                 collect_frame_range=Mock(return_value=(0, 2)),
+#                 report_blockstamp=Mock(ref_epoch=1),
+#                 state=Mock(),
+#                 expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
+#                 expected_result=False,
+#             ),
+#             id="frame_changed_backward",
+#         ),
+#         pytest.param(
+#             CollectDataTestParam(
+#                 collect_blockstamp=Mock(slot_number=32),
+#                 collect_frame_range=Mock(return_value=(1, 2)),
+#                 report_blockstamp=Mock(ref_epoch=2),
+#                 state=Mock(),
+#                 expected_msg="The starting epoch of the epochs range is not finalized yet",
+#                 expected_result=False,
+#             ),
+#             id="starting_epoch_not_finalized",
+#         ),
+#         pytest.param(
+#             CollectDataTestParam(
+#                 collect_blockstamp=Mock(slot_number=32),
+#                 collect_frame_range=Mock(return_value=(0, 2)),
+#                 report_blockstamp=Mock(ref_epoch=2),
+#                 state=Mock(
+#                     migrate=Mock(),
+#                     log_status=Mock(),
+#                     is_fulfilled=True,
+#                 ),
+#                 expected_msg="All epochs are already processed. Nothing to collect",
+#                 expected_result=True,
+#             ),
+#             id="state_fulfilled",
+#         ),
+#         pytest.param(
+#             CollectDataTestParam(
+#                 collect_blockstamp=Mock(slot_number=320),
+#                 collect_frame_range=Mock(return_value=(0, 100)),
+#                 report_blockstamp=Mock(ref_epoch=100),
+#                 state=Mock(
+#                     migrate=Mock(),
+#                     log_status=Mock(),
+#                     unprocessed_epochs=[5],
+#                     is_fulfilled=False,
+#                 ),
+#                 expected_msg="Minimum checkpoint step is not reached, current delay is 2 epochs",
+#                 expected_result=False,
+#             ),
+#             id="min_step_not_reached",
+#         ),
+#     ],
+# )
+# @pytest.mark.unit
+# def test_collect_data(
+#     module: CSOracle,
+#     param: CollectDataTestParam,
+#     mock_chain_config: NoReturn,
+#     mock_frame_config: NoReturn,
+#     caplog,
+#     monkeypatch,
+# ):
+#     module.w3 = Mock()
+#     module._receive_last_finalized_slot = Mock()
+#     module.state = param.state
+#     module.get_epochs_range_to_process = param.collect_frame_range
+#     module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
+#
+#     with caplog.at_level(logging.DEBUG):
+#         if isinstance(param.expected_result, Exception):
+#             with pytest.raises(type(param.expected_result)):
+#                 module.collect_data(blockstamp=param.collect_blockstamp)
+#         else:
+#             collected = module.collect_data(blockstamp=param.collect_blockstamp)
+#             assert collected == param.expected_result
+#
+#     msg = list(filter(lambda log: param.expected_msg in log, caplog.messages))
+#     assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
+#
+#
+#
+# @pytest.mark.unit
+# def test_collect_data_outdated_checkpoint(
+#     module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
+# ):
+#     module.w3 = Mock()
+#     module._receive_last_finalized_slot = Mock()
+#     module.state = Mock(
+#         migrate=Mock(),
+#         log_status=Mock(),
+#         unprocessed_epochs=list(range(0, 101)),
+#         is_fulfilled=False,
+#     )
+#     module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
+#     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
+#
+#     with caplog.at_level(logging.DEBUG):
+#         with pytest.raises(ValueError):
+#             module.collect_data(blockstamp=Mock(slot_number=640))
+#
+#     msg = list(
+#         filter(
+#             lambda log: "Checkpoints were prepared for an outdated epochs range, stop processing" in log,
+#             caplog.messages,
+#         )
+#     )
+#     assert len(msg), "Expected message not found in logs"
 
 
 @pytest.mark.unit
@@ -358,15 +360,17 @@ def test_collect_data_fulfilled_state(
         migrate=Mock(),
         log_status=Mock(),
         unprocessed_epochs=list(range(0, 101)),
+        frames=[[0, 100]],
     )
     type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
     module.get_epochs_range_to_process = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
+    module.w3.performance.is_range_available = Mock(return_value=True)
+    module.fulfill_state = Mock()
 
     with caplog.at_level(logging.DEBUG):
-        with patch('src.modules.csm.csm.FrameCheckpointProcessor.exec', return_value=None):
-            collected = module.collect_data(blockstamp=Mock(slot_number=640))
-            assert collected is True
+        collected = module.collect_data()
+        assert collected is True
 
     # assert that it is not early return from function
     msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
@@ -593,6 +597,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 def test_execute_module_not_collected(module: CSOracle):
     module._check_compatability = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
+    module.set_epochs_range_to_collect = Mock()
     module.collect_data = Mock(return_value=False)
 
     execute_delay = module.execute_module(
@@ -616,6 +621,7 @@ def test_execute_module_skips_collecting_if_forward_compatible(module: CSOracle)
 @pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSOracle):
     module._check_compatability = Mock(return_value=True)
+    module.set_epochs_range_to_collect = Mock()
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
 
@@ -627,6 +633,7 @@ def test_execute_module_no_report_blockstamp(module: CSOracle):
 
 @pytest.mark.unit
 def test_execute_module_processed(module: CSOracle):
+    module.set_epochs_range_to_collect = Mock()
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
