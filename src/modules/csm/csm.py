@@ -114,17 +114,16 @@ class CSOracle(BaseModule, ConsensusModule):
                 )
                 if not is_data_range_available:
                     logger.warning({
-                        "msg": f"Performance data range is not available yet",
+                        "msg": "Performance data range is not available yet",
                         "start_epoch": l_epoch,
                         "end_epoch": r_epoch
                     })
                     return False
-                else:
-                    logger.info({
-                        "msg": "Performance data range is available",
-                        "start_epoch": l_epoch,
-                        "end_epoch": r_epoch
-                    })
+                logger.info({
+                    "msg": "Performance data range is available",
+                    "start_epoch": l_epoch,
+                    "end_epoch": r_epoch
+                })
             self.fulfill_state()
 
         return self.state.is_fulfilled

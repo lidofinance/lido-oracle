@@ -8,7 +8,7 @@ from urllib.parse import urljoin, urlparse
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
-from requests import JSONDecodeError, Session, Response
+from requests import JSONDecodeError, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 

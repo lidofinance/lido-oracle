@@ -83,7 +83,9 @@ class AttDutiesMissCodec:
 
     @staticmethod
     def decode(blob: bytes) -> AttDutyMisses:
-        return set([ValidatorIndex(i) for i in BitMap.deserialize(blob)])
+        # Non-iterable value BitMap.deserialize(blob) is used in an iterating context,
+        # but it IS iterable.
+        return {ValidatorIndex(i) for i in BitMap.deserialize(blob)}  # pylint: disable=E1133
 
 
 EpochData: TypeAlias = tuple[AttDutyMisses, list[ProposalDuty], list[SyncDuty]]

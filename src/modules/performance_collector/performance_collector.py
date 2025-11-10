@@ -11,7 +11,6 @@ from src.modules.performance_collector.http_server import start_performance_api_
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, EpochNumber
-from src.utils.range import sequence
 from src.utils.web3converter import ChainConverter
 from src import variables
 
