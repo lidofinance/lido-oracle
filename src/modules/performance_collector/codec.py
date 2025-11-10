@@ -6,6 +6,7 @@ from pyroaring import BitMap
 
 from src.types import ValidatorIndex
 
+
 @dataclass
 class ProposalDuty:
     validator_index: int

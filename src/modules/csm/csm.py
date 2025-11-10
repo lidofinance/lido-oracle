@@ -256,7 +256,7 @@ class CSOracle(BaseModule, ConsensusModule):
                     self.state.save_prop_duty(EpochNumber(epoch), vid, included=bool(p.is_proposed))
                     blocks_in_epoch += p.is_proposed
 
-                if blocks_in_epoch and syncs:
+                if blocks_in_epoch:
                     for rec in syncs:
                         vid = ValidatorIndex(rec.validator_index)
                         fulfilled = max(0, blocks_in_epoch - rec.missed_count)

@@ -2,21 +2,25 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal, NoReturn, Type
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.csm import CSOracle, LastReport
+from src.modules.csm.csm import CSMError, CSOracle, LastReport
 from src.modules.csm.distribution import Distribution
+from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
+from src.modules.performance_collector.codec import ProposalDuty, SyncDuty
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
+from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
-from src.types import NodeOperatorId, SlotNumber, FrameNumber
+from src.types import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.utils.types import hex_str_to_bytes
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -49,6 +53,23 @@ def slot_to_epoch(slot: int) -> int:
     return slot // 32
 
 
+def make_validator(index: int, activation_epoch: int = 0, exit_epoch: int = 100) -> Validator:
+    return Validator(
+        index=ValidatorIndex(index),
+        balance=Gwei(0),
+        validator=ValidatorState(
+            pubkey=f"0x{index:02x}",
+            withdrawal_credentials="0x00",
+            effective_balance=Gwei(0),
+            slashed=False,
+            activation_eligibility_epoch=EpochNumber(activation_epoch),
+            activation_epoch=EpochNumber(activation_epoch),
+            exit_epoch=EpochNumber(exit_epoch),
+            withdrawable_epoch=EpochNumber(exit_epoch + 1),
+        ),
+    )
+
+
 @pytest.fixture()
 def mock_chain_config(module: CSOracle):
     module.get_chain_config = Mock(
@@ -73,7 +94,7 @@ class FrameTestParam:
     last_processing_ref_slot: int
     current_ref_slot: int
     finalized_slot: int
-    expected_frame: tuple[int, int] | Type[ValueError]
+    expected_frame: tuple[int, int] | Type[Exception]
 
 
 @pytest.mark.parametrize(
@@ -168,6 +189,28 @@ class FrameTestParam:
             ),
             id="initial_epoch_moved_forward_with_missed_frame",
         ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=32,
+                initial_ref_slot=last_slot_of_epoch(10),
+                last_processing_ref_slot=last_slot_of_epoch(20),
+                current_ref_slot=last_slot_of_epoch(15),
+                finalized_slot=last_slot_of_epoch(15),
+                expected_frame=InconsistentData,
+            ),
+            id="last_processing_ref_slot_in_future",
+        ),
+        pytest.param(
+            FrameTestParam(
+                epochs_per_frame=4,
+                initial_ref_slot=last_slot_of_epoch(1),
+                last_processing_ref_slot=0,
+                current_ref_slot=last_slot_of_epoch(1),
+                finalized_slot=last_slot_of_epoch(1),
+                expected_frame=CSMError,
+            ),
+            id="negative_first_frame",
+        ),
     ],
 )
 @pytest.mark.unit
@@ -190,8 +233,8 @@ def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, para
     module.get_initial_ref_slot = Mock(return_value=param.initial_ref_slot)
 
     ref_epoch = slot_to_epoch(param.current_ref_slot)
-    if param.expected_frame is ValueError:
-        with pytest.raises(ValueError):
+    if isinstance(param.expected_frame, type) and issubclass(param.expected_frame, Exception):
+        with pytest.raises(param.expected_frame):
             module.get_epochs_range_to_process(
                 ReferenceBlockStampFactory.build(slot_number=param.current_ref_slot, ref_epoch=ref_epoch)
             )
@@ -200,6 +243,45 @@ def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, para
 
         l_epoch, r_epoch = module.get_epochs_range_to_process(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
+
+
+@pytest.mark.unit
+def test_set_epochs_range_to_collect_posts_new_demand(module: CSOracle, mock_chain_config: NoReturn):
+    blockstamp = ReferenceBlockStampFactory.build()
+    module.state = Mock(migrate=Mock(), log_progress=Mock())
+    converter = Mock()
+    converter.frame_config = Mock(epochs_per_frame=4)
+    module.converter = Mock(return_value=converter)
+    module.get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module.w3 = Mock()
+    module.w3.performance.get_epochs_demand = Mock(return_value={})
+    module.w3.performance.post_epochs_demand = Mock()
+
+    module.set_epochs_range_to_collect(blockstamp)
+
+    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.log_progress.assert_called_once()
+    module.w3.performance.get_epochs_demand.assert_called_once()
+    module.w3.performance.post_epochs_demand.assert_called_once_with("CSOracle", 10, 20)
+
+
+@pytest.mark.unit
+def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSOracle, mock_chain_config: NoReturn):
+    blockstamp = ReferenceBlockStampFactory.build()
+    module.state = Mock(migrate=Mock(), log_progress=Mock())
+    converter = Mock()
+    converter.frame_config = Mock(epochs_per_frame=4)
+    module.converter = Mock(return_value=converter)
+    module.get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module.w3 = Mock()
+    module.w3.performance.get_epochs_demand = Mock(return_value={"CSOracle": (10, 20)})
+    module.w3.performance.post_epochs_demand = Mock()
+
+    module.set_epochs_range_to_collect(blockstamp)
+
+    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.log_progress.assert_called_once()
+    module.w3.performance.post_epochs_demand.assert_not_called()
 
 
 @pytest.fixture()
@@ -214,167 +296,273 @@ def mock_frame_config(module: CSOracle):
 
 
 @dataclass(frozen=True)
-class CollectDataTestParam:
-    collect_blockstamp: Mock
-    collect_frame_range: Mock
-    report_blockstamp: Mock
-    state: Mock
-    expected_msg: str
-    expected_result: bool | Exception
+class CollectDataCase:
+    frames: list[tuple[int, int]]
+    range_available: bool
+    is_fulfilled_side_effect: list[bool]
+    expected_result: bool
+    expect_fulfill_call: bool
+    expect_range_call: tuple[int, int]
+    check_no_completed_msg: bool
 
 
-# TODO: move to performance collector tests
-# @pytest.mark.parametrize(
-#     "param",
-#     [
-#         pytest.param(
-#             CollectDataTestParam(
-#                 collect_blockstamp=Mock(slot_number=64),
-#                 collect_frame_range=Mock(return_value=(0, 1)),
-#                 report_blockstamp=Mock(ref_epoch=3),
-#                 state=Mock(),
-#                 expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
-#                 expected_result=False,
-#             ),
-#             id="frame_changed_forward",
-#         ),
-#         pytest.param(
-#             CollectDataTestParam(
-#                 collect_blockstamp=Mock(slot_number=64),
-#                 collect_frame_range=Mock(return_value=(0, 2)),
-#                 report_blockstamp=Mock(ref_epoch=1),
-#                 state=Mock(),
-#                 expected_msg="Epochs range has been changed, but the change is not yet observed on finalized epoch 1",
-#                 expected_result=False,
-#             ),
-#             id="frame_changed_backward",
-#         ),
-#         pytest.param(
-#             CollectDataTestParam(
-#                 collect_blockstamp=Mock(slot_number=32),
-#                 collect_frame_range=Mock(return_value=(1, 2)),
-#                 report_blockstamp=Mock(ref_epoch=2),
-#                 state=Mock(),
-#                 expected_msg="The starting epoch of the epochs range is not finalized yet",
-#                 expected_result=False,
-#             ),
-#             id="starting_epoch_not_finalized",
-#         ),
-#         pytest.param(
-#             CollectDataTestParam(
-#                 collect_blockstamp=Mock(slot_number=32),
-#                 collect_frame_range=Mock(return_value=(0, 2)),
-#                 report_blockstamp=Mock(ref_epoch=2),
-#                 state=Mock(
-#                     migrate=Mock(),
-#                     log_status=Mock(),
-#                     is_fulfilled=True,
-#                 ),
-#                 expected_msg="All epochs are already processed. Nothing to collect",
-#                 expected_result=True,
-#             ),
-#             id="state_fulfilled",
-#         ),
-#         pytest.param(
-#             CollectDataTestParam(
-#                 collect_blockstamp=Mock(slot_number=320),
-#                 collect_frame_range=Mock(return_value=(0, 100)),
-#                 report_blockstamp=Mock(ref_epoch=100),
-#                 state=Mock(
-#                     migrate=Mock(),
-#                     log_status=Mock(),
-#                     unprocessed_epochs=[5],
-#                     is_fulfilled=False,
-#                 ),
-#                 expected_msg="Minimum checkpoint step is not reached, current delay is 2 epochs",
-#                 expected_result=False,
-#             ),
-#             id="min_step_not_reached",
-#         ),
-#     ],
-# )
-# @pytest.mark.unit
-# def test_collect_data(
-#     module: CSOracle,
-#     param: CollectDataTestParam,
-#     mock_chain_config: NoReturn,
-#     mock_frame_config: NoReturn,
-#     caplog,
-#     monkeypatch,
-# ):
-#     module.w3 = Mock()
-#     module._receive_last_finalized_slot = Mock()
-#     module.state = param.state
-#     module.get_epochs_range_to_process = param.collect_frame_range
-#     module.get_blockstamp_for_report = Mock(return_value=param.report_blockstamp)
-#
-#     with caplog.at_level(logging.DEBUG):
-#         if isinstance(param.expected_result, Exception):
-#             with pytest.raises(type(param.expected_result)):
-#                 module.collect_data(blockstamp=param.collect_blockstamp)
-#         else:
-#             collected = module.collect_data(blockstamp=param.collect_blockstamp)
-#             assert collected == param.expected_result
-#
-#     msg = list(filter(lambda log: param.expected_msg in log, caplog.messages))
-#     assert len(msg), f"Expected message '{param.expected_msg}' not found in logs"
-#
-#
-#
-# @pytest.mark.unit
-# def test_collect_data_outdated_checkpoint(
-#     module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
-# ):
-#     module.w3 = Mock()
-#     module._receive_last_finalized_slot = Mock()
-#     module.state = Mock(
-#         migrate=Mock(),
-#         log_status=Mock(),
-#         unprocessed_epochs=list(range(0, 101)),
-#         is_fulfilled=False,
-#     )
-#     module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
-#     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
-#
-#     with caplog.at_level(logging.DEBUG):
-#         with pytest.raises(ValueError):
-#             module.collect_data(blockstamp=Mock(slot_number=640))
-#
-#     msg = list(
-#         filter(
-#             lambda log: "Checkpoints were prepared for an outdated epochs range, stop processing" in log,
-#             caplog.messages,
-#         )
-#     )
-#     assert len(msg), "Expected message not found in logs"
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(
+            CollectDataCase(
+                frames=[(10, 12)],
+                range_available=False,
+                is_fulfilled_side_effect=[False],
+                expected_result=False,
+                expect_fulfill_call=False,
+                expect_range_call=(10, 12),
+                check_no_completed_msg=False,
+            ),
+            id="range_not_available",
+        ),
+        pytest.param(
+            CollectDataCase(
+                frames=[(10, 12)],
+                range_available=True,
+                is_fulfilled_side_effect=[False, True],
+                expected_result=True,
+                expect_fulfill_call=True,
+                expect_range_call=(10, 12),
+                check_no_completed_msg=False,
+            ),
+            id="range_available",
+        ),
+        pytest.param(
+            CollectDataCase(
+                frames=[(0, 100)],
+                range_available=True,
+                is_fulfilled_side_effect=[False, True],
+                expected_result=True,
+                expect_fulfill_call=True,
+                expect_range_call=(0, 100),
+                check_no_completed_msg=True,
+            ),
+            id="fulfilled_state",
+        ),
+    ],
+)
+@pytest.mark.unit
+def test_collect_data_handles_range_availability(
+    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog, case: CollectDataCase
+):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=case.range_available)
+    module.fulfill_state = Mock()
+    state = Mock(frames=case.frames)
+    type(state).is_fulfilled = PropertyMock(side_effect=case.is_fulfilled_side_effect)
+    module.state = state
+
+    with caplog.at_level(logging.DEBUG):
+        result = module.collect_data()
+
+    assert result is case.expected_result
+    module.w3.performance.is_range_available.assert_called_once_with(*case.expect_range_call)
+    if case.expect_fulfill_call:
+        module.fulfill_state.assert_called_once()
+    else:
+        module.fulfill_state.assert_not_called()
+
+    if case.check_no_completed_msg:
+        assert "All epochs are already processed. Nothing to collect" not in caplog.messages
+
+
+@pytest.mark.parametrize(
+    "epoch_data_missing", [pytest.param(False, id="duties_recorded"), pytest.param(True, id="epoch_missing")]
+)
+@pytest.mark.unit
+def test_fulfill_state_handles_epoch_data(module: CSOracle, epoch_data_missing: bool):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
+    validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
+
+    if epoch_data_missing:
+        module.w3.performance.get_epoch = Mock(return_value=None)
+        frames = [(0, 0)]
+        unprocessed = {0}
+    else:
+        module.w3.performance.get_epoch = Mock(
+            side_effect=[
+                (
+                    {validator_a.index},
+                    [
+                        ProposalDuty(validator_index=int(validator_a.index), is_proposed=True),
+                        ProposalDuty(validator_index=int(validator_b.index), is_proposed=False),
+                    ],
+                    [
+                        SyncDuty(validator_index=int(validator_a.index), missed_count=0),
+                        SyncDuty(validator_index=int(validator_b.index), missed_count=1),
+                    ],
+                ),
+                (
+                    set(),
+                    [
+                        ProposalDuty(validator_index=int(validator_b.index), is_proposed=True),
+                    ],
+                    [
+                        SyncDuty(validator_index=int(validator_a.index), missed_count=2),
+                        SyncDuty(validator_index=int(validator_b.index), missed_count=3),
+                    ],
+                ),
+            ]
+        )
+        frames = [(0, 1)]
+        unprocessed = {0, 1}
+
+    state = Mock()
+    state.frames = frames
+    state.unprocessed_epochs = unprocessed
+    state.save_att_duty = Mock()
+    state.save_prop_duty = Mock()
+    state.save_sync_duty = Mock()
+    state.add_processed_epoch = Mock()
+    state.log_progress = Mock()
+    module.state = state
+
+    module.fulfill_state()
+
+    module._receive_last_finalized_slot.assert_called_once()
+    module.w3.cc.get_validators.assert_called_once_with("finalized")
+
+    if epoch_data_missing:
+        module.w3.performance.get_epoch.assert_called_once_with(0)
+        state.save_att_duty.assert_not_called()
+        state.save_prop_duty.assert_not_called()
+        state.save_sync_duty.assert_not_called()
+        state.add_processed_epoch.assert_not_called()
+        state.log_progress.assert_not_called()
+    else:
+        module.w3.performance.get_epoch.assert_has_calls([call(0), call(1)])
+        assert state.save_att_duty.call_args_list == [
+            call(EpochNumber(0), validator_a.index, included=False),
+            call(EpochNumber(0), validator_b.index, included=True),
+            call(EpochNumber(1), validator_a.index, included=True),
+            call(EpochNumber(1), validator_b.index, included=True),
+        ]
+        assert state.save_prop_duty.call_args_list == [
+            call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
+            call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
+        ]
+        assert state.save_sync_duty.call_args_list == [
+            call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
+            call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+        ]
+        assert state.add_processed_epoch.call_args_list == [
+            call(EpochNumber(0)),
+            call(EpochNumber(1)),
+        ]
+        assert state.log_progress.call_count == 2
 
 
 @pytest.mark.unit
-def test_collect_data_fulfilled_state(
-    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog
-):
+def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
+    inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
-    module._reset_cycle_timeout = Mock()
-    module._receive_last_finalized_slot = Mock()
-    module.state = Mock(
-        migrate=Mock(),
-        log_status=Mock(),
-        unprocessed_epochs=list(range(0, 101)),
-        frames=[[0, 100]],
+    module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
+    module.w3.performance.get_epoch = Mock(return_value=({inactive_validator.index}, [], []))
+    state = Mock()
+    state.frames = [(0, 0)]
+    state.unprocessed_epochs = {0}
+    state.save_att_duty = Mock()
+    state.save_prop_duty = Mock()
+    state.save_sync_duty = Mock()
+    state.add_processed_epoch = Mock()
+    state.log_progress = Mock()
+    module.state = state
+
+    with pytest.raises(ValueError, match="not active"):
+        module.fulfill_state()
+
+    module.w3.performance.get_epoch.assert_called_once_with(0)
+    state.save_att_duty.assert_not_called()
+    state.add_processed_epoch.assert_not_called()
+
+
+@pytest.mark.unit
+def test_validate_state_uses_ref_epoch(module: CSOracle):
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=123)
+    module.get_epochs_range_to_process = Mock(return_value=(5, 10))
+    module.state = Mock(validate=Mock())
+
+    module.validate_state(blockstamp)
+
+    module.get_epochs_range_to_process.assert_called_once_with(blockstamp)
+    module.state.validate.assert_called_once_with(5, 123)
+
+
+@pytest.mark.parametrize(
+    "last_ref_slot,current_ref_slot,expected",
+    [
+        pytest.param(64, 64, True, id="already_submitted"),
+        pytest.param(32, 64, False, id="pending_submission"),
+    ],
+)
+@pytest.mark.unit
+def test_is_main_data_submitted(module: CSOracle, last_ref_slot: int, current_ref_slot: int, expected: bool):
+    blockstamp = ReferenceBlockStampFactory.build()
+    module.w3 = Mock()
+    module.w3.csm.get_csm_last_processing_ref_slot = Mock(return_value=SlotNumber(last_ref_slot))
+    module.get_initial_or_current_frame = Mock(
+        return_value=CurrentFrame(
+            ref_slot=SlotNumber(current_ref_slot),
+            report_processing_deadline_slot=SlotNumber(0),
+        )
     )
-    type(module.state).is_fulfilled = PropertyMock(side_effect=[False, True])
-    module.get_epochs_range_to_process = Mock(return_value=(0, 100))
-    module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
-    module.w3.performance.is_range_available = Mock(return_value=True)
-    module.fulfill_state = Mock()
 
-    with caplog.at_level(logging.DEBUG):
-        collected = module.collect_data()
-        assert collected is True
+    assert module.is_main_data_submitted(blockstamp) is expected
 
-    # assert that it is not early return from function
-    msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
-    assert len(msg) == 0, "Unexpected message found in logs"
+
+@pytest.mark.parametrize("submitted", [True, False])
+@pytest.mark.unit
+def test_is_contract_reportable_relies_on_is_main_data_submitted(module: CSOracle, submitted: bool):
+    module.is_main_data_submitted = Mock(return_value=submitted)
+
+    result = module.is_contract_reportable(ReferenceBlockStampFactory.build())
+
+    module.is_main_data_submitted.assert_called_once()
+    assert result is (not submitted)
+
+
+@pytest.mark.unit
+def test_publish_tree_uploads_encoded_tree(module: CSOracle):
+    tree = Mock()
+    tree.encode.return_value = b"tree"
+    module.w3 = Mock()
+    module.w3.ipfs.publish = Mock(return_value=CID("QmTree"))
+
+    cid = module.publish_tree(tree)
+
+    module.w3.ipfs.publish.assert_called_once_with(b"tree")
+    assert cid == CID("QmTree")
+
+
+@pytest.mark.unit
+def test_publish_log_uploads_encoded_log(module: CSOracle, monkeypatch: pytest.MonkeyPatch):
+    logs = [Mock(spec=FramePerfLog)]
+    encode_mock = Mock(return_value=b"log")
+    monkeypatch.setattr("src.modules.csm.csm.FramePerfLog.encode", encode_mock)
+    module.w3 = Mock()
+    module.w3.ipfs.publish = Mock(return_value=CID("QmLog"))
+
+    cid = module.publish_log(logs)
+
+    encode_mock.assert_called_once_with(logs)
+    module.w3.ipfs.publish.assert_called_once_with(b"log")
+    assert cid == CID("QmLog")
 
 
 @dataclass(frozen=True)
