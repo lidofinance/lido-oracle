@@ -132,9 +132,7 @@ class CSOracle(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
-        r_epoch = blockstamp.ref_epoch
-        self.state.validate(l_epoch, r_epoch)
+        self.validate_state(blockstamp)
 
         last_report = self._get_last_report(blockstamp)
         rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
@@ -193,6 +191,14 @@ class CSOracle(BaseModule, ConsensusModule):
         on_pause = self.report_contract.is_paused('latest')
         CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
         return not on_pause
+
+    def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
+        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
+        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
+        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
+        r_epoch = blockstamp.ref_epoch
+
+        self.state.validate(l_epoch, r_epoch)
 
     def fulfill_state(self):
         finalized_blockstamp = self._receive_last_finalized_slot()
