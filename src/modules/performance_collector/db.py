@@ -38,6 +38,15 @@ class DutiesDB:
             )
             """
         )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS epochs_demand_nonce
+            (
+                value INTEGER NOT NULL
+            )
+            """
+        )
+        self._conn.execute("INSERT INTO epochs_demand_nonce (value) VALUES (0);")
         self._conn.commit()
 
     def __del__(self):
@@ -58,6 +67,7 @@ class DutiesDB:
                 "INSERT OR REPLACE INTO epochs_demand(consumer, l_epoch, r_epoch) VALUES(?, ?, ?)",
                 (consumer, l_epoch, r_epoch),
             )
+            cur.execute("UPDATE epochs_demand_nonce SET value = value + 1")
 
     def store_epoch(
         self,
@@ -150,3 +160,9 @@ class DutiesDB:
             for consumer, l_epoch, r_epoch in demands:
                 data[consumer] = (int(l_epoch), int(r_epoch))
         return data
+
+    def epochs_demand_nonce(self) -> int:
+        with self.connection() as cur:
+            cur.execute("SELECT value FROM epochs_demand_nonce LIMIT 1")
+            val = int(cur.fetchone()[0] or 0)
+        return val

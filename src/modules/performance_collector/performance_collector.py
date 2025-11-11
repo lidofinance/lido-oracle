@@ -1,10 +1,9 @@
 import logging
-from typing import Optional
+from typing import Optional, Final
 
 from src.modules.performance_collector.checkpoint import (
     FrameCheckpointsIterator,
     FrameCheckpointProcessor,
-    MinStepIsNotReached,
 )
 from src.modules.performance_collector.db import DutiesDB
 from src.modules.performance_collector.http_server import start_performance_api_server
@@ -21,6 +20,9 @@ class PerformanceCollector(BaseModule):
     """
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
+    DEFAULT_EPOCHS_STEP_TO_COLLECT: Final = 10
+
+    last_epochs_demand_nonce: int = 0
 
     def __init__(self, w3, db_path: Optional[str] = None):
         super().__init__(w3)
@@ -35,6 +37,7 @@ class PerformanceCollector(BaseModule):
         except Exception as e:
             logger.error({'msg': 'Failed to start performance API server', 'error': repr(e)})
             raise
+        self.last_epochs_demand_nonce = self.db.epochs_demand_nonce()
 
     def refresh_contracts(self):
         # No need to refresh contracts for this module. There are no contracts used.
@@ -56,36 +59,16 @@ class PerformanceCollector(BaseModule):
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
         epochs_range_demand = self.define_epochs_to_process_range(finalized_epoch)
-        if epochs_range_demand:
-            start_epoch, end_epoch = epochs_range_demand
-        else:
-            logger.info({'msg': 'No epochs demand to process. Default epochs range is used.'})
-            gap = FrameCheckpointsIterator.MIN_CHECKPOINT_STEP + FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
-            start_epoch = self.db.max_epoch() or max(0, finalized_epoch - gap)
-            end_epoch = finalized_epoch
+        if not epochs_range_demand:
+            return ModuleExecuteDelay.NEXT_SLOT
+        start_epoch, end_epoch = epochs_range_demand
 
-        min_unprocessed_epoch = min(self.db.missing_epochs_in(start_epoch, end_epoch), default=None)
-        if not min_unprocessed_epoch:
-            raise ValueError("There should be at least one epoch to process.")
-
-        logger.info({
-            'msg': 'Starting epoch range processing',
-            "start_epoch": start_epoch,
-            "end_epoch": end_epoch,
-            "min_unprocessed_epoch": min_unprocessed_epoch,
-            "finalized_epoch": finalized_epoch
-        })
-
-        try:
-            checkpoints = FrameCheckpointsIterator(
-                converter,
-                EpochNumber(min_unprocessed_epoch),
-                end_epoch,
-                finalized_epoch,
-            )
-        except MinStepIsNotReached:
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-
+        checkpoints = FrameCheckpointsIterator(
+            converter,
+            start_epoch,
+            end_epoch,
+            finalized_epoch,
+        )
         processor = FrameCheckpointProcessor(self.w3.cc, self.db, converter, last_finalized_blockstamp)
 
         checkpoint_count = 0
@@ -100,10 +83,8 @@ class PerformanceCollector(BaseModule):
             # Reset BaseOracle cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
-            if self.new_epochs_range_demand_appeared(converter, start_epoch, end_epoch):
-                logger.info({
-                    "msg": "New epochs range to process is found, stopping current epochs range processing"
-                })
+            if self.new_epochs_range_demand_appeared():
+                logger.info({"msg": "New epochs demand is found during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
         logger.info({
@@ -113,78 +94,74 @@ class PerformanceCollector(BaseModule):
 
         return ModuleExecuteDelay.NEXT_SLOT
 
-    def new_epochs_range_demand_appeared(
-        self, converter: ChainConverter, start_epoch: EpochNumber, end_epoch: EpochNumber
-    ) -> bool:
-        curr_finalized_slot = self._receive_last_finalized_slot()
-        curr_finalized_epoch = EpochNumber(converter.get_epoch_by_slot(curr_finalized_slot.slot_number) - 1)
-        new_epochs_range = self.define_epochs_to_process_range(curr_finalized_epoch, log=False)
-        if new_epochs_range:
-            new_start_epoch, new_end_epoch = new_epochs_range
-            if new_start_epoch != start_epoch or new_end_epoch != end_epoch:
-                return True
-        return False
+    def define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
+        max_available_epoch_to_check = max(0, finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS)
+        start_epoch = EpochNumber(max(0, max_available_epoch_to_check - self.DEFAULT_EPOCHS_STEP_TO_COLLECT))
+        end_epoch = EpochNumber(max_available_epoch_to_check)
 
-    def define_epochs_to_process_range(self, finalized_epoch: EpochNumber, log=True) -> tuple[EpochNumber, EpochNumber] | None:
-        unsatisfied_demands = []
+        min_epoch_in_db = self.db.min_epoch()
+        max_epoch_in_db = self.db.max_epoch()
+        if not min_epoch_in_db and not max_epoch_in_db:
+            logger.info({
+                "msg": "Empty Performance Collector DB. Start with the default range calculation",
+                "start_epoch": start_epoch,
+                "end_epoch": end_epoch
+            })
+            return start_epoch, end_epoch
+
+        gap = self.db.missing_epochs_in(min_epoch_in_db, max_epoch_in_db)
+        if gap:
+            start_epoch = min(gap)
+        else:
+            # Start from the next epoch after the last epoch in the DB.
+            start_epoch = max_epoch_in_db + 1
+
         epochs_demand = self.db.epochs_demand()
+        if not epochs_demand:
+            logger.info({"msg": "No epochs demand found"})
         for consumer, (l_epoch, r_epoch) in epochs_demand.items():
-            if log:
-                logger.info({
-                    "msg": "Epochs demand is found",
-                    "consumer": consumer,
-                    "l_epoch": l_epoch,
-                    "r_epoch": r_epoch
-                })
             satisfied = self.db.is_range_available(l_epoch, r_epoch)
             if satisfied:
-                if log:
-                    logger.info({
-                        "msg": "Epochs demand is already satisfied, skipping",
-                        "start_epoch": l_epoch,
-                        "end_epoch": r_epoch
-                    })
+                logger.info({
+                    "msg": "Satisfied epochs demand", "consumer": consumer, "l_epoch": l_epoch, "r_epoch": r_epoch
+                })
                 continue
-            unsatisfied_demands.append((consumer, l_epoch, r_epoch))
+            logger.info({
+                "msg": "Unsatisfied epochs demand", "consumer": consumer, "l_epoch": l_epoch, "r_epoch": r_epoch
+            })
+            if l_epoch < min_epoch_in_db:
+                start_epoch = min(start_epoch, l_epoch)
+            if r_epoch > max_epoch_in_db:
+                end_epoch = min(end_epoch, r_epoch)
 
-        if not unsatisfied_demands:
+        log_meta_info = {
+            "start_epoch": start_epoch,
+            "end_epoch": end_epoch,
+            "finalized_epoch": finalized_epoch,
+            "max_available_epoch_to_check": max_available_epoch_to_check,
+            "min_epoch_in_db": min_epoch_in_db,
+            "max_epoch_in_db": max_epoch_in_db,
+            "gap_in_db_len": len(gap) if gap else None
+        }
+
+        if start_epoch > max_available_epoch_to_check:
+            logger.info({
+                "msg": "No available to process epochs range demand yet",
+                **log_meta_info
+            })
             return None
 
-        faced_deadline = []
-        for consumer, l_epoch, r_epoch in unsatisfied_demands:
-            if finalized_epoch >= r_epoch:
-                if log:
-                    logger.warning({
-                        "msg": "Epochs demand is passed deadline due to current finalized epoch",
-                        "consumer": consumer,
-                        "l_epoch": l_epoch,
-                        "r_epoch": r_epoch,
-                        "finalized_epoch": finalized_epoch
-                    })
-                faced_deadline.append((consumer, l_epoch, r_epoch))
-
-        def missing_epochs(_, l_epoch_, r_epoch_):
-            return self.db.missing_epochs_in(l_epoch_, r_epoch_)
-
-        if not faced_deadline:
-            unsatisfied_demands.sort(
-                # Demand with the largest count of unprocessed epochs goes first
-                key=lambda demand: (-1 * len(missing_epochs(*demand)))
-            )
-            consumer, start_epoch, end_epoch = unsatisfied_demands[0]
-        else:
-            faced_deadline.sort(
-                # Demand with the least count of unprocessed epochs goes first
-                key=lambda demand: len(missing_epochs(*demand))
-            )
-            consumer, start_epoch, end_epoch = faced_deadline[0]
-
-        if log:
-            logger.info({
-                "msg": "Epochs demand is chosen to process",
-                "consumer": consumer,
-                "start_epoch": start_epoch,
-                "end_epoch": end_epoch,
-            })
+        logger.info({
+            "msg": "Epochs range to process is determined",
+            **log_meta_info
+        })
 
         return start_epoch, end_epoch
+
+    def new_epochs_range_demand_appeared(self) -> bool:
+        db_epochs_demand_nonce = self.db.epochs_demand_nonce()
+        nonce_changed = self.last_epochs_demand_nonce != db_epochs_demand_nonce
+        if nonce_changed:
+            self.last_epochs_demand_nonce = db_epochs_demand_nonce
+            return True
+        return False

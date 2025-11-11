@@ -36,9 +36,6 @@ type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[Valida
 type SyncDuties = list[SyncDuty]
 
 
-class MinStepIsNotReached(Exception): ...
-
-
 class SlotOutOfRootsRange(Exception): ...
 
 
@@ -57,8 +54,6 @@ class FrameCheckpointsIterator:
     # Max available epoch to process according to the finalized epoch
     max_available_epoch_to_check: EpochNumber
 
-    # Min checkpoint step is 10 because it's a reasonable number of epochs to process at once (~1 hour)
-    MIN_CHECKPOINT_STEP = 10
     # Max checkpoint step is 255 epochs because block_roots size from state is 8192 slots (256 epochs)
     # to check duty of every epoch, we need to check 64 slots (32 slots of duty epoch + 32 slots of next epoch).
     # In the end we got 255 committees and 8192 block_roots to check them for every checkpoint.
@@ -82,8 +77,11 @@ class FrameCheckpointsIterator:
             self.r_epoch, EpochNumber(finalized_epoch - self.CHECKPOINT_SLOT_DELAY_EPOCHS)
         )
 
-        if self.r_epoch > self.max_available_epoch_to_check and not self._is_min_step_reached():
-            raise MinStepIsNotReached()
+        if self.l_epoch > self.max_available_epoch_to_check:
+            raise ValueError(f"Left border epoch is greater than max available epoch to check: {l_epoch=} > {self.max_available_epoch_to_check=}")
+
+        if self.r_epoch > self.max_available_epoch_to_check:
+            raise ValueError(f"Right border epoch is greater than max available epoch to check: {r_epoch=} > {self.max_available_epoch_to_check=}")
 
     def __iter__(self):
         for checkpoint_epochs in batched(
@@ -97,22 +95,6 @@ class FrameCheckpointsIterator:
                 {"msg": f"Checkpoint slot {checkpoint_slot} with {len(checkpoint_epochs)} duty epochs is prepared"}
             )
             yield FrameCheckpoint(checkpoint_slot, checkpoint_epochs)
-
-    def _is_min_step_reached(self):
-        # NOTE: processing delay can be negative
-        # if the finalized epoch is less than next epoch to check (l_epoch)
-        processing_delay = self.max_available_epoch_to_check - self.l_epoch
-        if processing_delay >= self.MIN_CHECKPOINT_STEP:
-            return True
-        logger.info(
-            {
-                "msg": f"Minimum checkpoint step is not reached, current delay is {processing_delay} epochs",
-                "max_available_epoch_to_check": self.max_available_epoch_to_check,
-                "l_epoch": self.l_epoch,
-                "r_epoch": self.r_epoch,
-            }
-        )
-        return False
 
 
 class SyncCommitteesCache(UserDict):
