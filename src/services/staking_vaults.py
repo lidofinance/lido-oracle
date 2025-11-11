@@ -9,6 +9,7 @@ from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
+from src import variables
 from src.constants import (
     MIN_DEPOSIT_AMOUNT,
     SLOTS_PER_YEAR,
@@ -156,6 +157,7 @@ class StakingVaultsService:
         return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
             pubkeys=pubkeys,
             block_identifier=block_identifier,
+            batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         )
 
     @staticmethod
