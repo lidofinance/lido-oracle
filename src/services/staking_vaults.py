@@ -11,6 +11,7 @@ from web3.types import BlockIdentifier, Wei
 
 from src.constants import (
     MIN_DEPOSIT_AMOUNT,
+    SLOTS_PER_YEAR,
     TOTAL_BASIS_POINTS,
 )
 from src.modules.accounting.events import (
@@ -25,7 +26,6 @@ from src.modules.accounting.events import (
     sort_events,
 )
 from src.modules.accounting.types import (
-    BLOCKS_PER_YEAR,
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -380,7 +380,7 @@ class StakingVaultsService:
             * Decimal(block_elapsed)
             * core_apr_ratio
             * Decimal(fee_bp)
-            / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            / Decimal(SLOTS_PER_YEAR * TOTAL_BASIS_POINTS)
         )
 
     @staticmethod
