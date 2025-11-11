@@ -95,7 +95,11 @@ class PerformanceCollector(BaseModule):
         return ModuleExecuteDelay.NEXT_SLOT
 
     def define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
-        max_available_epoch_to_check = max(0, finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS)
+        max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        if max_available_epoch_to_check < 0:
+            logger.info({"msg": "No available epochs to process yet"})
+            return None
+
         start_epoch = EpochNumber(max(0, max_available_epoch_to_check - self.DEFAULT_EPOCHS_STEP_TO_COLLECT))
         end_epoch = EpochNumber(max_available_epoch_to_check)
 
@@ -108,6 +112,11 @@ class PerformanceCollector(BaseModule):
                 "end_epoch": end_epoch
             })
             return start_epoch, end_epoch
+
+        if max_available_epoch_to_check < min_epoch_in_db:
+            raise ValueError(
+                "Max available epoch to check is lower than the minimum epoch in the DB. CL node is not synced"
+            )
 
         gap = self.db.missing_epochs_in(min_epoch_in_db, max_epoch_in_db)
         if gap:
@@ -129,10 +138,7 @@ class PerformanceCollector(BaseModule):
             logger.info({
                 "msg": "Unsatisfied epochs demand", "consumer": consumer, "l_epoch": l_epoch, "r_epoch": r_epoch
             })
-            if l_epoch < min_epoch_in_db:
-                start_epoch = min(start_epoch, l_epoch)
-            if r_epoch > max_epoch_in_db:
-                end_epoch = min(end_epoch, r_epoch)
+            start_epoch = min(start_epoch, l_epoch)
 
         log_meta_info = {
             "start_epoch": start_epoch,
