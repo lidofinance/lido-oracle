@@ -96,33 +96,9 @@ class StakingVaultsService:
             validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
+        unmatched_pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
-
-        # Identify pending deposits that are not associated with any validators yet
-        unmatched_deposits = self._get_unmatched_deposits(pending_deposits, validators)
-        unmatched_deposits_by_vault = self._get_pending_deposits_by_vault(unmatched_deposits, vaults)
-
-        # Collect pubkeys that require PDG status lookup
-        # 1. pubkeys for non yet eligible for activation validators associated with vaults
-        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-        validator_pubkeys = [
-            v.validator.pubkey
-            for v in validators
-            if has_far_future_activation_eligibility_epoch(v.validator)
-            and v.validator.withdrawal_credentials in vault_wcs
-        ]
-        # 2. pubkeys for pending deposits that are not associated with any validators yet
-        unmatched_deposit_pubkeys = [deposit.pubkey for deposit in unmatched_deposits]
-
-        all_pubkeys = validator_pubkeys + unmatched_deposit_pubkeys
-        if all_pubkeys:
-            validator_statuses = self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
-                pubkeys=all_pubkeys,
-                block_identifier=block_identifier,
-                batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
-            )
-        else:
-            validator_statuses = {}
+        validator_statuses = self._lookup_pubkey_statuses(validators, pending_deposits, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -130,7 +106,7 @@ class StakingVaultsService:
                 vault_address=vault_address,
                 vault_aggregated_balance=vault.aggregated_balance,
                 vault_validators=validators_by_vault.get(vault_address, []),
-                vault_unmatched_deposits=unmatched_deposits_by_vault.get(vault_address, []),
+                vault_pending_deposits=unmatched_pending_deposits_by_vault.get(vault_address, []),
                 total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
                 validator_statuses=validator_statuses,
             )
@@ -143,12 +119,94 @@ class StakingVaultsService:
 
         return total_values
 
+    @staticmethod
+    def _get_validators_by_vault(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
+        """
+        Groups validators by their associated vault, based on withdrawal credentials.
+        """
+        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
+
+        vault_to_validators: VaultToValidators = defaultdict(list)
+        for validator in validators:
+            wc = validator.validator.withdrawal_credentials
+
+            if vault_info := wc_to_vault.get(wc):
+                vault_to_validators[vault_info.vault].append(validator)
+
+        return vault_to_validators
+
+    @staticmethod
+    def _get_pending_deposits_by_vault(pending_deposits: list[PendingDeposit], vaults: VaultsMap) -> dict[str, list[PendingDeposit]]:
+        """
+        Groups pending deposits by their associated vault, based on withdrawal credentials.
+        """
+        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
+
+        vault_to_deposits: dict[str, list[PendingDeposit]] = defaultdict(list)
+        for deposit in pending_deposits:
+            if vault_info := wc_to_vault.get(deposit.withdrawal_credentials):
+                vault_to_deposits[vault_info.vault].append(deposit)
+
+        return vault_to_deposits
+
+    @staticmethod
+    def _get_total_pending_amount_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
+        """
+        Calculates the total pending amount for each pubkey.
+        """
+        deposits: defaultdict[str, int] = defaultdict(int)
+        for deposit in pending_deposits:
+            deposits[deposit.pubkey] += int(deposit.amount)
+
+        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
+
+    def _lookup_pubkey_statuses(
+        self,
+        validators: list[Validator],
+        pending_deposits: list[PendingDeposit],
+        vaults: VaultsMap,
+        block_identifier: BlockIdentifier,
+    ) -> dict[str, ValidatorStatus]:
+        """
+        Collects pubkeys that require PDG status lookup, and fetches their statuses from the PDG.
+
+        Collects pubkeys that require PDG status lookup:
+        1. Non yet eligible for activation validators that are associated with the vaults
+        2. Pending deposits associated with the vaults but not associated with any validators
+        """
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+
+        non_eligible_to_activation_validators_pubkeys = [
+            v.validator.pubkey
+            for v in validators
+            if has_far_future_activation_eligibility_epoch(v.validator)
+            and v.validator.withdrawal_credentials in vault_wcs
+        ]
+
+        all_validator_pubkeys = [v.validator.pubkey for v in validators]
+        deposit_pubkeys = [
+            deposit.pubkey
+            for deposit in pending_deposits
+            if deposit.withdrawal_credentials in vault_wcs
+            and deposit.pubkey not in all_validator_pubkeys
+        ]
+
+        pubkeys_to_check = non_eligible_to_activation_validators_pubkeys + deposit_pubkeys
+        if not pubkeys_to_check:
+            return {}
+
+        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
+            pubkeys=pubkeys_to_check,
+            block_identifier=block_identifier,
+            batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
+        )
+
     def _calculate_vault_total_value(
         self,
         vault_address: str,
         vault_aggregated_balance: Wei,
         vault_validators: list[Validator],
-        vault_unmatched_deposits: list[PendingDeposit],
+        vault_pending_deposits: list[PendingDeposit],
         total_pending_amount_by_pubkey: dict[str, Gwei],
         validator_statuses: dict[str, ValidatorStatus],
     ) -> int:
@@ -158,7 +216,7 @@ class StakingVaultsService:
         vault_total = int(vault_aggregated_balance)
 
         for validator in vault_validators:
-            validator_pubkey = validator.pubkey.to_0x_hex()
+            validator_pubkey = validator.validator.pubkey
             validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
             total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
 
@@ -182,65 +240,19 @@ class StakingVaultsService:
                 elif status.stage == ValidatorStage.ACTIVATED:
                     vault_total += int(total_validator_balance)
 
-        for deposit in vault_unmatched_deposits:
+
+        for deposit in vault_pending_deposits:
             deposit_pubkey = deposit.pubkey
             status = validator_statuses.get(deposit_pubkey)
+
             if status is None or status.staking_vault != vault_address:
                 continue
 
-            # Only PREDEPOSITED stage is possible for unmatched deposits (validator doesn't exist yet)
+            # Only PREDEPOSITED stage is possible for pending deposits
             if status.stage == ValidatorStage.PREDEPOSITED:
                 vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
 
         return vault_total
-
-    @staticmethod
-    def _get_total_pending_amount_by_pubkey(
-        pending_deposits: list[PendingDeposit],
-    ) -> dict[str, Gwei]:
-        deposits: defaultdict[str, int] = defaultdict(int)
-        for deposit in pending_deposits:
-            deposits[deposit.pubkey] += int(deposit.amount)
-
-        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
-
-    @staticmethod
-    def _get_unmatched_deposits(
-        pending_deposits: list[PendingDeposit],
-        validators: list[Validator],
-    ) -> list[PendingDeposit]:
-        validator_pubkeys = {v.validator.pubkey for v in validators}
-        return [deposit for deposit in pending_deposits if deposit.pubkey not in validator_pubkeys]
-
-    @staticmethod
-    def _get_validators_by_vault(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
-        """
-        Groups validators by their associated vault, based on withdrawal credentials.
-        """
-        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
-
-        vault_to_validators: VaultToValidators = defaultdict(list)
-        for validator in validators:
-            wc = validator.validator.withdrawal_credentials
-
-            if vault_info := wc_to_vault.get(wc):
-                vault_to_validators[vault_info.vault].append(validator)
-
-        return vault_to_validators
-
-    @staticmethod
-    def _get_pending_deposits_by_vault(
-        pending_deposits: list[PendingDeposit],
-        vaults: VaultsMap,
-    ) -> dict[str, list[PendingDeposit]]:
-        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
-
-        vault_to_deposits: dict[str, list[PendingDeposit]] = defaultdict(list)
-        for deposit in pending_deposits:
-            if vault_info := wc_to_vault.get(deposit.withdrawal_credentials):
-                vault_to_deposits[vault_info.vault].append(deposit)
-
-        return vault_to_deposits
 
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig
