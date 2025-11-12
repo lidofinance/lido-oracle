@@ -353,6 +353,47 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_pending_deposit_without_validator_counts_predeposit(self):
+        pending_pubkey = '0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7'
+
+        validators: list[Validator] = []
+
+        pending_deposits: list[PendingDeposit] = [
+            PendingDeposit(
+                pubkey=pending_pubkey,
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_statuses = {
+            pending_pubkey: ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator='0x0000000000000000000000000000000000000000',
+            )
+        }
+
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected = {
+            self.vault_adr_0: 2000000000000000000,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
     def test_front_running_pending_deposits_protection(self):
         validators: list[Validator] = [
             Validator(
@@ -692,6 +733,126 @@ class TestStakingVaults:
             self.vault_adr_0: expected_vault_adr_0,
             self.vault_adr_1: 0,
             self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
+    def test_no_validator_just_pending_deposits(self):
+        validators: list[Validator] = [
+            # validator for the vault 1 with 32 ETH effective balance
+            Validator(
+                index=ValidatorIndex(1987),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_1,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(227556),
+                    activation_epoch=EpochNumber(227556),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227556),
+                ),
+            ),
+            # validator for the vault 2 with 1 ETH effective balance predeposited and activated
+            Validator(
+                index=ValidatorIndex(1988),
+                balance=Gwei(1000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_2,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(227556),
+                    activation_epoch=EpochNumber(227556),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227556),
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # 1 pending pre-deposit for validator for the vault 0
+            PendingDeposit(
+                pubkey='0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80',
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+            # top-up deposit for validator for the vault 1 extra 1 ETH
+            PendingDeposit(
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials=self.vault_wc_1,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_stages = {
+            # Activated validator for vault 1
+            "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce": ValidatorStatus(
+                stage=ValidatorStage.ACTIVATED,
+                staking_vault=self.vault_adr_1,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            # Predeposited validator for vault 2
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124": ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_2,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+            # Penigng deposit validator for vault 0
+            "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            ),
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            self.vaults,
+            validators,
+            pending_deposits,
+        )
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,
+                gwei_to_wei(pending_deposits[0].amount),
+            ]
+        )
+
+        expected_vault_adr_1 = sum(
+            [
+                self.vaults[self.vault_adr_1].aggregated_balance,
+                gwei_to_wei(validators[0].balance),
+                gwei_to_wei(pending_deposits[1].amount),
+            ]
+        )
+
+        expected_vault_adr_2 = sum(
+            [
+                self.vaults[self.vault_adr_2].aggregated_balance,
+                gwei_to_wei(validators[1].balance),
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: expected_vault_adr_1,
+            self.vault_adr_2: expected_vault_adr_2,
             self.vault_adr_3: 1000000000000000000,
         }
 
