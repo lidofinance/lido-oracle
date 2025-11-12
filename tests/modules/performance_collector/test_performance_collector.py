@@ -50,9 +50,9 @@ class TestDefineEpochsToProcessRange:
 
         # Expected calculations:
         # max_available_epoch_to_check = max(0, 100 - 2) = 98
-        # start_epoch = max(0, 98 - 10) = 88
+        # start_epoch = 98
         # end_epoch = 98
-        assert result == (EpochNumber(88), EpochNumber(98))
+        assert result == (EpochNumber(98), EpochNumber(98))
 
     @pytest.mark.unit
     def test_empty_db_with_low_finalized_epoch(self, performance_collector, mock_db):
@@ -68,9 +68,9 @@ class TestDefineEpochsToProcessRange:
 
         # Expected calculations:
         # max_available_epoch_to_check = max(0, 5 - 2) = 3
-        # start_epoch = max(0, 3 - 10) = 0
+        # start_epoch = 3
         # end_epoch = 3
-        assert result == (EpochNumber(0), EpochNumber(3))
+        assert result == (EpochNumber(3), EpochNumber(3))
 
     @pytest.mark.unit
     def test_db_with_gap_in_range(self, performance_collector, mock_db):

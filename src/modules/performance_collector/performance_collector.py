@@ -20,8 +20,6 @@ class PerformanceCollector(BaseModule):
     """
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
-    DEFAULT_EPOCHS_STEP_TO_COLLECT: Final = 10
-
     last_epochs_demand_nonce: int = 0
 
     def __init__(self, w3, db_path: Optional[str] = None):
@@ -56,6 +54,7 @@ class PerformanceCollector(BaseModule):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         converter = self._build_converter()
 
+        # TODO: return comment about finalized_epoch
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
         epochs_range_demand = self.define_epochs_to_process_range(finalized_epoch)
@@ -100,7 +99,7 @@ class PerformanceCollector(BaseModule):
             logger.info({"msg": "No available epochs to process yet"})
             return None
 
-        start_epoch = EpochNumber(max(0, max_available_epoch_to_check - self.DEFAULT_EPOCHS_STEP_TO_COLLECT))
+        start_epoch = EpochNumber(max_available_epoch_to_check)
         end_epoch = EpochNumber(max_available_epoch_to_check)
 
         min_epoch_in_db = self.db.min_epoch()
