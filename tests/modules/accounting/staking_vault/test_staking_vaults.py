@@ -299,6 +299,325 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_get_validators_by_vault_single_validator(self):
+        """Test grouping a single validator to its vault."""
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+        ]
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 1
+        assert self.vault_adr_0 in result
+        assert len(result[self.vault_adr_0]) == 1
+        assert result[self.vault_adr_0][0] == validators[0]
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_multiple_validators_different_vaults(self):
+        """Test grouping multiple validators to different vaults."""
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(40000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_1,
+                    effective_balance=Gwei(0),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1987),
+                balance=Gwei(50000000000),
+                validator=ValidatorState(
+                    pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                    withdrawal_credentials=self.vault_wc_2,
+                    effective_balance=Gwei(0),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            ),
+        ]
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 3
+        assert self.vault_adr_0 in result
+        assert self.vault_adr_1 in result
+        assert self.vault_adr_2 in result
+        assert len(result[self.vault_adr_0]) == 1
+        assert len(result[self.vault_adr_1]) == 1
+        assert len(result[self.vault_adr_2]) == 1
+        assert result[self.vault_adr_0][0] == validators[0]
+        assert result[self.vault_adr_1][0] == validators[1]
+        assert result[self.vault_adr_2][0] == validators[2]
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_multiple_validators_same_vault(self):
+        """Test grouping multiple validators to the same vault."""
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(40000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1987),
+                balance=Gwei(50000000000),
+                validator=ValidatorState(
+                    pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+        ]
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 1
+        assert self.vault_adr_0 in result
+        assert len(result[self.vault_adr_0]) == 3
+        assert result[self.vault_adr_0] == validators
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_validator_with_unknown_withdrawal_credentials(self):
+        """Test that validators with withdrawal credentials not matching any vault are excluded."""
+        unknown_wc = '0x0200000000000000000000000000000000000000000000000000000000000000'
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(40000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=unknown_wc,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+        ]
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 1
+        assert self.vault_adr_0 in result
+        assert len(result[self.vault_adr_0]) == 1
+        assert result[self.vault_adr_0][0] == validators[0]
+        # Validator with unknown WC should not be in any vault
+        assert all(validators[1] not in vault_validators for vault_validators in result.values())
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_empty_validators_list(self):
+        """Test with an empty validators list."""
+        validators: list[Validator] = []
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 0
+        assert result == {}
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_empty_vaults_map(self):
+        """Test with an empty vaults map."""
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+        ]
+
+        empty_vaults: VaultsMap = {}
+        result = StakingVaultsService._get_validators_by_vault(validators, empty_vaults)
+
+        assert len(result) == 0
+        assert result == {}
+
+    @pytest.mark.unit
+    def test_get_validators_by_vault_mixed_scenario(self):
+        """Test a mixed scenario with multiple validators across multiple vaults."""
+        validators: list[Validator] = [
+            # Two validators for vault_0
+            Validator(
+                index=ValidatorIndex(1985),
+                balance=Gwei(32000000000),
+                validator=ValidatorState(
+                    pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            Validator(
+                index=ValidatorIndex(1986),
+                balance=Gwei(40000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(32000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(225469),
+                    activation_epoch=EpochNumber(225475),
+                    exit_epoch=EpochNumber(18446744073709551615),
+                    withdrawable_epoch=EpochNumber(18446744073709551615),
+                ),
+            ),
+            # One validator for vault_1
+            Validator(
+                index=ValidatorIndex(1987),
+                balance=Gwei(50000000000),
+                validator=ValidatorState(
+                    pubkey='0x8c96ad1b9a1acf4a898009d96293d191ab911b535cd1e6618e76897b5fa239a7078f1fbf9de8dd07a61a51b137c74a87',
+                    withdrawal_credentials=self.vault_wc_1,
+                    effective_balance=Gwei(0),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            ),
+            # One validator for vault_3
+            Validator(
+                index=ValidatorIndex(1988),
+                balance=Gwei(60000000000),
+                validator=ValidatorState(
+                    pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307c1',
+                    withdrawal_credentials=self.vault_wc_3,
+                    effective_balance=Gwei(0),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            ),
+            # One validator with unknown withdrawal credentials (should be excluded)
+            Validator(
+                index=ValidatorIndex(1989),
+                balance=Gwei(70000000000),
+                validator=ValidatorState(
+                    pubkey='0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+                    withdrawal_credentials='0x0200000000000000000000000000000000000000000000000000000000000000',
+                    effective_balance=Gwei(0),
+                    slashed=False,
+                    activation_eligibility_epoch=EpochNumber(226130),
+                    activation_epoch=EpochNumber(226136),
+                    exit_epoch=EpochNumber(227556),
+                    withdrawable_epoch=EpochNumber(227812),
+                ),
+            ),
+        ]
+
+        result = StakingVaultsService._get_validators_by_vault(validators, self.vaults)
+
+        assert len(result) == 3
+        assert self.vault_adr_0 in result
+        assert self.vault_adr_1 in result
+        assert self.vault_adr_3 in result
+        assert len(result[self.vault_adr_0]) == 2
+        assert len(result[self.vault_adr_1]) == 1
+        assert len(result[self.vault_adr_3]) == 1
+        assert validators[0] in result[self.vault_adr_0]
+        assert validators[1] in result[self.vault_adr_0]
+        assert validators[2] in result[self.vault_adr_1]
+        assert validators[3] in result[self.vault_adr_3]
+        # Validator with unknown WC should not be in result
+        assert all(validators[4] not in vault_validators for vault_validators in result.values())
+
+    @pytest.mark.unit
     def test_get_vaults_data_multiple_pending_deposits(self):
         validators: list[Validator] = [
             Validator(
@@ -569,7 +888,7 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
-    def test_get_vaults_total_values_with_lazy_oracle_stages(self):
+    def test_get_vaults_total_values_with_validator_statuses(self):
         validators: list[Validator] = [
             # Activated validator with 32 ETH effective balance
             # Included in total value as all available balance
@@ -680,7 +999,7 @@ class TestStakingVaults:
             ),
         ]
 
-        validator_stages = {
+        validator_statuses = {
             "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002": ValidatorStatus(
                 stage=ValidatorStage.PREDEPOSITED,
                 staking_vault=self.vault_adr_0,
@@ -706,7 +1025,7 @@ class TestStakingVaults:
         # --- Web3 Mock ---
         w3_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
@@ -792,7 +1111,7 @@ class TestStakingVaults:
             ),
         ]
 
-        validator_stages = {
+        validator_statuses = {
             # Activated validator for vault 1
             "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce": ValidatorStatus(
                 stage=ValidatorStage.ACTIVATED,
@@ -816,7 +1135,7 @@ class TestStakingVaults:
         # --- Web3 Mock ---
         w3_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
@@ -939,7 +1258,7 @@ class TestStakingVaults:
             ),
         ]
 
-        validator_stages = {
+        validator_statuses = {
             "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStatus(
                 stage=ValidatorStage.PROVEN,
                 staking_vault=self.vault_adr_0,
@@ -960,7 +1279,7 @@ class TestStakingVaults:
         # --- Web3 Mock ---
         w3_mock = MagicMock()
         lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_stages)
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
 
         w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
         self.staking_vaults = StakingVaultsService(w3_mock)
