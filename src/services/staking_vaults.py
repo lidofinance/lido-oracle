@@ -9,8 +9,10 @@ from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
+from src import variables
 from src.constants import (
     MIN_DEPOSIT_AMOUNT,
+    SLOTS_PER_YEAR,
     TOTAL_BASIS_POINTS,
 )
 from src.modules.accounting.events import (
@@ -25,7 +27,6 @@ from src.modules.accounting.events import (
     sort_events,
 )
 from src.modules.accounting.types import (
-    BLOCKS_PER_YEAR,
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -95,37 +96,20 @@ class StakingVaultsService:
             validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
+        unmatched_pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
-        inactive_validator_statuses = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
+        validator_statuses = self._lookup_pubkey_statuses(validators, pending_deposits, vaults, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
-            vault_total: int = int(vault.aggregated_balance)
-
-            for validator in validators_by_vault.get(vault_address, []):
-                validator_pubkey = validator.pubkey.to_0x_hex()
-                validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
-                total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
-
-                # Include validator balance and all pending deposits in TV when validator is eligible for activation or
-                # has already passed activation
-                if not has_far_future_activation_eligibility_epoch(validator.validator):
-                    vault_total += int(total_validator_balance)
-
-                # For not-yet-eligible validators, use PDG stages:
-                # - PREDEPOSITED: add 1 ETH (guaranteed)
-                # - ACTIVATED: add full balance + pending deposits
-                # All other stages are skipped as not related to the non-eligible for activation validators
-                else:
-                    status = inactive_validator_statuses.get(validator_pubkey)
-                    # Skip if validator pubkey in PDG is not associated with the current vault
-                    if status is None or status.staking_vault != vault_address:
-                        continue
-
-                    if status.stage == ValidatorStage.PREDEPOSITED:
-                        vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
-                    elif status.stage == ValidatorStage.ACTIVATED:
-                        vault_total += int(total_validator_balance)
+            vault_total = self._calculate_vault_total_value(
+                vault_address=vault_address,
+                vault_aggregated_balance=vault.aggregated_balance,
+                vault_validators=validators_by_vault.get(vault_address, []),
+                vault_pending_deposits=unmatched_pending_deposits_by_vault.get(vault_address, []),
+                total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
+                validator_statuses=validator_statuses,
+            )
 
             total_values[vault_address] = Wei(vault_total)
             logger.info({
@@ -134,39 +118,6 @@ class StakingVaultsService:
             })
 
         return total_values
-
-    def _get_non_activated_validator_stages(
-        self,
-        validators: list[Validator],
-        vaults: VaultsMap,
-        block_identifier: BlockIdentifier = 'latest',
-    ) -> dict[str, ValidatorStatus]:
-        """
-        Get PDG validator stages for non-activated validators for connected vaults from the lazy oracle.
-        """
-
-        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-        pubkeys = [
-            v.pubkey.to_0x_hex()
-            for v in validators
-            if has_far_future_activation_eligibility_epoch(v.validator)
-            and v.validator.withdrawal_credentials in vault_wcs
-        ]
-
-        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
-            pubkeys=pubkeys,
-            block_identifier=block_identifier,
-        )
-
-    @staticmethod
-    def _get_total_pending_amount_by_pubkey(
-        pending_deposits: list[PendingDeposit],
-    ) -> dict[str, Gwei]:
-        deposits: defaultdict[str, int] = defaultdict(int)
-        for deposit in pending_deposits:
-            deposits[deposit.pubkey] += int(deposit.amount)
-
-        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
     @staticmethod
     def _get_validators_by_vault(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
@@ -183,6 +134,125 @@ class StakingVaultsService:
                 vault_to_validators[vault_info.vault].append(validator)
 
         return vault_to_validators
+
+    @staticmethod
+    def _get_pending_deposits_by_vault(pending_deposits: list[PendingDeposit], vaults: VaultsMap) -> dict[str, list[PendingDeposit]]:
+        """
+        Groups pending deposits by their associated vault, based on withdrawal credentials.
+        """
+        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
+
+        vault_to_deposits: dict[str, list[PendingDeposit]] = defaultdict(list)
+        for deposit in pending_deposits:
+            if vault_info := wc_to_vault.get(deposit.withdrawal_credentials):
+                vault_to_deposits[vault_info.vault].append(deposit)
+
+        return vault_to_deposits
+
+    @staticmethod
+    def _get_total_pending_amount_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
+        """
+        Calculates the total pending amount for each pubkey.
+        """
+        deposits: defaultdict[str, int] = defaultdict(int)
+        for deposit in pending_deposits:
+            deposits[deposit.pubkey] += int(deposit.amount)
+
+        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
+
+    def _lookup_pubkey_statuses(
+        self,
+        validators: list[Validator],
+        pending_deposits: list[PendingDeposit],
+        vaults: VaultsMap,
+        block_identifier: BlockIdentifier,
+    ) -> dict[str, ValidatorStatus]:
+        """
+        Collects pubkeys that require PDG status lookup, and fetches their statuses from the PDG.
+
+        Collects pubkeys that require PDG status lookup:
+        1. Non yet eligible for activation validators that are associated with the vaults
+        2. Pending deposits associated with the vaults but not associated with any validators
+        """
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+
+        non_eligible_to_activation_validators_pubkeys = [
+            v.validator.pubkey
+            for v in validators
+            if has_far_future_activation_eligibility_epoch(v.validator)
+            and v.validator.withdrawal_credentials in vault_wcs
+        ]
+
+        all_validator_pubkeys = [v.validator.pubkey for v in validators]
+        deposit_pubkeys = [
+            deposit.pubkey
+            for deposit in pending_deposits
+            if deposit.withdrawal_credentials in vault_wcs
+            and deposit.pubkey not in all_validator_pubkeys
+        ]
+
+        pubkeys_to_check = non_eligible_to_activation_validators_pubkeys + deposit_pubkeys
+        if not pubkeys_to_check:
+            return {}
+
+        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
+            pubkeys=pubkeys_to_check,
+            block_identifier=block_identifier,
+            batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
+        )
+
+    def _calculate_vault_total_value(
+        self,
+        vault_address: str,
+        vault_aggregated_balance: Wei,
+        vault_validators: list[Validator],
+        vault_pending_deposits: list[PendingDeposit],
+        total_pending_amount_by_pubkey: dict[str, Gwei],
+        validator_statuses: dict[str, ValidatorStatus],
+    ) -> int:
+        """
+        Calculates total value for a single vault.
+        """
+        vault_total = int(vault_aggregated_balance)
+
+        for validator in vault_validators:
+            validator_pubkey = validator.validator.pubkey
+            validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
+            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
+
+            # Include validator balance and all pending deposits in TV when validator is eligible for activation or
+            # has already passed activation
+            if not has_far_future_activation_eligibility_epoch(validator.validator):
+                vault_total += int(total_validator_balance)
+
+            # For not-yet-eligible validators, use PDG stages:
+            # - PREDEPOSITED: add 1 ETH (guaranteed)
+            # - ACTIVATED: add full balance + pending deposits
+            # All other stages are skipped as not related to the non-eligible for activation validators
+            else:
+                status = validator_statuses.get(validator_pubkey)
+                # Skip if validator pubkey in PDG is not associated with the current vault
+                if status is None or status.staking_vault != vault_address:
+                    continue
+
+                if status.stage == ValidatorStage.PREDEPOSITED:
+                    vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+                elif status.stage == ValidatorStage.ACTIVATED:
+                    vault_total += int(total_validator_balance)
+
+
+        for deposit in vault_pending_deposits:
+            deposit_pubkey = deposit.pubkey
+            status = validator_statuses.get(deposit_pubkey)
+
+            if status is None or status.staking_vault != vault_address:
+                continue
+
+            # Only PREDEPOSITED stage is possible for pending deposits
+            if status.stage == ValidatorStage.PREDEPOSITED:
+                vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+
+        return vault_total
 
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig
@@ -380,7 +450,7 @@ class StakingVaultsService:
             * Decimal(block_elapsed)
             * core_apr_ratio
             * Decimal(fee_bp)
-            / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            / Decimal(SLOTS_PER_YEAR * TOTAL_BASIS_POINTS)
         )
 
     @staticmethod
