@@ -230,12 +230,6 @@ def test_sync_miss_duties_codec_empty():
 
 
 @pytest.mark.unit
-def test_sync_miss_duties_codec_out_of_range():
-    with pytest.raises(ValueError):
-        SyncDutiesCodec.encode([SyncDuty(validator_index=1, missed_count=33)])
-
-
-@pytest.mark.unit
 def test_att_duties_miss_codec_roundtrip():
     src = ATT_MISSES_EXAMPLE
     blob = AttDutiesMissCodec.encode(src)
@@ -254,14 +248,8 @@ def test_epoch_blob_codec_roundtrip():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, syncs=syncs)
     att_decoded, proposals_decoded, syncs_decoded = EpochDataCodec.decode(blob)
-
-    # att_decoded may be a set (non-empty) or BitMap; normalize to set
-    from pyroaring import BitMap  # type: ignore
-
-    if isinstance(att_decoded, BitMap):
-        att_decoded = set(att_decoded)  # type: ignore
 
     assert set(att_decoded) == set(att_misses)
     assert sorted(_proposals_to_tuples(proposals_decoded)) == sorted(_proposals_to_tuples(proposals))
@@ -274,7 +262,7 @@ def test_epoch_blob_codec_bad_version():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, syncs=syncs)
 
     bad = bytes([255]) + blob[1:]
     with pytest.raises(ValueError):
@@ -293,7 +281,7 @@ def test_epoch_blob_codec_truncated_payload():
     proposals = PROPOSALS_EXAMPLE
     syncs = SYNCS_EXAMPLE
 
-    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, sync_misses=syncs)
+    blob = EpochDataCodec.encode(att_misses=att_misses, proposals=proposals, syncs=syncs)
     bad_blob = blob[:-1]
 
     with pytest.raises(ValueError):

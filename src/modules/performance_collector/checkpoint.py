@@ -242,7 +242,7 @@ class FrameCheckpointProcessor:
             for future in as_completed(futures):
                 future.result()
         except Exception as e:
-            logger.error({"msg": "Error processing epochs in threads", "error": repr(e)})
+            logger.error({"msg": "Error processing epochs in threads", "error": str(e)})
             raise SystemExit(1) from e
         finally:
             logger.info({"msg": "Shutting down the executor"})
@@ -274,18 +274,17 @@ class FrameCheckpointProcessor:
                 process_sync(sync_aggregate, sync_duties)
             process_attestations(attestations, att_committees, att_misses)
 
-        with lock:
-            propose_duties = list(propose_duties.values())
-            if len(propose_duties) > self.converter.chain_config.slots_per_epoch:
-                raise ValueError(f"Invalid number of propose duties prepared in epoch {duty_epoch}")
-            if len(sync_duties) > SYNC_COMMITTEE_SIZE:
-                raise ValueError(f"Invalid number of sync duties prepared in epoch {duty_epoch}")
-            self.db.store_epoch(
-                duty_epoch,
-                att_misses=att_misses,
-                proposals=propose_duties,
-                syncs=sync_duties,
-            )
+        propose_duties = list(propose_duties.values())
+        if len(propose_duties) > self.converter.chain_config.slots_per_epoch:
+            raise ValueError(f"Invalid number of propose duties prepared in epoch {duty_epoch}")
+        if len(sync_duties) > SYNC_COMMITTEE_SIZE:
+            raise ValueError(f"Invalid number of sync duties prepared in epoch {duty_epoch}")
+        self.db.store_epoch(
+            duty_epoch,
+            att_misses=att_misses,
+            proposals=propose_duties,
+            syncs=sync_duties,
+        )
 
     @timeit(
         lambda args, duration: logger.info(

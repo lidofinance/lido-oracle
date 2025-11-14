@@ -2,9 +2,8 @@ import struct
 from dataclasses import dataclass
 from typing import TypeAlias
 
-from pyroaring import BitMap
-
 from src.types import ValidatorIndex
+from src.utils.serializable_set import SerializableSet
 
 
 @dataclass
@@ -21,6 +20,8 @@ class ProposalDutiesCodec:
 
     @classmethod
     def encode(cls, proposals: list[ProposalDuty]) -> bytes:
+        if len(proposals) == 0:
+            raise ValueError("Invalid proposals count")
         items = sorted(((p.validator_index, p.is_proposed) for p in proposals), key=lambda t: t[0])
         return b"".join(struct.pack(cls.PACK_FMT, vid, flag) for vid, flag in items)
 
@@ -76,16 +77,15 @@ class AttDutiesMissCodec:
 
     @staticmethod
     def encode(misses: AttDutyMisses) -> bytes:
-        bm = BitMap(sorted(v for v in misses))
-        bm.shrink_to_fit()
-        bm.run_optimize()
+        bm = SerializableSet(misses)
         return bm.serialize()
 
     @staticmethod
     def decode(blob: bytes) -> AttDutyMisses:
-        # Non-iterable value BitMap.deserialize(blob) is used in an iterating context,
-        # but it IS iterable.
-        return {ValidatorIndex(i) for i in BitMap.deserialize(blob)}  # pylint: disable=E1133
+        if not blob:
+            return SerializableSet()
+        bm = SerializableSet.deserialize(blob)
+        return {ValidatorIndex(i) for i in bm}
 
 
 EpochData: TypeAlias = tuple[AttDutyMisses, list[ProposalDuty], list[SyncDuty]]
@@ -101,7 +101,7 @@ class EpochDataCodec:
     @classmethod
     def encode(
         cls,
-        att_misses: set[ValidatorIndex],
+        att_misses: AttDutyMisses,
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
     ) -> bytes:
@@ -128,5 +128,5 @@ class EpochDataCodec:
         offset += props_size
         syncs = SyncDutiesCodec.decode(blob[offset:(offset + sync_size)])
         offset += sync_size
-        att = AttDutiesMissCodec.decode(bytes(blob[offset:(offset + att_count)])) if att_count else BitMap()
-        return set(att), props, syncs
+        att = AttDutiesMissCodec.decode(bytes(blob[offset:(offset + att_count)])) if att_count else set()
+        return att, props, syncs

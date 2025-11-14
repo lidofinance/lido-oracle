@@ -228,8 +228,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 })
                 epoch_data = self.w3.performance.get_epoch(epoch)
                 if epoch_data is None:
-                    logger.warning({"msg": f"Epoch {epoch} is missing in Performance Collector"})
-                    continue
+                    raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
                 misses, props, syncs = epoch_data
                 logger.info({

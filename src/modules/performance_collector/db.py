@@ -1,4 +1,5 @@
 import sqlite3
+from time import time
 from contextlib import contextmanager
 from typing import Optional
 
@@ -11,63 +12,55 @@ from src.utils.range import sequence
 class DutiesDB:
     def __init__(self, path: str):
         self._path = path
-        self._conn = sqlite3.connect(
-            self._path, check_same_thread=False, timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT
-        )
-        # Optimize SQLite for performance: WAL mode for concurrent access,
-        # normal sync for speed/safety balance, memory temp storage
-        self._conn.execute("PRAGMA journal_mode=WAL;")
-        self._conn.execute("PRAGMA synchronous=NORMAL;")
-        self._conn.execute("PRAGMA temp_store=MEMORY;")
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS duties
-            (
-                epoch INTEGER PRIMARY KEY,
-                blob  BLOB NOT NULL
-            );
-            """
-        )
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS epochs_demand
-            (
-                consumer STRING PRIMARY KEY,
-                l_epoch INTEGER,
-                r_epoch INTEGER
-            )
-            """
-        )
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS epochs_demand_nonce
-            (
-                value INTEGER NOT NULL
-            )
-            """
-        )
-        self._conn.execute("INSERT INTO epochs_demand_nonce (value) VALUES (0);")
-        self._conn.commit()
-
-    def __del__(self):
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        self.migrate()
+        # Check SQLite thread safety.
+        # Doc: https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety
+        assert sqlite3.threadsafety > 0, "SQLite is not compiled with thread safety"
 
     @contextmanager
-    def connection(self):
-        try:
-            yield self._conn.cursor()
-        finally:
-            self._conn.commit()
+    def cursor(self):
+        conn = sqlite3.connect(
+            self._path, check_same_thread=False, timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT
+        )
+        yield conn.cursor()
+        conn.commit()
+        conn.close()
+
+    def migrate(self):
+        with self.cursor() as cur:
+            # Optimize SQLite for performance: WAL mode for concurrent access,
+            # normal sync for speed/safety balance, memory temp storage
+            cur.execute("PRAGMA journal_mode=WAL;")
+            cur.execute("PRAGMA synchronous=NORMAL;")
+            cur.execute("PRAGMA temp_store=MEMORY;")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS duties
+                (
+                    epoch INTEGER PRIMARY KEY,
+                    blob  BLOB NOT NULL
+                );
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS epochs_demand
+                (
+                    consumer   STRING PRIMARY KEY,
+                    l_epoch    INTEGER,
+                    r_epoch    INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
 
     def store_demand(self, consumer: str, l_epoch: int, r_epoch: int) -> None:
-        with self.connection() as cur:
+        with self.cursor() as cur:
+            updated_at = int(time())
             cur.execute(
-                "INSERT OR REPLACE INTO epochs_demand(consumer, l_epoch, r_epoch) VALUES(?, ?, ?)",
-                (consumer, l_epoch, r_epoch),
+                "INSERT OR REPLACE INTO epochs_demand(consumer, l_epoch, r_epoch, updated_at) VALUES(?, ?, ?, ?)",
+                (consumer, l_epoch, r_epoch, updated_at),
             )
-            cur.execute("UPDATE epochs_demand_nonce SET value = value + 1")
 
     def store_epoch(
         self,
@@ -82,7 +75,7 @@ class DutiesDB:
         return blob
 
     def _store_blob(self, epoch: int, blob: bytes) -> None:
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute(
                 "INSERT OR REPLACE INTO duties(epoch, blob) VALUES(?, ?)",
                 (epoch, sqlite3.Binary(blob)),
@@ -94,13 +87,13 @@ class DutiesDB:
         threshold = int(current_epoch) - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS
         if threshold <= 0:
             return
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute("DELETE FROM duties WHERE epoch < ?", (threshold,))
 
     def is_range_available(self, l_epoch: int, r_epoch: int) -> bool:
         if int(l_epoch) > int(r_epoch):
             raise ValueError("Invalid epoch range")
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute(
                 "SELECT COUNT(1) FROM duties WHERE epoch BETWEEN ? AND ?",
                 (int(l_epoch), int(r_epoch)),
@@ -111,7 +104,7 @@ class DutiesDB:
     def missing_epochs_in(self, l_epoch: int, r_epoch: int) -> list[int]:
         if l_epoch > r_epoch:
             raise ValueError("Invalid epoch range")
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute(
                 "SELECT epoch FROM duties WHERE epoch BETWEEN ? AND ? ORDER BY epoch",
                 (l_epoch, r_epoch),
@@ -124,7 +117,7 @@ class DutiesDB:
         return missing
 
     def _get_entry(self, epoch: int) -> Optional[bytes]:
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute("SELECT blob FROM duties WHERE epoch=?", (int(epoch),))
             row = cur.fetchone()
         if not row:
@@ -135,34 +128,28 @@ class DutiesDB:
         return self._get_entry(epoch)
 
     def has_epoch(self, epoch: int) -> bool:
-        with self.connection() as cur:
+        with self.cursor() as cur:
             cur.execute("SELECT 1 FROM duties WHERE epoch=? LIMIT 1", (int(epoch),))
             ok = cur.fetchone() is not None
         return ok
 
-    def min_epoch(self) -> int:
-        with self.connection() as cur:
+    def min_epoch(self) -> int | None:
+        with self.cursor() as cur:
             cur.execute("SELECT MIN(epoch) FROM duties")
-            val = int(cur.fetchone()[0] or 0)
-        return val
+            val = cur.fetchone()[0]
+        return int(val) if val else None
 
-    def max_epoch(self) -> int:
-        with self.connection() as cur:
+    def max_epoch(self) -> int | None:
+        with self.cursor() as cur:
             cur.execute("SELECT MAX(epoch) FROM duties")
-            val = int(cur.fetchone()[0] or 0)
-        return val
+            val = cur.fetchone()[0]
+        return int(val) if val else None
 
     def epochs_demand(self) -> dict[str, tuple[int, int]]:
         data = {}
-        with self.connection() as cur:
-            cur.execute("SELECT consumer, l_epoch, r_epoch FROM epochs_demand")
+        with self.cursor() as cur:
+            cur.execute("SELECT consumer, l_epoch, r_epoch, updated_at FROM epochs_demand")
             demands = cur.fetchall()
-            for consumer, l_epoch, r_epoch in demands:
-                data[consumer] = (int(l_epoch), int(r_epoch))
+            for consumer, l_epoch, r_epoch, updated_at in demands:
+                data[consumer] = (int(l_epoch), int(r_epoch), int(updated_at))
         return data
-
-    def epochs_demand_nonce(self) -> int:
-        with self.connection() as cur:
-            cur.execute("SELECT value FROM epochs_demand_nonce LIMIT 1")
-            val = int(cur.fetchone()[0] or 0)
-        return val
