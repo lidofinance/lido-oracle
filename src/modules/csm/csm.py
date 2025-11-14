@@ -9,16 +9,7 @@ from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import (
-    FrameCheckpointProcessor,
-    FrameCheckpointsIterator,
-    MinStepIsNotReached,
-)
-from src.modules.csm.distribution import (
-    Distribution,
-    DistributionResult,
-    StrikesValidator,
-)
+from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -35,8 +26,11 @@ from src.types import (
     EpochNumber,
     ReferenceBlockStamp,
     SlotNumber,
+    ValidatorIndex,
 )
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.range import sequence
+from src.utils.validator_state import is_active_validator
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import NodeOperatorId
 from src.web3py.types import Web3
@@ -77,19 +71,62 @@ class CSOracle(BaseModule, ConsensusModule):
         if not self._check_compatability(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        collected = self.collect_data(last_finalized_blockstamp)
-        if not collected:
-            logger.info(
-                {"msg": "Data required for the report is not fully collected yet. Waiting for the next finalized epoch"}
-            )
-            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+        self.set_epochs_range_to_collect(last_finalized_blockstamp)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+        collected = self.collect_data()
+        if not collected:
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
+
+    @duration_meter()
+    def set_epochs_range_to_collect(self, blockstamp: BlockStamp):
+        consumer = self.__class__.__name__
+        converter = self.converter(blockstamp)
+
+        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
+        self.state.log_progress()
+
+        current_demands = self.w3.performance.get_epochs_demand()
+        current_demand = current_demands.get(consumer)
+        if current_demand != (l_epoch, r_epoch):
+            logger.info({
+                "msg": f"Updating {consumer} epochs demand for Performance Collector",
+                "old": current_demand,
+                "new": (l_epoch, r_epoch)
+            })
+            self.w3.performance.post_epochs_demand(consumer, l_epoch, r_epoch)
+
+    @duration_meter()
+    def collect_data(self) -> bool:
+        logger.info({"msg": "Collecting data for the report from Performance Collector"})
+
+        if not self.state.is_fulfilled:
+            for l_epoch, r_epoch in self.state.frames:
+                is_data_range_available = self.w3.performance.is_range_available(
+                    l_epoch, r_epoch
+                )
+                if not is_data_range_available:
+                    logger.warning({
+                        "msg": "Performance data range is not available yet",
+                        "start_epoch": l_epoch,
+                        "end_epoch": r_epoch
+                    })
+                    return False
+                logger.info({
+                    "msg": "Performance data range is available",
+                    "start_epoch": l_epoch,
+                    "end_epoch": r_epoch
+                })
+            self.fulfill_state()
+
+        return self.state.is_fulfilled
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -162,66 +199,72 @@ class CSOracle(BaseModule, ConsensusModule):
 
         self.state.validate(l_epoch, r_epoch)
 
-    def collect_data(self, blockstamp: BlockStamp) -> bool:
-        """Ongoing report data collection for the estimated reference slot"""
+    def fulfill_state(self):
+        finalized_blockstamp = self._receive_last_finalized_slot()
+        validators = self.w3.cc.get_validators(finalized_blockstamp)
 
-        logger.info({"msg": "Collecting data for the report"})
+        logger.info({
+            "msg": "Starting state fulfillment",
+            "total_frames": len(self.state.frames),
+            "total_validators": len(validators)
+        })
 
-        converter = self.converter(blockstamp)
+        for l_epoch, r_epoch in self.state.frames:
+            logger.info({
+                "msg": "Processing frame",
+                "start_epoch": l_epoch,
+                "end_epoch": r_epoch,
+                "total_epochs": r_epoch - l_epoch + 1
+            })
 
-        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
-        logger.info({"msg": f"Epochs range for performance data collect: [{l_epoch};{r_epoch}]"})
+            for epoch in sequence(l_epoch, r_epoch):
+                if epoch not in self.state.unprocessed_epochs:
+                    logger.debug({"msg": f"Epoch {epoch} is already processed"})
+                    continue
 
-        # NOTE: Finalized slot is the first slot of justifying epoch, so we need to take the previous. But if the first
-        # slot of the justifying epoch is empty, blockstamp.slot_number will point to the slot where the last finalized
-        # block was created. As a result, finalized_epoch in this case will be less than the actual number of the last
-        # finalized epoch. As a result we can have a delay in frame finalization.
-        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(blockstamp.slot_number) - 1)
+                logger.info({
+                    "msg": "Requesting performance data from collector",
+                    "epoch": epoch
+                })
+                epoch_data = self.w3.performance.get_epoch(epoch)
+                if epoch_data is None:
+                    raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
-        report_blockstamp = self.get_blockstamp_for_report(blockstamp)
+                misses, props, syncs = epoch_data
+                logger.info({
+                    "msg": "Performance data received",
+                    "epoch": epoch,
+                    "misses_count": len(misses),
+                    "proposals_count": len(props),
+                    "sync_duties_count": len(syncs)
+                })
 
-        if not report_blockstamp:
-            logger.info({"msg": "No report blockstamp available, using pre-computed one for collecting data"})
+                for validator in validators:
+                    missed_att = validator.index in misses
+                    included_att = validator.index not in misses
+                    is_active = is_active_validator(validator, EpochNumber(epoch))
+                    if not is_active and missed_att:
+                        raise ValueError(f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active")
+                    self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
 
-        if report_blockstamp and report_blockstamp.ref_epoch != r_epoch:
-            logger.warning(
-                {
-                    "msg": f"Epochs range has been changed, but the change is not yet observed on finalized epoch {finalized_epoch}"
-                }
-            )
-            return False
+                blocks_in_epoch = 0
 
-        if l_epoch > finalized_epoch:
-            logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
-            return False
+                for p in props:
+                    vid = ValidatorIndex(p.validator_index)
+                    self.state.save_prop_duty(EpochNumber(epoch), vid, included=bool(p.is_proposed))
+                    blocks_in_epoch += p.is_proposed
 
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
-        self.state.log_progress()
+                if blocks_in_epoch:
+                    for rec in syncs:
+                        vid = ValidatorIndex(rec.validator_index)
+                        fulfilled = max(0, blocks_in_epoch - rec.missed_count)
+                        for _ in range(fulfilled):
+                            self.state.save_sync_duty(EpochNumber(epoch), vid, included=True)
+                        for _ in range(rec.missed_count):
+                            self.state.save_sync_duty(EpochNumber(epoch), vid, included=False)
 
-        if self.state.is_fulfilled:
-            logger.info({"msg": "All epochs are already processed. Nothing to collect"})
-            return True
-
-        try:
-            checkpoints = FrameCheckpointsIterator(
-                converter,
-                min(self.state.unprocessed_epochs),
-                r_epoch,
-                finalized_epoch,
-            )
-        except MinStepIsNotReached:
-            return False
-
-        processor = FrameCheckpointProcessor(self.w3.cc, self.state, converter, blockstamp)
-
-        for checkpoint in checkpoints:
-            if self.get_epochs_range_to_process(self._receive_last_finalized_slot()) != (l_epoch, r_epoch):
-                logger.info({"msg": "Checkpoints were prepared for an outdated epochs range, stop processing"})
-                raise ValueError("Outdated checkpoint")
-            processor.exec(checkpoint)
-            # Reset BaseOracle cycle timeout to avoid timeout errors during long checkpoints processing
-            self._reset_cycle_timeout()
-        return self.state.is_fulfilled
+                self.state.add_processed_epoch(EpochNumber(epoch))
+                self.state.log_progress()
 
     def make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
@@ -300,6 +343,12 @@ class CSOracle(BaseModule, ConsensusModule):
         # Update Prometheus metrics
         CSM_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
         CSM_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
+
+        logger.info({
+            "msg": "Epochs range for the report",
+            "l_epoch": l_epoch,
+            "r_epoch": r_epoch
+        })
 
         return l_epoch, r_epoch
 

@@ -68,6 +68,14 @@ CL_REQUESTS_DURATION = Histogram(
     buckets=requests_buckets,
 )
 
+PERFORMANCE_REQUESTS_DURATION = Histogram(
+    'performance_requests_duration',
+    'Duration of requests to Performance Collector API',
+    ['endpoint', 'code', 'domain'],
+    namespace=PROMETHEUS_PREFIX,
+    buckets=requests_buckets,
+)
+
 KEYS_API_REQUESTS_DURATION = Histogram(
     'keys_api_requests_duration',
     'Duration of requests to Keys API',

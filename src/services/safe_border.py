@@ -30,10 +30,7 @@ class SafeBorder(Web3Converter):
     2. Negative rebase border
     3. Associated slashing border
     """
-    chain_config: ChainConfig
-    frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
-    converter: Web3Converter
 
     def __init__(
         self,
@@ -48,10 +45,7 @@ class SafeBorder(Web3Converter):
         self.lido_contracts = w3.lido_contracts
 
         self.blockstamp = blockstamp
-        self.chain_config = chain_config
-        self.frame_config = frame_config
 
-        self.converter = Web3Converter(chain_config, frame_config)
         self._retrieve_constants()
 
     def _retrieve_constants(self):
