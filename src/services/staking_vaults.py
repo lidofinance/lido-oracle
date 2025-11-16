@@ -171,7 +171,7 @@ class StakingVaultsService:
         Collects pubkeys that require PDG status lookup, and fetches their statuses from the PDG.
 
         Collects pubkeys that require PDG status lookup:
-        1. Non yet eligible for activation validators that are associated with the vaults
+        1. Not yet eligible for activation validators that are associated with the vaults
         2. Pending deposits associated with the vaults but not associated with any validators
         """
         vault_wcs = {v.withdrawal_credentials for v in vaults.values()}

@@ -1124,7 +1124,7 @@ class TestStakingVaults:
                 staking_vault=self.vault_adr_2,
                 node_operator="0x0000000000000000000000000000000000000000",
             ),
-            # Penigng deposit validator for vault 0
+            # Pending deposit validator for vault 0
             "0x8f6ef94afaab1b6a693a4e65bcec154a2a285eb8e0aa7f9f8a8c596d4cf98cac8b981d77d1af0427dbaa5a37fab77b80": ValidatorStatus(
                 stage=ValidatorStage.PREDEPOSITED,
                 staking_vault=self.vault_adr_0,
