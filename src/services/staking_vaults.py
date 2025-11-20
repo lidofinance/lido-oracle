@@ -86,26 +86,27 @@ class StakingVaultsService:
             - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
             - ACTIVATED: count as `already passed activation`, thus add full balance + pending deposits to TV
             - all other stages are skipped as not related to the non-eligible for activation validators
+        3. A pending deposit is included in the TV if it is NOT associated with a validator yet, and the PDG stage is
+           PREDEPOSITED. It can't be ACTIVATED, as activation happenst only for created validators.
 
         NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
-            predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
-            as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
-            until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
-            the calculation of a validator's total balance must include all pending deposits, but only for those
-            validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
-            validator becomes eligible for activation.
+            predeposit (PREDEPOSITED). After the proof is submitted, an additional 31 ETH immediately appears on
+            the consensus layer as a pending deposit (ACTIVATED).
+            If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH until the pending deposit
+            is finalized and the validator is activated. To avoid this misleading drop, the TV calculation must include
+            all pending deposits, but only for those validators that passed PDG flow. All side-deposited validators
+            will appear in the TV as soon as the validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
 
         vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-
         non_eligible_to_activation_pubkeys = self._get_non_eligible_for_activation_pubkeys(validators, vault_wcs)
         unmatched_deposits_pubkeys = self._get_unmatched_deposits_pubkeys(validators, pending_deposits, vault_wcs)
 
         pubkeys_to_lookup = non_eligible_to_activation_pubkeys | unmatched_deposits_pubkeys
-        validator_statuses = self._get_validator_statuses(pubkeys_to_lookup, block_identifier)
+        validator_statuses_by_vault = self._get_validator_statuses_by_vault(pubkeys_to_lookup, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -115,7 +116,7 @@ class StakingVaultsService:
                 vault_validators=validators_by_vault.get(vault_address, []),
                 vault_pending_deposits=pending_deposits_by_vault.get(vault_address, []),
                 total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
-                validator_statuses=validator_statuses,
+                validator_statuses=validator_statuses_by_vault.get(vault_address, {}),
             )
 
             total_values[vault_address] = Wei(vault_total)
@@ -196,19 +197,25 @@ class StakingVaultsService:
                and deposit.pubkey not in all_validator_pubkeys
         }
 
-    def _get_validator_statuses(
+    def _get_validator_statuses_by_vault(
         self,
         pubkeys: set[str],
         block_identifier: BlockIdentifier,
-    ) -> dict[str, ValidatorStatus]:
+    ) -> dict[str, dict[str, ValidatorStatus]]:
         """
         Fetches validator statuses from the PDG for the given pubkeys.
         """
-        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
+        statuses = self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
             pubkeys=list(pubkeys),
             block_identifier=block_identifier,
             batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         )
+
+        statuses_by_vault: dict[str, dict[str, ValidatorStatus]] = defaultdict(dict)
+        for pubkey, status in statuses.items():
+            statuses_by_vault[status.staking_vault][pubkey] = status
+
+        return statuses_by_vault
 
     @staticmethod
     def _calculate_vault_total_value(
@@ -221,6 +228,63 @@ class StakingVaultsService:
     ) -> int:
         """
         Calculates total value for a single vault.
+
+        Starting point:
+        ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+        │                               Vault Aggregated Balance (Execution Layer)                                    │
+        │                                 Initial TV = vault.aggregated_balance                                       │
+        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                          │
+                                     Validators and Pending Deposits Contributions
+                                                          │
+                     ┌────────────────────────────────────┼────────────────────────────────────┐
+                     │                                    │                                    │
+                     ▼                                    ▼                                    ▼
+            ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓        ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓        ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
+            ┃   ELIGIBLE VALIDATORS   ┃        ┃ NON-ELIGIBLE VALIDATORS ┃        ┃  UNMATCHED PENDING      ┃
+            ┃                         ┃        ┃                         ┃        ┃  DEPOSITS               ┃
+            ┃  activation_elig ≠      ┃        ┃  activation_elig =      ┃        ┃                         ┃
+            ┃  FAR_FUTURE_EPOCH       ┃        ┃  FAR_FUTURE_EPOCH       ┃        ┃  (no validator yet)     ┃
+            ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛        ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛        ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                     │                                    │                                    │
+                     │                                    │                                    │
+                     ▼                                    ▼                                    ▼
+            ┌─────────────────────────┐        ┌─────────────────────────┐        ┌─────────────────────────┐
+            │  Add FULL value:        │        │  Check PDG Stage:       │        │  Check PDG Stage:       │
+            │                         │        │                         │        │                         │
+            │  TV += + balance        │        │  • PREDEPOSITED         │        │  • PREDEPOSITED         │
+            │        + pendings       │        │    TV += +1 ETH         │        │    TV += +1 ETH         │
+            │                         │        │          (guaranteed)   │        │          (guaranteed)   │
+            └─────────────────────────┘        │                         │        │                         │
+                                               │  • ACTIVATED            │        │  • Other stages         │
+                                               │    TV += + balance      │        │    └─► Skip             │
+                                               │          + pendings     │        │                         │
+                                               │                         │        └─────────────────────────┘
+                                               │  • Other stages         │
+                                               │    └─► Skip             │
+                                               └─────────────────────────┘
+                      │                                    │                                    │
+                      └────────────────────────────────────┼────────────────────────────────────┘
+                                                           │
+                                                           ▼
+                                        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                                        ┃    FINAL VAULT TOTAL VALUE (TV)       ┃
+                                        ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+        ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+                Stage 1: PREDEPOSITED                    Stage 2: ACTIVATED                   Stage 3: Active
+            ┌────────────────────────┐              ┌────────────────────────┐              ┌────────────────────────┐
+            │  1 ETH appears on      │   Proof      │  1 ETH +               │  Activated   │  Full 32 ETH           │
+            │  consensus layer       │─────────────►│  31 ETH (pending)      │─────────────►│  validator active      │
+            │  (predeposit)          │  submitted   │  appears immediately   │              │                        │
+            └────────────────────────┘              └────────────────────────┘              └────────────────────────┘
+                    │                                       │                                          │
+                    ▼                                       ▼                                          ▼
+                TV += 1 ETH                            TV += 32 ETH                               TV += 32+ ETH
+                (guaranteed)                        (balance + pending)                         (balance + pending)
+
         """
         vault_total = int(vault_aggregated_balance)
 
