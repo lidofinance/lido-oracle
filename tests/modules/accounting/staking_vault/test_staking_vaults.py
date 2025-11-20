@@ -816,13 +816,13 @@ class TestStakingVaults:
 
     @pytest.mark.unit
     def test_doppelganger_pubkey(self):
-        '''
+        """
         This test checks that the vaults total values are calculated correctly when a validator has a doppelganger pubkey.
         A doppelganger pubkey is a pubkey that is associated with a different vault withdrawal credentials.
 
         In this case, the validator is associated with vault 0 wc, but the pubkey is associated with vault 1 wc in PDG.
         The validator should not be included in the total values calculation for both vault 0 and vault 1.
-        '''
+        """
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
 
         validators: list[Validator] = [
@@ -881,6 +881,63 @@ class TestStakingVaults:
         expected = {
             self.vault_adr_0: expected_vault_adr_0,
             self.vault_adr_1: expected_vault_adr_1,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
+    def test_multiple_pending_deposits_for_the_same_predeposited_pubkey(self):
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
+
+        validators: list[Validator] = []
+
+        pending_deposits: list[PendingDeposit] = [
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259389),
+            ),
+        ]
+
+        validator_statuses = {
+            "0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001": ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            )
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,
+                gwei_to_wei(1000000000),  # 1 ETH predeposit only
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: 0,
             self.vault_adr_2: 2000900000000000000,
             self.vault_adr_3: 1000000000000000000,
         }

@@ -96,7 +96,7 @@ class StakingVaultsService:
             validator becomes eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
-        unmatched_pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
+        pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
         validator_statuses = self._lookup_pubkey_statuses(validators, pending_deposits, vaults, block_identifier)
 
@@ -106,7 +106,7 @@ class StakingVaultsService:
                 vault_address=vault_address,
                 vault_aggregated_balance=vault.aggregated_balance,
                 vault_validators=validators_by_vault.get(vault_address, []),
-                vault_pending_deposits=unmatched_pending_deposits_by_vault.get(vault_address, []),
+                vault_pending_deposits=pending_deposits_by_vault.get(vault_address, []),
                 total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
                 validator_statuses=validator_statuses,
             )
@@ -183,7 +183,7 @@ class StakingVaultsService:
             and v.validator.withdrawal_credentials in vault_wcs
         ]
 
-        all_validator_pubkeys = [v.validator.pubkey for v in validators]
+        all_validator_pubkeys = {v.validator.pubkey for v in validators}
         deposit_pubkeys = [
             deposit.pubkey
             for deposit in pending_deposits
@@ -201,8 +201,8 @@ class StakingVaultsService:
             batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         )
 
+    @staticmethod
     def _calculate_vault_total_value(
-        self,
         vault_address: str,
         vault_aggregated_balance: Wei,
         vault_validators: list[Validator],
@@ -240,11 +240,10 @@ class StakingVaultsService:
                 elif status.stage == ValidatorStage.ACTIVATED:
                     vault_total += int(total_validator_balance)
 
-
-        for deposit in vault_pending_deposits:
-            deposit_pubkey = deposit.pubkey
+        # Must be set to avoid double counting of pending deposits already associated with validators
+        for deposit_pubkey in {p.pubkey for p in vault_pending_deposits}:
             status = validator_statuses.get(deposit_pubkey)
-
+            # Skip if deposit pubkey in PDG is not associated with the current vault
             if status is None or status.staking_vault != vault_address:
                 continue
 
