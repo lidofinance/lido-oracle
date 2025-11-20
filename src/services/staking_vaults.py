@@ -98,7 +98,14 @@ class StakingVaultsService:
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
-        validator_statuses = self._lookup_pubkey_statuses(validators, pending_deposits, vaults, block_identifier)
+
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+
+        non_eligible_to_activation_pubkeys = self._get_non_eligible_for_activation_pubkeys(validators, vault_wcs)
+        unmatched_deposits_pubkeys = self._get_unmatched_deposits_pubkeys(validators, pending_deposits, vault_wcs)
+
+        pubkeys_to_lookup = non_eligible_to_activation_pubkeys | unmatched_deposits_pubkeys
+        validator_statuses = self._get_validator_statuses(pubkeys_to_lookup, block_identifier)
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -160,43 +167,45 @@ class StakingVaultsService:
 
         return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
-    def _lookup_pubkey_statuses(
-        self,
-        validators: list[Validator],
-        pending_deposits: list[PendingDeposit],
-        vaults: VaultsMap,
-        block_identifier: BlockIdentifier,
-    ) -> dict[str, ValidatorStatus]:
+    @staticmethod
+    def _get_non_eligible_for_activation_pubkeys(validators: list[Validator], vault_wcs: set[str]) -> set[str]:
         """
-        Collects pubkeys that require PDG status lookup, and fetches their statuses from the PDG.
-
-        Collects pubkeys that require PDG status lookup:
-        1. Not yet eligible for activation validators that are associated with the vaults
-        2. Pending deposits associated with the vaults but not associated with any validators
+         Get pubkeys of non-eligible to activation validators that are associated with the vaults.
         """
-        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-
-        non_eligible_to_activation_validators_pubkeys = [
+        return {
             v.validator.pubkey
             for v in validators
             if has_far_future_activation_eligibility_epoch(v.validator)
-            and v.validator.withdrawal_credentials in vault_wcs
-        ]
+               and v.validator.withdrawal_credentials in vault_wcs
+        }
 
+    @staticmethod
+    def _get_unmatched_deposits_pubkeys(
+        validators: list[Validator],
+        pending_deposits: list[PendingDeposit],
+        vault_wcs: set[str]
+    ) -> set[str]:
+        """
+        Get pubkeys of pending deposits that are associated with the vaults but do not have matching validators yet.
+        """
         all_validator_pubkeys = {v.validator.pubkey for v in validators}
-        deposit_pubkeys = [
+        return {
             deposit.pubkey
             for deposit in pending_deposits
             if deposit.withdrawal_credentials in vault_wcs
-            and deposit.pubkey not in all_validator_pubkeys
-        ]
+               and deposit.pubkey not in all_validator_pubkeys
+        }
 
-        pubkeys_to_check = non_eligible_to_activation_validators_pubkeys + deposit_pubkeys
-        if not pubkeys_to_check:
-            return {}
-
+    def _get_validator_statuses(
+        self,
+        pubkeys: set[str],
+        block_identifier: BlockIdentifier,
+    ) -> dict[str, ValidatorStatus]:
+        """
+        Fetches validator statuses from the PDG for the given pubkeys.
+        """
         return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
-            pubkeys=pubkeys_to_check,
+            pubkeys=list(pubkeys),
             block_identifier=block_identifier,
             batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         )
