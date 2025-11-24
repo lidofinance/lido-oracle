@@ -240,25 +240,25 @@ class StakingVaultsService:
                      ┌────────────────────────────────────┼────────────────────────────────────┐
                      │                                    │                                    │
                      ▼                                    ▼                                    ▼
-            ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓        ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓        ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
-            ┃   ELIGIBLE VALIDATORS   ┃        ┃ NON-ELIGIBLE VALIDATORS ┃        ┃  UNMATCHED PENDING      ┃
-            ┃                         ┃        ┃                         ┃        ┃  DEPOSITS               ┃
-            ┃  activation_elig ≠      ┃        ┃  activation_elig =      ┃        ┃                         ┃
-            ┃  FAR_FUTURE_EPOCH       ┃        ┃  FAR_FUTURE_EPOCH       ┃        ┃  (no validator yet)     ┃
-            ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛        ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛        ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            ┌─────────────────────────┐        ┌─────────────────────────┐        ┌─────────────────────────┐
+            │   ELIGIBLE VALIDATORS   │        │ NON-ELIGIBLE VALIDATORS │        │  UNMATCHED PENDING      │
+            │                         │        │                         │        │  DEPOSITS               │
+            │  activation_elig ≠      │        │  activation_elig =      │        │                         │
+            │  FAR_FUTURE_EPOCH       │        │  FAR_FUTURE_EPOCH       │        │  (no validator yet)     │
+            └─────────────────────────┘        └─────────────────────────┘        └─────────────────────────┘
                      │                                    │                                    │
                      │                                    │                                    │
                      ▼                                    ▼                                    ▼
             ┌─────────────────────────┐        ┌─────────────────────────┐        ┌─────────────────────────┐
             │  Add FULL value:        │        │  Check PDG Stage:       │        │  Check PDG Stage:       │
             │                         │        │                         │        │                         │
-            │  TV += + balance        │        │  • PREDEPOSITED         │        │  • PREDEPOSITED         │
-            │        + pendings       │        │    TV += +1 ETH         │        │    TV += +1 ETH         │
+            │  TV += balance +        │        │  • PREDEPOSITED         │        │  • PREDEPOSITED         │
+            │        pendings         │        │    TV += 1 ETH          │        │    TV += 1 ETH          │
             │                         │        │          (guaranteed)   │        │          (guaranteed)   │
             └─────────────────────────┘        │                         │        │                         │
                                                │  • ACTIVATED            │        │  • Other stages         │
-                                               │    TV += + balance      │        │    └─► Skip             │
-                                               │          + pendings     │        │                         │
+                                               │    TV += balance +      │        │    └─► Skip             │
+                                               │          pendings       │        │                         │
                                                │                         │        └─────────────────────────┘
                                                │  • Other stages         │
                                                │    └─► Skip             │
@@ -267,23 +267,9 @@ class StakingVaultsService:
                       └────────────────────────────────────┼────────────────────────────────────┘
                                                            │
                                                            ▼
-                                        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                                        ┃    FINAL VAULT TOTAL VALUE (TV)       ┃
-                                        ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-
-        ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-                Stage 1: PREDEPOSITED                    Stage 2: ACTIVATED                   Stage 3: Active
-            ┌────────────────────────┐              ┌────────────────────────┐              ┌────────────────────────┐
-            │  1 ETH appears on      │   Proof      │  1 ETH +               │  Activated   │  Full 32 ETH           │
-            │  consensus layer       │─────────────►│  31 ETH (pending)      │─────────────►│  validator active      │
-            │  (predeposit)          │  submitted   │  appears immediately   │              │                        │
-            └────────────────────────┘              └────────────────────────┘              └────────────────────────┘
-                    │                                       │                                          │
-                    ▼                                       ▼                                          ▼
-                TV += 1 ETH                            TV += 32 ETH                               TV += 32+ ETH
-                (guaranteed)                        (balance + pending)                         (balance + pending)
+                                        ┌───────────────────────────────────────┐
+                                        │    FINAL VAULT TOTAL VALUE (TV)       │
+                                        └───────────────────────────────────────┘
 
         """
         vault_total = int(vault_aggregated_balance)
