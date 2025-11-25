@@ -945,6 +945,166 @@ class TestStakingVaults:
         assert vaults_total_values == expected
 
     @pytest.mark.unit
+    def test_predeposited_validator_with_pending_deposit_no_double_count(self):
+        """
+        This test ensures that when a PREDEPOSITED validator also has pending deposits
+        in flight (e.g., someone top-ups the validator), we only count 1 ETH (the predeposit)
+        and NOT double-count by also processing the pending deposit.
+
+        Scenario:
+        - Validator V exists with pubkey P, balance 1 ETH, NOT eligible for activation
+        - Pending deposit D exists for the same pubkey P (additional 31 ETH)
+        - PDG stage for P is PREDEPOSITED
+
+        Expected: Only 1 ETH is counted (the guaranteed predeposit), not 2 ETH.
+        """
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
+
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1),
+                balance=Gwei(1000000000),  # 1 ETH
+                validator=ValidatorState(
+                    pubkey=pubkey,
+                    withdrawal_credentials=self.vault_wc_0,
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # Additional pending deposit to the same validator while PREDEPOSITED
+            # This could be a top-up or an attacker's deposit
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(31000000000),  # 31 ETH
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_statuses = {
+            pubkey: ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            )
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        # Expected: Only 1 ETH (the predeposit), NOT 2 ETH (would be double-counted without the fix)
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,
+                gwei_to_wei(1000000000),  # 1 ETH predeposit only, pending deposit is NOT counted separately
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
+    def test_predeposited_validator_with_pending_deposit_no_double_count_on_other_vault(self):
+        """
+        This test ensures that when a PREDEPOSITED validator on the vault has pending deposits
+        in flight (e.g., someone top-ups the validator) with wc of the vault B, we only count 1 ETH (the predeposit)
+        on the vault A and NOT double-count by also processing the pending deposit on the vault B.
+
+        Scenario:
+        - Validator V exists with pubkey P, balance 1 ETH, NOT eligible for activation for vault A
+        - Pending deposit D exists for the same pubkey P (additional 31 ETH) on vault B
+        - PDG stage for P is PREDEPOSITED on vault A
+
+        Expected: Only 1 ETH is counted (the guaranteed predeposit) on vault A, and not on vault B.
+        """
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
+
+        validators: list[Validator] = [
+            Validator(
+                index=ValidatorIndex(1),
+                balance=Gwei(1000000000),  # 1 ETH
+                validator=ValidatorState(
+                    pubkey=pubkey,
+                    withdrawal_credentials=self.vault_wc_0,  # vault A wc
+                    effective_balance=Gwei(1000000000),
+                    slashed=False,
+                    activation_eligibility_epoch=FAR_FUTURE_EPOCH,
+                    activation_epoch=FAR_FUTURE_EPOCH,
+                    exit_epoch=FAR_FUTURE_EPOCH,
+                    withdrawable_epoch=FAR_FUTURE_EPOCH,
+                ),
+            ),
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # Additional pending deposit to the same validator while PREDEPOSITED
+            # This could be a top-up or an attacker's deposit on the other vault
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_1,  # vault B wc
+                amount=Gwei(31000000000),  # 31 ETH
+                signature='0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60d9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7b81a909424c60ca7a8cbd79f101d6bd86ce1bdd39701cf93b2eecce10699f40b',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_statuses = {
+            pubkey: ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,  # vault A
+                node_operator="0x0000000000000000000000000000000000000000",
+            )
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,
+                gwei_to_wei(1000000000),  # 1 ETH predeposit only, pending deposit is NOT counted separately
+            ]
+        )
+
+        # Expected: Only 1 ETH (the predeposit) on the vault A, no eth on vault B
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: 0,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
     def test_get_vaults_total_values_with_validator_statuses(self):
         validators: list[Validator] = [
             # Activated validator with 32 ETH effective balance

@@ -78,24 +78,30 @@ class StakingVaultsService:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
 
-        A validator is included in the TV calculation if EITHER of the following conditions is true:
+        1. For each validator, if activation_eligibility_epoch != FAR_FUTURE_EPOCH
+            TV += validator.balance + pending_deposits
 
-        1. It has already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
-            - add full balance + pending deposits are added to TV, as the validator is for sure will be activated
-        2. If not-yet-eligible, then validator is checked over the registered PDG validator stages:
-            - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
-            - ACTIVATED: count as `already passed activation`, thus add full balance + pending deposits to TV
-            - all other stages are skipped as not related to the non-eligible for activation validators
-        3. A pending deposit is included in the TV if it is NOT associated with a validator yet, and the PDG stage is
-           PREDEPOSITED. It can't be ACTIVATED, as activation happenst only for created validators.
+        2. For each validator, if activation_eligibility_epoch == FAR_FUTURE_EPOCH
+            TV += (depending on PDG stage)
 
-        NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
-            predeposit (PREDEPOSITED). After the proof is submitted, an additional 31 ETH immediately appears on
-            the consensus layer as a pending deposit (ACTIVATED).
-            If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH until the pending deposit
-            is finalized and the validator is activated. To avoid this misleading drop, the TV calculation must include
-            all pending deposits, but only for those validators that passed PDG flow. All side-deposited validators
-            will appear in the TV as soon as the validator becomes eligible for activation.
+        ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+        │ PDG STAGE          │  NONE  │  PREDEPOSITED  │     PROVEN     │    ACTIVATED    │   COMPENSATED │
+        │ ───────────────────┼────────┼────────────────┼────────────────┼─────────────────┼────────────── │
+        │ TV CONTRIBUTION    │   0    │     1 ETH      │       0        │  balance + pend │      0        │
+        └─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+        3. For each pending deposit, if pubkey is not associated with any validator
+            TV += 1 ETH if PDG stage is PREDEPOSITED (only once per pubkey, to avoid double-counting)
+
+           * pending deposits can't be ACTIVATED on PDG, as activation happens only for created validators.
+
+        NB: In the PDG validator proving process, a validator initially receives 1 ETH on the consensus layer as a
+            predeposit (PREDEPOSITED). Once the proof is submitted, an additional 31 ETH immediately shows up on the
+            consensus layer as a pending deposit (ACTIVATED). Ignoring these pending deposits would make the vault's TV
+            appear to decrease by 32 ETH until the deposit is finalized and the validator is activated. To prevent this
+            misleading drop, the TV calculation should include all pending deposits, but only for validators that have
+            passed the PDG flow. All validators with side-deposits will be reflected in the TV as soon as they are
+            eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         pending_deposits_by_vault = self._get_pending_deposits_by_vault(pending_deposits, vaults)
@@ -244,7 +250,8 @@ class StakingVaultsService:
             │   ELIGIBLE VALIDATORS   │        │ NON-ELIGIBLE VALIDATORS │        │  UNMATCHED PENDING      │
             │                         │        │                         │        │  DEPOSITS               │
             │  activation_elig ≠      │        │  activation_elig =      │        │                         │
-            │  FAR_FUTURE_EPOCH       │        │  FAR_FUTURE_EPOCH       │        │  (no validator yet)     │
+            │  FAR_FUTURE_EPOCH       │        │  FAR_FUTURE_EPOCH       │        │  (pubkey not in any     │
+            │                         │        │                         │        │    vault validator)     │
             └─────────────────────────┘        └─────────────────────────┘        └─────────────────────────┘
                      │                                    │                                    │
                      │                                    │                                    │
@@ -299,14 +306,19 @@ class StakingVaultsService:
                 elif status.stage == ValidatorStage.ACTIVATED:
                     vault_total += int(total_validator_balance)
 
-        # Must be set to avoid double counting of pending deposits already associated with validators
-        for deposit_pubkey in {p.pubkey for p in vault_pending_deposits}:
+        # Process only unmatched pending deposits (those without a corresponding validator).
+        # Deposits with matching validators are already accounted for in the validator loop above.
+        # Using set difference to exclude pubkeys that have validators prevents double-counting
+        # when a PREDEPOSITED validator also has pending deposits in flight.
+        matched_validator_pubkeys = {v.validator.pubkey for v in vault_validators}
+        unmatched_deposit_pubkeys = {p.pubkey for p in vault_pending_deposits} - matched_validator_pubkeys
+        for deposit_pubkey in unmatched_deposit_pubkeys:
             status = validator_statuses.get(deposit_pubkey)
             # Skip if deposit pubkey in PDG is not associated with the current vault
             if status is None or status.staking_vault != vault_address:
                 continue
 
-            # Only PREDEPOSITED stage is possible for pending deposits
+            # Only PREDEPOSITED stage is possible for unmatched pending deposits
             if status.stage == ValidatorStage.PREDEPOSITED:
                 vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
 
