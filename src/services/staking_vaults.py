@@ -107,12 +107,18 @@ class StakingVaultsService:
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
 
         vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-        non_eligible_to_activation_pubkeys = self._get_non_eligible_for_activation_pubkeys(validators, vault_wcs)
-        unmatched_deposits_pubkeys = self._get_unmatched_deposits_pubkeys(validators, pending_deposits, vault_wcs)
-        unmatched_pending_deposits_pubkeys_by_vault = self._get_unmatched_pending_deposits_pubkeys_by_vault(pending_deposits, unmatched_deposits_pubkeys, vaults)
 
-        pubkeys_to_lookup = non_eligible_to_activation_pubkeys | unmatched_deposits_pubkeys
-        validator_statuses_by_vault = self._get_validator_statuses_by_vault(pubkeys_to_lookup, block_identifier)
+        non_eligible_pubkeys = self._get_non_eligible_for_activation_validators_pubkeys(validators, vault_wcs)
+        validator_statuses_by_vault = self._get_pubkey_statuses_by_vault(
+            pubkeys=non_eligible_pubkeys,
+            block_identifier=block_identifier,
+        )
+
+        unmatched_pubkeys = self._get_unmatched_deposits_pubkeys(validators, pending_deposits, vault_wcs)
+        unmatched_pending_deposits_statuses_by_vault = self._get_pubkey_statuses_by_vault(
+            pubkeys=unmatched_pubkeys,
+            block_identifier=block_identifier,
+        )
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
@@ -121,7 +127,7 @@ class StakingVaultsService:
                 vault_validators=validators_by_vault.get(vault_address, []),
                 total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
                 vault_validator_statuses=validator_statuses_by_vault.get(vault_address, {}),
-                vault_unmatched_pending_deposit_pubkeys=unmatched_pending_deposits_pubkeys_by_vault.get(vault_address, []),
+                vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(vault_address, {}),
             )
 
             total_values[vault_address] = Wei(vault_total)
@@ -180,9 +186,9 @@ class StakingVaultsService:
         return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
     @staticmethod
-    def _get_non_eligible_for_activation_pubkeys(validators: list[Validator], vault_wcs: set[str]) -> set[str]:
+    def _get_non_eligible_for_activation_validators_pubkeys(validators: list[Validator], vault_wcs: set[str]) -> set[str]:
         """
-         Get pubkeys of non-eligible to activation validators that are associated with the vaults.
+        Get set of pubkeys of non-eligible for activation validators that are associated with the vaults.
         """
         return {
             v.validator.pubkey
@@ -198,7 +204,7 @@ class StakingVaultsService:
         vault_wcs: set[str]
     ) -> set[str]:
         """
-        Get pubkeys of pending deposits that are associated with the vaults but do not have matching validators yet.
+        Get set of pubkeys of pending deposits that are associated with the vaults and do not have matching validator.
         """
         all_validator_pubkeys = {v.validator.pubkey for v in validators}
         return {
@@ -207,7 +213,7 @@ class StakingVaultsService:
             if deposit.withdrawal_credentials in vault_wcs and deposit.pubkey not in all_validator_pubkeys
         }
 
-    def _get_validator_statuses_by_vault(
+    def _get_pubkey_statuses_by_vault(
         self,
         pubkeys: set[str],
         block_identifier: BlockIdentifier,
@@ -233,7 +239,7 @@ class StakingVaultsService:
         vault_validators: list[Validator],
         total_pending_amount_by_pubkey: dict[str, Gwei],
         vault_validator_statuses: dict[str, ValidatorStatus],
-        vault_unmatched_pending_deposit_pubkeys: set[str],
+        vault_unmatched_pending_deposit_statuses: dict[str, ValidatorStatus],
     ) -> int:
         """
         Calculates total value for a single vault.
@@ -310,13 +316,12 @@ class StakingVaultsService:
                     vault_total += int(total_validator_balance)
 
         # Only sum 1 ETH for unmatched pending deposits in PREDEPOSITED stage
-        vault_predeposited_unmatched_pending_deposit_pubkeys_count = len({
-            pubkey
-            for pubkey in vault_unmatched_pending_deposit_pubkeys
-            if (status := vault_validator_statuses.get(pubkey)) and status.stage == ValidatorStage.PREDEPOSITED
-        })
+        num_predeposited = sum(
+            status.stage == ValidatorStage.PREDEPOSITED
+            for status in vault_unmatched_pending_deposit_statuses.values()
+        )
 
-        vault_total += vault_predeposited_unmatched_pending_deposit_pubkeys_count * int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+        vault_total += num_predeposited * int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
 
         return vault_total
 

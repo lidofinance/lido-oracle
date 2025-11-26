@@ -157,6 +157,23 @@ class TestStakingVaults:
 
         self.staking_vaults = StakingVaultsService(w3_mock)
 
+    def _create_w3_mock_with_validator_statuses(
+        self, validator_statuses: dict[str, ValidatorStatus] | None = None
+    ) -> MagicMock:
+        if validator_statuses is None:
+            validator_statuses = {}
+
+        def get_validator_statuses(pubkeys, *args, **kwargs):
+            # Return statuses only for those pubkeys passed in
+            return {k: v for k, v in validator_statuses.items() if k in pubkeys}
+
+        w3_mock = MagicMock()
+        lazy_oracle_mock = MagicMock()
+        lazy_oracle_mock.get_validator_statuses.side_effect = get_validator_statuses
+
+        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        return w3_mock
+
     @pytest.mark.unit
     def test_get_vaults_total_values(self):
         validators: list[Validator] = [
@@ -695,10 +712,7 @@ class TestStakingVaults:
             )
         }
 
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -855,11 +869,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -868,6 +878,78 @@ class TestStakingVaults:
             [
                 self.vaults[self.vault_adr_0].aggregated_balance,  # vault 0 EL aggregated balance
                 # no balance for validator added because of wrong wc
+            ]
+        )
+
+        expected_vault_adr_1 = sum(
+            [
+                self.vaults[self.vault_adr_1].aggregated_balance,
+                # no balance for validator added because of wrong wc
+            ]
+        )
+
+        expected = {
+            self.vault_adr_0: expected_vault_adr_0,
+            self.vault_adr_1: expected_vault_adr_1,
+            self.vault_adr_2: 2000900000000000000,
+            self.vault_adr_3: 1000000000000000000,
+        }
+
+        assert vaults_total_values == expected
+
+    @pytest.mark.unit
+    def test_doppelganger_predeposits_pubkey(self):
+        """
+        This test checks that the vaults total values are calculated correctly when a there are two predeposits for a
+        doppelganger pubkey. A doppelganger pubkey is a pubkey that is associated with a different vault withdrawal credentials.
+
+        In this case, the correct predeposit is associated with vault 0 wc, but the second one is associated with vault 1 wc in PDG.
+        The pubkey should be included in the total values calculation for vault 0 and NOT vault 1.
+        """
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
+
+        validators: list[Validator] = [
+            # not validators with this pubkey
+        ]
+
+        pending_deposits: list[PendingDeposit] = [
+            # deposit with vault 0 wc (correct one)
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_0,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+            # deposit with vault 1 wc (wrong one)
+            PendingDeposit(
+                pubkey=pubkey,
+                withdrawal_credentials=self.vault_wc_1,
+                amount=Gwei(1000000000),
+                signature='0xa8e06b7ad322e27b4aab71c9901f2196c288b9dd616aefbef9eb58084094ddc2e220cbec0024b563918f8ad18ad680ab062b7a09ec5a2287da5f1ef3ab9073f3c6287faaba714bb347958a0563f2aeaa4f7eb56cabeb29a063e964e93c1020db',
+                slot=SlotNumber(259388),
+            ),
+        ]
+
+        validator_statuses = {
+            # predeposited but for vault 0 wc
+            pubkey: ValidatorStatus(
+                stage=ValidatorStage.PREDEPOSITED,
+                staking_vault=self.vault_adr_0,
+                node_operator="0x0000000000000000000000000000000000000000",
+            )
+        }
+
+        # --- Web3 Mock ---
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
+        self.staking_vaults = StakingVaultsService(w3_mock)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
+
+        expected_vault_adr_0 = sum(
+            [
+                self.vaults[self.vault_adr_0].aggregated_balance,  # vault 0 EL aggregated balance
+                gwei_to_wei(1000000000),  # 1 ETH predeposit only
             ]
         )
 
@@ -919,11 +1001,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -998,11 +1076,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -1078,11 +1152,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -1240,11 +1310,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
@@ -1350,11 +1416,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
@@ -1494,11 +1556,7 @@ class TestStakingVaults:
         }
 
         # --- Web3 Mock ---
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses = MagicMock(return_value=validator_statuses)
-
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
+        w3_mock = self._create_w3_mock_with_validator_statuses(validator_statuses)
         self.staking_vaults = StakingVaultsService(w3_mock)
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(self.vaults, validators, pending_deposits)
