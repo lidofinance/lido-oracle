@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal, NoReturn, Type
-from unittest.mock import Mock, PropertyMock, call, patch
+from unittest.mock import Mock, PropertyMock, call
 
 import pytest
 from hexbytes import HexBytes
@@ -14,7 +14,7 @@ from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
-from src.modules.performance.common.types import ProposalDuty, SyncDuty
+from src.modules.performance.common.db import Duty
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.consensus.types import Validator, ValidatorState
@@ -254,14 +254,16 @@ def test_set_epochs_range_to_collect_posts_new_demand(module: CSOracle, mock_cha
     module.converter = Mock(return_value=converter)
     module.get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
-    module.w3.performance.get_epochs_demands = Mock(return_value={})
+    module.w3.performance.is_range_available = Mock(return_value=False)
+    module.w3.performance.get_epochs_demand = Mock(return_value={})
     module.w3.performance.post_epochs_demand = Mock()
 
     module.set_epochs_range_to_collect(blockstamp)
 
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.state.log_progress.assert_called_once()
-    module.w3.performance.get_epochs_demands.assert_called_once()
+    module.w3.performance.is_range_available.assert_called_once_with(10, 20)
+    module.w3.performance.get_epochs_demand.assert_called_once()
     module.w3.performance.post_epochs_demand.assert_called_once_with("CSOracle", 10, 20)
 
 
@@ -372,49 +374,36 @@ def test_collect_data_handles_range_availability(
         assert "All epochs are already processed. Nothing to collect" not in caplog.messages
 
 
-@pytest.mark.parametrize(
-    "epoch_data_missing", [pytest.param(False, id="duties_recorded"), pytest.param(True, id="epoch_missing")]
-)
 @pytest.mark.unit
-def test_fulfill_state_handles_epoch_data(module: CSOracle, epoch_data_missing: bool):
+def test_fulfill_state_handles_epoch_data(module: CSOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
 
-    if epoch_data_missing:
-        module.w3.performance.get_epoch_data = Mock(return_value=None)
-        frames = [(0, 0)]
-        unprocessed = {0}
-    else:
-        module.w3.performance.get_epoch_data = Mock(
-            side_effect=[
-                (
-                    {validator_a.index},
-                    [
-                        ProposalDuty(validator_index=int(validator_a.index), is_proposed=True),
-                        ProposalDuty(validator_index=int(validator_b.index), is_proposed=False),
-                    ],
-                    [
-                        SyncDuty(validator_index=int(validator_a.index), missed_count=0),
-                        SyncDuty(validator_index=int(validator_b.index), missed_count=1),
-                    ],
-                ),
-                (
-                    set(),
-                    [
-                        ProposalDuty(validator_index=int(validator_b.index), is_proposed=True),
-                    ],
-                    [
-                        SyncDuty(validator_index=int(validator_a.index), missed_count=2),
-                        SyncDuty(validator_index=int(validator_b.index), missed_count=3),
-                    ],
-                ),
-            ]
-        )
-        frames = [(0, 1)]
-        unprocessed = {0, 1}
+    module.w3.performance.get_epoch_data = Mock(
+        side_effect=[
+            Duty(
+                epoch_number=EpochNumber(0),
+                attestations=[validator_a.index],
+                proposals_vids=[int(validator_a.index), int(validator_b.index)],
+                proposals_flags=[True, False],
+                syncs_vids=[int(validator_a.index), int(validator_b.index)],
+                syncs_misses=[0, 1],
+            ),
+            Duty(
+                epoch_number=EpochNumber(1),
+                attestations=[],
+                proposals_vids=[int(validator_b.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(validator_a.index), int(validator_b.index)],
+                syncs_misses=[2, 3],
+            ),
+        ]
+    )
+    frames = [(0, 1)]
+    unprocessed = {0, 1}
 
     state = Mock()
     state.frames = frames
@@ -431,40 +420,32 @@ def test_fulfill_state_handles_epoch_data(module: CSOracle, epoch_data_missing: 
     module._receive_last_finalized_slot.assert_called_once()
     module.w3.cc.get_validators.assert_called_once_with("finalized")
 
-    if epoch_data_missing:
-        module.w3.performance.get_epoch_data.assert_called_once_with(0)
-        state.save_att_duty.assert_not_called()
-        state.save_prop_duty.assert_not_called()
-        state.save_sync_duty.assert_not_called()
-        state.add_processed_epoch.assert_not_called()
-        state.log_progress.assert_not_called()
-    else:
-        module.w3.performance.get_epoch_data.assert_has_calls([call(0), call(1)])
-        assert state.save_att_duty.call_args_list == [
-            call(EpochNumber(0), validator_a.index, included=False),
-            call(EpochNumber(0), validator_b.index, included=True),
-            call(EpochNumber(1), validator_a.index, included=True),
-            call(EpochNumber(1), validator_b.index, included=True),
-        ]
-        assert state.save_prop_duty.call_args_list == [
-            call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-            call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
-        ]
-        assert state.save_sync_duty.call_args_list == [
-            call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-            call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-            call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-        ]
-        assert state.add_processed_epoch.call_args_list == [
-            call(EpochNumber(0)),
-            call(EpochNumber(1)),
-        ]
-        assert state.log_progress.call_count == 2
+    module.w3.performance.get_epoch_data.assert_has_calls([call(0), call(1)])
+    assert state.save_att_duty.call_args_list == [
+        call(EpochNumber(0), validator_a.index, included=False),
+        call(EpochNumber(0), validator_b.index, included=True),
+        call(EpochNumber(1), validator_a.index, included=True),
+        call(EpochNumber(1), validator_b.index, included=True),
+    ]
+    assert state.save_prop_duty.call_args_list == [
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
+    ]
+    assert state.save_sync_duty.call_args_list == [
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+    ]
+    assert state.add_processed_epoch.call_args_list == [
+        call(EpochNumber(0)),
+        call(EpochNumber(1)),
+    ]
+    assert state.log_progress.call_count == 2
 
 
 @pytest.mark.unit
@@ -473,7 +454,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
-    module.w3.performance.get_epoch_data = Mock(return_value=({inactive_validator.index}, [], []))
+    module.w3.performance.get_epoch_data = Mock(return_value=Duty(epoch=0, attestations=[inactive_validator.index], proposals_vids=[], proposals_flags= [], syncs_vids=[], syncs_misses=[]))
     state = Mock()
     state.frames = [(0, 0)]
     state.unprocessed_epochs = {0}
