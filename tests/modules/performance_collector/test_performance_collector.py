@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from src.modules.performance_collector.performance_collector import PerformanceCollector
-from src.modules.performance_collector.db import DutiesDB
+from src.modules.performance.collector.collector import PerformanceCollector
+from src.modules.performance.common.db import DutiesDB
 from src.types import EpochNumber
 
 

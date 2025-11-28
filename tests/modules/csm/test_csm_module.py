@@ -14,7 +14,7 @@ from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
-from src.modules.performance_collector.codec import ProposalDuty, SyncDuty
+from src.modules.performance.common.types import ProposalDuty, SyncDuty
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.consensus.types import Validator, ValidatorState
@@ -254,14 +254,14 @@ def test_set_epochs_range_to_collect_posts_new_demand(module: CSOracle, mock_cha
     module.converter = Mock(return_value=converter)
     module.get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
-    module.w3.performance.get_epochs_demand = Mock(return_value={})
+    module.w3.performance.get_epochs_demands = Mock(return_value={})
     module.w3.performance.post_epochs_demand = Mock()
 
     module.set_epochs_range_to_collect(blockstamp)
 
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.state.log_progress.assert_called_once()
-    module.w3.performance.get_epochs_demand.assert_called_once()
+    module.w3.performance.get_epochs_demands.assert_called_once()
     module.w3.performance.post_epochs_demand.assert_called_once_with("CSOracle", 10, 20)
 
 
@@ -274,7 +274,7 @@ def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSOracl
     module.converter = Mock(return_value=converter)
     module.get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
-    module.w3.performance.get_epochs_demand = Mock(return_value={"CSOracle": (10, 20)})
+    module.w3.performance.get_epochs_demands = Mock(return_value={"CSOracle": (10, 20)})
     module.w3.performance.post_epochs_demand = Mock()
 
     module.set_epochs_range_to_collect(blockstamp)
@@ -384,11 +384,11 @@ def test_fulfill_state_handles_epoch_data(module: CSOracle, epoch_data_missing: 
     module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
 
     if epoch_data_missing:
-        module.w3.performance.get_epoch = Mock(return_value=None)
+        module.w3.performance.get_epoch_data = Mock(return_value=None)
         frames = [(0, 0)]
         unprocessed = {0}
     else:
-        module.w3.performance.get_epoch = Mock(
+        module.w3.performance.get_epoch_data = Mock(
             side_effect=[
                 (
                     {validator_a.index},
@@ -432,14 +432,14 @@ def test_fulfill_state_handles_epoch_data(module: CSOracle, epoch_data_missing: 
     module.w3.cc.get_validators.assert_called_once_with("finalized")
 
     if epoch_data_missing:
-        module.w3.performance.get_epoch.assert_called_once_with(0)
+        module.w3.performance.get_epoch_data.assert_called_once_with(0)
         state.save_att_duty.assert_not_called()
         state.save_prop_duty.assert_not_called()
         state.save_sync_duty.assert_not_called()
         state.add_processed_epoch.assert_not_called()
         state.log_progress.assert_not_called()
     else:
-        module.w3.performance.get_epoch.assert_has_calls([call(0), call(1)])
+        module.w3.performance.get_epoch_data.assert_has_calls([call(0), call(1)])
         assert state.save_att_duty.call_args_list == [
             call(EpochNumber(0), validator_a.index, included=False),
             call(EpochNumber(0), validator_b.index, included=True),
@@ -473,7 +473,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
-    module.w3.performance.get_epoch = Mock(return_value=({inactive_validator.index}, [], []))
+    module.w3.performance.get_epoch_data = Mock(return_value=({inactive_validator.index}, [], []))
     state = Mock()
     state.frames = [(0, 0)]
     state.unprocessed_epochs = {0}
@@ -487,7 +487,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
     with pytest.raises(ValueError, match="not active"):
         module.fulfill_state()
 
-    module.w3.performance.get_epoch.assert_called_once_with(0)
+    module.w3.performance.get_epoch_data.assert_called_once_with(0)
     state.save_att_duty.assert_not_called()
     state.add_processed_epoch.assert_not_called()
 

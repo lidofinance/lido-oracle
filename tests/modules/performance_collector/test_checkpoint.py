@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import src.modules.performance_collector.checkpoint as checkpoint_module
+import src.modules.performance.collector.checkpoint as checkpoint_module
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-from src.modules.performance_collector.checkpoint import (
+from src.modules.performance.collector.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
     FrameCheckpointsIterator,
@@ -17,7 +17,7 @@ from src.modules.performance_collector.checkpoint import (
     ValidatorDuty,
     process_attestations,
 )
-from src.modules.performance_collector.db import DutiesDB
+from src.modules.performance.common.db import DutiesDB
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
