@@ -1,3 +1,4 @@
+import atexit
 import logging
 
 from hexbytes import HexBytes
@@ -59,13 +60,36 @@ class CSOracle(BaseModule, ConsensusModule):
     report_contract: CSFeeOracleContract
 
     def __init__(self, w3: Web3):
+        self.consumer = self.__class__.__name__
         self.report_contract = w3.csm.oracle
         self.state = State.load()
         super().__init__(w3)
+        atexit.register(self._on_shutdown)
 
     def refresh_contracts(self):
         self.report_contract = self.w3.csm.oracle  # type: ignore
         self.state.clear()
+
+    def _on_shutdown(self):
+        performance_client = getattr(self.w3, "performance", None)
+        if performance_client is None:
+            logger.debug({
+                "msg": "Performance client is not attached, skipping demand cleanup",
+                "consumer": self.consumer,
+            })
+            return
+        try:
+            performance_client.delete_epochs_demand(self.consumer)
+            logger.info({
+                "msg": "Cleared Performance Collector demand on shutdown",
+                "consumer": self.consumer,
+            })
+        except Exception as error:
+            logger.warning({
+                "msg": "Unexpected error during Performance Collector demand cleanup",
+                "consumer": self.consumer,
+                "error": str(error),
+            })
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         if not self._check_compatability(last_finalized_blockstamp):
@@ -86,22 +110,30 @@ class CSOracle(BaseModule, ConsensusModule):
 
     @duration_meter()
     def set_epochs_range_to_collect(self, blockstamp: BlockStamp):
-        consumer = self.__class__.__name__
         converter = self.converter(blockstamp)
 
         l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
-        current_demands = self.w3.performance.get_epochs_demand()
-        current_demand = current_demands.get(consumer)
-        if current_demand != (l_epoch, r_epoch):
+        is_range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
+        if is_range_available:
             logger.info({
-                "msg": f"Updating {consumer} epochs demand for Performance Collector",
-                "old": current_demand,
+                "msg": "Performance data range is already available",
+                "start_epoch": l_epoch,
+                "end_epoch": r_epoch
+            })
+            return
+
+        current_demand = self.w3.performance.get_epochs_demand(self.consumer)
+        current_epochs_range = (current_demand.l_epoch, current_demand.r_epoch) if current_demand else None
+        if current_epochs_range != (l_epoch, r_epoch):
+            logger.info({
+                "msg": f"Updating {self.consumer} epochs demand for Performance Collector",
+                "old": current_epochs_range,
                 "new": (l_epoch, r_epoch)
             })
-            self.w3.performance.post_epochs_demand(consumer, l_epoch, r_epoch)
+            self.w3.performance.post_epochs_demand(self.consumer, l_epoch, r_epoch)
 
     @duration_meter()
     def collect_data(self) -> bool:
@@ -226,45 +258,58 @@ class CSOracle(BaseModule, ConsensusModule):
                     "msg": "Requesting performance data from collector",
                     "epoch": epoch
                 })
-                epoch_data = self.w3.performance.get_epoch(epoch)
+                epoch_data = self.w3.performance.get_epoch_data(epoch)
                 if epoch_data is None:
                     raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
-                misses, props, syncs = epoch_data
+                misses, props_vids, props_flags, syncs_vids, syncs_misses = (
+                    epoch_data.attestations,
+                    epoch_data.proposals_vids,
+                    epoch_data.proposals_flags,
+                    epoch_data.syncs_vids,
+                    epoch_data.syncs_misses
+                )
+
+                if len(props_vids) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
+                    raise ValueError(f"Epoch {epoch} data is corrupted: {len(props_vids)=}, {len(props_flags)=}, {len(syncs_vids)=}, {len(syncs_misses)=}")
+
                 logger.info({
                     "msg": "Performance data received",
                     "epoch": epoch,
                     "misses_count": len(misses),
-                    "proposals_count": len(props),
-                    "sync_duties_count": len(syncs)
+                    "proposals_count": len(props_vids),
+                    "sync_duties_count": len(syncs_vids)
                 })
 
+                misses = set(misses)
                 for validator in validators:
                     missed_att = validator.index in misses
                     included_att = validator.index not in misses
-                    is_active = is_active_validator(validator, EpochNumber(epoch))
+                    is_active = is_active_validator(validator, epoch)
                     if not is_active and missed_att:
                         raise ValueError(f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active")
                     self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
 
                 blocks_in_epoch = 0
 
-                for p in props:
-                    vid = ValidatorIndex(p.validator_index)
-                    self.state.save_prop_duty(EpochNumber(epoch), vid, included=bool(p.is_proposed))
-                    blocks_in_epoch += p.is_proposed
+                for i, vid in enumerate(props_vids):
+                    proposed = props_flags[i]
+                    self.state.save_prop_duty(EpochNumber(epoch), ValidatorIndex(vid), included=bool(proposed))
+                    blocks_in_epoch += proposed
 
                 if blocks_in_epoch:
-                    for rec in syncs:
-                        vid = ValidatorIndex(rec.validator_index)
-                        fulfilled = max(0, blocks_in_epoch - rec.missed_count)
-                        for _ in range(fulfilled):
+                    for i, vid in enumerate(syncs_vids):
+                        vid = ValidatorIndex(vid)
+                        s_misses = syncs_misses[i]
+                        s_fulfilled = max(0, blocks_in_epoch - s_misses)
+                        for _ in range(s_fulfilled):
                             self.state.save_sync_duty(EpochNumber(epoch), vid, included=True)
-                        for _ in range(rec.missed_count):
+                        for _ in range(s_misses):
                             self.state.save_sync_duty(EpochNumber(epoch), vid, included=False)
 
                 self.state.add_processed_epoch(EpochNumber(epoch))
                 self.state.log_progress()
+                self.state.commit()
 
     def make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:

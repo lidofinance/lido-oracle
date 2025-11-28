@@ -10,8 +10,8 @@ from hexbytes import HexBytes
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SYNC_COMMITTEE_SIZE
-from src.modules.performance_collector.codec import ProposalDuty, SyncDuty, AttDutyMisses
-from src.modules.performance_collector.db import DutiesDB
+from src.modules.performance.common.types import ProposalDuty, SyncDuty, AttDutyMisses
+from src.modules.performance.common.db import DutiesDB
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import SyncCommittee, SyncAggregate
@@ -133,7 +133,7 @@ class FrameCheckpointProcessor:
         logger.info(
             {"msg": f"Processing checkpoint for slot {checkpoint.slot} with {len(checkpoint.duty_epochs)} epochs"}
         )
-        unprocessed_epochs = [e for e in checkpoint.duty_epochs if not self.db.has_epoch(int(e))]
+        unprocessed_epochs = [e for e in checkpoint.duty_epochs if not self.db.has_epoch(e)]
         if not unprocessed_epochs:
             logger.info({"msg": "Nothing to process in the checkpoint"})
             return 0
@@ -310,7 +310,7 @@ class FrameCheckpointProcessor:
 
         duties: SyncDuties = []
         for vid in sync_committee.validators:
-            duties.append(SyncDuty(vid, missed_count=0))
+            duties.append(SyncDuty(validator_index=vid, missed_count=0))
 
         return duties
 
@@ -354,7 +354,7 @@ class FrameCheckpointProcessor:
         dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
         proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
         for duty in proposer_duties:
-            duties[duty.slot] = ProposalDuty(duty.validator_index, is_proposed=False)
+            duties[duty.slot] = ProposalDuty(validator_index=duty.validator_index, is_proposed=False)
         return duties
 
     def _get_dependent_root_for_proposer_duties(

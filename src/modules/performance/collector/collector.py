@@ -1,17 +1,14 @@
 import logging
-from typing import Optional, Final
 
-from src.modules.performance_collector.checkpoint import (
+from src.modules.performance.collector.checkpoint import (
     FrameCheckpointsIterator,
     FrameCheckpointProcessor,
 )
-from src.modules.performance_collector.db import DutiesDB
-from src.modules.performance_collector.http_server import start_performance_api_server
+from src.modules.performance.common.db import DutiesDB
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ChainConfig
 from src.types import BlockStamp, EpochNumber
 from src.utils.web3converter import ChainConverter
-from src import variables
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +20,9 @@ class PerformanceCollector(BaseModule):
     # Timestamp of the last epochs demand update
     last_epochs_demand_update: int = 0
 
-    def __init__(self, w3, db_path: Optional[str] = None):
+    def __init__(self, w3):
         super().__init__(w3)
-        logger.info({'msg': 'Initialize Performance Collector module.'})
-        db_path = db_path or str((variables.CACHE_PATH / "eth_duties.sqlite").absolute())
-        self.db = DutiesDB(db_path)
-        try:
-            logger.info(
-                {'msg': f'Start performance API server on port {variables.PERFORMANCE_COLLECTOR_SERVER_API_PORT}'}
-            )
-            start_performance_api_server(db_path)
-        except Exception as e:
-            logger.error({'msg': 'Failed to start performance API server', 'error': repr(e)})
-            raise
+        self.db = DutiesDB()
         self.last_epochs_demand_update = self.get_epochs_demand_max_updated_at()
 
     def refresh_contracts(self):
@@ -114,14 +101,21 @@ class PerformanceCollector(BaseModule):
         start_epoch = EpochNumber(max_available_epoch_to_check)
         end_epoch = EpochNumber(max_available_epoch_to_check)
 
-        epochs_demand = self.db.epochs_demand()
+        epochs_demand = self.db.get_epochs_demands()
         if not epochs_demand:
             logger.info({"msg": "No epoch demands found"})
-        for consumer, (l_epoch, r_epoch, updated_at) in epochs_demand.items():
+        for demand in epochs_demand:
             logger.info({
-                "msg": "Epochs demand", "consumer": consumer, "l_epoch": l_epoch, "r_epoch": r_epoch, "updated_at": updated_at
+                "msg": "Epochs demand", **demand.model_dump()
             })
-            start_epoch = min(start_epoch, l_epoch)
+            is_range_available = self.db.is_range_available(EpochNumber(demand.l_epoch), EpochNumber(demand.r_epoch))
+            if is_range_available:
+                logger.info({
+                    "msg": f"Epochs demand for {demand.consumer} is already satisfied",
+                })
+                # Remove from the DB just in case
+                self.db.delete_demand(demand.consumer)
+            start_epoch = min(start_epoch, demand.l_epoch)
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
         if missing_epochs:
@@ -158,7 +152,6 @@ class PerformanceCollector(BaseModule):
 
     def get_epochs_demand_max_updated_at(self) -> int:
         max_updated_at = 0
-        epochs_demand = self.db.epochs_demand()
-        for _, (_, _, updated_at) in epochs_demand.items():
-            max_updated_at = max(max_updated_at, updated_at)
+        for demand in self.db.get_epochs_demands():
+            max_updated_at = max(max_updated_at, demand.updated_at)
         return max_updated_at

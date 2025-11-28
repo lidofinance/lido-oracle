@@ -1,8 +1,9 @@
-from eth_typing import HexStr
-
 from src.metrics.prometheus.basic import PERFORMANCE_REQUESTS_DURATION
-from src.modules.performance_collector.codec import EpochDataCodec, EpochData
-from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
+from src.modules.performance.common.db import Duty, EpochsDemand
+from src.providers.http_provider import (
+    HTTPProvider,
+    NotOkResponse,
+)
 from src.types import EpochNumber
 
 
@@ -14,66 +15,37 @@ class PerformanceClient(HTTPProvider):
     PROVIDER_EXCEPTION = PerformanceClientError
     PROMETHEUS_HISTOGRAM = PERFORMANCE_REQUESTS_DURATION
 
-    API_EPOCHS_CHECK = 'epochs/check'
-    API_EPOCHS_MISSING = 'epochs/missing'
-    API_EPOCHS_BLOB = 'epochs/blob'
-    API_EPOCHS_DEMAND = 'epochs/demand'
+    API_EPOCHS_CHECK = 'check-epochs'
+    API_EPOCHS_DATA = 'epochs'
+    API_EPOCHS_DEMAND = 'demands'
 
-    def is_range_available(self, l_epoch: int, r_epoch: int) -> bool:
+    def is_range_available(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
         data, _ = self._get(
             self.API_EPOCHS_CHECK,
             query_params={'from': l_epoch, 'to': r_epoch},
-            retval_validator=data_is_dict,
         )
-        return data['result']
+        return bool(data)
 
-    def missing_epochs_in(self, l_epoch: int, r_epoch: int) -> list[EpochNumber]:
+    def get_epoch_data(self, epoch: EpochNumber) -> Duty | None:
         data, _ = self._get(
-            self.API_EPOCHS_MISSING,
-            query_params={'from': l_epoch, 'to': r_epoch},
-            retval_validator=data_is_dict,
+            self.API_EPOCHS_DATA + f"/{epoch}",
         )
-        return data['result']
+        return Duty.model_validate(data) if data else None
 
-    def get_epoch_blobs(self, l_epoch: int, r_epoch: int) -> list[HexStr | None]:
+    def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         data, _ = self._get(
-            self.API_EPOCHS_BLOB,
-            query_params={'from': l_epoch, 'to': r_epoch},
-            retval_validator=data_is_dict,
+            self.API_EPOCHS_DEMAND + f"/{consumer}",
         )
-        return data['result']
-
-    def get_epoch_blob(self, epoch: int) -> HexStr | None:
-        data, _ = self._get(
-            self.API_EPOCHS_BLOB + f"/{epoch}",
-            retval_validator=data_is_dict,
-        )
-        return data['result']
-
-    def get_epochs(self, l_epoch: int, r_epoch: int) -> list[EpochData]:
-        epochs_data = self.get_epoch_blobs(l_epoch, r_epoch)
-        return [
-            EpochDataCodec.decode(bytes.fromhex(blob))
-            if (blob := epoch_data['blob']) else None
-            for epoch_data in epochs_data
-        ]
-
-    def get_epoch(self, epoch: int) -> EpochData | None:
-        blob = self.get_epoch_blob(epoch)
-        return EpochDataCodec.decode(bytes.fromhex(blob)) if blob else None
-
-    def get_epochs_demand(self) -> dict[str, tuple[EpochNumber, EpochNumber]]:
-        data, _ = self._get(
-            self.API_EPOCHS_DEMAND,
-            retval_validator=data_is_dict,
-        )
-        return {
-            consumer: (EpochNumber(demand[0]), EpochNumber(demand[1]))
-            for consumer, demand in data['result'].items()
-        }
+        return EpochsDemand.model_validate(data) if data else None
 
     def post_epochs_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         self._post(
             self.API_EPOCHS_DEMAND,
             body_data={'consumer': consumer, 'l_epoch': l_epoch, 'r_epoch': r_epoch},
+        )
+
+    def delete_epochs_demand(self, consumer: str) -> None:
+        self._delete(
+            self.API_EPOCHS_DEMAND,
+            query_params={'consumer': consumer},
         )

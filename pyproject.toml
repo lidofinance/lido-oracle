@@ -30,8 +30,11 @@ oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = 
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
 dag-cbor="^0.3.3"
-flask = "^3.0.0"
-waitress = "^3.0.2"
+fastapi = "^0.121.3"
+uvicorn = "^0.38.0"
+sqlmodel = "^0.0.27"
+psycopg2-binary = "^2.9.11"
+prometheus-fastapi-instrumentator = "^7.1.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"

@@ -208,8 +208,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             if not stream:
                 del json_response["data"]
                 meta = json_response
-        except KeyError:
-            # NOTE: Used by KeysAPIClient only.
+        except (KeyError, TypeError):
+            # NOTE: Used by KeysAPIClient and PerformanceClient only.
             data = json_response
             meta = {}
 
@@ -316,6 +316,110 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 )
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
+
+        try:
+            data = json_response["data"]
+            del json_response["data"]
+            meta = json_response
+        except KeyError:
+            data = json_response
+            meta = {}
+
+        retval_validator(data, meta, endpoint=endpoint)
+        return data, meta
+
+    def _delete(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        errors: list[Exception] = []
+
+        for host in self.hosts:
+            try:
+                return self._delete_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    body_data,
+                    retval_validator=retval_validator,
+                )
+            except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
+
+                logger.warning(
+                    {
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
+                        'error': str(e),
+                        'provider': urlparse(host).netloc,
+                    }
+                )
+
+        if not errors:
+            raise RuntimeError('No hosts available for DELETE request')
+        raise errors[-1]
+
+    def _delete_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response = self.session.delete(
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
+                    params=query_params,
+                    json=body_data,
+                    timeout=self.request_timeout,
+                )
+            except Exception as error:  # pylint: disable=W0703
+                logger.error({'msg': str(error)})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
+
+            if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
+
+            if not response.content:
+                json_response: dict = {}
+            else:
+                try:
+                    json_response = response.json()
+                except JSONDecodeError as error:
+                    response_fail_msg = (
+                        f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                    )
+                    logger.debug({'msg': response_fail_msg})
+                    raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
         try:
             data = json_response["data"]

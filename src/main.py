@@ -15,7 +15,7 @@ from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
 from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
-from src.modules.performance_collector.performance_collector import PerformanceCollector
+from src.modules.performance.collector.collector import PerformanceCollector
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -111,6 +111,8 @@ def main(module_name: OracleModule):
         logger.info({'msg': 'Initialize CSM performance oracle module.'})
         instance = CSOracle(web3)
     elif module_name == OracleModule.PERFORMANCE_COLLECTOR:
+        logger.info({'msg': 'Initialize Performance Collector module.'})
+        # FIXME: web3 object is overkill. only CONSENSUS_CLIENT_URI needed here.
         instance = PerformanceCollector(web3)
     else:
         raise ValueError(f'Unexpected arg: {module_name=}.')
@@ -183,7 +185,6 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
         )
 
 
-
 if __name__ == '__main__':
     module_name_arg = sys.argv[-1]
     if module_name_arg not in OracleModule:
@@ -192,12 +193,20 @@ if __name__ == '__main__':
         raise ValueError(msg)
 
     module = OracleModule(module_name_arg)
+
     if module is OracleModule.CHECK:
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
-
         sys.exit(check())
 
-    errors = variables.check_all_required_variables(module)
+    if module is OracleModule.PERFORMANCE_WEB_SERVER:
+        from src.modules.performance.web.server import serve
+        logger.info({'msg': f'Starting Performance Web Server on port {variables.PERFORMANCE_WEB_SERVER_API_PORT}'})
+        sys.exit(serve())
+
+    if module is OracleModule.PERFORMANCE_COLLECTOR:
+        errors = variables.check_perf_collector_required_variables()
+    else:
+        errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
     main(module)
