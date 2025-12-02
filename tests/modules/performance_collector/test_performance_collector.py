@@ -21,13 +21,11 @@ def mock_db():
 @pytest.fixture
 def performance_collector(mock_w3, mock_db):
     """Create PerformanceCollector instance with mocked dependencies"""
-    from pathlib import Path
-    mock_cache_path = Path('/tmp')
-
-    with patch('src.modules.performance_collector.performance_collector.DutiesDB', return_value=mock_db), \
-         patch('src.modules.performance_collector.performance_collector.start_performance_api_server'), \
-         patch('src.modules.performance_collector.performance_collector.variables.CACHE_PATH', mock_cache_path), \
-         patch('src.modules.performance_collector.performance_collector.variables.PERFORMANCE_COLLECTOR_SERVER_API_PORT', 8080):
+    with patch('src.modules.performance.common.db.DutiesDB', return_value=mock_db), patch(
+        'src.modules.performance.web.server.serve'
+    ), patch(
+        'src.modules.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080
+    ):
         collector = PerformanceCollector(mock_w3)
         collector.db = mock_db
         return collector
@@ -120,9 +118,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.missing_epochs_in.return_value = []
 
         # Setup epochs demand before DB range
-        mock_db.epochs_demand.return_value = {
-            'consumer1': (20, 30)  # Demand before min_epoch_in_db
-        }
+        mock_db.epochs_demand.return_value = {'consumer1': (20, 30)}  # Demand before min_epoch_in_db
         mock_db.is_range_available.return_value = False  # Unsatisfied demand
 
         result = performance_collector.define_epochs_to_process_range(finalized_epoch)
@@ -143,9 +139,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.missing_epochs_in.return_value = []
 
         # Setup epochs demand after DB range
-        mock_db.epochs_demand.return_value = {
-            'consumer1': (95, 105)  # Demand after max_epoch_in_db
-        }
+        mock_db.epochs_demand.return_value = {'consumer1': (95, 105)}  # Demand after max_epoch_in_db
         mock_db.is_range_available.return_value = False  # Unsatisfied demand
 
         result = performance_collector.define_epochs_to_process_range(finalized_epoch)
@@ -165,9 +159,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.missing_epochs_in.return_value = []
 
         # Setup satisfied epochs demand
-        mock_db.epochs_demand.return_value = {
-            'consumer1': (60, 70)  # Demand within DB range
-        }
+        mock_db.epochs_demand.return_value = {'consumer1': (60, 70)}  # Demand within DB range
         mock_db.is_range_available.return_value = True  # Satisfied demand
 
         result = performance_collector.define_epochs_to_process_range(finalized_epoch)
@@ -189,9 +181,9 @@ class TestDefineEpochsToProcessRange:
 
         # Setup multiple unsatisfied demands
         mock_db.epochs_demand.return_value = {
-            'consumer1': (20, 30),   # Before DB range
+            'consumer1': (20, 30),  # Before DB range
             'consumer2': (95, 105),  # After DB range
-            'consumer3': (60, 70),   # Within DB range (satisfied)
+            'consumer3': (60, 70),  # Within DB range (satisfied)
         }
 
         def mock_is_range_available(l_epoch, r_epoch):
@@ -252,7 +244,7 @@ class TestDefineEpochsToProcessRange:
 
         # Setup unsatisfied demand
         mock_db.epochs_demand.return_value = {
-            'consumer1': (10, 20),   # Before DB range
+            'consumer1': (10, 20),  # Before DB range
         }
         mock_db.is_range_available.return_value = False  # Unsatisfied
 
@@ -328,9 +320,9 @@ class TestDefineEpochsToProcessRange:
 
         # Setup overlapping demands
         mock_db.epochs_demand.return_value = {
-            'consumer1': (40, 60),   # Before DB range
-            'consumer2': (50, 70),   # Overlapping with consumer1
-            'consumer3': (140, 160), # After DB range
+            'consumer1': (40, 60),  # Before DB range
+            'consumer2': (50, 70),  # Overlapping with consumer1
+            'consumer3': (140, 160),  # After DB range
         }
         mock_db.is_range_available.return_value = False  # All unsatisfied
 
@@ -392,4 +384,3 @@ class TestDefineEpochsToProcessRange:
         assert result[0] == EpochNumber(88)
         # End epoch should be max_available = max(0, 100 - 2) = 98
         assert result[1] == EpochNumber(98)
-

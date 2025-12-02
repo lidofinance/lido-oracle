@@ -10,14 +10,13 @@ from src.modules.performance.collector.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
     FrameCheckpointsIterator,
-    MinStepIsNotReached,
     SlotNumber,
     SlotOutOfRootsRange,
     SyncCommitteesCache,
-    ValidatorDuty,
     process_attestations,
 )
 from src.modules.performance.common.db import DutiesDB
+from src.modules.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
@@ -63,12 +62,6 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 def sync_committees_cache():
     with patch('src.modules.performance_collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
         yield cache
-
-
-@pytest.mark.unit
-def test_checkpoints_iterator_min_epoch_is_not_reached(converter):
-    with pytest.raises(MinStepIsNotReached):
-        FrameCheckpointsIterator(converter, 100, 600, 109)
 
 
 @pytest.mark.unit
@@ -335,10 +328,10 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
 @pytest.fixture
 def frame_checkpoint_processor():
     cc = Mock()
-    state = Mock()
+    db = Mock()
     converter = Mock()
     finalized_blockstamp = Mock(slot_number=SlotNumber(0))
-    return FrameCheckpointProcessor(cc, state, converter, finalized_blockstamp)
+    return FrameCheckpointProcessor(cc, db, converter, finalized_blockstamp)
 
 
 @pytest.mark.unit
@@ -348,17 +341,17 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_attestation_duties = Mock(
-        return_value={SlotNumber(100): [ValidatorDuty(1, False)]}
-    )
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={SlotNumber(100): AttDutyMisses([1])})
     frame_checkpoint_processor._prepare_propose_duties = Mock(
-        return_value={SlotNumber(100): ValidatorDuty(1, False), SlotNumber(101): ValidatorDuty(1, False)}
+        return_value={
+            SlotNumber(100): ProposalDuty(validator_index=1, is_proposed=False),
+            SlotNumber(101): ProposalDuty(validator_index=1, is_proposed=False),
+        }
     )
     frame_checkpoint_processor._prepare_sync_committee_duties = Mock(
-        return_value={
-            100: [ValidatorDuty(1, False) for _ in range(32)],
-            101: [ValidatorDuty(1, False) for _ in range(32)],
-        }
+        return_value=[
+            SyncDuty(validator_index=1, missed_count=2),
+        ]
     )
 
     attestation = Mock()
@@ -389,10 +382,15 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
     frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={})
     frame_checkpoint_processor._prepare_propose_duties = Mock(
-        return_value={SlotNumber(100): ValidatorDuty(1, False), SlotNumber(101): ValidatorDuty(1, False)}
+        return_value={
+            SlotNumber(100): ProposalDuty(validator_index=1, is_proposed=False),
+            SlotNumber(101): ProposalDuty(validator_index=1, is_proposed=False),
+        }
     )
     frame_checkpoint_processor._prepare_sync_committee_duties = Mock(
-        return_value={100: [ValidatorDuty(1, False)], 101: [ValidatorDuty(1, False)]}
+        return_value=[
+            SyncDuty(validator_index=1, missed_count=2),
+        ]
     )
 
     sync_aggregate = Mock()
@@ -405,7 +403,7 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    frame_checkpoint_processor.db.store_epoch_from_duties.assert_called()
+    frame_checkpoint_processor.db.store_epoch.assert_called()
 
 
 @pytest.mark.unit
@@ -418,18 +416,11 @@ def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_ch
 
     duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
 
-    expected_duties = {
-        SlotNumber(100): [
-            ValidatorDuty(validator_index=1, included=False),
-            ValidatorDuty(validator_index=2, included=False),
-            ValidatorDuty(validator_index=3, included=False),
-        ],
-        SlotNumber(101): [
-            ValidatorDuty(validator_index=1, included=False),
-            ValidatorDuty(validator_index=2, included=False),
-            ValidatorDuty(validator_index=3, included=False),
-        ],
-    }
+    expected_duties = [
+        SyncDuty(validator_index=1, missed_count=2),
+        SyncDuty(validator_index=2, missed_count=2),
+        SyncDuty(validator_index=3, missed_count=2),
+    ]
     assert duties == expected_duties
 
 
@@ -443,13 +434,11 @@ def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_p
 
     duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
 
-    expected_duties = {
-        SlotNumber(101): [
-            ValidatorDuty(validator_index=1, included=False),
-            ValidatorDuty(validator_index=2, included=False),
-            ValidatorDuty(validator_index=3, included=False),
-        ]
-    }
+    expected_duties = [
+        SyncDuty(validator_index=1, missed_count=1),
+        SyncDuty(validator_index=2, missed_count=1),
+        SyncDuty(validator_index=3, missed_count=1),
+    ]
     assert duties == expected_duties
 
 
@@ -530,8 +519,8 @@ def test_prepare_propose_duties(frame_checkpoint_processor):
     duties = frame_checkpoint_processor._prepare_propose_duties(epoch, checkpoint_block_roots, checkpoint_slot)
 
     expected_duties = {
-        SlotNumber(101): ValidatorDuty(validator_index=1, included=False),
-        SlotNumber(102): ValidatorDuty(validator_index=2, included=False),
+        SlotNumber(101): ProposalDuty(validator_index=1, is_proposed=False),
+        SlotNumber(102): ProposalDuty(validator_index=2, is_proposed=False),
     }
     assert duties == expected_duties
 
