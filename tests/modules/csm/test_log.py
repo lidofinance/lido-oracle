@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from src.modules.csm.log import FramePerfLog, DutyAccumulator
+from src.modules.csm.log import FramePerfLog, DutyAccumulator, LogsData, LogVersion
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -54,12 +54,20 @@ def test_logs_encode(log: FramePerfLog):
     log_2.distributed_rewards = 0
     log_2.rebate_to_protocol = 0
 
-    logs = [log, log_2]
+    logs = LogsData(logs=[log, log_2])
+    logs.set_version(contract=100, consensus=99)
 
-    encoded = FramePerfLog.encode(logs)
+    encoded = logs.encode()
 
-    decoded_logs = json.loads(encoded)
+    decoded_logs_data = json.loads(encoded)
 
+    version = decoded_logs_data['_ver']
+
+    assert version['contract'] == 100
+    assert version['consensus'] == 99
+    assert version['commit'] == 'unknown'
+
+    decoded_logs = decoded_logs_data['logs']
     for decoded in decoded_logs:
         assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["assigned"] == 220
         assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["included"] == 119

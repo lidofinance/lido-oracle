@@ -6,6 +6,7 @@ from src.modules.csm.state import DutyAccumulator
 from src.modules.csm.types import RewardsShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
+from src.utils.build import get_build_info
 
 
 class LogJSONEncoder(json.JSONEncoder): ...
@@ -43,14 +44,29 @@ class FramePerfLog:
         default_factory=lambda: defaultdict(OperatorFrameSummary)
     )
 
-    @staticmethod
-    def encode(logs: list['FramePerfLog']) -> bytes:
+
+@dataclass
+class LogVersion:
+    contract: int = 0
+    consensus: int = 0
+    commit: str = get_build_info()['commit']
+
+
+@dataclass
+class LogsData:
+    logs: list[FramePerfLog] = field(default_factory=list)
+    _ver: LogVersion = field(default_factory=LogVersion)
+
+    def encode(self) -> bytes:
         return (
             LogJSONEncoder(
                 indent=None,
                 separators=(',', ':'),
                 sort_keys=True,
             )
-            .encode([asdict(log) for log in logs])
+            .encode(asdict(self))
             .encode()
         )
+
+    def set_version(self, contract: int, consensus: int):
+        self._ver = LogVersion(contract, consensus)

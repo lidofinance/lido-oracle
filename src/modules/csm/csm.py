@@ -20,7 +20,7 @@ from src.modules.csm.distribution import (
     StrikesValidator,
 )
 from src.modules.csm.helpers.last_report import LastReport
-from src.modules.csm.log import FramePerfLog
+from src.modules.csm.log import LogsData
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree, Tree
 from src.modules.csm.types import ReportData, RewardsShares, StrikesList
@@ -118,7 +118,8 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
 
-        logs_cid = self.publish_log(distribution.logs)
+        self.set_logs_version(distribution.logs_data)
+        logs_cid = self.publish_log(distribution.logs_data)
 
         return ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
@@ -140,6 +141,9 @@ class CSOracle(BaseModule, ConsensusModule):
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
         return result
+
+    def set_logs_version(self, logs: LogsData):
+        logs.set_version(self.COMPATIBLE_CONTRACT_VERSION, self.COMPATIBLE_CONSENSUS_VERSION)
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
@@ -253,8 +257,8 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 
-    def publish_log(self, logs: list[FramePerfLog]) -> CID:
-        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs))
+    def publish_log(self, logs: LogsData) -> CID:
+        log_cid = self.w3.ipfs.publish(logs.encode())
         logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
         return log_cid
 
