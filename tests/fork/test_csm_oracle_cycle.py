@@ -1,8 +1,9 @@
+from threading import Thread
+
 import pytest
 
-from src import variables
 from src.modules.csm.csm import CSOracle
-from src.modules.performance_collector.performance_collector import PerformanceCollector
+from src.modules.performance.collector.collector import PerformanceCollector
 from src.modules.submodules.types import FrameConfig
 from src.utils.range import sequence
 from src.web3py.types import Web3
@@ -21,28 +22,69 @@ def csm_module(web3: Web3):
 
 
 @pytest.fixture()
-def performance_collector(web3: Web3, frame_config: FrameConfig):
+def performance_local_db(testrun_path):
+    from unittest.mock import patch
+    from pathlib import Path
+    from sqlmodel import create_engine
+    from sqlalchemy import JSON
+    from src.modules.performance.common.db import Duty
+
+    def mock_get_database_url(self):
+        db_path = Path(testrun_path) / "test_duties.db"
+        return f"sqlite:///{db_path}"
+    
+    def mock_init(self):
+        self.engine = create_engine(
+            self._get_database_url(),
+            echo=False
+        )
+        self._setup_database()
+
+    table = Duty.__table__
+    for col_name in ("attestations", "proposals_vids", "proposals_flags", "syncs_vids", "syncs_misses"):
+        if col_name in table.c:
+            table.c[col_name].type = JSON()
+
+    with patch('src.modules.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
+        with patch('src.modules.performance.common.db.DutiesDB.__init__', mock_init):
+            yield
+
+
+@pytest.fixture()
+def performance_collector(performance_local_db, web3: Web3, frame_config: FrameConfig):
     yield PerformanceCollector(web3)
 
 
+@pytest.fixture()
+def performance_web_server(performance_local_db):
+    from src.modules.performance.web.server import serve
+    Thread(target=serve, daemon=True).start()
+    yield
+
+
 @pytest.fixture
-def start_before_initial_epoch(frame_config: FrameConfig):
+def cycle_iterations():
+    return 4
+
+
+@pytest.fixture
+def start_before_initial_epoch(frame_config: FrameConfig, cycle_iterations):
     _from = frame_config.initial_epoch - 1
-    _to = frame_config.initial_epoch + 4
+    _to = frame_config.initial_epoch + cycle_iterations
     return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.fixture
-def start_after_initial_epoch(frame_config: FrameConfig):
+def start_after_initial_epoch(frame_config: FrameConfig, cycle_iterations):
     _from = frame_config.initial_epoch + 1
-    _to = frame_config.initial_epoch + 4
+    _to = frame_config.initial_epoch + cycle_iterations
     return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
 @pytest.fixture
-def missed_initial_frame(frame_config: FrameConfig):
+def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
     _from = frame_config.initial_epoch + frame_config.epochs_per_frame + 1
-    _to = _from + 4
+    _to = _from + cycle_iterations
     return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
 
 
@@ -57,7 +99,9 @@ def missed_initial_frame(frame_config: FrameConfig):
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_csm_module_report(performance_collector, module, set_oracle_members, running_finalized_slots, account_from):
+def test_csm_module_report(
+    performance_web_server, performance_collector, module, set_oracle_members, running_finalized_slots, account_from
+):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
@@ -75,7 +119,6 @@ def test_csm_module_report(performance_collector, module, set_oracle_members, ru
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
-        # NOTE: Patch the var to bypass `FrameCheckpointsIterator.MIN_CHECKPOINT_STEP`
 
     last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
     assert (
