@@ -16,4 +16,3 @@ class SyncDuty(BaseModel):
 
 
 AttDutyMisses: TypeAlias = set[ValidatorIndex]
-EpochData: TypeAlias = tuple[AttDutyMisses, list[ProposalDuty], list[SyncDuty]]

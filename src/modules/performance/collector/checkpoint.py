@@ -33,8 +33,6 @@ type SlotBlockRoot = tuple[SlotNumber, BlockRoot | None]
 
 type AttestationCommittees = dict[tuple[SlotNumber, CommitteeIndex], list[ValidatorIndex]]
 
-type SyncDuties = list[SyncDuty]
-
 
 class SlotOutOfRootsRange(Exception): ...
 
@@ -304,11 +302,11 @@ class FrameCheckpointProcessor:
             {"msg": f"Sync Committee for epoch {args.epoch} prepared in {duration:.2f} seconds"}
         )
     )
-    def _prepare_sync_committee_duties(self, epoch: EpochNumber) -> SyncDuties:
+    def _prepare_sync_committee_duties(self, epoch: EpochNumber) -> list[SyncDuty]:
         with lock:
             sync_committee = self._get_sync_committee(epoch)
 
-        duties: SyncDuties = []
+        duties: list[SyncDuty] = []
         for vid in sync_committee.validators:
             duties.append(SyncDuty(validator_index=vid, missed_count=0))
 

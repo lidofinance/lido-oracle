@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from uvicorn.config import LOGGING_CONFIG
 
 from src.modules.performance.common.db import DutiesDB, Duty, EpochsDemand
-from src import variables
+from src.variables import PERFORMANCE_WEB_SERVER_API_PORT
 from src.modules.performance.web.metrics import attach_metrics
 from src.types import EpochNumber
 from src.metrics.logging import JsonFormatter, handler
@@ -117,6 +117,6 @@ def serve():
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=variables.PERFORMANCE_WEB_SERVER_API_PORT,
+        port=PERFORMANCE_WEB_SERVER_API_PORT,
         log_config=logging_config,
     )
