@@ -635,6 +635,37 @@ def test_execute_module_processed(module: CSOracle):
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
 
 
+@pytest.mark.unit
+def test_calculate_distribution_lru_cache(module: CSOracle):
+    blockstamp = Mock()
+    last_report = Mock()
+    mock_distribution_result = Mock()
+
+    with patch('src.modules.csm.csm.Distribution') as MockDistribution:
+        mock_distribution_instance = MockDistribution.return_value
+        mock_distribution_instance.calculate.return_value = mock_distribution_result
+
+        module.converter = Mock()
+        module.state = Mock()
+
+        result1 = module.calculate_distribution(blockstamp, last_report)
+
+        result2 = module.calculate_distribution(blockstamp, last_report)
+
+        assert result1 is result2
+        assert result1 is mock_distribution_result
+
+        assert MockDistribution.call_count == 1
+        assert mock_distribution_instance.calculate.call_count == 1
+
+        module.calculate_distribution.cache_clear()
+
+        result3 = module.calculate_distribution(blockstamp, last_report)
+
+        assert MockDistribution.call_count == 2
+        assert result3 is mock_distribution_result
+
+
 @dataclass(frozen=True)
 class RewardsTreeTestParam:
     shares: dict[NodeOperatorId, int]

@@ -136,6 +136,7 @@ class CSOracle(BaseModule, ConsensusModule):
         current_frame = self.get_frame_number_by_slot(blockstamp)
         return LastReport.load(self.w3, blockstamp, current_frame)
 
+    @lru_cache(maxsize=1)
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
