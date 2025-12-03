@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.csm.helpers.last_report import LastReport
-from src.modules.csm.log import FramePerfLog, OperatorFrameSummary, LogsData
+from src.modules.csm.log import FramePerfLog, OperatorFrameSummary
 from src.modules.csm.state import Frame, State, ValidatorDuties
 from src.modules.csm.types import (
     ParticipationShares,
@@ -49,7 +49,7 @@ class DistributionResult:
     total_rebate: RewardsShares = 0
     total_rewards_map: dict[NodeOperatorId, RewardsShares] = field(default_factory=lambda: defaultdict(RewardsShares))
     strikes: dict[StrikesValidator, StrikesList] = field(default_factory=lambda: defaultdict(StrikesList))
-    logs_data: LogsData = field(default_factory=LogsData)
+    logs: list[FramePerfLog] = field(default_factory=list)
 
 
 class Distribution:
@@ -100,7 +100,7 @@ class Distribution:
             for no_id, rewards in rewards_map_in_frame.items():
                 result.total_rewards_map[no_id] += rewards
 
-            result.logs_data.logs.append(frame_log)
+            result.logs.append(frame_log)
 
         if result.total_rewards != sum(result.total_rewards_map.values()):
             raise InconsistentData(
