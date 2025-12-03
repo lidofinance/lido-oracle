@@ -7,9 +7,10 @@ from unittest.mock import Mock, PropertyMock, patch
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX
+from src.constants import UINT64_MAX, CSM_LOGS_VERSION
 from src.modules.csm.csm import CSOracle, LastReport
 from src.modules.csm.distribution import Distribution
+from src.modules.csm.log import Logs
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
@@ -402,7 +403,7 @@ class BuildReportTestParam:
                         total_rewards_map=defaultdict(int),
                         total_rebate=0,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(ZERO_HASH),
@@ -444,7 +445,7 @@ class BuildReportTestParam:
                         ),
                         total_rebate=1,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -494,7 +495,7 @@ class BuildReportTestParam:
                         ),
                         total_rebate=1,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -536,7 +537,7 @@ class BuildReportTestParam:
                         total_rewards_map=defaultdict(int),
                         total_rebate=0,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(32),
@@ -583,6 +584,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 
     assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
+    assert module.publish_log.call_args[0][0]._ver == CSM_LOGS_VERSION
 
 
 @pytest.mark.unit
