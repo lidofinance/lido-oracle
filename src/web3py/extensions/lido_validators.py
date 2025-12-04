@@ -27,6 +27,13 @@ class NodeOperatorLimitMode(Enum):
     FORCE = 2
 
 
+class AllocationType(Enum):
+    # No NO weights
+    STATIC = 0
+    # NO weights are dynamic
+    DYNAMIC = 1
+
+
 @dataclass
 class StakingModule(FromResponse):
     # unique id of the staking module
@@ -56,6 +63,8 @@ class StakingModule(FromResponse):
     max_deposits_per_block: int
     # the minimum distance between deposits in blocks
     min_deposit_block_distance: int
+    # WC Type
+    withdrawal_credentials_type: int
 
     def __hash__(self):
         return hash(self.id)

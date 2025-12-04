@@ -60,3 +60,7 @@ class OracleDaemonConfigContract(ContractInterface):
     @lru_cache(maxsize=1)
     def slashing_reserve_we_right_shift(self, block_identifier: BlockIdentifier = 'latest') -> int:
         return self._get('SLASHING_RESERVE_WE_RIGHT_SHIFT', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def max_validator_exit_balance_per_report(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        return self._get('MAX_VALIDATOR_EXIT_BALANCE_PER_REPORT', block_identifier)
