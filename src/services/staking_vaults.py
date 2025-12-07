@@ -155,26 +155,6 @@ class StakingVaultsService:
         return vault_to_validators
 
     @staticmethod
-    def _get_unmatched_pending_deposits_pubkeys_by_vault(
-        pending_deposits: list[PendingDeposit],
-        unmatched_deposits_pubkeys: set[str],
-        vaults: VaultsMap
-    ) -> dict[str, set[str]]:
-        """
-        Groups unmatched pending deposits by their associated vault, based on withdrawal credentials.
-        """
-        wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
-
-        vault_to_unmatched_pending_deposit_pubkeys: dict[str, set[str]] = defaultdict(set)
-        for deposit in pending_deposits:
-            if vault_info := wc_to_vault.get(deposit.withdrawal_credentials):
-                # make sure pending deposits are only for unmatched pubkeys
-                if deposit.pubkey in unmatched_deposits_pubkeys:
-                    vault_to_unmatched_pending_deposit_pubkeys[vault_info.vault].add(deposit.pubkey)
-
-        return vault_to_unmatched_pending_deposit_pubkeys
-
-    @staticmethod
     def _get_total_pending_amount_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
         """
         Calculates the total pending amount for each pubkey.

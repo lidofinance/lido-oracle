@@ -36,34 +36,6 @@ class TestPendingDepositHelpers:
         assert result[TestPubkeys.PUBKEY_0] == Gwei(3_000)
         assert result[TestPubkeys.PUBKEY_1] == Gwei(3_000)
 
-    @pytest.mark.unit
-    def test_get_unmatched_pending_deposits_pubkeys_by_vault(self, default_vaults_map):
-        """Ensure unmatched deposits are grouped by vault withdrawal credentials."""
-        pending_pubkeys = {TestPubkeys.PUBKEY_0}
-
-        pending = [
-            PendingDepositFactory.build(
-                pubkey=TestPubkeys.PUBKEY_0,
-                withdrawal_credentials=WithdrawalCredentials.WC_0,
-            ),
-            # Same WC but not marked unmatched
-            PendingDepositFactory.build(
-                pubkey=TestPubkeys.PUBKEY_1,
-                withdrawal_credentials=WithdrawalCredentials.WC_0,
-            ),
-            # Different WC → different vault
-            PendingDepositFactory.build(
-                pubkey=TestPubkeys.PUBKEY_2,
-                withdrawal_credentials=WithdrawalCredentials.WC_1,
-            ),
-        ]
-
-        result = StakingVaultsService._get_unmatched_pending_deposits_pubkeys_by_vault(
-            pending, pending_pubkeys, default_vaults_map
-        )
-
-        assert result == {VaultAddresses.VAULT_0: {TestPubkeys.PUBKEY_0}}
-
 
 class TestValidatorFilteringHelpers:
     """Tests for validator filtering helper methods."""
