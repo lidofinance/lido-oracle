@@ -3,12 +3,14 @@ from unittest.mock import Mock
 import pytest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
+from web3.types import Wei
 from dataclasses import dataclass
 
 from src import variables
 from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
+from src.types import SlotNumber, Gwei, StakingModuleId
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
@@ -53,7 +55,23 @@ def test_process_report_main(consensus, caplog):
     consensus.get_member_info = Mock(return_value=member_info)
     consensus._send_report_hash = Mock()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     consensus.build_report = Mock(return_value=report_data)
 
@@ -67,10 +85,28 @@ def test_process_report_main(consensus, caplog):
 # ----- Hash calculations ----------
 @pytest.mark.unit
 def test_hash_calculations(consensus):
-    rd = ReportData(1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15)
+    rd = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
+    )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0x8028b6539e5a5690c15e14f075bd6484fbaa4a6dc2e39e9d1fe9000a5dfa9d14')
+    assert report_hash == HexBytes('0xa55c15fa50d7c974798712ea60ef4dcbc94644c53759c16f69ea5d60e4c2de21')
 
 
 # ------ Process report hash -----------
@@ -179,10 +215,10 @@ def test_process_report_data_main_data_submitted(consensus, caplog, mock_latest_
 @pytest.mark.unit
 def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+        return_value=consensus.COMPATIBLE_CONSENSUS_VERSION
     )
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+        return_value=consensus.COMPATIBLE_CONTRACT_VERSION
     )
     consensus.get_chain_config = Mock(
         return_value=ChainConfig(
@@ -193,7 +229,23 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=True,
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
@@ -203,7 +255,7 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
     assert "Sleep for 100 slots before sending data." in caplog.text
-    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
+    assert f"Send report data. Contract version: [{consensus.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 @pytest.mark.unit
@@ -232,14 +284,30 @@ def test_process_report_data_sleep_ends(consensus, caplog, mock_latest_data):
 @pytest.mark.unit
 def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     consensus.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONSENSUS_VERSION
+        return_value=consensus.COMPATIBLE_CONSENSUS_VERSION
     )
     consensus.w3.lido_contracts.accounting_oracle.get_contract_version = Mock(
-        return_value=Accounting.COMPATIBLE_CONTRACT_VERSION
+        return_value=consensus.COMPATIBLE_CONTRACT_VERSION
     )
     blockstamp = ReferenceBlockStampFactory.build()
     report_data = ReportData(
-        1, 2, 3, 4, [5, 6], [7, 8], 9, 10, 11, [12], 13, True, 13, HexBytes(int.to_bytes(14, 32)), 15
+        consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
+        count_exited_validators_by_staking_module=[7, 8],
+        withdrawal_vault_balance=Wei(9),
+        el_rewards_vault_balance=Wei(10),
+        shares_requested_to_burn=11,
+        withdrawal_finalization_batches=[12],
+        finalization_share_rate=13,
+        is_bunker=True,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        extra_data_format=13,
+        extra_data_hash=HexBytes(int.to_bytes(14, 32)),
+        extra_data_items_count=15,
     ).as_tuple()
     report_hash = int.to_bytes(1, 32)
 
@@ -250,7 +318,7 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     consensus._submit_report = Mock()
 
     consensus._process_report_data(blockstamp, report_data, report_hash)
-    assert f"Send report data. Contract version: [{Accounting.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
+    assert f"Send report data. Contract version: [{consensus.COMPATIBLE_CONTRACT_VERSION}]" in caplog.text
 
 
 # ----- Test sleep calculations

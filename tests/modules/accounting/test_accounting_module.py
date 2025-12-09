@@ -2,24 +2,40 @@ from typing import Iterable, cast
 from unittest.mock import Mock, patch
 
 import pytest
+from eth_typing import ChecksumAddress, HexAddress, HexStr
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
 from src.modules.accounting import accounting as accounting_module
-from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.accounting import logger as accounting_logger
+from src.modules.accounting.accounting import Accounting, logger as accounting_logger
 from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import LidoReportRebase, AccountingProcessingState
+from src.modules.accounting.types import (
+    AccountingProcessingState,
+    ReportSimulationFeeDistribution,
+    ReportSimulationPayload,
+    ReportSimulationResults,
+    VaultInfo,
+    VaultsData,
+    VaultsMap,
+    VaultTreeNode,
+)
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, FrameConfig, CurrentFrame, ZERO_HASH
+from src.modules.submodules.types import (
+    ZERO_HASH,
+    ChainConfig,
+    CurrentFrame,
+    FrameConfig,
+)
+from src.providers.consensus.types import Validator, ValidatorState
+from src.services.staking_vaults import StakingVaultsService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
-from tests.factory.contract_responses import LidoReportRebaseFactory
+from tests.factory.contract_responses import ReportSimulationResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
 
 
@@ -138,9 +154,25 @@ def test_get_consensus_lido_state(accounting: Accounting):
     ],
 )
 def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, post_total_shares, expected_share_rate):
-    lido_rebase = LidoReportRebaseFactory.build(
+    lido_rebase = ReportSimulationResultsFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
+        withdrawals_vault_transfer=Wei(10),
+        el_rewards_vault_transfer=Wei(10),
+        ether_to_finalize_wq=0,
+        shares_to_finalize_wq=0,
+        shares_to_burn_for_withdrawals=0,
+        total_shares_to_burn=0,
+        shares_to_mint_as_fees=0,
+        fee_distribution=ReportSimulationFeeDistribution(
+            module_fee_recipients=[],
+            module_ids=[],
+            module_shares_to_mint=0,
+            treasury_shares_to_mint=0,
+        ),
+        principal_cl_balance=0,
+        post_internal_shares=0,
+        post_internal_ether=0,
     )
 
     accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())
@@ -153,7 +185,7 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
         Withdrawal, 'get_finalization_batches', return_value=[]
     ):
-        share_rate, batches = accounting._get_finalization_data(bs)
+        batches, share_rate = accounting._get_finalization_data(bs)
 
     assert batches == []
     assert share_rate == expected_share_rate
@@ -440,13 +472,145 @@ def test_simulate_rebase_after_report(
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
 
+    validators: list[Validator] = [
+        Validator(
+            index=ValidatorIndex(1985),
+            balance=Gwei(32834904184),
+            validator=ValidatorState(
+                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
+                withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
+                effective_balance=Gwei(32000000000),
+                slashed=False,
+                activation_eligibility_epoch=EpochNumber(225469),
+                activation_epoch=EpochNumber(225475),
+                exit_epoch=EpochNumber(18446744073709551615),
+                withdrawable_epoch=EpochNumber(18446744073709551615),
+            ),
+        ),
+        Validator(
+            index=ValidatorIndex(1986),
+            balance=Gwei(0),
+            validator=ValidatorState(
+                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
+                withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
+                effective_balance=Gwei(0),
+                slashed=False,
+                activation_eligibility_epoch=EpochNumber(226130),
+                activation_epoch=EpochNumber(226136),
+                exit_epoch=EpochNumber(227556),
+                withdrawable_epoch=EpochNumber(227812),
+            ),
+        ),
+    ]
+    accounting.w3.cc = Mock()
+    accounting.w3.cc.get_validators = Mock(return_value=validators)
+
+    tree_data: list[VaultTreeNode] = [
+        (
+            '0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+            99786510875371698360,
+            33000000000000000000,
+            33000000000000000000,
+            0,
+            0,
+        ),
+        (
+            '0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+            2500000000000000000,
+            2500000000000000000,
+            2500000000000000000,
+            0,
+            1,
+        ),
+    ]
+    vaults: VaultsMap = {
+        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
+            aggregated_balance=Wei(66951606691371698360),
+            in_out_delta=Wei(33000000000000000000),
+            liability_shares=0,
+            max_liability_shares=0,
+            vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
+            withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
+            share_limit=0,
+            reserve_ratio_bp=0,
+            forced_rebalance_threshold_bp=0,
+            infra_fee_bp=0,
+            liquidity_fee_bp=0,
+            reservation_fee_bp=0,
+            pending_disconnect=False,
+            mintable_st_eth=0,
+        ),
+        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
+            aggregated_balance=Wei(2500000000000000000),
+            in_out_delta=Wei(2500000000000000000),
+            liability_shares=1,
+            max_liability_shares=1,
+            vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
+            withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
+            share_limit=0,
+            reserve_ratio_bp=0,
+            forced_rebalance_threshold_bp=0,
+            infra_fee_bp=0,
+            liquidity_fee_bp=0,
+            reservation_fee_bp=0,
+            pending_disconnect=False,
+            mintable_st_eth=0,
+        ),
+    }
+    vaults_total_values = {}
+    mock_vaults_data: VaultsData = (tree_data, vaults, vaults_total_values)
+    accounting.w3.staking_vaults = Mock()
+    accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
+    accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
+    accounting.w3.staking_vaults.publish_tree = Mock(return_value='tree_cid')
+    accounting.w3.staking_vaults.get_merkle_tree = Mock(return_value=StakingVaultsService.get_merkle_tree(tree_data))
+
     accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
-    accounting.w3.lido_contracts.lido.handle_oracle_report = Mock(return_value=LidoReportRebaseFactory.build())  # type: ignore
+    accounting.w3.lido_contracts.accounting = Mock()
+
+    accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(
+        return_value=ReportSimulationResults(
+            withdrawals_vault_transfer=Wei(0),
+            el_rewards_vault_transfer=Wei(0),
+            ether_to_finalize_wq=Wei(0),
+            shares_to_finalize_wq=0,
+            shares_to_burn_for_withdrawals=0,
+            total_shares_to_burn=0,
+            shares_to_mint_as_fees=0,
+            fee_distribution=ReportSimulationFeeDistribution(
+                module_fee_recipients=[],
+                module_ids=[],
+                module_shares_to_mint=[],
+                treasury_shares_to_mint=0,
+            ),
+            principal_cl_balance=Wei(0),
+            post_internal_shares=0,
+            post_internal_ether=Wei(0),
+            post_total_shares=0,
+            post_total_pooled_ether=Wei(0),
+            pre_total_shares=0,
+            pre_total_pooled_ether=Wei(0),
+        )
+    )
 
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
-    assert isinstance(out, LidoReportRebase), "simulate_rebase_after_report returned unexpected value"
+    accounting.w3.lido_contracts.accounting.simulate_oracle_report.assert_called_once_with(
+        ReportSimulationPayload(
+            timestamp=1678794852,
+            time_elapsed=504,
+            cl_validators=0,
+            cl_balance=Wei(0),
+            withdrawal_vault_balance=Wei(17),
+            el_rewards_vault_balance=Wei(0),
+            shares_requested_to_burn=13,
+            withdrawal_finalization_batches=[],
+            simulated_share_rate=0,
+        ),
+        '0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',
+    )
+    assert isinstance(out, ReportSimulationResults), "simulate_rebase_after_report returned unexpected value"
 
 
 @pytest.mark.unit

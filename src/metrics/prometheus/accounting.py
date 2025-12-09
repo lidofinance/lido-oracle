@@ -32,3 +32,9 @@ ACCOUNTING_EXITED_VALIDATORS = Gauge(
     ["module_id", "no_id"],
     namespace=PROMETHEUS_PREFIX,
 )
+
+VAULTS_TOTAL_VALUE = Gauge(
+    "accounting_vaults_total_value",
+    "Reported cumulated total value of staking vaults",
+    namespace=PROMETHEUS_PREFIX,
+)

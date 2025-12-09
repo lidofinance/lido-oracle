@@ -51,55 +51,7 @@ def prepared_csm_repo(testruns_folder_path, csm_repo_path):
 
 
 @pytest.fixture()
-def update_csm_to_v2(accounts_from_fork, forked_el_client: Web3, anvil_port: int, prepared_csm_repo: Path):
-    original_dir = os.getcwd()
-
-    chain = 'mainnet'
-
-    logger.info("TESTRUN Deploying CSM v2")
-    _, pks = accounts_from_fork
-    deployer, *_ = pks
-
-    os.chdir(prepared_csm_repo)
-
-    with subprocess.Popen(
-        ['just', '_deploy-impl', '--broadcast', '--private-key', deployer],
-        env={
-            **os.environ,
-            "RPC_URL": f"http://localhost:{str(anvil_port)}",
-            'CHAIN': chain,
-        },
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        process.wait()
-        assert process.returncode == 0, "Failed to deploy CSM v2"
-        logger.info("TESTRUN Deployed CSM v2")
-
-    logger.info("TESTRUN Updating to CSM v2")
-    with subprocess.Popen(
-        ['just', "vote-upgrade"],
-        env={
-            **os.environ,
-            'CHAIN': chain,
-            "ANVIL_PORT": str(anvil_port),
-            "RPC_URL": f"http://127.0.0.1:{anvil_port}",
-            'DEPLOY_CONFIG': f'./artifacts/local/upgrade-{chain}.json',
-        },
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        process.wait()
-        assert process.returncode == 0, "Failed to update to CSM v2"
-        logger.info("TESTRUN Updated to CSM v2")
-
-    os.chdir(original_dir)
-    # TODO: update ABIs in `assets` folder?
-    forked_el_client.provider.make_request("anvil_autoImpersonateAccount", [True])
-
-
-@pytest.fixture()
-def csm_module(web3: Web3, update_csm_to_v2):
+def csm_module(web3: Web3):
     yield CSOracle(web3)
 
 

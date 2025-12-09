@@ -2,8 +2,9 @@ from typing import Iterable, Sequence
 from unittest.mock import Mock
 
 import pytest
+from web3.types import Wei
 
-from src.modules.accounting.types import LidoReportRebase
+from src.modules.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
 from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
 from src.types import ReferenceBlockStamp
@@ -11,7 +12,7 @@ from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
 from tests.factory.consensus import BeaconStateViewFactory
-from tests.factory.contract_responses import LidoReportRebaseFactory
+from tests.factory.contract_responses import ReportSimulationResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp
 
@@ -33,7 +34,7 @@ class TestIsBunkerMode:
             ref_blockstamp,
             FrameConfigFactory.build(),
             ChainConfigFactory.build(),
-            LidoReportRebaseFactory.build(),
+            ReportSimulationResultsFactory.build(),
         )
         assert result is False
         bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot.assert_called_once()
@@ -58,7 +59,7 @@ class TestIsBunkerMode:
             ref_blockstamp,
             FrameConfigFactory.build(),
             ChainConfigFactory.build(),
-            LidoReportRebaseFactory.build(),
+            ReportSimulationResultsFactory.build(),
         )
         assert result is True
 
@@ -87,7 +88,7 @@ class TestIsBunkerMode:
             ref_blockstamp,
             FrameConfigFactory.build(),
             ChainConfigFactory.build(),
-            LidoReportRebaseFactory.build(),
+            ReportSimulationResultsFactory.build(),
         )
         assert result is True
         is_high_midterm_slashing_penalty.assert_called_once()
@@ -115,7 +116,7 @@ class TestIsBunkerMode:
             ref_blockstamp,
             FrameConfigFactory.build(),
             ChainConfigFactory.build(),
-            LidoReportRebaseFactory.build(),
+            ReportSimulationResultsFactory.build(),
         )
         assert result is True
         is_high_midterm_slashing_penalty.assert_called_once()
@@ -144,7 +145,7 @@ class TestIsBunkerMode:
             ref_blockstamp,
             FrameConfigFactory.build(),
             ChainConfigFactory.build(),
-            LidoReportRebaseFactory.build(),
+            ReportSimulationResultsFactory.build(),
         )
         assert result is False
         is_high_midterm_slashing_penalty.assert_called_once()
@@ -215,11 +216,27 @@ def test_get_cl_rebase_for_frame(
     bunker.w3.lido_contracts.lido.total_supply = Mock(return_value=15 * 10**18)
 
     blockstamp = simple_ref_blockstamp(0)
-    simulated_cl_rebase = LidoReportRebase(
+    simulated_cl_rebase = ReportSimulationResults(
+        withdrawals_vault_transfer=Wei(0),
+        el_rewards_vault_transfer=Wei(0),
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
-        withdrawals=0,
-        el_reward=0,
+        ether_to_finalize_wq=0,
+        shares_to_finalize_wq=0,
+        shares_to_burn_for_withdrawals=0,
+        total_shares_to_burn=0,
+        shares_to_mint_as_fees=0,
+        fee_distribution=ReportSimulationFeeDistribution(
+            module_fee_recipients=[],
+            module_ids=[],
+            module_shares_to_mint=[],
+            treasury_shares_to_mint=0,
+        ),
+        pre_total_shares=0,
+        pre_total_pooled_ether=0,
+        principal_cl_balance=0,
+        post_internal_shares=0,
+        post_internal_ether=0,
     )
 
     result = bunker.get_cl_rebase_for_current_report(blockstamp, simulated_cl_rebase)

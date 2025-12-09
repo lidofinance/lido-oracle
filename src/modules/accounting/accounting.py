@@ -9,34 +9,49 @@ from web3.types import Wei
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
-    ACCOUNTING_IS_BUNKER,
     ACCOUNTING_CL_BALANCE_GWEI,
     ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI,
-    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI
+    ACCOUNTING_IS_BUNKER,
+    ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI,
+    VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.accounting.types import (
-    ReportData,
-    LidoReportRebase,
-    GenericExtraData,
-    WqReport,
-    RebaseReport,
+    AccountingProcessingState,
     BunkerMode,
     FinalizationShareRate,
-    ValidatorsCount,
+    GenericExtraData,
+    RebaseReport,
+    ReportData,
+    ReportSimulationPayload,
+    ReportSimulationResults,
     ValidatorsBalance,
-    AccountingProcessingState,
+    ValidatorsCount,
+    VaultsReport,
+    WqReport,
 )
-from src.modules.submodules.consensus import ConsensusModule, InitialEpochIsYetToArriveRevert
+from src.modules.submodules.consensus import (
+    ConsensusModule,
+    InitialEpochIsYetToArriveRevert,
+)
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
+from src.services.staking_vaults import StakingVaultsService
 from src.services.validator_state import LidoValidatorStateService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId, NodeOperatorGlobalIndex, FinalizationBatches
+from src.types import (
+    BlockStamp,
+    FinalizationBatches,
+    Gwei,
+    NodeOperatorGlobalIndex,
+    ReferenceBlockStamp,
+    StakingModuleId,
+)
+from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
@@ -57,8 +72,9 @@ class Accounting(BaseModule, ConsensusModule):
         - Send extra data
             Contains exited validator's updates count by each node operator.
     """
-    COMPATIBLE_CONTRACT_VERSION = 3
-    COMPATIBLE_CONSENSUS_VERSION = 4
+
+    COMPATIBLE_CONTRACT_VERSION = 4
+    COMPATIBLE_CONSENSUS_VERSION = 5
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -66,6 +82,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         self.lido_validator_state_service = LidoValidatorStateService(self.w3)
         self.bunker_service = BunkerService(self.w3)
+        self.staking_vaults = StakingVaultsService(self.w3)
 
     def refresh_contracts(self):
         self.report_contract = self.w3.lido_contracts.accounting_oracle  # type: ignore
@@ -173,6 +190,8 @@ class Accounting(BaseModule, ConsensusModule):
         modules_part = self._get_newly_exited_validators_by_modules(blockstamp)
         wq_part = self._calculate_wq_report(blockstamp)
 
+        vaults_part = self._handle_vaults_report(blockstamp)
+
         extra_data_part = self._calculate_extra_data_report(blockstamp)
         report_data = self._combine_report_parts(
             consensus_version,
@@ -180,6 +199,7 @@ class Accounting(BaseModule, ConsensusModule):
             rebase_part,
             modules_part,
             wq_part,
+            vaults_part,
             extra_data_part,
         )
         self._update_metrics(report_data)
@@ -221,10 +241,16 @@ class Accounting(BaseModule, ConsensusModule):
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
         total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info({'msg': 'Calculate Lido validators state balance (in Gwei)', 'value': lido_validators_state_balance})
+        logger.info({
+            'msg': 'Calculate Lido validators state balance (in Gwei)',
+            'value': lido_validators_state_balance,
+        })
+
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationShareRate, FinalizationBatches]:
+    def _get_finalization_data(
+        self, blockstamp: ReferenceBlockStamp
+    ) -> tuple[FinalizationBatches, FinalizationShareRate]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -241,23 +267,23 @@ class Accounting(BaseModule, ConsensusModule):
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             share_rate,
-            simulation.withdrawals,
-            simulation.el_reward,
+            simulation.withdrawals_vault_transfer,
+            simulation.el_rewards_vault_transfer,
         )
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
 
-        return FinalizationShareRate(share_rate), batches
+        return batches, FinalizationShareRate(share_rate)
 
     @lru_cache(maxsize=1)
-    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
         """
         Simulate rebase excluding any execution rewards.
         This used to check worst scenarios in bunker service.
         """
         return self.simulate_rebase_after_report(blockstamp, el_rewards=Wei(0))
 
-    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> LidoReportRebase:
+    def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
@@ -265,29 +291,30 @@ class Accounting(BaseModule, ConsensusModule):
         self,
         blockstamp: ReferenceBlockStamp,
         el_rewards: Wei,
-    ) -> LidoReportRebase:
+    ) -> ReportSimulationResults:
         """
         To calculate how much withdrawal request protocol can finalize - needs finalization share rate after this report
         """
-        validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
-
+        cl_validators_count, cl_balance = self._get_consensus_lido_state(blockstamp)
         chain_conf = self.get_chain_config(blockstamp)
 
-        return self.w3.lido_contracts.lido.handle_oracle_report(
-            # Lido contract has sanity check that timestamp is not in the future.
-            # That's why we get revert if timestamp in args > call block timestamp.
-            # In normal case, we call handleOracleReport with timestamp == call block timestamp.
-            blockstamp.block_timestamp,  # _reportTimestamp
-            self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,  # _timeElapsed
-            # CL values
-            validators_count,  # _clValidators
-            gwei_to_wei(cl_balance),  # _clBalance
-            # EL values
-            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),  # _withdrawalVaultBalance
-            el_rewards,  # _elRewardsVaultBalance
-            self.get_shares_to_burn(blockstamp),  # _sharesRequestedToBurn
-            self.w3.lido_contracts.accounting_oracle.address,
-            blockstamp.ref_slot,
+        simulated_share_rate = 0  # For simulation we assume 0 share rate
+        withdrawal_finalization_batches: list[int] = []  # For simulation, we assume no withdrawals
+
+        report = ReportSimulationPayload(
+            timestamp=blockstamp.block_timestamp,
+            time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
+            cl_validators=cl_validators_count,
+            cl_balance=gwei_to_wei(cl_balance),
+            withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
+            el_rewards_vault_balance=el_rewards,
+            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
+            withdrawal_finalization_batches=withdrawal_finalization_batches,
+            simulated_share_rate=simulated_share_rate,
+        )
+
+        return self.w3.lido_contracts.accounting.simulate_oracle_report(
+            report,
             blockstamp.block_hash,
         )
 
@@ -295,7 +322,7 @@ class Accounting(BaseModule, ConsensusModule):
         shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return shares_data.cover_shares + shares_data.non_cover_shares
 
-    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp):
+    def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp) -> int:
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
@@ -347,13 +374,108 @@ class Accounting(BaseModule, ConsensusModule):
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         shares_requested_to_burn = self.get_shares_to_burn(blockstamp)
-        return validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn
+        return (
+            validators_count,
+            cl_balance,
+            withdrawal_vault_balance,
+            el_rewards_vault_balance,
+            shares_requested_to_burn,
+        )
 
-    # calculates is_bunker, finalization_share_rate, finalization_batches
+    # calculates is_bunker, finalization_batches
     def _calculate_wq_report(self, blockstamp: ReferenceBlockStamp) -> WqReport:
         is_bunker = self._is_bunker(blockstamp)
-        finalization_share_rate, finalization_batches = self._get_finalization_data(blockstamp)
-        return is_bunker, finalization_share_rate, finalization_batches
+        finalization_batches, finalization_share_rate = self._get_finalization_data(blockstamp)
+        return is_bunker, finalization_batches, finalization_share_rate
+
+    def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
+        """
+        Generates and publishes a Merkle tree report for staking vaults at a given blockstamp.
+
+        This function performs the following steps:
+        1. Fetches staking vaults at the given block number.
+        2. If no vaults are found, returns empty report data.
+        3. Retrieves validator data and pending deposits at the refBlock.
+        4. Loads chain configuration for the target block.
+        5. Computes total values for all vaults, including validator balances and pending deposits.
+        6. Calculates vault-specific fees and slashing reserves.
+        7. Constructs structured tree data combining vault values, fees, and slashing reserves.
+        8. Builds a Merkle tree from this data.
+        9. Publishes the Merkle tree to IPFS (or similar) and retrieves a content ID (CID).
+        10. Returns the Merkle tree root and the CID as the vaults report.
+
+        Args:
+            blockstamp (ReferenceBlockStamp): Block context used to fetch vault and validator data.
+
+        Returns:
+            VaultsReport: A tuple containing the Merkle tree root (as `bytes`) and the CID (as `str`)
+                          identifying the published tree data.
+        """
+
+        vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
+        if len(vaults) == 0:
+            return ZERO_HASH, ''
+
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        validators = self.w3.cc.get_validators(blockstamp)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        chain_config = self.get_chain_config(blockstamp)
+        frame_config = self.get_frame_config(blockstamp)
+        simulation = self.simulate_full_rebase(blockstamp)
+
+        vaults_total_values = self.staking_vaults.get_vaults_total_values(
+            vaults=vaults,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier=blockstamp.block_hash
+        )
+
+        core_apr_ratio = calculate_gross_core_apr(
+            pre_total_ether=simulation.pre_total_pooled_ether,
+            pre_total_shares=simulation.pre_total_shares,
+            post_internal_ether=simulation.post_internal_ether,
+            post_internal_shares=simulation.post_internal_shares,
+            shares_minted_as_fees=simulation.shares_to_mint_as_fees,
+            time_elapsed_seconds=self._get_time_elapsed_seconds_from_prev_report(blockstamp),
+        )
+
+        latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)
+        vaults_fees = self.staking_vaults.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults=vaults,
+            vaults_total_values=vaults_total_values,
+            latest_onchain_ipfs_report_data=latest_onchain_ipfs_report_data,
+            core_apr_ratio=core_apr_ratio,
+            pre_total_pooled_ether=simulation.pre_total_pooled_ether,
+            pre_total_shares=simulation.pre_total_shares,
+            frame_config=frame_config,
+            chain_config=chain_config,
+            current_frame=current_frame,
+        )
+        vaults_slashing_reserve = self.staking_vaults.get_vaults_slashing_reserve(
+            bs=blockstamp, vaults=vaults, validators=validators, chain_config=chain_config
+        )
+        tree_data = self.staking_vaults.build_tree_data(
+            vaults=vaults,
+            vaults_total_values=vaults_total_values,
+            vaults_fees=vaults_fees,
+            vaults_slashing_reserve=vaults_slashing_reserve,
+        )
+
+        merkle_tree = self.staking_vaults.get_merkle_tree(tree_data)
+        tree_cid = self.staking_vaults.publish_tree(
+            bs=blockstamp,
+            tree=merkle_tree,
+            vaults=vaults,
+            prev_tree_cid=latest_onchain_ipfs_report_data.report_cid,
+            chain_config=chain_config,
+            vaults_fee_map=vaults_fees,
+        )
+
+        VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
+        logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
+
+        return merkle_tree.root, str(tree_cid)
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -377,11 +499,16 @@ class Accounting(BaseModule, ConsensusModule):
         report_rebase_part: RebaseReport,
         report_modules_part: tuple[list[StakingModuleId], list[int]],
         report_wq_part: WqReport,
-        extra_data: ExtraData
+        report_vaults_part: VaultsReport,
+        extra_data: ExtraData,
     ) -> ReportData:
-        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
+        validators_count, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
+            report_rebase_part
+        )
         staking_module_ids_list, exit_validators_count_list = report_modules_part
-        is_bunker, finalization_share_rate, finalization_batches = report_wq_part
+        is_bunker, finalization_batches, finalization_share_rate = report_wq_part
+        tree_root, tree_cid = report_vaults_part
+
         return ReportData(
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,
@@ -395,7 +522,14 @@ class Accounting(BaseModule, ConsensusModule):
             withdrawal_finalization_batches=finalization_batches,
             finalization_share_rate=finalization_share_rate,
             is_bunker=is_bunker,
+            vaults_tree_root=tree_root,
+            vaults_tree_cid=tree_cid,
             extra_data_format=extra_data.format,
             extra_data_hash=extra_data.data_hash,
             extra_data_items_count=extra_data.items_count,
         )
+
+    def _get_time_elapsed_seconds_from_prev_report(self, blockstamp: ReferenceBlockStamp) -> int:
+        slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
+        chain_conf = self.get_chain_config(blockstamp)
+        return slots_elapsed * chain_conf.seconds_per_slot

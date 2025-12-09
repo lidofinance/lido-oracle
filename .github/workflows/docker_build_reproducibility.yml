@@ -71,7 +71,7 @@ jobs:
 
       - name: Build image
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6.15.0
         with:
           push: false
           load: true

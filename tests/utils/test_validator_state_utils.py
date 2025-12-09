@@ -18,6 +18,7 @@ from src.utils.validator_state import (
     has_compounding_withdrawal_credential,
     has_eth1_withdrawal_credential,
     has_execution_withdrawal_credential,
+    has_far_future_activation_eligibility_epoch,
     is_active_validator,
     is_exited_validator,
     is_fully_withdrawable_validator,
@@ -25,7 +26,9 @@ from src.utils.validator_state import (
     is_partially_withdrawable_validator,
 )
 from tests.factory.no_registry import ValidatorFactory
-from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import simple_validators
+from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import (
+    simple_validators,
+)
 
 
 @pytest.mark.unit
@@ -135,6 +138,22 @@ def test_is_on_exit(exit_epoch, expected):
     validator.validator.exit_epoch = exit_epoch
 
     actual = is_on_exit(validator)
+    assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "activation_eligibility_epoch, expected",
+    [
+        (176720, False),
+        (FAR_FUTURE_EPOCH, True),
+    ],
+)
+def test_has_far_future_activation_eligibility_epoch(activation_eligibility_epoch, expected):
+    validator = ValidatorFactory.build()
+    validator.validator.activation_eligibility_epoch = activation_eligibility_epoch
+
+    actual = has_far_future_activation_eligibility_epoch(validator.validator)
     assert actual == expected
 
 
