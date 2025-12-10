@@ -1,7 +1,7 @@
 name: CI Build prod image
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       tag:
         description: "tag to deploy from"
