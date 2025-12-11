@@ -1,5 +1,6 @@
 import logging
 
+from src import variables
 from src.modules.performance.collector.checkpoint import (
     FrameCheckpointsIterator,
     FrameCheckpointProcessor,
@@ -22,7 +23,10 @@ class PerformanceCollector(BaseModule):
 
     def __init__(self, w3):
         super().__init__(w3)
-        self.db = DutiesDB()
+        self.db = DutiesDB(
+            connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
+            statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
+        )
         self.last_epochs_demand_update = self.get_epochs_demand_max_updated_at()
 
     def refresh_contracts(self):
@@ -115,14 +119,17 @@ class PerformanceCollector(BaseModule):
                 })
                 # Remove from the DB just in case
                 self.db.delete_demand(demand.consumer)
+                # There is no sense to lower start_epoch because the demand is already satisfied (data is in the DB)
+                continue
             start_epoch = min(start_epoch, demand.l_epoch)
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
-        if missing_epochs:
-            start_epoch = min(missing_epochs)
-        else:
-            # Start from the next epoch after the last epoch in the DB.
+        if not missing_epochs:
+            if max_epoch_in_db is None:
+                raise ValueError("No missing epochs found but the DB is empty. Probably a logic error or corrupted DB.")
             start_epoch = EpochNumber(max_epoch_in_db + 1)
+        else:
+            start_epoch = min(missing_epochs)
 
         log_meta_info = {
             "start_epoch": start_epoch,
@@ -151,7 +158,5 @@ class PerformanceCollector(BaseModule):
         return False
 
     def get_epochs_demand_max_updated_at(self) -> int:
-        max_updated_at = 0
-        for demand in self.db.get_epochs_demands():
-            max_updated_at = max(max_updated_at, demand.updated_at)
-        return max_updated_at
+        max_updated_at = self.db.get_epochs_demands_max_updated_at()
+        return int(max_updated_at) if max_updated_at is not None else 0

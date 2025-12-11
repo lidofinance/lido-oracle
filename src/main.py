@@ -201,6 +201,8 @@ if __name__ == '__main__':
 
     if module is OracleModule.PERFORMANCE_WEB_SERVER:
         from src.modules.performance.web.server import serve
+        errors = variables.check_perf_web_server_required_variables()
+        variables.raise_from_errors(errors)
         logger.info({'msg': f'Starting Performance Web Server on port {variables.PERFORMANCE_WEB_SERVER_API_PORT}'})
         sys.exit(serve())
 

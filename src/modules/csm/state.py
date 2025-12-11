@@ -135,6 +135,10 @@ class State:
     def is_empty(self) -> bool:
         return not self.data and not self._epochs_to_process and not self._processed_epochs
 
+    def ensure_initialized(self) -> None:
+        if self.is_empty or not self._epochs_to_process or not self.frames:
+            raise InvalidState("State is not initialized; call migrate() before processing")
+
     @property
     def frames(self) -> list[Frame]:
         return list(self.data.keys())
@@ -142,7 +146,7 @@ class State:
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
-            raise ValueError("Epochs to process are not set")
+            raise InvalidState("Epochs to process are not set; call migrate() before processing")
         diff = set(self._epochs_to_process) - self._processed_epochs
         return diff
 

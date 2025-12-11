@@ -139,6 +139,8 @@ class CSOracle(BaseModule, ConsensusModule):
     def collect_data(self) -> bool:
         logger.info({"msg": "Collecting data for the report from Performance Collector"})
 
+        self.state.ensure_initialized()
+
         if not self.state.is_fulfilled:
             for l_epoch, r_epoch in self.state.frames:
                 is_data_range_available = self.w3.performance.is_range_available(
@@ -235,6 +237,8 @@ class CSOracle(BaseModule, ConsensusModule):
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
+        self.state.ensure_initialized()
+
         logger.info({
             "msg": "Starting state fulfillment",
             "total_frames": len(self.state.frames),
@@ -262,12 +266,18 @@ class CSOracle(BaseModule, ConsensusModule):
                 if epoch_data is None:
                     raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
-                misses, props_vids, props_flags, syncs_vids, syncs_misses = (
-                    epoch_data.attestations,
-                    epoch_data.proposals_vids,
-                    epoch_data.proposals_flags,
-                    epoch_data.syncs_vids,
-                    epoch_data.syncs_misses
+                (
+                    misses_raw,
+                    props_vids,
+                    props_flags,
+                    syncs_vids,
+                    syncs_misses,
+                ) = (
+                    [ValidatorIndex(vid) for vid in epoch_data.attestations],
+                    [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
+                    epoch_data.proposals_flags,  # proposed or not status
+                    [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
+                    epoch_data.syncs_misses,  # count of missed blocks in sync duties
                 )
 
                 if len(props_vids) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
@@ -276,12 +286,12 @@ class CSOracle(BaseModule, ConsensusModule):
                 logger.info({
                     "msg": "Performance data received",
                     "epoch": epoch,
-                    "misses_count": len(misses),
+                    "misses_count": len(misses_raw),
                     "proposals_count": len(props_vids),
                     "sync_duties_count": len(syncs_vids)
                 })
 
-                misses = set(misses)
+                misses = set(misses_raw)
                 for validator in validators:
                     missed_att = validator.index in misses
                     included_att = validator.index not in misses

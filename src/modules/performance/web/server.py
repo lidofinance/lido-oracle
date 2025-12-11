@@ -1,15 +1,24 @@
-from typing import Optional
-import logging
+from typing import cast
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Depends, Query
 import uvicorn
 from pydantic import BaseModel
 from uvicorn.config import LOGGING_CONFIG
 
 from src.modules.performance.common.db import DutiesDB, Duty, EpochsDemand
-from src.variables import PERFORMANCE_WEB_SERVER_API_PORT
+from src.modules.performance.web.middleware import RequestTimeoutMiddleware
+from src.variables import (
+    PERFORMANCE_WEB_SERVER_API_HOST,
+    PERFORMANCE_WEB_SERVER_API_PORT,
+    PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
+    PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE,
+    PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
+)
 from src.modules.performance.web.metrics import attach_metrics
 from src.types import EpochNumber
-from src.metrics.logging import JsonFormatter, handler
+from src.metrics.logging import JsonFormatter
 
 
 class EpochsDemandRequest(BaseModel):
@@ -22,83 +31,99 @@ class HealthCheckResp(BaseModel):
     status: str = "ok"
 
 
-app = FastAPI(title="Performance Collector API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.db = DutiesDB(
+        connect_timeout=PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
+        statement_timeout_ms=PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
+    )
+    yield
+
+
+app = FastAPI(title="Performance Collector API", lifespan=lifespan)
 attach_metrics(app)
-
-_db_instance: Optional[DutiesDB] = None
-
-
-async def get_db() -> DutiesDB:
-    global _db_instance
-    if _db_instance is None:
-        _db_instance = DutiesDB()
-    return _db_instance
+app.add_middleware(RequestTimeoutMiddleware, timeout=PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT)
 
 
-async def validate_epoch_bounds(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+def get_db() -> DutiesDB:
+    return cast(DutiesDB, app.state.db)
+
+
+def validate_epoch_bounds(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
     if l_epoch > r_epoch:
         raise HTTPException(status_code=400, detail="'l_epoch' must be <= 'r_epoch'")
+    range_size = int(r_epoch) - int(l_epoch) + 1
+    if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Requested epoch range is too large; maximum allowed size is {PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE} epochs",
+        )
+
+
+def query_epoch_range(
+    from_epoch: EpochNumber = Query(..., alias="from"),
+    to_epoch: EpochNumber = Query(..., alias="to"),
+) -> tuple[EpochNumber, EpochNumber]:
+    validate_epoch_bounds(from_epoch, to_epoch)
+    return from_epoch, to_epoch
 
 
 @app.get("/health", response_model=HealthCheckResp)
-async def health():
+def health():
     return {"status": "ok"}
 
 
 @app.get("/check-epochs", response_model=bool)
-async def epochs_check(
-    from_epoch: EpochNumber = Query(..., alias="from"),
-    to_epoch: EpochNumber = Query(..., alias="to"),
+def epochs_check(
+    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
     db: DutiesDB = Depends(get_db),
 ):
-    await validate_epoch_bounds(from_epoch, to_epoch)
-    return bool(db.is_range_available(from_epoch, to_epoch))
+    l_epoch, r_epoch = epoch_range
+    return db.is_range_available(l_epoch, r_epoch)
 
 
 @app.get("/missing-epochs", response_model=list[EpochNumber])
-async def epochs_missing(
-    from_epoch: EpochNumber = Query(..., alias="from"),
-    to_epoch: EpochNumber = Query(..., alias="to"),
+def epochs_missing(
+    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
     db: DutiesDB = Depends(get_db),
 ):
-    await validate_epoch_bounds(from_epoch, to_epoch)
-    return db.missing_epochs_in(from_epoch, to_epoch)
+    l_epoch, r_epoch = epoch_range
+    return db.missing_epochs_in(l_epoch, r_epoch)
 
 
 @app.get("/epochs", response_model=list[Duty])
-async def epochs_data(
-    from_epoch: EpochNumber = Query(..., alias="from"),
-    to_epoch: EpochNumber = Query(..., alias="to"),
+def epochs_data(
+    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
     db: DutiesDB = Depends(get_db),
 ):
-    await validate_epoch_bounds(from_epoch, to_epoch)
-    return db.get_epochs_data(from_epoch, to_epoch)
+    l_epoch, r_epoch = epoch_range
+    return db.get_epochs_data(l_epoch, r_epoch)
 
 
 @app.get("/epochs/{epoch}", response_model=Duty | None)
-async def epoch_data(epoch: EpochNumber, db: DutiesDB = Depends(get_db)):
+def epoch_data(epoch: EpochNumber, db: DutiesDB = Depends(get_db)):
     return db.get_epoch_data(epoch)
 
 
 @app.get("/demands", response_model=list[EpochsDemand])
-async def epochs_demands(db: DutiesDB = Depends(get_db)):
+def epochs_demands(db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demands()
 
 
 @app.get("/demands/{consumer}", response_model=EpochsDemand | None)
-async def one_epochs_demand(consumer: str, db: DutiesDB = Depends(get_db)):
+def one_epochs_demand(consumer: str, db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demand(consumer)
 
 
 @app.post("/demands", response_model=EpochsDemand)
-async def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DutiesDB = Depends(get_db)):
-    await validate_epoch_bounds(demand_to_add.l_epoch, demand_to_add.r_epoch)
+def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DutiesDB = Depends(get_db)):
+    validate_epoch_bounds(demand_to_add.l_epoch, demand_to_add.r_epoch)
     db.store_demand(demand_to_add.consumer, demand_to_add.l_epoch, demand_to_add.r_epoch)
     return db.get_epochs_demand(demand_to_add.consumer)
 
 
 @app.delete("/demands", response_model=EpochsDemand)
-async def delete_epochs_demand(consumer: str = Query(...), db: DutiesDB = Depends(get_db)):
+def delete_epochs_demand(consumer: str = Query(...), db: DutiesDB = Depends(get_db)):
     to_delete = db.get_epochs_demand(consumer)
     if not to_delete:
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer}'")
@@ -116,7 +141,7 @@ def serve():
     
     uvicorn.run(
         app,
-        host="0.0.0.0",
+        host=PERFORMANCE_WEB_SERVER_API_HOST,
         port=PERFORMANCE_WEB_SERVER_API_PORT,
         log_config=logging_config,
     )

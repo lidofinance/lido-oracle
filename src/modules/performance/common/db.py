@@ -1,8 +1,8 @@
-from typing import Sequence
 from time import time
+from typing import Sequence
 
-from sqlalchemy import Column, Integer, Boolean, SmallInteger, ARRAY
-from sqlmodel import SQLModel, Field, create_engine, Session, select
+from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, func, text
+from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 from src import variables
 from src.modules.performance.common.types import ProposalDuty, SyncDuty, AttDutyMisses
@@ -31,16 +31,21 @@ class EpochsDemand(SQLModel, table=True):
 
 
 class DutiesDB:
-    def __init__(self):
-        self.engine = create_engine(
+    def __init__(self, *, connect_timeout: int | None = None, statement_timeout_ms: int | None = None):
+        self._statement_timeout_ms = statement_timeout_ms
+        self.engine = self._build_engine(connect_timeout)
+        self._setup_database()
+
+    def _build_engine(self, connect_timeout: int | None):
+        return create_engine(
             self._get_database_url(),
             echo=False,
-            pool_pre_ping=True,  # Enable connection health checks~
+            pool_pre_ping=True,  # Enable connection health checks
             pool_recycle=3600,  # Recycle connections every hour
-            pool_size=10,  # Connection pool size
-            max_overflow=20,  # Maximum overflow connections
+            pool_size=10,
+            max_overflow=20,
+            connect_args={"connect_timeout": connect_timeout} if connect_timeout else {},
         )
-        self._setup_database()
 
     @staticmethod
     def _get_database_url() -> str:
@@ -56,7 +61,10 @@ class DutiesDB:
         SQLModel.metadata.create_all(self.engine)
 
     def get_session(self) -> Session:
-        return Session(self.engine)
+        session = Session(self.engine)
+        if self._statement_timeout_ms:
+            session.exec(text("SET LOCAL statement_timeout = :timeout"), {"timeout": self._statement_timeout_ms})
+        return session
 
     def store_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         with self.get_session() as session:
@@ -129,9 +137,7 @@ class DutiesDB:
             return
 
         with self.get_session() as session:
-            duties_to_delete = session.exec(select(Duty).where(Duty.epoch < threshold)).all()
-            for duty in duties_to_delete:
-                session.delete(duty)
+            session.exec(delete(Duty).where(Duty.epoch < threshold))
             session.commit()
 
     def is_range_available(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
@@ -139,8 +145,9 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            count = session.exec(select(Duty).where(Duty.epoch >= l_epoch, Duty.epoch <= r_epoch)).all()
-            return len(count) == (r_epoch - l_epoch + 1)
+            stmt = select(func.count()).select_from(Duty).where(Duty.epoch >= l_epoch, Duty.epoch <= r_epoch)
+            count = session.exec(stmt).scalar_one()
+            return count == (r_epoch - l_epoch + 1)
 
     def missing_epochs_in(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> list[EpochNumber]:
         if l_epoch > r_epoch:
@@ -150,13 +157,9 @@ class DutiesDB:
             present_duties = session.exec(
                 select(Duty.epoch).where(Duty.epoch >= l_epoch, Duty.epoch <= r_epoch).order_by(Duty.epoch)
             ).all()
-            present = [int(epoch) for epoch in present_duties]
+            present = {EpochNumber(int(epoch)) for epoch in present_duties}
 
-        missing = []
-        for epoch in sequence(l_epoch, r_epoch):
-            if epoch not in present:
-                missing.append(epoch)
-        return missing
+        return [epoch for epoch in sequence(l_epoch, r_epoch) if epoch not in present]
 
     def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> Sequence[Duty]:
         with self.get_session() as session:
@@ -187,3 +190,7 @@ class DutiesDB:
     def get_epochs_demands(self) -> Sequence[EpochsDemand]:
         with self.get_session() as session:
             return session.exec(select(EpochsDemand)).all()
+
+    def get_epochs_demands_max_updated_at(self) -> int | None:
+        with self.get_session() as session:
+            return session.exec(select(func.max(EpochsDemand.updated_at))).scalar_one()

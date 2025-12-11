@@ -179,7 +179,7 @@ class FrameCheckpointProcessor:
         if is_pivot_missing:
             br[pivot_index] = None
 
-        logger.debug({
+        logger.info({
             'msg': 'Block roots analysis',
             'total_roots': len(br),
             'missing_roots_count': br.count(None),
@@ -269,8 +269,8 @@ class FrameCheckpointProcessor:
             attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
             if (slot, root) in duty_epoch_roots:
                 propose_duties[slot].is_proposed = True
-                process_sync(sync_aggregate, sync_duties)
-            process_attestations(attestations, att_committees, att_misses)
+                sync_duties = process_sync(sync_aggregate, sync_duties)
+            att_misses = process_attestations(attestations, att_committees, att_misses)
 
         propose_duties = list(propose_duties.values())
         if len(propose_duties) > self.converter.chain_config.slots_per_epoch:
@@ -391,19 +391,20 @@ class FrameCheckpointProcessor:
 def process_sync(
     sync_aggregate: SyncAggregate,
     sync_duties: list[SyncDuty]
-) -> None:
+) -> list[SyncDuty]:
     # Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#syncaggregate
     sync_bits = hex_bitvector_to_list(sync_aggregate.sync_committee_bits)
-    # Go through only UNSET indexes to get misses
+    # No need to process set bits because they mean that validator has participated successfully.
     for index_in_committee in get_unset_indices(sync_bits):
         sync_duties[index_in_committee].missed_count += 1
+    return sync_duties
 
 
 def process_attestations(
     attestations: Iterable[BlockAttestation],
     committees: AttestationCommittees,
     misses: AttDutyMisses,
-) -> None:
+) -> AttDutyMisses:
     for attestation in attestations:
         committee_offset = 0
         att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
@@ -415,13 +416,15 @@ def process_attestations(
                 # We already checked that before or check in next epoch processing.
                 continue
             att_committee_bits = att_bits[committee_offset:][: len(committee)]
-            # We can't use unset indices because the committee can attest partially in different blocks.
-            # If some part of the committee attested block X, their bits in block Y might be unset.
+            # Treat only set bits as reliable because committees can attest in multiple blocks.
+            # Unset bits do not necessarily mean a miss: when a committee was partially aggregated in
+            # an earlier block, the later block may legitimately keep those positions unset.
             for index_in_committee in get_set_indices(att_committee_bits):
                 vid = committee[index_in_committee]
                 if vid in misses:
                     misses.remove(vid)
             committee_offset += len(committee)
+    return misses
 
 
 def get_committee_indices(attestation: BlockAttestation) -> list[CommitteeIndex]:
