@@ -1,7 +1,7 @@
 from time import time
 from typing import Sequence
 
-from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, func, text
+from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, func
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 from src import variables
@@ -37,6 +37,12 @@ class DutiesDB:
         self._setup_database()
 
     def _build_engine(self, connect_timeout: int | None):
+        connect_args = {}
+        if connect_timeout:
+            connect_args["connect_timeout"] = connect_timeout
+        if self._statement_timeout_ms:
+            connect_args["options"] = f"-c statement_timeout={self._statement_timeout_ms}"
+
         return create_engine(
             self._get_database_url(),
             echo=False,
@@ -44,7 +50,7 @@ class DutiesDB:
             pool_recycle=3600,  # Recycle connections every hour
             pool_size=10,
             max_overflow=20,
-            connect_args={"connect_timeout": connect_timeout} if connect_timeout else {},
+            connect_args=connect_args,
         )
 
     @staticmethod
@@ -62,8 +68,6 @@ class DutiesDB:
 
     def get_session(self) -> Session:
         session = Session(self.engine)
-        if self._statement_timeout_ms:
-            session.exec(text("SET LOCAL statement_timeout = :timeout"), {"timeout": self._statement_timeout_ms})
         return session
 
     def store_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
@@ -146,7 +150,7 @@ class DutiesDB:
 
         with self.get_session() as session:
             stmt = select(func.count()).select_from(Duty).where(Duty.epoch >= l_epoch, Duty.epoch <= r_epoch)
-            count = session.exec(stmt).scalar_one()
+            count = session.exec(stmt).one()
             return count == (r_epoch - l_epoch + 1)
 
     def missing_epochs_in(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> list[EpochNumber]:
@@ -193,4 +197,4 @@ class DutiesDB:
 
     def get_epochs_demands_max_updated_at(self) -> int | None:
         with self.get_session() as session:
-            return session.exec(select(func.max(EpochsDemand.updated_at))).scalar_one()
+            return session.exec(select(func.max(EpochsDemand.updated_at))).one()

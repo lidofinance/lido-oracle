@@ -52,6 +52,9 @@ def get_db() -> DutiesDB:
 def validate_epoch_bounds(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
     if l_epoch > r_epoch:
         raise HTTPException(status_code=400, detail="'l_epoch' must be <= 'r_epoch'")
+
+
+def validate_range_size(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
     range_size = int(r_epoch) - int(l_epoch) + 1
     if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
         raise HTTPException(
@@ -61,8 +64,8 @@ def validate_epoch_bounds(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
 
 
 def query_epoch_range(
-    from_epoch: EpochNumber = Query(..., alias="from"),
-    to_epoch: EpochNumber = Query(..., alias="to"),
+        from_epoch: EpochNumber = Query(..., alias="from"),
+        to_epoch: EpochNumber = Query(..., alias="to"),
 ) -> tuple[EpochNumber, EpochNumber]:
     validate_epoch_bounds(from_epoch, to_epoch)
     return from_epoch, to_epoch
@@ -75,8 +78,8 @@ def health():
 
 @app.get("/check-epochs", response_model=bool)
 def epochs_check(
-    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-    db: DutiesDB = Depends(get_db),
+        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
+        db: DutiesDB = Depends(get_db),
 ):
     l_epoch, r_epoch = epoch_range
     return db.is_range_available(l_epoch, r_epoch)
@@ -84,8 +87,8 @@ def epochs_check(
 
 @app.get("/missing-epochs", response_model=list[EpochNumber])
 def epochs_missing(
-    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-    db: DutiesDB = Depends(get_db),
+        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
+        db: DutiesDB = Depends(get_db),
 ):
     l_epoch, r_epoch = epoch_range
     return db.missing_epochs_in(l_epoch, r_epoch)
@@ -93,10 +96,11 @@ def epochs_missing(
 
 @app.get("/epochs", response_model=list[Duty])
 def epochs_data(
-    epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-    db: DutiesDB = Depends(get_db),
+        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
+        db: DutiesDB = Depends(get_db),
 ):
     l_epoch, r_epoch = epoch_range
+    validate_range_size(l_epoch, r_epoch)
     return db.get_epochs_data(l_epoch, r_epoch)
 
 
@@ -138,7 +142,7 @@ def serve():
         logging_config["formatters"][formatter_name] = {
             "()": JsonFormatter,
         }
-    
+
     uvicorn.run(
         app,
         host=PERFORMANCE_WEB_SERVER_API_HOST,
