@@ -9,7 +9,6 @@ from web3.types import Wei
 
 from src.constants import (
     TOTAL_BASIS_POINTS,
-    MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
     EFFECTIVE_BALANCE_INCREMENT,
 )
@@ -315,8 +314,8 @@ def test_calculate_distribution(
     assert result.total_rebate == expected_total_rebate
     assert result.strikes == expected_strikes
 
-    assert len(result.logs) == len(frames)
-    for i, log in enumerate(result.logs):
+    assert len(result.logs.frames) == len(frames)
+    for i, log in enumerate(result.logs.frames):
         assert log.blockstamp == frame_blockstamps[i]
         assert log.frame == frames[i]
 

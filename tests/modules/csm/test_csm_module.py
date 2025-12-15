@@ -7,10 +7,10 @@ from unittest.mock import Mock, PropertyMock, call
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX
+from src.constants import UINT64_MAX, CSM_LOGS_VERSION
 from src.modules.csm.csm import CSMError, CSOracle, LastReport
 from src.modules.csm.distribution import Distribution
-from src.modules.csm.log import FramePerfLog
+from src.modules.csm.log import Logs
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
@@ -588,7 +588,7 @@ class BuildReportTestParam:
                         total_rewards_map=defaultdict(int),
                         total_rebate=0,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(ZERO_HASH),
@@ -630,7 +630,7 @@ class BuildReportTestParam:
                         ),
                         total_rebate=1,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -680,7 +680,7 @@ class BuildReportTestParam:
                         ),
                         total_rebate=1,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
@@ -722,7 +722,7 @@ class BuildReportTestParam:
                         total_rewards_map=defaultdict(int),
                         total_rebate=0,
                         strikes=defaultdict(dict),
-                        logs=[Mock()],
+                        logs=Logs(frames=[Mock()]),
                     )
                 ),
                 curr_rewards_tree_root=HexBytes(32),
@@ -769,6 +769,7 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 
     assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
+    assert module.publish_log.call_args[0][0]._ver == CSM_LOGS_VERSION
 
 
 @pytest.mark.unit
@@ -821,6 +822,37 @@ def test_execute_module_processed(module: CSOracle):
         last_finalized_blockstamp=Mock(slot_number=100500),
     )
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
+
+
+@pytest.mark.unit
+def test_calculate_distribution_lru_cache(module: CSOracle):
+    blockstamp = Mock()
+    last_report = Mock()
+    mock_distribution_result = Mock()
+
+    with patch('src.modules.csm.csm.Distribution') as MockDistribution:
+        mock_distribution_instance = MockDistribution.return_value
+        mock_distribution_instance.calculate.return_value = mock_distribution_result
+
+        module.converter = Mock()
+        module.state = Mock()
+
+        result1 = module.calculate_distribution(blockstamp, last_report)
+
+        result2 = module.calculate_distribution(blockstamp, last_report)
+
+        assert result1 is result2
+        assert result1 is mock_distribution_result
+
+        assert MockDistribution.call_count == 1
+        assert mock_distribution_instance.calculate.call_count == 1
+
+        module.calculate_distribution.cache_clear()
+
+        result3 = module.calculate_distribution(blockstamp, last_report)
+
+        assert MockDistribution.call_count == 2
+        assert result3 is mock_distribution_result
 
 
 @dataclass(frozen=True)

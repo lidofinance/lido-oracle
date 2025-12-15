@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
+from src.constants import CSM_LOGS_VERSION
 from src.modules.csm.state import DutyAccumulator
 from src.modules.csm.types import RewardsShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
@@ -43,14 +44,19 @@ class FramePerfLog:
         default_factory=lambda: defaultdict(OperatorFrameSummary)
     )
 
-    @staticmethod
-    def encode(logs: list['FramePerfLog']) -> bytes:
+
+@dataclass
+class Logs:
+    frames: list[FramePerfLog] = field(default_factory=list)
+    _ver: int = CSM_LOGS_VERSION
+
+    def encode(self) -> bytes:
         return (
             LogJSONEncoder(
                 indent=None,
                 separators=(',', ':'),
                 sort_keys=True,
             )
-            .encode([asdict(log) for log in logs])
+            .encode(asdict(self))
             .encode()
         )

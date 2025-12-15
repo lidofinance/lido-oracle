@@ -12,7 +12,7 @@ from src.metrics.prometheus.csm import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
 from src.modules.csm.helpers.last_report import LastReport
-from src.modules.csm.log import FramePerfLog
+from src.modules.csm.log import Logs
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree, Tree
 from src.modules.csm.types import ReportData, RewardsShares, StrikesList
@@ -207,6 +207,7 @@ class CSOracle(BaseModule, ConsensusModule):
         current_frame = self.get_frame_number_by_slot(blockstamp)
         return LastReport.load(self.w3, blockstamp, current_frame)
 
+    @lru_cache(maxsize=1)
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
@@ -351,8 +352,8 @@ class CSOracle(BaseModule, ConsensusModule):
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 
-    def publish_log(self, logs: list[FramePerfLog]) -> CID:
-        log_cid = self.w3.ipfs.publish(FramePerfLog.encode(logs))
+    def publish_log(self, logs: Logs) -> CID:
+        log_cid = self.w3.ipfs.publish(logs.encode())
         logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
         return log_cid
 
