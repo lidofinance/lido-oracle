@@ -67,7 +67,7 @@ class CSOracle(BaseModule, ConsensusModule):
         atexit.register(self._on_shutdown)
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.csm.oracle  # type: ignore
+        self.report_contract = self.w3.csm.oracle
         self.state.clear()
 
     def _on_shutdown(self):
@@ -84,8 +84,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 "msg": "Cleared Performance Collector demand on shutdown",
                 "consumer": self.consumer,
             })
-        # pylint: disable=broad-except
-        except Exception as error:
+        except (ConnectionError, TimeoutError, OSError) as error:
             logger.warning({
                 "msg": "Unexpected error during Performance Collector demand cleanup",
                 "consumer": self.consumer,

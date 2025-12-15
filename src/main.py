@@ -118,7 +118,8 @@ def main(module_name: OracleModule):
         raise ValueError(f'Unexpected arg: {module_name=}.')
 
     if module_name != OracleModule.PERFORMANCE_COLLECTOR:
-        instance.check_contract_configs()
+        if hasattr(instance, 'check_contract_configs'):
+            instance.check_contract_configs()
 
     if variables.DAEMON:
         instance.run_as_daemon()
