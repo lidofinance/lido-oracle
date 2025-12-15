@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal, NoReturn, Type
-from unittest.mock import Mock, PropertyMock, call
+from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
 from hexbytes import HexBytes
@@ -10,7 +10,7 @@ from hexbytes import HexBytes
 from src.constants import UINT64_MAX, CSM_LOGS_VERSION
 from src.modules.csm.csm import CSMError, CSOracle, LastReport
 from src.modules.csm.distribution import Distribution
-from src.modules.csm.log import Logs
+from src.modules.csm.log import FramePerfLog, Logs
 from src.modules.csm.state import State
 from src.modules.csm.tree import RewardsTree, StrikesTree
 from src.modules.csm.types import StrikesList
@@ -542,15 +542,16 @@ def test_publish_tree_uploads_encoded_tree(module: CSOracle):
 
 @pytest.mark.unit
 def test_publish_log_uploads_encoded_log(module: CSOracle, monkeypatch: pytest.MonkeyPatch):
-    logs = [Mock(spec=FramePerfLog)]
+    logs = Logs()
+    logs.frames = [Mock()]
     encode_mock = Mock(return_value=b"log")
-    monkeypatch.setattr("src.modules.csm.csm.FramePerfLog.encode", encode_mock)
+    logs.encode = encode_mock
     module.w3 = Mock()
     module.w3.ipfs.publish = Mock(return_value=CID("QmLog"))
 
     cid = module.publish_log(logs)
 
-    encode_mock.assert_called_once_with(logs)
+    encode_mock.assert_called_once()
     module.w3.ipfs.publish.assert_called_once_with(b"log")
     assert cid == CID("QmLog")
 
