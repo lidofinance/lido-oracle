@@ -1,10 +1,10 @@
 from typing import cast
 from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-import uvicorn
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from pydantic import BaseModel
-from uvicorn.config import LOGGING_CONFIG
+import gunicorn.app.base
 
 from src.modules.performance.common.db import DutiesDB, Duty, EpochsDemand
 from src.modules.performance.web.middleware import RequestTimeoutMiddleware
@@ -15,10 +15,16 @@ from src.variables import (
     PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
     PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE,
     PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_WORKERS,
+    PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
+    PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
+    PERFORMANCE_WEB_SERVER_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_KEEPALIVE,
 )
 from src.modules.performance.web.metrics import attach_metrics
 from src.types import EpochNumber
-from src.metrics.logging import JsonFormatter
+
+logger = logging.getLogger(__name__)
 
 
 class EpochsDemandRequest(BaseModel):
@@ -43,6 +49,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Performance Collector API", lifespan=lifespan)
 attach_metrics(app)
 app.add_middleware(RequestTimeoutMiddleware, timeout=PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    content_length = request.headers.get("content-length", "0")
+    url_info = f"{request.method} {request.url.path}?{request.url.query}"
+    logger.info("Request: %s | Content-Length: %s", url_info, content_length)
+
+    response = await call_next(request)
+    logger.info("Response: %s | Status: %s", url_info, response.status_code)
+
+    return response
 
 
 def get_db() -> DutiesDB:
@@ -136,16 +154,32 @@ def delete_epochs_demand(consumer: str = Query(...), db: DutiesDB = Depends(get_
 
 
 def serve():
-    # Prepare logging config with the app-wise formatter
-    logging_config = LOGGING_CONFIG.copy()
-    for formatter_name in logging_config["formatters"]:
-        logging_config["formatters"][formatter_name] = {
-            "()": JsonFormatter,
-        }
 
-    uvicorn.run(
-        app,
-        host=PERFORMANCE_WEB_SERVER_API_HOST,
-        port=PERFORMANCE_WEB_SERVER_API_PORT,
-        log_config=logging_config,
-    )
+    class StandaloneApplication(gunicorn.app.base.BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+
+        def init(self, parser, opts, args):
+            return None
+
+        def load_config(self):
+            for key, value in self.options.items():
+                if key in self.cfg.settings and value is not None:
+                    self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
+
+    options = {
+        'bind': f'{PERFORMANCE_WEB_SERVER_API_HOST}:{PERFORMANCE_WEB_SERVER_API_PORT}',
+        'workers': PERFORMANCE_WEB_SERVER_WORKERS,
+        'worker_class': 'uvicorn.workers.UvicornWorker',
+        'worker_connections': PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
+        'max_requests': PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
+        'timeout': PERFORMANCE_WEB_SERVER_TIMEOUT,
+        'keepalive': PERFORMANCE_WEB_SERVER_KEEPALIVE,
+    }
+
+    StandaloneApplication(app, options).run()

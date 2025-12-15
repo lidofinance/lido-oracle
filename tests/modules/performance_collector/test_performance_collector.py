@@ -21,11 +21,11 @@ def mock_db():
 @pytest.fixture
 def performance_collector(mock_w3, mock_db):
     """Create PerformanceCollector instance with mocked dependencies"""
-    with patch('src.modules.performance.common.db.DutiesDB', return_value=mock_db), patch(
+    with patch('src.modules.performance.collector.collector.DutiesDB', return_value=mock_db), patch(
         'src.modules.performance.web.server.serve'
     ), patch('src.modules.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080):
+        mock_db.get_epochs_demands_max_updated_at.return_value = 0
         collector = PerformanceCollector(mock_w3)
-        collector.db = mock_db
         return collector
 
 
