@@ -75,11 +75,19 @@ def test_hex_bitlist_to_list():
 @pytest.mark.unit
 def test_attested_indices():
     committees = {
-        (42, 20): [Mock(index=20000 + i) for i in range(130)],
-        (42, 22): [Mock(index=22000 + i) for i in range(131)],
-        (17, 12): [Mock(index=12000 + i) for i in range(999)],
+        (42, 20): [20000 + i for i in range(130)],
+        (42, 22): [22000 + i for i in range(131)],
+        (17, 12): [12000 + i for i in range(999)],
     }
-    process_attestations(
+    # Create misses set for all validators in committees
+    misses = set()
+    for committee_validators in committees.values():
+        for validator_index in committee_validators:
+            misses.add(validator_index)
+
+    misses_before_processing = misses.copy()
+
+    misses_after_processing = process_attestations(
         [
             Mock(
                 data=Mock(slot=42, index=0),
@@ -93,9 +101,9 @@ def test_attested_indices():
             ),
         ],
         committees,  # type: ignore
+        misses,
     )
-    vals = [v for v in chain(*committees.values()) if v.included is True]
-    assert [v.index for v in vals] == [20084, 22010, 22026, 12084]
+    assert misses_before_processing - misses_after_processing == {20084, 22010, 22026, 12084}
 
 
 @pytest.mark.unit

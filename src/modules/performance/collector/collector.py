@@ -52,10 +52,10 @@ class PerformanceCollector(BaseModule):
         # finalized epoch. As a result we can have a delay in frame finalization.
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
-        epochs_range_demand = self.define_epochs_to_process_range(finalized_epoch)
-        if not epochs_range_demand:
+        epochs_range_to_process = self.define_epochs_to_process_range(finalized_epoch)
+        if not epochs_range_to_process:
             return ModuleExecuteDelay.NEXT_SLOT
-        start_epoch, end_epoch = epochs_range_demand
+        start_epoch, end_epoch = epochs_range_to_process
 
         checkpoints = FrameCheckpointsIterator(
             converter,

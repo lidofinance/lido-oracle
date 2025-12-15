@@ -60,7 +60,7 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 @pytest.fixture
 def sync_committees_cache():
-    with patch('src.modules.performance_collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
+    with patch('src.modules.performance.collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
         yield cache
 
 
@@ -257,7 +257,7 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
         finalized_blockstamp,
     )
     raw = consensus_client.get_attestation_committees(0, 0)
-    committees = processor._prepare_attestation_duties(0)
+    committees, misses = processor._prepare_attestation_duties(0)
     assert len(committees) == 2048
     for index, (committee_id, validators) in enumerate(committees.items()):
         slot, committee_index = committee_id
@@ -265,8 +265,8 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
         assert slot == committee_from_raw.slot
         assert committee_index == committee_from_raw.index
         assert len(validators) == 32
-        for validator in validators:
-            assert validator.included is False
+        assert all(isinstance(v, int) for v in validators)
+    assert len(misses) == 65536  # 2048 committees * 32 validators
 
 
 @pytest.mark.unit
@@ -290,15 +290,10 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
     attestation2.data.slot = 0
     attestation2.data.index = 0
     attestation2.aggregation_bits = BitListFactory.build(set_indices=[]).hex()
-    process_attestations([attestation, attestation2], committees)
-    for index, validators in enumerate(committees.values()):
-        for validator in validators:
-            # only the first attestation is accounted
-            # slot = 0 and committee = 0
-            if index == 0:
-                assert validator.included is True
-            else:
-                assert validator.included is False
+    committees, misses = processor._prepare_attestation_duties(0)
+    original_misses_count = len(misses)
+    updated_misses = process_attestations([attestation, attestation2], committees, misses)
+    assert len(updated_misses) == original_misses_count - 32
 
 
 @pytest.mark.unit
@@ -319,10 +314,10 @@ def test_checkpoints_processor_process_attestations_undefined_committee(
     attestation.data.slot = 100500
     attestation.data.index = 100500
     attestation.aggregation_bits = '0x' + 'f' * 32
-    process_attestations([attestation], committees)
-    for validators in committees.values():
-        for v in validators:
-            assert v.included is False
+    committees, misses = processor._prepare_attestation_duties(0)
+    original_misses = misses.copy()
+    updated_misses = process_attestations([attestation], committees, misses)
+    assert updated_misses == original_misses
 
 
 @pytest.fixture
@@ -330,6 +325,8 @@ def frame_checkpoint_processor():
     cc = Mock()
     db = Mock()
     converter = Mock()
+    converter.chain_config = Mock()
+    converter.chain_config.slots_per_epoch = 32
     finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     return FrameCheckpointProcessor(cc, db, converter, finalized_blockstamp)
 
@@ -341,7 +338,7 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={SlotNumber(100): AttDutyMisses([1])})
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value=({}, {1}))
     frame_checkpoint_processor._prepare_propose_duties = Mock(
         return_value={
             SlotNumber(100): ProposalDuty(validator_index=1, is_proposed=False),
@@ -370,7 +367,7 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
     )
 
-    frame_checkpoint_processor.db.store_epoch_from_duties.assert_called()
+    frame_checkpoint_processor.db.store_epoch.assert_called()
 
 
 @pytest.mark.unit
@@ -380,7 +377,7 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
     duty_epoch = EpochNumber(10)
     duty_epoch_roots = [(SlotNumber(100), Mock(spec=BlockRoot)), (SlotNumber(101), Mock(spec=BlockRoot))]
     next_epoch_roots = [(SlotNumber(102), Mock(spec=BlockRoot)), (SlotNumber(103), Mock(spec=BlockRoot))]
-    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value={})
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value=({}, set()))
     frame_checkpoint_processor._prepare_propose_duties = Mock(
         return_value={
             SlotNumber(100): ProposalDuty(validator_index=1, is_proposed=False),
@@ -388,9 +385,7 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
         }
     )
     frame_checkpoint_processor._prepare_sync_committee_duties = Mock(
-        return_value=[
-            SyncDuty(validator_index=1, missed_count=2),
-        ]
+        return_value=[SyncDuty(validator_index=i, missed_count=0) for i in range(0, 8)]
     )
 
     sync_aggregate = Mock()
@@ -409,35 +404,16 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
 @pytest.mark.unit
 def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_checkpoint_processor):
     epoch = EpochNumber(10)
-    duty_block_roots = [(SlotNumber(100), Mock()), (SlotNumber(101), Mock())]
     sync_committee = Mock(spec=SyncCommittee)
     sync_committee.validators = [1, 2, 3]
     frame_checkpoint_processor._get_sync_committee = Mock(return_value=sync_committee)
 
-    duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
+    duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch)
 
     expected_duties = [
-        SyncDuty(validator_index=1, missed_count=2),
-        SyncDuty(validator_index=2, missed_count=2),
-        SyncDuty(validator_index=3, missed_count=2),
-    ]
-    assert duties == expected_duties
-
-
-@pytest.mark.unit
-def test_prepare_sync_committee_skips_duties_for_missed_slots(frame_checkpoint_processor):
-    epoch = EpochNumber(10)
-    duty_block_roots = [(SlotNumber(100), None), (SlotNumber(101), Mock())]
-    sync_committee = Mock(spec=SyncCommittee)
-    sync_committee.validators = [1, 2, 3]
-    frame_checkpoint_processor._get_sync_committee = Mock(return_value=sync_committee)
-
-    duties = frame_checkpoint_processor._prepare_sync_committee_duties(epoch, duty_block_roots)
-
-    expected_duties = [
-        SyncDuty(validator_index=1, missed_count=1),
-        SyncDuty(validator_index=2, missed_count=1),
-        SyncDuty(validator_index=3, missed_count=1),
+        SyncDuty(validator_index=1, missed_count=0),
+        SyncDuty(validator_index=2, missed_count=0),
+        SyncDuty(validator_index=3, missed_count=0),
     ]
     assert duties == expected_duties
 
@@ -470,7 +446,7 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
     with patch(
-        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
     ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
@@ -496,7 +472,7 @@ def test_get_sync_committee_handles_cache_eviction(
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
     with patch(
-        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
     ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
@@ -554,7 +530,7 @@ def test_get_dependent_root_for_proposer_duties_from_cl_when_slot_out_of_range(f
     prev_slot_response = Mock()
     prev_slot_response.message.slot = non_missed_slot
     with patch(
-        'src.modules.performance_collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
     ):
         frame_checkpoint_processor.cc.get_block_root = Mock(return_value=Mock(root=checkpoint_block_roots[0]))
 

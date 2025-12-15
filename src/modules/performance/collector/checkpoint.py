@@ -78,9 +78,6 @@ class FrameCheckpointsIterator:
         if self.l_epoch > self.max_available_epoch_to_check:
             raise ValueError(f"Left border epoch is greater than max available epoch to check: {l_epoch=} > {self.max_available_epoch_to_check=}")
 
-        if self.r_epoch > self.max_available_epoch_to_check:
-            raise ValueError(f"Right border epoch is greater than max available epoch to check: {r_epoch=} > {self.max_available_epoch_to_check=}")
-
     def __iter__(self):
         for checkpoint_epochs in batched(
             sequence(self.l_epoch, self.max_available_epoch_to_check),
