@@ -84,6 +84,7 @@ class CSOracle(BaseModule, ConsensusModule):
                 "msg": "Cleared Performance Collector demand on shutdown",
                 "consumer": self.consumer,
             })
+        # pylint: disable=broad-except
         except Exception as error:
             logger.warning({
                 "msg": "Unexpected error during Performance Collector demand cleanup",

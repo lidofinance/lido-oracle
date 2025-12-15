@@ -2,8 +2,15 @@ from threading import Thread
 
 import pytest
 
+from unittest.mock import patch
+from pathlib import Path
+from sqlmodel import create_engine
+from sqlalchemy import JSON
+
 from src.modules.csm.csm import CSOracle
 from src.modules.performance.collector.collector import PerformanceCollector
+from src.modules.performance.common.db import Duty
+from src.modules.performance.web.server import serve
 from src.modules.submodules.types import FrameConfig
 from src.utils.range import sequence
 from src.web3py.types import Web3
@@ -23,18 +30,15 @@ def csm_module(web3: Web3):
 
 @pytest.fixture()
 def performance_local_db(testrun_path):
-    from unittest.mock import patch
-    from pathlib import Path
-    from sqlmodel import create_engine
-    from sqlalchemy import JSON
-    from src.modules.performance.common.db import Duty
 
     def mock_get_database_url(self):
         db_path = Path(testrun_path) / "test_duties.db"
         return f"sqlite:///{db_path}"
 
     def mock_init(self):
+        # pylint: disable=protected-access
         self.engine = create_engine(self._get_database_url(), echo=False)
+        # pylint: disable=protected-access
         self._setup_database()
 
     table = Duty.__table__
@@ -54,8 +58,6 @@ def performance_collector(performance_local_db, web3: Web3, frame_config: FrameC
 
 @pytest.fixture()
 def performance_web_server(performance_local_db):
-    from src.modules.performance.web.server import serve
-
     Thread(target=serve, daemon=True).start()
     yield
 

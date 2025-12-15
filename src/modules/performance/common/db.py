@@ -149,6 +149,7 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
+            # pylint: disable=not-callable
             stmt = select(func.count()).select_from(Duty).where(Duty.epoch >= l_epoch, Duty.epoch <= r_epoch)
             count = session.exec(stmt).one()
             return count == (r_epoch - l_epoch + 1)

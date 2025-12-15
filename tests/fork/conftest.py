@@ -42,7 +42,7 @@ from src.web3py.extensions import (
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
-    PerformanceClientModule,
+    PerformanceClientModule, FallbackProviderModule,
 )
 
 logger = logging.getLogger('fork_tests')
