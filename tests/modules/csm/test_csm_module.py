@@ -454,7 +454,16 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
-    module.w3.performance.get_epoch_data = Mock(return_value=Duty(epoch=0, attestations=[inactive_validator.index], proposals_vids=[], proposals_flags= [], syncs_vids=[], syncs_misses=[]))
+    module.w3.performance.get_epoch_data = Mock(
+        return_value=Duty(
+            epoch=0,
+            attestations=[inactive_validator.index],
+            proposals_vids=[],
+            proposals_flags=[],
+            syncs_vids=[],
+            syncs_misses=[],
+        )
+    )
     state = Mock()
     state.frames = [(0, 0)]
     state.unprocessed_epochs = {0}

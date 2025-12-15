@@ -32,12 +32,9 @@ def performance_local_db(testrun_path):
     def mock_get_database_url(self):
         db_path = Path(testrun_path) / "test_duties.db"
         return f"sqlite:///{db_path}"
-    
+
     def mock_init(self):
-        self.engine = create_engine(
-            self._get_database_url(),
-            echo=False
-        )
+        self.engine = create_engine(self._get_database_url(), echo=False)
         self._setup_database()
 
     table = Duty.__table__
@@ -58,6 +55,7 @@ def performance_collector(performance_local_db, web3: Web3, frame_config: FrameC
 @pytest.fixture()
 def performance_web_server(performance_local_db):
     from src.modules.performance.web.server import serve
+
     Thread(target=serve, daemon=True).start()
     yield
 

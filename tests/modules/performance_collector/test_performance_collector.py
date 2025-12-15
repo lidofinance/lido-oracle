@@ -23,9 +23,7 @@ def performance_collector(mock_w3, mock_db):
     """Create PerformanceCollector instance with mocked dependencies"""
     with patch('src.modules.performance.common.db.DutiesDB', return_value=mock_db), patch(
         'src.modules.performance.web.server.serve'
-    ), patch(
-        'src.modules.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080
-    ):
+    ), patch('src.modules.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080):
         collector = PerformanceCollector(mock_w3)
         collector.db = mock_db
         return collector
