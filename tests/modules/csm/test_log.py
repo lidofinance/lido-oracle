@@ -2,7 +2,7 @@ import json
 import pytest
 
 from src.constants import CSM_LOGS_VERSION
-from src.modules.csm.log import FramePerfLog, DutyAccumulator, Logs
+from src.modules.oracles.csm.log import FramePerfLog, DutyAccumulator, Logs
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory

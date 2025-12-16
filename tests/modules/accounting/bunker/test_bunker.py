@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from web3.types import Wei
 
-from src.modules.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
+from src.modules.oracles.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
 from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
 from src.types import ReferenceBlockStamp

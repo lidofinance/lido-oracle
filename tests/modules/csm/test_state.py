@@ -8,7 +8,7 @@ import pytest
 
 from src import variables
 from src.constants import CSM_STATE_VERSION
-from src.modules.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
+from src.modules.oracles.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 

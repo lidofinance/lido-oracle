@@ -9,11 +9,11 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
-from src.main import ipfs_providers
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    CSM,
+    CSMContracts,
     ConsensusClientModule,
     IPFS,
     KeysAPIClientModule,
@@ -145,7 +145,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             # Mocked on the contract level, see create_contract_mock
             'lido_contracts': LidoContracts,
             'transaction': TransactionUtils,
-            'csm': CSM,
+            'csm': CSMContracts,
             'lido_validators': LidoValidatorsProvider,
             # Modules relying on network level highly - mocked fully
             'cc': lambda: Mock(spec=ConsensusClientModule),

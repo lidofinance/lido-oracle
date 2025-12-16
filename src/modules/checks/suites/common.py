@@ -1,10 +1,10 @@
 """Common checks"""
 import pytest
 
-from src.main import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
-from src.modules.accounting.accounting import Accounting
-from src.modules.ejector.ejector import Ejector
-from src.modules.csm.csm import CSOracle
+from src.modules.oracles.common.runtime import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
+from src.modules.oracles.accounting.accounting import Accounting
+from src.modules.oracles.ejector.ejector import Ejector
+from src.modules.oracles.csm.csm import CSOracle
 
 
 @pytest.fixture()

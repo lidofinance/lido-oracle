@@ -1,6 +1,6 @@
 import logging
 
-from src.modules.accounting.types import StakingFeeAggregateDistribution
+from src.modules.oracles.accounting.types import StakingFeeAggregateDistribution
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 

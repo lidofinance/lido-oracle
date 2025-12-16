@@ -6,7 +6,7 @@ from eth_typing import ChecksumAddress
 from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
 
-from src.modules.submodules.types import ChainConfig, CurrentFrame, FrameConfig
+from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 

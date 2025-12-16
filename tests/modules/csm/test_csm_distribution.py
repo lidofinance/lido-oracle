@@ -12,10 +12,10 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     EFFECTIVE_BALANCE_INCREMENT,
 )
-from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
-from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
-from src.modules.csm.types import StrikesList
+from src.modules.oracles.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
+from src.modules.oracles.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
+from src.modules.oracles.csm.state import DutyAccumulator, State, NetworkDuties, Frame
+from src.modules.oracles.csm.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
@@ -26,7 +26,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
-from src.web3py.extensions import CSM
+from src.web3py.extensions import CSMContracts
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
@@ -297,7 +297,7 @@ def test_calculate_distribution(
     expected_strikes,
 ):
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(spec=Web3, csm=Mock(spec=CSMContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
     w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
     w3.csm.get_curve_params = mocked_curve_params
 
@@ -323,7 +323,7 @@ def test_calculate_distribution(
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(spec=Web3, csm=Mock(spec=CSMContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
     w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.csm.get_curve_params = Mock(...)
 
@@ -351,7 +351,7 @@ def test_calculate_distribution_handles_invalid_distribution():
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(spec=Web3, csm=Mock(spec=CSMContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
     w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.csm.get_curve_params = Mock(...)
 
@@ -835,7 +835,7 @@ def test_calculate_distribution_in_frame(
 ):
     log = FramePerfLog(blockstamp=..., frame=...)
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM))
+    w3 = Mock(spec=Web3, csm=Mock(spec=CSMContracts))
     w3.csm.get_curve_params = mocked_curve_params
 
     frame = (EpochNumber(0), EpochNumber(31))

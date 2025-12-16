@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from time import sleep
 from typing import cast
 
@@ -17,13 +16,12 @@ from src.providers.execution.contracts.cs_module import CSModuleContract
 from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.utils.lazy_object_proxy import LazyObjectProxy
 from src.types import BlockStamp, NodeOperatorId, SlotNumber
 
 logger = logging.getLogger(__name__)
 
 
-class CSM(Module):
+class CSMContracts(Module):
     w3: Web3
 
     oracle: CSFeeOracleContract
@@ -38,6 +36,7 @@ class CSM(Module):
 
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
+        self._contract_addresses: tuple[str, ...] | None = None
         self._load_contracts()
 
     def get_csm_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
@@ -129,6 +128,7 @@ class CSM(Module):
                         decode_tuples=True,
                     ),
                 )
+                self._contract_addresses = self._get_contract_addresses()
                 return
             except Web3Exception as e:
                 last_error = e
@@ -143,9 +143,22 @@ class CSM(Module):
             f"after {self.CONTRACT_LOAD_MAX_RETRIES} attempts"
         ) from last_error
 
+    def _get_contract_addresses(self) -> tuple[str, ...]:
+        return (
+            self.module.address,
+            self.module.accounting(),
+            self.module.parameters_registry(),
+            self.accounting.fee_distributor(),
+            self.fee_distributor.oracle(),
+            self.oracle.strikes(),
+        )
 
-class LazyCSM(CSM):
-    """A wrapper around CSM module to achieve lazy-loading behaviour"""
+    def has_contract_address_changed(self) -> bool:
+        current = self._get_contract_addresses()
+        if self._contract_addresses != current:
+            self._contract_addresses = current
+            return True
+        return False
 
-    def __new__(cls, w3: Web3) -> 'LazyCSM':
-        return LazyObjectProxy(partial(CSM, w3))  # type: ignore
+    def reload_contracts(self) -> None:
+        self._load_contracts()

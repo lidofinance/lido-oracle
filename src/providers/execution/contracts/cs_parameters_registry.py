@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from web3.types import BlockIdentifier
 
 from src.constants import TOTAL_BASIS_POINTS, ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT
-from src.modules.csm.state import ValidatorDuties
+from src.modules.oracles.csm.state import ValidatorDuties
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.cache import global_lru_cache as lru_cache
 

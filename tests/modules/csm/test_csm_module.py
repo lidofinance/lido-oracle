@@ -8,15 +8,15 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX, CSM_LOGS_VERSION
-from src.modules.csm.csm import CSMError, CSOracle, LastReport
-from src.modules.csm.distribution import Distribution
-from src.modules.csm.log import FramePerfLog, Logs
-from src.modules.csm.state import State
-from src.modules.csm.tree import RewardsTree, StrikesTree
-from src.modules.csm.types import StrikesList
-from src.modules.performance.common.db import Duty
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH, CurrentFrame
+from src.modules.oracles.csm.csm import CSMError, CSOracle, LastReport
+from src.modules.oracles.csm.distribution import Distribution
+from src.modules.oracles.csm.log import Logs
+from src.modules.oracles.csm.state import State
+from src.modules.oracles.csm.tree import RewardsTree, StrikesTree
+from src.modules.oracles.csm.types import StrikesList
+from src.modules.sidecars.performance.common.db import Duty
+from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
+from src.modules.common.types import ZERO_HASH, CurrentFrame
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -831,7 +831,7 @@ def test_calculate_distribution_lru_cache(module: CSOracle):
     last_report = Mock()
     mock_distribution_result = Mock()
 
-    with patch('src.modules.csm.csm.Distribution') as MockDistribution:
+    with patch('src.modules.oracles.csm.csm.Distribution') as MockDistribution:
         mock_distribution_instance = MockDistribution.return_value
         mock_distribution_instance.calculate.return_value = mock_distribution_result
 

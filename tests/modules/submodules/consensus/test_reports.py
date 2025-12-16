@@ -7,9 +7,9 @@ from web3.types import Wei
 from dataclasses import dataclass
 
 from src import variables
-from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.types import ReportData
-from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
+from src.modules.oracles.accounting.accounting import Accounting
+from src.modules.oracles.accounting.types import ReportData
+from src.modules.common.types import ChainConfig, FrameConfig, ZERO_HASH
 from src.types import SlotNumber, Gwei, StakingModuleId
 
 from tests.factory.blockstamp import ReferenceBlockStampFactory

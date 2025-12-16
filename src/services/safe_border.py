@@ -3,7 +3,7 @@ from typing import Iterable
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_blockstamp
 from src.utils.web3converter import Web3Converter

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from src.modules.accounting.types import SECONDS_IN_YEAR
+from src.modules.oracles.accounting.types import SECONDS_IN_YEAR
 from src.utils.apr import calculate_gross_core_apr
 
 pytestmark = pytest.mark.unit

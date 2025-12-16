@@ -4,7 +4,7 @@ from typing import Callable, Iterable
 
 import pytest
 
-from src.modules.ejector.data_encode import (
+from src.modules.oracles.ejector.data_encode import (
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,
     VALIDATOR_INDEX_LENGTH,

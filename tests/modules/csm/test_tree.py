@@ -6,8 +6,8 @@ import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
-from src.modules.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
+from src.modules.oracles.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
+from src.modules.oracles.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
 from src.types import NodeOperatorId
 from src.utils.types import hex_str_to_bytes
 

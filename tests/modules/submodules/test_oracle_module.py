@@ -9,11 +9,11 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
-from src.modules.submodules.exceptions import (
+from src.modules.oracles.common.exceptions import (
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.oracles.common.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
@@ -30,6 +30,9 @@ class SimpleOracle(BaseModule):
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def refresh_contracts(self):
+        pass
+
+    def is_contracts_addresses_changed(self):
         pass
 
 
@@ -65,22 +68,22 @@ def test_receive_last_finalized_slot(oracle):
 @pytest.mark.unit
 @responses.activate
 def test_cycle_handler_run_once_per_slot(oracle, web3):
-    web3.lido_contracts.has_contract_address_changed = Mock()
+    oracle.is_contracts_addresses_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
 
     oracle.cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
+    assert oracle.is_contracts_addresses_changed.call_count == 1
 
     oracle.cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
+    assert oracle.is_contracts_addresses_changed.call_count == 1
 
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
     oracle.cycle_handler()
     assert oracle.call_count == 2
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 2
+    assert oracle.is_contracts_addresses_changed.call_count == 2
 
 
 @pytest.mark.unit

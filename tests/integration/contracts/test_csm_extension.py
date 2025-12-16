@@ -2,13 +2,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.web3py.extensions.csm import CSM
+from src.web3py.extensions.csm import CSMContracts
 from src.web3py.types import Web3
 
 
 @pytest.fixture
 def w3(web3_provider_integration):
-    web3_provider_integration.attach_modules({"csm": CSM})
+    web3_provider_integration.attach_modules({"csm": CSMContracts})
     return web3_provider_integration
 
 

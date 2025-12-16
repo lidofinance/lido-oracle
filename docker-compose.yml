@@ -1,0 +1,127 @@
+# Usage:
+#   Local development:    docker compose up -d
+#   External PostgreSQL:  PERFORMANCE_DB_HOST=your-host docker compose up -d performance-collector performance-web
+#   Run init-db only:     docker compose up init-db
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-performance-db-env: &performance-db-env
+  PERFORMANCE_DB_HOST: ${PERFORMANCE_DB_HOST:-postgres}
+  PERFORMANCE_DB_PORT: ${PERFORMANCE_DB_PORT:-5432}
+  PERFORMANCE_DB_NAME: ${PERFORMANCE_DB_NAME:-performance}
+  PERFORMANCE_DB_USER: ${PERFORMANCE_DB_USER:-performance}
+  PERFORMANCE_DB_PASSWORD: ${PERFORMANCE_DB_PASSWORD:-performance}
+
+services:
+  # ---------------------------------------------------------------------------
+  # Database Layer
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:15
+    container_name: csm-oracle-postgres
+    environment:
+      POSTGRES_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PERFORMANCE_DB_ADMIN_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # One-time database initialization (creates user and database)
+  # For external PostgreSQL: set PERFORMANCE_DB_HOST to your external host
+  init-db:
+    image: postgres:15
+    container_name: csm-oracle-init-db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *performance-db-env
+      PERFORMANCE_DB_ADMIN_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
+      PERFORMANCE_DB_ADMIN_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/init_performance_db.sh"]
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Performance Sidecar
+  # ---------------------------------------------------------------------------
+
+  performance-collector:
+    build: .
+    container_name: csm-oracle-performance-collector
+    command: ["-m", "src.main", "performance_collector"]
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    environment:
+      <<: *performance-db-env
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
+      MAX_CYCLE_LIFETIME_IN_SECONDS: ${MAX_CYCLE_LIFETIME_IN_SECONDS:-60000}
+    ports:
+      - "${PERFORMANCE_COLLECTOR_PROMETHEUS_PORT:-9000}:9000"
+      - "${PERFORMANCE_COLLECTOR_HEALTH_PORT:-9010}:9010"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  performance-web:
+    build: .
+    container_name: csm-oracle-performance-web
+    command: ["-m", "src.main", "performance_web_server"]
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    environment:
+      <<: *performance-db-env
+    ports:
+      - "${PERFORMANCE_WEB_PORT:-9020}:9020"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
+
+  # ---------------------------------------------------------------------------
+  # CSM Oracle
+  # ---------------------------------------------------------------------------
+
+  csm-oracle:
+    build: .
+    container_name: csm-oracle
+    command: ["-m", "src.main", "csm"]
+    environment:
+      CSM_MODULE_ADDRESS: ${CSM_MODULE_ADDRESS}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
+      KEYS_API_URI: ${KEYS_API_URI}
+      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${CSM_ORACLE_PROMETHEUS_PORT:-9001}:9000"
+      - "${CSM_ORACLE_HEALTH_PORT:-9011}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+volumes:
+  postgres-data:
+
+networks:
+  default:
+    name: oracle-network

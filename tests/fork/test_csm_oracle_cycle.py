@@ -7,11 +7,11 @@ from pathlib import Path
 from sqlmodel import create_engine
 from sqlalchemy import JSON
 
-from src.modules.csm.csm import CSOracle
-from src.modules.performance.collector.collector import PerformanceCollector
-from src.modules.performance.common.db import Duty
-from src.modules.performance.web.server import serve
-from src.modules.submodules.types import FrameConfig
+from src.modules.oracles.csm.csm import CSOracle
+from src.modules.sidecars.performance.collector.collector import PerformanceCollector
+from src.modules.common.types import FrameConfig
+from src.modules.sidecars.performance.common.db import Duty
+from src.modules.sidecars.performance.web.server import serve
 from src.utils.range import sequence
 from src.web3py.types import Web3
 from tests.fork.conftest import first_slot_of_epoch
@@ -46,8 +46,8 @@ def performance_local_db(testrun_path):
         if col_name in table.c:
             table.c[col_name].type = JSON()
 
-    with patch('src.modules.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
-        with patch('src.modules.performance.common.db.DutiesDB.__init__', mock_init):
+    with patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
+        with patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init):
             yield
 
 

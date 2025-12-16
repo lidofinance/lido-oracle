@@ -1,5 +1,5 @@
 from src.metrics.prometheus.basic import PERFORMANCE_REQUESTS_DURATION
-from src.modules.performance.common.db import Duty, EpochsDemand
+from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
 from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,

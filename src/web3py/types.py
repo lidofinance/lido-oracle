@@ -2,7 +2,7 @@ from web3 import Web3 as _Web3
 
 from src.providers.performance.client import PerformanceClient
 from src.web3py.extensions import (
-    CSM,
+    CSMContracts,
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoContracts,
@@ -18,6 +18,6 @@ class Web3(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
-    csm: CSM
+    csm: CSMContracts
     ipfs: IPFS
     performance: PerformanceClient

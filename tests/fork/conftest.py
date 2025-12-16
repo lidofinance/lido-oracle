@@ -16,10 +16,10 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import ipfs_providers
-from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
-from src.modules.submodules.types import FrameConfig
+from src.modules.oracles.common.consensus import ConsensusModule
+from src.modules.oracles.common.oracle_module import BaseModule
+from src.modules.common.types import FrameConfig
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
@@ -38,13 +38,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     KeysAPIClientModule,
-    LazyCSM,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
     PerformanceClientModule,
     FallbackProviderModule,
 )
+from src.web3py.extensions.csm import CSMContracts
 
 logger = logging.getLogger('fork_tests')
 
@@ -292,7 +292,7 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "csm": LazyCSM,  # type: ignore[dict-item]
+            "csm": CSMContracts,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
