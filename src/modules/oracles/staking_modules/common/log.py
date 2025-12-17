@@ -2,9 +2,9 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
-from src.constants import CSM_LOGS_VERSION
-from src.modules.oracles.csm.state import DutyAccumulator
-from src.modules.oracles.csm.types import RewardsShares
+from src.constants import STAKING_MODULE_LOGS_VERSION
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator
+from src.modules.oracles.staking_modules.common.types import RewardsShares
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
@@ -48,7 +48,7 @@ class FramePerfLog:
 @dataclass
 class Logs:
     frames: list[FramePerfLog] = field(default_factory=list)
-    _ver: int = CSM_LOGS_VERSION
+    _ver: int = STAKING_MODULE_LOGS_VERSION
 
     def encode(self) -> bytes:
         return (

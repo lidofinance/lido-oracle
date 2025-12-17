@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Iterable, Self, Sequence
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.oracles.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
+from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
 from src.utils.types import hex_str_to_bytes
 
 
@@ -21,7 +21,7 @@ class TreeJSONDecoder(JSONDecoder): ...
 
 
 class Tree[LeafType: Iterable](ABC):
-    """A wrapper around StandardMerkleTree to cover use cases of the CSM oracle"""
+    """A wrapper around StandardMerkleTree to cover use cases of the staking module oracle"""
 
     encoder: ClassVar[type[JSONEncoder]] = TreeJSONEncoder
     decoder: ClassVar[type[JSONDecoder]] = TreeJSONDecoder

@@ -44,7 +44,7 @@ from src.web3py.extensions import (
     PerformanceClientModule,
     FallbackProviderModule,
 )
-from src.web3py.extensions.csm import CSMContracts
+from src.web3py.extensions.staking_module import StakingModuleContracts
 
 logger = logging.getLogger('fork_tests')
 
@@ -106,14 +106,14 @@ def set_delay_and_sleep(monkeypatch):
 @pytest.fixture(autouse=True)
 def patch_csm_contract_load(monkeypatch):
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES",
         3,
     )
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY",
         0,
     )
-    logger.info("TESTRUN Patched CSM CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
+    logger.info("TESTRUN Patched Staking Module CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
     yield
 
 
@@ -292,7 +292,7 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "csm": CSMContracts,  # type: ignore[dict-item]
+            "staking_module": StakingModuleContracts,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,

@@ -44,8 +44,12 @@ def main(module: OracleModule):
         return ejector_entrypoint.run()
 
     if module is OracleModule.CSM:
-        from src.modules.oracles.csm import entrypoint as csm_entrypoint
+        from src.modules.oracles.staking_modules.community_staking import entrypoint as csm_entrypoint
         return csm_entrypoint.run()
+
+    if module is OracleModule.CM:
+        from src.modules.oracles.staking_modules.curated import entrypoint as cm_entrypoint
+        return cm_entrypoint.run()
 
     raise ValueError(f'Unknown module {module}')
 

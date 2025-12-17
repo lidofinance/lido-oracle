@@ -36,7 +36,7 @@ if MEMBER_PRIV_KEY:
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
-CSM_MODULE_ADDRESS: Final = os.getenv('CSM_MODULE_ADDRESS')
+STAKING_MODULE_ADDRESS: Final = os.getenv('STAKING_MODULE_ADDRESS')
 FINALIZATION_BATCH_MAX_REQUEST_COUNT: Final = int(os.getenv('FINALIZATION_BATCH_MAX_REQUEST_COUNT', 1000))
 EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 
@@ -145,8 +145,8 @@ def check_all_required_variables(module: OracleModule):
     if module is not OracleModule.CSM and not LIDO_LOCATOR_ADDRESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
 
-    if module is OracleModule.CSM and not CSM_MODULE_ADDRESS:
-        errors.append('CSM_MODULE_ADDRESS')
+    if module is OracleModule.CSM and not STAKING_MODULE_ADDRESS:
+        errors.append('STAKING_MODULE_ADDRESS')
 
     return errors
 
@@ -200,7 +200,7 @@ PUBLIC_ENV_VARS = {
     for key, value in {
         'ACCOUNT': 'Dry' if ACCOUNT is None else ACCOUNT.address,
         'LIDO_LOCATOR_ADDRESS': LIDO_LOCATOR_ADDRESS,
-        'CSM_MODULE_ADDRESS': CSM_MODULE_ADDRESS,
+        'STAKING_MODULE_ADDRESS': STAKING_MODULE_ADDRESS,
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
         'EL_REQUESTS_BATCH_SIZE': EL_REQUESTS_BATCH_SIZE,
         'TX_GAS_ADDITION': TX_GAS_ADDITION,

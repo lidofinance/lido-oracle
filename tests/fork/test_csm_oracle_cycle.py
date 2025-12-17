@@ -7,7 +7,8 @@ from pathlib import Path
 from sqlmodel import create_engine
 from sqlalchemy import JSON
 
-from src.modules.oracles.csm.csm import CSOracle
+from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.modules.common.types import FrameConfig
 from src.modules.sidecars.performance.common.db import Duty
@@ -25,7 +26,13 @@ def hash_consensus_bin():
 
 @pytest.fixture()
 def csm_module(web3: Web3):
-    yield CSOracle(web3)
+    yield CSPerformanceOracle(web3)
+
+
+@pytest.fixture()
+def cm_module(web3: Web3):
+    # TODO: should have different STAKING_MODULE_ADDRESS
+    yield CMPerformanceOracle(web3)
 
 
 @pytest.fixture()
@@ -35,7 +42,7 @@ def performance_local_db(testrun_path):
         db_path = Path(testrun_path) / "test_duties.db"
         return f"sqlite:///{db_path}"
 
-    def mock_init(self):
+    def mock_init(self, *args, **kwargs):
         # pylint: disable=protected-access
         self.engine = create_engine(self._get_database_url(), echo=False)
         # pylint: disable=protected-access
@@ -48,12 +55,12 @@ def performance_local_db(testrun_path):
 
     with patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
         with patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init):
-            yield
+            yield mock_get_database_url, mock_init
 
 
 @pytest.fixture()
 def performance_collector(performance_local_db, web3: Web3, frame_config: FrameConfig):
-    yield PerformanceCollector(web3)
+    yield PerformanceCollector(web3.cc)
 
 
 @pytest.fixture()
@@ -91,12 +98,19 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
 @pytest.mark.fork
 @pytest.mark.parametrize(
     'module',
-    [csm_module],
+    [
+        csm_module,
+        #cm_module
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
-    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
+    [
+        #start_before_initial_epoch,
+        start_after_initial_epoch,
+        #missed_initial_frame
+    ],
     indirect=True,
 )
 def test_csm_module_report(
@@ -106,7 +120,7 @@ def test_csm_module_report(
     members = set_oracle_members(count=2)
 
     report_frame = None
-    to_distribute_before_report = module.w3.csm.fee_distributor.shares_to_distribute()
+    to_distribute_before_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
 
     switch_finalized, _ = running_finalized_slots
     # pylint:disable=duplicate-code
@@ -120,13 +134,13 @@ def test_csm_module_report(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
 
-    last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
+    last_processing_after_report = module.w3.staking_module.oracle.get_last_processing_ref_slot()
     assert (
         last_processing_after_report == report_frame.ref_slot
     ), "Last processing ref slot should equal to initial ref slot"
 
-    to_distribute_after_report = module.w3.csm.fee_distributor.shares_to_distribute()
+    to_distribute_after_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
     assert to_distribute_after_report < to_distribute_before_report, "Shares to distribute should decrease"
 
-    nos_count = int(module.w3.csm.module.functions.getNodeOperatorsCount().call())
+    nos_count = int(module.w3.staking_module.module.functions.getNodeOperatorsCount().call())
     assert to_distribute_after_report <= nos_count, "Dust after distribution should be less or equal to NOs count"

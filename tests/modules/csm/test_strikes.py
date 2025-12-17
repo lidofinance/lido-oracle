@@ -1,7 +1,7 @@
 import pytest
 from eth_utils.types import is_list_like
 
-from src.modules.oracles.csm.types import StrikesList
+from src.modules.oracles.staking_modules.common.types import StrikesList
 
 
 @pytest.mark.unit

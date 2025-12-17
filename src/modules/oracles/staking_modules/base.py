@@ -1,21 +1,22 @@
 import atexit
 import logging
+from abc import abstractmethod
 
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.csm import (
-    CSM_CURRENT_FRAME_RANGE_L_EPOCH,
-    CSM_CURRENT_FRAME_RANGE_R_EPOCH,
+from src.metrics.prometheus.staking_module import (
+    STAKING_MODULE_CURRENT_FRAME_RANGE_L_EPOCH,
+    STAKING_MODULE_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.oracles.csm.distribution import Distribution, DistributionResult, StrikesValidator
-from src.modules.oracles.csm.helpers.last_report import LastReport
-from src.modules.oracles.csm.log import Logs
-from src.modules.oracles.csm.state import State
-from src.modules.oracles.csm.tree import RewardsTree, StrikesTree, Tree
-from src.modules.oracles.csm.types import ReportData, RewardsShares, StrikesList
+from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
+from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from src.modules.oracles.staking_modules.common.log import Logs
+from src.modules.oracles.staking_modules.common.state import State
+from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
+from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
 from src.modules.oracles.common.types import OracleModule
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
@@ -38,41 +39,52 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
-class CSMError(Exception):
-    """Unrecoverable error in CSM module"""
+class SMPerformanceOracleError(Exception):
+    """Unrecoverable error in staking module performance oracle"""
 
 
-class CSOracle(OracleModule):
+class SMPerformanceOracle(OracleModule):
     """
-    CSM performance module collects performance of CSM node operators and creates a Merkle tree of the resulting
-    distribution of shares among the operators. The root of the tree is then submitted to the module contract.
+    Staking Module performance oracle collects performance of staking module node operators and creates a Merkle tree
+    of the resulting distribution of shares among the operators. The root of the tree is then submitted to the
+    module contract.
 
     The algorithm for calculating performance includes the following steps:
         1. Collect all the attestation duties of the network validators for the frame.
         2. Calculate the performance of each validator based on the attestations.
-        3. Calculate the share of each CSM node operator excluding underperforming validators.
+        3. Calculate the share of each node operator excluding underperforming validators.
     """
 
-    COMPATIBLE_CONTRACT_VERSION = 2
-    COMPATIBLE_CONSENSUS_VERSION = 3
+    @property
+    @abstractmethod
+    def COMPATIBLE_CONTRACT_VERSION(self) -> int:
+        """Contract version this oracle is compatible with"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def COMPATIBLE_CONSENSUS_VERSION(self) -> int:
+        """Consensus version this oracle is compatible with"""
+        raise NotImplementedError
 
     report_contract: CSFeeOracleContract
+    state: State
 
     def __init__(self, w3: Web3):
         self.consumer = self.__class__.__name__
-        self.report_contract = w3.csm.oracle
-        self.state = State.load()
+        self.report_contract = w3.staking_module.oracle
+        self.state = State.load(self.consumer)
         super().__init__(w3)
         atexit.register(self._on_shutdown)
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.csm.oracle
-        self.w3.csm.reload_contracts()
-        self.report_contract = self.w3.csm.oracle  # type: ignore
+        self.report_contract = self.w3.staking_module.oracle
+        self.w3.staking_module.reload_contracts()
+        self.report_contract = self.w3.staking_module.oracle  # type: ignore
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
-        return self.w3.csm.has_contract_address_changed()
+        return self.w3.staking_module.has_contract_address_changed()
 
     def _on_shutdown(self):
         performance_client = getattr(self.w3, "performance", None)
@@ -218,7 +230,7 @@ class CSOracle(OracleModule):
         return result
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        last_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        last_ref_slot = self.w3.staking_module.get_last_processing_ref_slot(blockstamp)
         ref_slot = self.get_initial_or_current_frame(blockstamp).ref_slot
         return last_ref_slot == ref_slot
 
@@ -333,7 +345,7 @@ class CSOracle(OracleModule):
         # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
         # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
         # when the tree has only one leaf.
-        stone = NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT)
+        stone = NodeOperatorId(self.w3.staking_module.module.MAX_OPERATORS_COUNT)
         shares[stone] = 0
 
         # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
@@ -367,9 +379,9 @@ class CSOracle(OracleModule):
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
-            raise ValueError("CSM oracle initial epoch is not set yet")
+            raise ValueError("Oracle initial epoch is not set yet")
 
-        l_ref_slot = last_processing_ref_slot = self.w3.csm.get_csm_last_processing_ref_slot(blockstamp)
+        l_ref_slot = last_processing_ref_slot = self.w3.staking_module.get_last_processing_ref_slot(blockstamp)
         r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
         if last_processing_ref_slot > blockstamp.slot_number:
@@ -379,7 +391,7 @@ class CSOracle(OracleModule):
         if not last_processing_ref_slot:
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
-                raise CSMError("Invalid frame configuration for the current network")
+                raise SMPerformanceOracleError("Invalid frame configuration for the current network")
 
         # NOTE: before the initial slot the contract can't return current frame
         if blockstamp.slot_number > initial_ref_slot:
@@ -393,16 +405,16 @@ class CSOracle(OracleModule):
             )
 
         if l_ref_slot < last_processing_ref_slot:
-            raise CSMError(f"Got invalid epochs range: {l_ref_slot=} < {last_processing_ref_slot=}")
+            raise SMPerformanceOracleError(f"Got invalid epochs range: {l_ref_slot=} < {last_processing_ref_slot=}")
         if l_ref_slot >= r_ref_slot:
-            raise CSMError(f"Got invalid epochs range {r_ref_slot=}, {l_ref_slot=}")
+            raise SMPerformanceOracleError(f"Got invalid epochs range {r_ref_slot=}, {l_ref_slot=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
-        CSM_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
-        CSM_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
+        STAKING_MODULE_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
+        STAKING_MODULE_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
 
         logger.info({
             "msg": "Epochs range for the report",

@@ -5,12 +5,12 @@ from typing import Self, Iterable
 
 from hexbytes import HexBytes
 
-from src.modules.oracles.csm.tree import RewardsTree, StrikesTree
+from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.common.types import ZERO_HASH
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import BlockStamp, FrameNumber
-from src.modules.oracles.csm.types import RewardsTreeLeaf, StrikesList, StrikesValidator
+from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,14 @@ class LastReport:
 
     @classmethod
     def load(cls, w3: Web3, blockstamp: BlockStamp, current_frame: FrameNumber) -> Self:
-        rewards_tree_root = w3.csm.get_rewards_tree_root(blockstamp)
-        rewards_tree_cid = w3.csm.get_rewards_tree_cid(blockstamp)
+        rewards_tree_root = w3.staking_module.get_rewards_tree_root(blockstamp)
+        rewards_tree_cid = w3.staking_module.get_rewards_tree_cid(blockstamp)
 
         if (rewards_tree_cid is None) != (rewards_tree_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {rewards_tree_root=} {rewards_tree_cid=}")
 
-        strikes_tree_root = w3.csm.get_strikes_tree_root(blockstamp)
-        strikes_tree_cid = w3.csm.get_strikes_tree_cid(blockstamp)
+        strikes_tree_root = w3.staking_module.get_strikes_tree_root(blockstamp)
+        strikes_tree_cid = w3.staking_module.get_strikes_tree_cid(blockstamp)
 
         if (strikes_tree_cid is None) != (strikes_tree_root == ZERO_HASH):
             raise InconsistentData(f"Got inconsistent previous tree data: {strikes_tree_root=} {strikes_tree_cid=}")

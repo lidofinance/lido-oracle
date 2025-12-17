@@ -23,7 +23,7 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: csm-oracle-postgres
+    container_name: staking-module-oracle-postgres
     environment:
       POSTGRES_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
       POSTGRES_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
@@ -43,7 +43,7 @@ services:
   # For external PostgreSQL: set PERFORMANCE_DB_HOST to your external host
   init-db:
     image: postgres:15
-    container_name: csm-oracle-init-db
+    container_name: staking-module-oracle-init-db
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
 
   performance-collector:
     build: .
-    container_name: csm-oracle-performance-collector
+    container_name: staking-module-oracle-performance-collector
     command: ["-m", "src.main", "performance_collector"]
     depends_on:
       init-db:
@@ -80,7 +80,7 @@ services:
 
   performance-web:
     build: .
-    container_name: csm-oracle-performance-web
+    container_name: staking-module-oracle-performance-web
     command: ["-m", "src.main", "performance_web_server"]
     depends_on:
       init-db:
@@ -94,7 +94,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
 
   # ---------------------------------------------------------------------------
-  # CSM Oracle
+  # Staking Module Oracles
   # ---------------------------------------------------------------------------
 
   csm-oracle:
@@ -102,7 +102,7 @@ services:
     container_name: csm-oracle
     command: ["-m", "src.main", "csm"]
     environment:
-      CSM_MODULE_ADDRESS: ${CSM_MODULE_ADDRESS}
+      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
       KEYS_API_URI: ${KEYS_API_URI}
@@ -118,6 +118,28 @@ services:
     healthcheck:
       <<: *healthcheck-defaults
       test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+#  cm-oracle:
+#    build: .
+#    container_name: cm-oracle
+#    command: ["-m", "src.main", "cm"]
+#    environment:
+#      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS}
+#      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
+#      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
+#      KEYS_API_URI: ${KEYS_API_URI}
+#      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
+#      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+#      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+#      PROMETHEUS_PORT: 9000
+#      HEALTHCHECK_SERVER_PORT: 9010
+#    ports:
+#      - "${CSM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
+#      - "${CSM_ORACLE_HEALTH_PORT:-9012}:9010"
+#    restart: unless-stopped
+#    healthcheck:
+#      <<: *healthcheck-defaults
+#      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
 volumes:
   postgres-data:

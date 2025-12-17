@@ -11,6 +11,7 @@ class OracleModule(StrEnum):
     EJECTOR = 'ejector'
     CHECK = 'check'
     CSM = 'csm'
+    CM = 'cm'
     PERFORMANCE_WEB_SERVER = 'performance_web_server'
     PERFORMANCE_COLLECTOR = 'performance_collector'
 

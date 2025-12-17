@@ -4,7 +4,8 @@ import pytest
 from src.modules.oracles.common.runtime import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
 from src.modules.oracles.accounting.accounting import Accounting
 from src.modules.oracles.ejector.ejector import Ejector
-from src.modules.oracles.csm.csm import CSOracle
+from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 
 
 @pytest.fixture()
@@ -16,7 +17,7 @@ def skip_locator(web3):
 @pytest.fixture()
 def skip_csm(web3):
     if not hasattr(web3, 'csm'):
-        pytest.skip('CSM_MODULE_ADDRESS is not set')
+        pytest.skip('STAKING_MODULE_ADDRESS is not set')
 
 
 @pytest.fixture()
@@ -31,7 +32,12 @@ def ejector(web3, skip_locator):
 
 @pytest.fixture()
 def csm(web3, skip_locator, skip_csm):
-    return CSOracle(web3)
+    return CSPerformanceOracle(web3)
+
+
+@pytest.fixture()
+def cm(web3, skip_locator, skip_csm):
+    return CMPerformanceOracle(web3)
 
 
 def check_providers_chain_ids(web3):
@@ -52,3 +58,9 @@ def check_ejector_contract_configs(ejector):
 def check_csm_contract_configs(csm):
     """Make sure csm contract configs are valid"""
     csm.check_contract_configs()
+
+
+def check_cm_contract_configs(cm):
+    """Make sure cm contract configs are valid"""
+    cm.check_contract_configs()
+

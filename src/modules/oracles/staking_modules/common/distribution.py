@@ -5,10 +5,10 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EFFECTIVE_BALANCE_INCREMENT
-from src.modules.oracles.csm.helpers.last_report import LastReport
-from src.modules.oracles.csm.log import FramePerfLog, OperatorFrameSummary, Logs
-from src.modules.oracles.csm.state import Frame, State, ValidatorDuties
-from src.modules.oracles.csm.types import (
+from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, Logs
+from src.modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
+from src.modules.oracles.staking_modules.common.types import (
     ParticipationShares,
     RewardsShares,
     StrikesList,
@@ -75,7 +75,7 @@ class Distribution:
             frame_blockstamp = self._get_frame_blockstamp(blockstamp, to_epoch)
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
-            total_rewards_to_distribute = self.w3.csm.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
+            total_rewards_to_distribute = self.w3.staking_module.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
             frame_log = FramePerfLog(frame_blockstamp, frame)
@@ -129,7 +129,7 @@ class Distribution:
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> ValidatorsByNodeOperator:
         return self.w3.lido_validators.get_used_module_validators_by_node_operators(
-            StakingModuleAddress(self.w3.csm.module.address),
+            StakingModuleAddress(self.w3.staking_module.module.address),
             blockstamp,
         )
 
@@ -156,7 +156,7 @@ class Distribution:
             logger.info({"msg": f"Calculating distribution for {no_id=}"})
             log_operator = log.operators[no_id]
 
-            curve_params = self.w3.csm.get_curve_params(no_id, blockstamp)
+            curve_params = self.w3.staking_module.get_curve_params(no_id, blockstamp)
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
             # Sort from biggest to smallest balance and by index from oldest to newest.
@@ -340,7 +340,7 @@ class Distribution:
             no_id, _ = key
             if key not in strikes_in_frame:
                 merged[key].push(StrikesList.SENTINEL)  # Just shifting...
-            maxlen = self.w3.csm.get_curve_params(no_id, frame_blockstamp).strikes_params.lifetime
+            maxlen = self.w3.staking_module.get_curve_params(no_id, frame_blockstamp).strikes_params.lifetime
             merged[key].resize(maxlen)
             # NOTE: Cleanup sequences like [0,0,0] since they don't bring any information.
             if not sum(merged[key]):

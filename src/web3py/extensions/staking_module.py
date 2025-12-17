@@ -21,7 +21,7 @@ from src.types import BlockStamp, NodeOperatorId, SlotNumber
 logger = logging.getLogger(__name__)
 
 
-class CSMContracts(Module):
+class StakingModuleContracts(Module):
     w3: Web3
 
     oracle: CSFeeOracleContract
@@ -39,9 +39,9 @@ class CSMContracts(Module):
         self._contract_addresses: tuple[str, ...] | None = None
         self._load_contracts()
 
-    def get_csm_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
+    def get_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:
         result = self.oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-        FRAME_PREV_REPORT_REF_SLOT.labels("csm_oracle").set(result)
+        FRAME_PREV_REPORT_REF_SLOT.labels("staking_module").set(result)
         return result
 
     def get_rewards_tree_root(self, blockstamp: BlockStamp) -> HexBytes:
@@ -78,7 +78,7 @@ class CSMContracts(Module):
                 self.module = cast(
                     CSModuleContract,
                     self.w3.eth.contract(
-                        address=variables.CSM_MODULE_ADDRESS,  # type: ignore
+                        address=variables.STAKING_MODULE_ADDRESS,  # type: ignore
                         ContractFactoryClass=CSModuleContract,
                         decode_tuples=True,
                     ),

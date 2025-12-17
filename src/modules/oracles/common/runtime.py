@@ -19,7 +19,7 @@ from src.web3py.extensions import (
     LidoValidatorsProvider,
     TransactionUtils,
 )
-from src.web3py.extensions.csm import CSMContracts
+from src.web3py.extensions.staking_module import StakingModuleContracts
 from src.web3py.extensions.performance import PerformanceClientModule
 from src.web3py.types import Web3
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class OracleWeb3Config:
     use_ipfs: bool = False
     use_performance_client: bool = False
-    use_csm_contracts: bool = False
+    use_staking_module_contracts: bool = False
     use_lido_contracts: bool = True
     use_lido_validators: bool = True
 
@@ -70,8 +70,8 @@ def build_oracle_web3(config: OracleWeb3Config) -> Web3:
     if config.use_lido_validators:
         modules['lido_validators'] = LidoValidatorsProvider
 
-    if config.use_csm_contracts:
-        modules['csm'] = CSMContracts
+    if config.use_staking_module_contracts:
+        modules['staking_module'] = StakingModuleContracts
 
     if config.use_ipfs:
         ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Self
 
 from src import variables
-from src.constants import CSM_STATE_VERSION
+from src.constants import STAKING_MODULE_STATE_VERSION
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -71,9 +71,9 @@ class State:
     # pylint: disable=too-many-public-methods
 
     """
-    Processing state of a CSM performance oracle frame.
+    Processing state of a staking module performance oracle frame.
 
-    During the CSM module startup the state object is being either `load`'ed from the filesystem or being created as a
+    During the module startup the state object is being either `load`'ed from the filesystem or being created as a
     new object with no data in it. During epochs processing aggregates in `data` are being updated and eventually the
     state is `commit`'ed back to the filesystem.
 
@@ -86,50 +86,64 @@ class State:
     _processed_epochs: set[EpochNumber]
 
     _version: int
+    _oracle_name: str
 
     EXTENSION = ".pkl"
 
-    def __init__(self) -> None:
+    def __init__(self, oracle_name: str) -> None:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._version = CSM_STATE_VERSION
+        self._version = STAKING_MODULE_STATE_VERSION
+        self._oracle_name = oracle_name
 
     @property
     def version(self) -> int | None:
         return getattr(self, "_version", None)
 
+    @property
+    def oracle_name(self) -> str:
+        return getattr(self, "_oracle_name", "unknown")
+
     @classmethod
-    def load(cls) -> Self:
+    def load(cls, oracle_name: str) -> Self:
         """Used to restore the object from the persistent storage"""
 
         obj: Self | None = None
-        file = cls.file()
+        file = cls.file(oracle_name)
         try:
             with file.open(mode="rb") as f:
                 obj = pickle.load(f)
                 print({"msg": "Read object from pickle file"})
                 if not obj:
                     raise ValueError("Got empty object")
+                # Ensure loaded object has the correct oracle_name
+                if hasattr(obj, "_oracle_name") and obj._oracle_name != oracle_name:
+                    logger.warning({
+                        "msg": f"Cache oracle name mismatch: {obj._oracle_name} != {oracle_name}. Creating new state."
+                    })
+                    return cls(oracle_name)
+                # Set oracle_name for backward compatibility with old cache files
+                obj._oracle_name = oracle_name
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.info({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
         else:
             logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
-        return obj or cls()
+        return obj or cls(oracle_name)
 
     def commit(self) -> None:
         with self.buffer.open(mode="wb") as f:
             pickle.dump(self, f)
 
-        os.replace(self.buffer, self.file())
+        os.replace(self.buffer, self.file(self._oracle_name))
 
     @classmethod
-    def file(cls) -> Path:
-        return variables.CACHE_PATH / Path("cache").with_suffix(cls.EXTENSION)
+    def file(cls, oracle_name: str) -> Path:
+        return variables.CACHE_PATH / Path(f"{oracle_name}_cache").with_suffix(cls.EXTENSION)
 
     @property
     def buffer(self) -> Path:
-        return self.file().with_suffix(".buf")
+        return self.file(self._oracle_name).with_suffix(".buf")
 
     @property
     def is_empty(self) -> bool:
@@ -167,6 +181,7 @@ class State:
         self._processed_epochs.clear()
         assert self.is_empty
 
+    @lru_cache(maxsize=1)
     def find_frame(self, epoch: EpochNumber) -> Frame:
         for epoch_range in self.frames:
             from_epoch, to_epoch = epoch_range
@@ -193,12 +208,12 @@ class State:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
-        if self.version != CSM_STATE_VERSION:
+        if self.version != STAKING_MODULE_STATE_VERSION:
             if self.version is not None:
                 logger.warning(
                     {
                         "msg": f"Cache was built with version={self.version}. "
-                        f"Discarding data to migrate to cache version={CSM_STATE_VERSION}"
+                        f"Discarding data to migrate to cache version={STAKING_MODULE_STATE_VERSION}"
                     }
                 )
             self.clear()
@@ -211,7 +226,7 @@ class State:
 
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._version = CSM_STATE_VERSION
+        self._version = STAKING_MODULE_STATE_VERSION
         self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):
