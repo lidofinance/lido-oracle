@@ -23,9 +23,7 @@ def performance_collector(mock_w3, mock_db):
     """Create PerformanceCollector instance with mocked dependencies"""
     with patch('src.modules.sidecars.performance.collector.collector.DutiesDB', return_value=mock_db), patch(
         'src.modules.sidecars.performance.web.server.serve'
-    ), patch(
-        'src.modules.sidecars.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080
-    ):
+    ), patch('src.modules.sidecars.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080):
         mock_db.get_epochs_demands_max_updated_at.return_value = 0
         collector = PerformanceCollector(mock_w3)
         return collector

@@ -60,7 +60,9 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 @pytest.fixture
 def sync_committees_cache():
-    with patch('src.modules.sidecars.performance.collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()) as cache:
+    with patch(
+        'src.modules.sidecars.performance.collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()
+    ) as cache:
         yield cache
 
 
@@ -446,7 +448,8 @@ def test_get_sync_committee_fetches_and_caches_when_not_cached(
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
     with patch(
-        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+        Mock(return_value=prev_slot_response),
     ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
@@ -472,7 +475,8 @@ def test_get_sync_committee_handles_cache_eviction(
     prev_slot_response.message.slot = SlotNumber(0)
     prev_slot_response.message.body.execution_payload.block_hash = "0x00"
     with patch(
-        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+        Mock(return_value=prev_slot_response),
     ):
         result = frame_checkpoint_processor._get_sync_committee(epoch)
 
@@ -530,7 +534,8 @@ def test_get_dependent_root_for_proposer_duties_from_cl_when_slot_out_of_range(f
     prev_slot_response = Mock()
     prev_slot_response.message.slot = non_missed_slot
     with patch(
-        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot', Mock(return_value=prev_slot_response)
+        'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+        Mock(return_value=prev_slot_response),
     ):
         frame_checkpoint_processor.cc.get_block_root = Mock(return_value=Mock(root=checkpoint_block_roots[0]))
 

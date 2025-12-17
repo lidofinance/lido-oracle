@@ -100,16 +100,16 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
     'module',
     [
         csm_module,
-        #cm_module
+        # cm_module
     ],
     indirect=True,
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
     [
-        #start_before_initial_epoch,
+        # start_before_initial_epoch,
         start_after_initial_epoch,
-        #missed_initial_frame
+        # missed_initial_frame
     ],
     indirect=True,
 )

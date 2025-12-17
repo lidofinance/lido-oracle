@@ -49,6 +49,7 @@ class BaseModule(DaemonModule, ABC):
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:
+        # pylint: disable=too-many-branches
         """Context manager for handling Oracle module cycle exceptions"""
         try:
             yield
@@ -86,7 +87,6 @@ class BaseModule(DaemonModule, ABC):
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         except Exception as error:
-            # Перебрасываем неизвестные исключения
             raise error
 
     @abstractmethod

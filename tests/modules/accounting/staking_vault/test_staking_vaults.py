@@ -2261,7 +2261,7 @@ class TestStakingVaults:
 
         ipfs_data = OnChainIpfsVaultReportData(
             timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'\xab\xcd\xef', report_cid=""
-        )  # важно!
+        )  # Important!
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 

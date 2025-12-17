@@ -12,7 +12,11 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     EFFECTIVE_BALANCE_INCREMENT,
 )
-from src.modules.oracles.staking_modules.common.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
+from src.modules.oracles.staking_modules.common.distribution import (
+    Distribution,
+    ValidatorDuties,
+    ValidatorDutiesOutcome,
+)
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State, NetworkDuties, Frame
 from src.modules.oracles.staking_modules.common.types import StrikesList
@@ -297,7 +301,9 @@ def test_calculate_distribution(
     expected_strikes,
 ):
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
     w3.staking_module.get_curve_params = mocked_curve_params
 
@@ -323,7 +329,9 @@ def test_calculate_distribution(
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.staking_module.get_curve_params = Mock(...)
 
@@ -351,7 +359,9 @@ def test_calculate_distribution_handles_invalid_distribution():
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)))
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.staking_module.get_curve_params = Mock(...)
 

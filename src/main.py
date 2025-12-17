@@ -12,7 +12,7 @@ getcontext().prec = PRECISION_E27
 
 
 def main(module: OracleModule):
-    # pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel,too-many-return-statements
 
     if module is OracleModule.CHECK:
         errors = variables.check_uri_required_variables()

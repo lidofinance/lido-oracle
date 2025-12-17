@@ -270,7 +270,9 @@ def test_set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracl
 
 
 @pytest.mark.unit
-def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSPerformanceOracle, mock_chain_config: NoReturn):
+def test_set_epochs_range_to_collect_skips_post_when_demand_same(
+    module: CSPerformanceOracle, mock_chain_config: NoReturn
+):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
@@ -831,8 +833,8 @@ def test_execute_module_processed(module: CSPerformanceOracle):
 def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
     blockstamp = Mock()
     last_report = Mock()
-    last_report.strikes = {}  # Создаем правильный словарь вместо Mock
-    last_report.rewards = []  # Добавляем пустой список вместо Mock для rewards
+    last_report.strikes = {}  # Create proper dictionary instead of Mock
+    last_report.rewards = []  # Add empty list instead of Mock for rewards
     mock_distribution_result = Mock()
 
     with patch('src.modules.oracles.staking_modules.base.Distribution') as MockDistribution:

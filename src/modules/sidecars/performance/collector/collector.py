@@ -60,7 +60,6 @@ class PerformanceCollector(DaemonModule):
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         except Exception as error:
-            # Перебрасываем неизвестные исключения
             raise error
 
     def _build_converter(self) -> ChainConverter:

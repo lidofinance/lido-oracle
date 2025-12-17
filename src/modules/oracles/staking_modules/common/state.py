@@ -118,7 +118,8 @@ class State:
                 if not obj:
                     raise ValueError("Got empty object")
                 # Ensure loaded object has the correct oracle_name
-                if hasattr(obj, "_oracle_name") and obj._oracle_name != oracle_name:
+                # pylint: disable=protected-access
+                if obj._oracle_name != oracle_name:
                     logger.warning({
                         "msg": f"Cache oracle name mismatch: {obj._oracle_name} != {oracle_name}. Creating new state."
                     })

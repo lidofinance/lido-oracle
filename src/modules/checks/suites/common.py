@@ -63,4 +63,3 @@ def check_csm_contract_configs(csm):
 def check_cm_contract_configs(cm):
     """Make sure cm contract configs are valid"""
     cm.check_contract_configs()
-

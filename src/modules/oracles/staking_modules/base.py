@@ -1,6 +1,5 @@
 import atexit
 import logging
-from abc import abstractmethod
 
 from hexbytes import HexBytes
 
@@ -55,22 +54,17 @@ class SMPerformanceOracle(OracleModule):
         3. Calculate the share of each node operator excluding underperforming validators.
     """
 
-    @property
-    @abstractmethod
-    def COMPATIBLE_CONTRACT_VERSION(self) -> int:
-        """Contract version this oracle is compatible with"""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def COMPATIBLE_CONSENSUS_VERSION(self) -> int:
-        """Consensus version this oracle is compatible with"""
-        raise NotImplementedError
+    COMPATIBLE_CONTRACT_VERSION: int = 0
+    COMPATIBLE_CONSENSUS_VERSION: int = 0
 
     report_contract: CSFeeOracleContract
     state: State
 
     def __init__(self, w3: Web3):
+        if self.COMPATIBLE_CONTRACT_VERSION == 0:
+            raise ValueError("CONTRACT_VERSION is not defined")
+        if self.COMPATIBLE_CONSENSUS_VERSION == 0:
+            raise ValueError("CONSENSUS_VERSION is not defined")
         self.consumer = self.__class__.__name__
         self.report_contract = w3.staking_module.oracle
         self.state = State.load(self.consumer)
