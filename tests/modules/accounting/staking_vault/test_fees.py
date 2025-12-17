@@ -54,7 +54,7 @@ class TestCalcFeeValue:
     def test_infra_fee_calculation(self, vault_total_value, block_elapsed, core_apr_ratio, fee_bp, expected):
         """Test infrastructure fee calculation."""
         result = StakingVaultsService.calc_fee_value(
-            Decimal(vault_total_value), block_elapsed, Decimal(str(core_apr_ratio)), fee_bp
+            Decimal(vault_total_value), block_elapsed * 12, Decimal(str(core_apr_ratio)), fee_bp
         )
         assert result == expected
 
@@ -67,7 +67,7 @@ class TestCalcFeeValue:
                 7_200,
                 FeeTestConstants.CORE_APR_RATIO,
                 FeeTestConstants.RESERVATION_FEE_BP,
-                Decimal('7267950578864410.91939469422'),
+                Decimal('7267950578864410.91939469419'),
             ),
             (
                 FeeTestConstants.MINTABLE_STETH,
@@ -81,7 +81,7 @@ class TestCalcFeeValue:
     def test_reservation_fee_calculation(self, mintable_steth, block_elapsed, core_apr_ratio, fee_bp, expected):
         """Test reservation liquidity fee calculation."""
         result = StakingVaultsService.calc_fee_value(
-            Decimal(mintable_steth), block_elapsed, Decimal(str(core_apr_ratio)), fee_bp
+            Decimal(mintable_steth), block_elapsed * 12, Decimal(str(core_apr_ratio)), fee_bp
         )
         assert result == expected
 
@@ -97,8 +97,9 @@ class TestCalcLiquidityFee:
             liability_shares=FeeTestConstants.LIABILITY_SHARES,
             liquidity_fee_bp=FeeTestConstants.LIQUIDITY_FEE_BP,
             events={},
-            prev_block_number=BlockNumber(0),
-            current_block=BlockNumber(7_200),
+            prev_timestamp=0,
+            current_timestamp=7_200 * 12,
+            block_timestamps={},
             pre_total_pooled_ether=FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
             pre_total_shares=FeeTestConstants.PRE_TOTAL_SHARES,
             core_apr_ratio=FeeTestConstants.CORE_APR_RATIO,
@@ -107,7 +108,7 @@ class TestCalcLiquidityFee:
         expected_fee = Decimal('20513697696884908.4459967120')
         expected_shares = 2_880_000_000_000_000_000_000
 
-        assert result == (expected_fee, expected_shares)
+        assert result == (Decimal('20513697696884908.4459967121'), expected_shares)
 
     @pytest.mark.unit
     def test_with_events(self):
@@ -139,14 +140,19 @@ class TestCalcLiquidityFee:
             liability_shares=FeeTestConstants.LIABILITY_SHARES,
             liquidity_fee_bp=FeeTestConstants.LIQUIDITY_FEE_BP,
             events=events,
-            prev_block_number=BlockNumber(0),
-            current_block=BlockNumber(7_200),
+            prev_timestamp=0,
+            current_timestamp=7_200 * 12,
+            block_timestamps={
+                3_200: 3_200 * 12,
+                3_600: 3_600 * 12,
+                3_700: 3_700 * 12,
+            },
             pre_total_pooled_ether=FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
             pre_total_shares=FeeTestConstants.PRE_TOTAL_SHARES,
             core_apr_ratio=FeeTestConstants.CORE_APR_RATIO,
         )
 
-        expected_fee = Decimal('17007082495056342.0072967912')
+        expected_fee = Decimal('17007082495056342.0072967911')
         expected_shares = 2_879_999_910_015_672_558_976
 
         assert result == (expected_fee, expected_shares)
@@ -177,12 +183,32 @@ class TestCalcLiquidityFee:
                 liability_shares=wrong_shares,
                 liquidity_fee_bp=100,
                 events=events,
-                prev_block_number=BlockNumber(100),
-                current_block=BlockNumber(110),
+                prev_timestamp=100 * 12,
+                current_timestamp=110 * 12,
+                block_timestamps={
+                    101: 101 * 12,
+                    105: 105 * 12,
+                },
                 pre_total_pooled_ether=Wei(1_000_000_000_000_000_000_000),
                 pre_total_shares=1_000_000_000_000_000_000_000,
                 core_apr_ratio=Decimal('0.10'),
             )
+
+
+class TestMissedSlotsFeeAccrual:
+    """Ensure fee accrual uses elapsed time (timestamps), not EL block counts."""
+
+    @pytest.mark.unit
+    def test_fee_increases_when_timestamp_jumps(self):
+        vault_total_value = Decimal(FeeTestConstants.VAULT_TOTAL_VALUE)
+        core_apr_ratio = Decimal(str(FeeTestConstants.CORE_APR_RATIO))
+        fee_bp = FeeTestConstants.INFRA_FEE_BP
+
+        baseline = StakingVaultsService.calc_fee_value(vault_total_value, 7_200 * 12, core_apr_ratio, fee_bp)
+        # Simulate missed slots: same "block span", but more time elapsed between the boundary blocks.
+        with_missed = StakingVaultsService.calc_fee_value(vault_total_value, (7_200 + 10) * 12, core_apr_ratio, fee_bp)
+
+        assert with_missed > baseline
 
 
 class TestGetVaultsFees:
@@ -219,10 +245,11 @@ class TestGetVaultsFees:
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, 0])
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=(prev_report, 0, 0))
 
         mock_ref_block = MagicMock()
         mock_ref_block.block_number = 7_200
+        mock_ref_block.block_timestamp = 7_200 * 12
 
         with pytest.raises(ValueError, match='Wrong liability shares by vault'):
             service.get_vaults_fees(
@@ -267,12 +294,14 @@ class TestGetVaultsFees:
         w3_mock = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
+        w3_mock.eth.get_block = MagicMock(return_value={"timestamp": 10 * 12})
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, 0])
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=(prev_report, 0, 0))
 
         blockstamp = MagicMock()
         blockstamp.block_number = 100
+        blockstamp.block_timestamp = 100 * 12
 
         fees = service.get_vaults_fees(
             blockstamp=blockstamp,

@@ -145,7 +145,7 @@ class TestGetStartPointForFeeCalculations:
                     execution_payload=ExecutionPayload(
                         parent_hash=MagicMock(),
                         block_number=expected_block_number,
-                        timestamp=MagicMock(),
+                        timestamp=Timestamp(1_690_000_000),
                         block_hash=BlockHash(HexStr('0x0abc1234')),
                     ),
                     attestations=MagicMock(),
@@ -161,12 +161,13 @@ class TestGetStartPointForFeeCalculations:
 
         service = StakingVaultsService(w3_mock)
 
-        prev_report, block_number = service._get_start_point_for_fee_calculations(
+        prev_report, block_number, prev_timestamp = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert prev_report is None
         assert block_number == expected_block_number + 1
+        assert prev_timestamp == 1_690_000_000
 
     @pytest.mark.unit
     def test_fresh_devnet_case(self, blockstamp, frame_config, chain_config):
@@ -190,7 +191,7 @@ class TestGetStartPointForFeeCalculations:
                     execution_payload=ExecutionPayload(
                         parent_hash=MagicMock(),
                         block_number=expected_block_number,
-                        timestamp=MagicMock(),
+                        timestamp=Timestamp(1_690_000_000),
                         block_hash=BlockHash(HexStr('0x0abc1234')),
                     ),
                     attestations=MagicMock(),
@@ -206,12 +207,13 @@ class TestGetStartPointForFeeCalculations:
 
         service = StakingVaultsService(w3_mock)
 
-        prev_report, block_number = service._get_start_point_for_fee_calculations(
+        prev_report, block_number, prev_timestamp = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert prev_report is None
         assert block_number == expected_block_number
+        assert prev_timestamp == 1_690_000_000
 
     @pytest.mark.unit
     def test_prev_ipfs_report_branch_shifts_block(self, blockstamp, frame_config, chain_config, monkeypatch):
@@ -233,16 +235,17 @@ class TestGetStartPointForFeeCalculations:
         service.get_ipfs_report = MagicMock(return_value=prev_report)
         service.is_tree_root_valid = MagicMock(return_value=True)
 
-        fake_ref_block = SimpleNamespace(block_number=500)
+        fake_ref_block = SimpleNamespace(block_number=500, block_timestamp=1_690_000_000)
         monkeypatch.setattr(
             'src.services.staking_vaults.get_blockstamp',
             lambda *args, **kwargs: fake_ref_block,
         )
 
-        report, block_number = service._get_start_point_for_fee_calculations(
+        report, block_number, prev_timestamp = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert report is prev_report
         assert block_number == fake_ref_block.block_number + 1
+        assert prev_timestamp == 1_690_000_000
         service.is_tree_root_valid.assert_called_once()
