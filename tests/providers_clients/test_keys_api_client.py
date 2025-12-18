@@ -80,11 +80,11 @@ class TestIntegrationKeysAPIClient:
         empty_blockstamp,
     ):
         csm_module_operators_keys = keys_api_client.get_used_module_operators_keys(
-            module_address=variables.STAKING_MODULE_ADDRESS,  # type: ignore
+            module_address=variables.CS_MODULE_ADDRESS,  # type: ignore
             blockstamp=empty_blockstamp,
         )
 
-        assert csm_module_operators_keys['module']['stakingModuleAddress'] == variables.STAKING_MODULE_ADDRESS
+        assert csm_module_operators_keys['module']['stakingModuleAddress'] == variables.CS_MODULE_ADDRESS
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
@@ -97,7 +97,7 @@ class TestIntegrationKeysAPIClient:
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
-            assert operator['moduleAddress'] == variables.STAKING_MODULE_ADDRESS
+            assert operator['moduleAddress'] == variables.CS_MODULE_ADDRESS
 
     def test_get_status__response_version_is_allowed(
         self,

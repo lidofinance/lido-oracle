@@ -84,7 +84,7 @@ def web3_curated_module():
         pytest.param(
             6300,
             id="Blockstamp CSM frame ago",
-            marks=pytest.mark.skipif(variables.CS_MODULE_ADDRESS is None or variables.CURATED_MODULE_ADDRESS is None, reason="CS_MODULE_ADDRESS or CURATED_MODULE_ADDRESS is not set"),
+            marks=pytest.mark.skipif(variables.CS_MODULE_ADDRESS is None and variables.CURATED_MODULE_ADDRESS is None, reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set"),
         ),
     ]
 )
