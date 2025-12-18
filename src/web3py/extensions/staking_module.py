@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class StakingModuleContracts(Module):
+    """
+    Web3 extension for staking module contracts interaction.
+    
+    Automatically determines which module to use based on environment variables:
+    - If CS_MODULE_ADDRESS is set: uses CS module
+    - If CURATED_MODULE_ADDRESS is set: uses Curated module
+    - Error if both or neither are set
+    """
     w3: Web3
 
     oracle: CSFeeOracleContract
@@ -36,6 +44,19 @@ class StakingModuleContracts(Module):
 
     def __init__(self, w3: Web3) -> None:
         super().__init__(w3)
+        cs_address_set = bool(variables.CS_MODULE_ADDRESS)
+        curated_address_set = bool(variables.CURATED_MODULE_ADDRESS)
+
+        if cs_address_set and curated_address_set:
+            raise ValueError("Both CS_MODULE_ADDRESS and CURATED_MODULE_ADDRESS are set. Only one should be provided.")
+
+        if cs_address_set:
+            self._module_address = variables.CS_MODULE_ADDRESS
+        elif curated_address_set:
+            self._module_address = variables.CURATED_MODULE_ADDRESS
+        else:
+            raise ValueError("Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set")
+
         self._contract_addresses: tuple[str, ...] | None = None
         self._load_contracts()
 
@@ -78,7 +99,7 @@ class StakingModuleContracts(Module):
                 self.module = cast(
                     CSModuleContract,
                     self.w3.eth.contract(
-                        address=variables.STAKING_MODULE_ADDRESS,  # type: ignore
+                        address=self._module_address,  # type: ignore
                         ContractFactoryClass=CSModuleContract,
                         decode_tuples=True,
                     ),

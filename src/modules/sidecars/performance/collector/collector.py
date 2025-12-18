@@ -30,7 +30,7 @@ class PerformanceCollector(DaemonModule):
     _slot_threshold = SlotNumber(0)
 
     # Timestamp of the last epochs demand update
-    last_epochs_demand_update: int = 0
+    last_epochs_demand_update: int | None = None
 
     def __init__(self, cc: ConsensusClient):
         self.cc = cc.cc if hasattr(cc, "cc") else cc
@@ -180,12 +180,12 @@ class PerformanceCollector(DaemonModule):
 
     def new_epochs_range_demand_appeared(self) -> bool:
         max_updated_at = self.get_epochs_demand_max_updated_at()
-        updated = self.last_epochs_demand_update != max_updated_at
+        updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
         if updated:
             self.last_epochs_demand_update = max_updated_at
             return True
         return False
 
-    def get_epochs_demand_max_updated_at(self) -> int:
+    def get_epochs_demand_max_updated_at(self) -> int | None:
         max_updated_at = self.db.get_epochs_demands_max_updated_at()
-        return int(max_updated_at) if max_updated_at is not None else 0
+        return int(max_updated_at) if max_updated_at is not None else None

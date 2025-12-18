@@ -5,6 +5,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast, get_args
+from unittest.mock import patch
 
 import pytest
 import xdist
@@ -292,7 +293,6 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "staking_module": StakingModuleContracts,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
@@ -300,6 +300,20 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
         }
     )
     yield forked_el_client
+
+
+@pytest.fixture()
+def web3_cs_module(web3):
+    with patch.object(variables, "CURATED_MODULE_ADDRESS", None):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
+
+
+@pytest.fixture()
+def web3_curated_module(web3):
+    with patch.object(variables, "CS_MODULE_ADDRESS", None):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
 
 
 @pytest.fixture()

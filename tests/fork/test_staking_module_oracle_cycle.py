@@ -28,14 +28,13 @@ def hash_consensus_bin():
 
 
 @pytest.fixture()
-def csm_module(web3: Web3):
-    yield CSPerformanceOracle(web3)
+def csm_module(web3_cs_module: Web3):
+    yield CSPerformanceOracle(web3_cs_module)
 
 
 @pytest.fixture()
-def cm_module(web3: Web3):
-    # TODO: should have different STAKING_MODULE_ADDRESS
-    yield CMPerformanceOracle(web3)
+def cm_module(web3_curated_module: Web3):
+    yield CMPerformanceOracle(web3_curated_module)
 
 
 @pytest.fixture()
@@ -111,7 +110,10 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
 @pytest.mark.fork
 @pytest.mark.parametrize(
     'module',
-    [csm_module, cm_module],
+    [
+        csm_module,
+        # cm_module # TODO: uncomment when Curated Module is ready on Mainnet
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize(
@@ -119,7 +121,7 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_csm_module_report(
+def test_staking_module_module_report(
     performance_web_server, performance_collector, module, set_oracle_members, running_finalized_slots, account_from
 ):
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"

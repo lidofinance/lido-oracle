@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from _pytest._io import TerminalWriter
 from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
@@ -8,6 +9,7 @@ from src.types import EpochNumber, SlotNumber, BlockRoot
 from src.utils.blockstamp import build_blockstamp
 from src.utils.api import opsgenie_api
 from src.utils.slot import get_reference_blockstamp
+from src.modules.oracles.common.runtime import OracleWeb3Config, build_oracle_web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
@@ -16,7 +18,6 @@ from src.web3py.extensions import (
     TransactionUtils,
     LidoContracts,
     FallbackProviderModule,
-    StakingModuleContracts,
 )
 from src.web3py.types import Web3
 
@@ -28,6 +29,7 @@ _config = None
 
 @pytest.fixture()
 def web3():
+    """Basic web3 fixture without staking module contracts."""
     web3 = Web3(
         FallbackProviderModule(
             variables.EXECUTION_CLIENT_URI, request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
@@ -47,10 +49,32 @@ def web3():
     )
     if variables.LIDO_LOCATOR_ADDRESS:
         web3.attach_modules({'lido_contracts': LidoContracts})
-    if variables.STAKING_MODULE_ADDRESS:
-        web3.attach_modules({'staking_module': StakingModuleContracts})
 
     return web3
+
+
+@pytest.fixture()
+def web3_cs_module():
+    """Web3 fixture configured for CS module (reuses CSM entrypoint logic)."""
+    with patch.object(variables, 'CURATED_MODULE_ADDRESS', None):
+        return build_oracle_web3(OracleWeb3Config(
+            use_lido_contracts=False,
+            use_staking_module_contracts=True,
+            use_ipfs=False,
+            use_performance_client=False,
+        ))
+
+
+@pytest.fixture()
+def web3_curated_module():
+    """Web3 fixture configured for Curated module (reuses CM entrypoint logic)."""
+    with patch.object(variables, 'CS_MODULE_ADDRESS', None):
+        return build_oracle_web3(OracleWeb3Config(
+            use_lido_contracts=False,
+            use_staking_module_contracts=True,
+            use_ipfs=False,
+            use_performance_client=False,
+        ))
 
 
 @pytest.fixture(
@@ -60,7 +84,7 @@ def web3():
         pytest.param(
             6300,
             id="Blockstamp CSM frame ago",
-            marks=pytest.mark.skipif(variables.STAKING_MODULE_ADDRESS is None, reason="STAKING_MODULE_ADDRESS is not set"),
+            marks=pytest.mark.skipif(variables.CS_MODULE_ADDRESS is None or variables.CURATED_MODULE_ADDRESS is None, reason="CS_MODULE_ADDRESS or CURATED_MODULE_ADDRESS is not set"),
         ),
     ]
 )

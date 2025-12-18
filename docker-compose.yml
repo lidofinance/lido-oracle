@@ -102,7 +102,7 @@ services:
     container_name: csm-oracle
     command: ["-m", "src.main", "csm"]
     environment:
-      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS}
+      CS_MODULE_ADDRESS: ${CS_MODULE_ADDRESS}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
       KEYS_API_URI: ${KEYS_API_URI}
@@ -124,7 +124,7 @@ services:
 #    container_name: cm-oracle
 #    command: ["-m", "src.main", "cm"]
 #    environment:
-#      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS}
+#      CURATED_MODULE_ADDRESS: ${CURATED_MODULE_ADDRESS}
 #      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
 #      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
 #      KEYS_API_URI: ${KEYS_API_URI}

@@ -1,5 +1,6 @@
 """Common checks"""
 import pytest
+from src import variables
 
 from src.modules.oracles.common.runtime import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
 from src.modules.oracles.accounting.accounting import Accounting
@@ -15,9 +16,15 @@ def skip_locator(web3):
 
 
 @pytest.fixture()
-def skip_csm(web3):
-    if not hasattr(web3, 'csm'):
-        pytest.skip('STAKING_MODULE_ADDRESS is not set')
+def skip_csm():
+    if not variables.CS_MODULE_ADDRESS:
+        pytest.skip('CS_MODULE_ADDRESS is not set')
+
+
+@pytest.fixture()
+def skip_cm():
+    if not variables.CURATED_MODULE_ADDRESS:
+        pytest.skip('CURATED_MODULE_ADDRESS is not set')
 
 
 @pytest.fixture()
@@ -31,13 +38,13 @@ def ejector(web3, skip_locator):
 
 
 @pytest.fixture()
-def csm(web3, skip_locator, skip_csm):
-    return CSPerformanceOracle(web3)
+def csm(web3_cs_module, skip_locator, skip_csm):
+    return CSPerformanceOracle(web3_cs_module)
 
 
 @pytest.fixture()
-def cm(web3, skip_locator, skip_csm):
-    return CMPerformanceOracle(web3)
+def cm(web3_curated_module, skip_locator, skip_cm):
+    return CMPerformanceOracle(web3_curated_module)
 
 
 def check_providers_chain_ids(web3):
