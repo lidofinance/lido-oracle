@@ -756,9 +756,7 @@ class BuildReportTestParam:
 def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
-    module._get_last_report = Mock(return_value=param.last_report)
-    # mock current frame
-    module.calculate_distribution = param.curr_distribution
+    module.calculate_distribution = Mock(return_value=(param.curr_distribution(), param.last_report))
     module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
     module.make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
     module.publish_tree = Mock(
@@ -843,20 +841,23 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
 
         module.converter = Mock()
         module.state = Mock()
+        module._get_last_report = Mock(return_value=last_report)
 
-        result1 = module.calculate_distribution(blockstamp, last_report)
+        result1, last_report1 = module.calculate_distribution(blockstamp)
 
-        result2 = module.calculate_distribution(blockstamp, last_report)
+        result2, last_report2 = module.calculate_distribution(blockstamp)
 
         assert result1 is result2
+        assert last_report1 is last_report2
         assert result1 is mock_distribution_result
+        assert last_report1 is last_report
 
         assert MockDistribution.call_count == 1
         assert mock_distribution_instance.calculate.call_count == 1
 
         module.calculate_distribution.cache_clear()
 
-        result3 = module.calculate_distribution(blockstamp, last_report)
+        result3, last_report3 = module.calculate_distribution(blockstamp)
 
         assert MockDistribution.call_count == 2
         assert result3 is mock_distribution_result

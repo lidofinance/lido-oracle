@@ -1,6 +1,7 @@
 from threading import Thread
 
 import pytest
+import uvicorn
 
 from unittest.mock import patch
 from pathlib import Path
@@ -12,10 +13,12 @@ from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.modules.common.types import FrameConfig
 from src.modules.sidecars.performance.common.db import Duty
-from src.modules.sidecars.performance.web.server import serve
+from src.modules.sidecars.performance.web.server import app
 from src.utils.range import sequence
 from src.web3py.types import Web3
 from tests.fork.conftest import first_slot_of_epoch
+
+# pylint: disable=protected-access
 
 
 @pytest.fixture()
@@ -40,12 +43,19 @@ def performance_local_db(testrun_path):
 
     def mock_get_database_url(self):
         db_path = Path(testrun_path) / "test_duties.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{db_path}"
 
+    def mock_build_engine(self, connect_timeout):
+        return create_engine(
+            self._get_database_url(),
+            echo=False,
+            pool_pre_ping=True,
+        )
+
     def mock_init(self, *args, **kwargs):
-        # pylint: disable=protected-access
-        self.engine = create_engine(self._get_database_url(), echo=False)
-        # pylint: disable=protected-access
+        self._statement_timeout_ms = kwargs.get('statement_timeout_ms')
+        self.engine = self._build_engine(kwargs.get('connect_timeout'))
         self._setup_database()
 
     table = Duty.__table__
@@ -54,8 +64,9 @@ def performance_local_db(testrun_path):
             table.c[col_name].type = JSON()
 
     with patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
-        with patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init):
-            yield mock_get_database_url, mock_init
+        with patch('src.modules.sidecars.performance.common.db.DutiesDB._build_engine', mock_build_engine):
+            with patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init):
+                yield mock_get_database_url, mock_init
 
 
 @pytest.fixture()
@@ -65,7 +76,9 @@ def performance_collector(performance_local_db, web3: Web3, frame_config: FrameC
 
 @pytest.fixture()
 def performance_web_server(performance_local_db):
-    Thread(target=serve, daemon=True).start()
+    Thread(
+        target=uvicorn.run, args=(app,), kwargs={'host': '127.0.0.1', 'port': 9020, 'log_level': 'error'}, daemon=True
+    ).start()
     yield
 
 
@@ -98,19 +111,12 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
 @pytest.mark.fork
 @pytest.mark.parametrize(
     'module',
-    [
-        csm_module,
-        # cm_module
-    ],
+    [csm_module, cm_module],
     indirect=True,
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
-    [
-        # start_before_initial_epoch,
-        start_after_initial_epoch,
-        # missed_initial_frame
-    ],
+    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
 def test_csm_module_report(

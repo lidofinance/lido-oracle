@@ -177,10 +177,8 @@ class SMPerformanceOracle(OracleModule):
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         self.validate_state(blockstamp)
 
-        last_report = self._get_last_report(blockstamp)
+        distribution, last_report = self.calculate_distribution(blockstamp)
         rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
-
-        distribution = self.calculate_distribution(blockstamp, last_report)
 
         if distribution.total_rewards:
             rewards_tree = self.make_rewards_tree(distribution.total_rewards_map)
@@ -218,10 +216,11 @@ class SMPerformanceOracle(OracleModule):
         return LastReport.load(self.w3, blockstamp, current_frame)
 
     @lru_cache(maxsize=1)
-    def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
+    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
+        last_report = self._get_last_report(blockstamp)
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
-        return result
+        return result, last_report
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.staking_module.get_last_processing_ref_slot(blockstamp)
