@@ -74,9 +74,9 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Lint with ruff format
-        run: poetry run ruff format --check tests
+        run: poetry run ruff format --check --diff tests
 
-      - name: Lint with ruff
+      - name: Lint with ruff check
         run: poetry run ruff check src tests
 
       - name: Lint mypy
