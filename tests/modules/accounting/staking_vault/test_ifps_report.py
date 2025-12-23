@@ -20,7 +20,7 @@ class TestIpfsReportSmoke:
 
         sv = StakingVaultsService(web3_integration)
 
-        assert True == sv.is_tree_root_valid(expected_tree_root, tree)
+        assert sv.is_tree_root_valid(expected_tree_root, tree)
 
     def test_ipfs_window(self, web3_integration):
         sv = StakingVaultsService(web3_integration)

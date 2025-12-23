@@ -71,7 +71,7 @@ def test_logs_encode(log: FramePerfLog):
         assert decoded["operators"]["42"]["validators"]["41337"]["performance"] == 0.5
         assert decoded["operators"]["42"]["validators"]["41337"]["threshold"] == 0.7
         assert decoded["operators"]["42"]["validators"]["41337"]["rewards_share"] == 0.3
-        assert decoded["operators"]["42"]["validators"]["41337"]["slashed"] == False
+        assert not decoded["operators"]["42"]["validators"]["41337"]["slashed"]
         assert decoded["operators"]["42"]["validators"]["41337"]["distributed_rewards"] == 17
         assert decoded["operators"]["42"]["distributed_rewards"] == 17
         assert decoded["operators"]["42"]["performance_coefficients"] == {

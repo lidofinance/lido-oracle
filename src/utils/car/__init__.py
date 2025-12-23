@@ -3,3 +3,10 @@ from .converter import (
     CAREncodingError,
     CarFile,
 )
+
+
+__all__ = [
+    "CARConverter",
+    "CAREncodingError",
+    "CarFile",
+]

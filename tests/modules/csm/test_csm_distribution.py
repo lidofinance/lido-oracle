@@ -20,7 +20,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory

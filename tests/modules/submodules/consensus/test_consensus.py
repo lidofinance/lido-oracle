@@ -275,11 +275,12 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
 def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version, expected):
     bs = ReferenceBlockStampFactory.build()
 
-    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 3
-    consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
-
-    check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
-    consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
+    consensus.report_contract.get_contract_version = Mock(
+        side_effect=lambda tag: contract_version if tag == 'latest' else 3
+    )
+    consensus.report_contract.get_consensus_version = Mock(
+        side_effect=lambda tag: consensus_version if tag == 'latest' else 2
+    )
 
     assert expected == consensus._check_compatability(bs)
 

@@ -5,7 +5,7 @@ import pytest
 
 from src.providers.http_provider import NotOkResponse
 from src.types import SlotNumber
-from src.utils.slot import NoSlotsAvailable, get_non_missed_slot_header, get_prev_non_missed_slot
+from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory

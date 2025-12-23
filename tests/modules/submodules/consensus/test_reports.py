@@ -7,7 +7,6 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src import variables
-from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
 from src.modules.submodules.types import ZERO_HASH, ChainConfig, FrameConfig
 from src.types import Gwei, SlotNumber, StakingModuleId

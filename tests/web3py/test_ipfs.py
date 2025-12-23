@@ -5,7 +5,7 @@ import pytest
 from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import IPFSError, IPFSProvider
 from src.types import FrameNumber
-from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError, ProviderConsistencyError
+from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError
 
 
 HARDCODED_FETCH_CONTENT = b"hardcoded_fetched_content"

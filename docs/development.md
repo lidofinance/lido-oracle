@@ -74,7 +74,6 @@ Where `<module>` is one of:
 Used the following tools:
 
 - [ruff](https://github.com/astral-sh/ruff) (formatter and linter)
-- [pylint](https://github.com/pylint-dev/pylint/)
 - [mypy](https://github.com/python/mypy/)
   See the [configuration](pyproject.toml) for details for each linter.
 
@@ -88,7 +87,7 @@ make lint
 #### Local setup
 ```bash
 ruff format tests
-pylint src tests
+ruff check src tests
 mypy src
 ```
 

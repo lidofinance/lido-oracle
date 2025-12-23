@@ -46,8 +46,7 @@ types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
-ruff = "^0.8.0"
-pylint = "^3.2.3"
+ruff = "^0.14.0"
 mypy = "^1.10.0"
 responses = "^0.25.7"
 eth-tester = "^0.12.1b1"
@@ -73,48 +72,6 @@ addopts = "-s -vv --strict-markers"
 [tool.coverage.run]
 branch = true
 
-[tool.pylint.master]
-ignore-patterns = ".*_pb2\\.py"
-generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
-
-[tool.pylint.format]
-max-line-length = "120"
-min-similarity-lines = 6
-
-[tool.pylint."messages control"]
-disable = [
-    # Disabled by default
-    "raw-checker-failed",
-    "bad-inline-option",
-    "locally-disabled",
-    "file-ignored",
-    "suppressed-message",
-    "useless-suppression",
-    "deprecated-pragma",
-    "use-symbolic-message-instead",
-    # Disabled by us
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "too-few-public-methods",
-    "invalid-name",
-    "unused-argument",
-    "wrong-import-order",
-    "ungrouped-imports",
-    "line-too-long",
-    "too-many-instance-attributes",
-    "too-many-arguments",
-    "too-many-locals",
-    "unspecified-encoding",
-    "bare-except",
-    "fixme",
-    "cell-var-from-loop",
-    "invalid-envvar-default",
-    "global-statement",
-    "redefined-outer-name",
-    "too-many-positional-arguments",
-]
-
 [tool.mypy]
 python_version = "3.12"
 strict_equality = true
@@ -129,7 +86,7 @@ ignore_errors = true  # skipped because of extensive copy-paste from the upstrea
 line-length = 120
 target-version = "py312"
 
-# Exclude directories (matching black's exclude)
+# Exclude directories and protobuf generated files
 exclude = [
     ".git",
     ".hg",
@@ -140,6 +97,7 @@ exclude = [
     "buck-out",
     "build",
     "dist",
+    "*_pb2.py",  # Protobuf generated files
 ]
 
 [tool.ruff.format]

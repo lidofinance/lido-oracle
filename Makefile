@@ -47,7 +47,7 @@ poetry-lock: up
 
 lint: up
 	$(EXEC_CMD) ruff format tests
-	$(EXEC_CMD) pylint src tests --jobs=2
+	$(EXEC_CMD) ruff check src tests
 	$(EXEC_CMD) mypy src
 
 # Use ORACLE_TEST_PATH to run specific tests, e.g.:

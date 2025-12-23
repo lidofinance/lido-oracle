@@ -27,9 +27,9 @@ repos:
         types: [python]
         files: '^(src)/'
         stages: [commit]
-      - id: pylint
-        name: pylint
-        entry: poetry run pylint src tests
+      - id: ruff
+        name: ruff check
+        entry: poetry run ruff check src tests
         language: system
         types: [python]
         files: '^(src|test)/'
