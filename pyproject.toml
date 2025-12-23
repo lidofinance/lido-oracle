@@ -46,14 +46,13 @@ types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
-black = "^24.8"
+ruff = "^0.8.0"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 responses = "^0.25.7"
 eth-tester = "^0.12.1b1"
 pre-commit = "3.8"
 ipython = "^9.0"
-isort = "^6.0.1"
 conventional-pre-commit = "^4.0.0"
 
 [build-system]
@@ -126,30 +125,31 @@ disable_error_code = "valid-type,name-defined"
 module = "src.web3py.contract_tweak"
 ignore_errors = true  # skipped because of extensive copy-paste from the upstream
 
-[tool.black]
-line-length = 120
-skip-string-normalization = true
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
-
 [tool.ruff]
 line-length = 120
+target-version = "py312"
+
+# Exclude directories (matching black's exclude)
+exclude = [
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+]
 
 [tool.ruff.format]
+# Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
+# Match black's behavior
+indent-style = "space"
+skip-magic-trailing-comma = false
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
+[tool.ruff.lint.isort]
+# Equivalent to isort's profile = "black" and combine_as_imports = true
+combine-as-imports = true
+lines-after-imports = 2

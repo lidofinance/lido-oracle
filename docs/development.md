@@ -73,7 +73,7 @@ Where `<module>` is one of:
 
 Used the following tools:
 
-- [black](https://github.com/psf/black)
+- [ruff](https://github.com/astral-sh/ruff) (formatter and linter)
 - [pylint](https://github.com/pylint-dev/pylint/)
 - [mypy](https://github.com/python/mypy/)
   See the [configuration](pyproject.toml) for details for each linter.
@@ -87,7 +87,7 @@ make lint
 
 #### Local setup
 ```bash
-black tests
+ruff format tests
 pylint src tests
 mypy src
 ```

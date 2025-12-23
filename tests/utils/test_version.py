@@ -1,13 +1,13 @@
-import pytest
 import os
 import tomllib
+
+import pytest
 
 from src.utils.version import get_oracle_version
 
 
 @pytest.mark.unit
 class TestVersion:
-
     def test_get_oracle_version__returns_valid_version(self):
         version = get_oracle_version()
 

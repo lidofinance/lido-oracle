@@ -1,11 +1,12 @@
-from dataclasses import is_dataclass, MISSING, fields
-from typing import TypeVar, Generic, TypeGuard, Any, get_type_hints
+from dataclasses import MISSING, fields, is_dataclass
+from typing import Any, Generic, TypeGuard, TypeVar, get_type_hints
 
-from eth_typing import HexStr, HexAddress
+from eth_typing import HexAddress, HexStr
 from eth_utils import to_checksum_address
 from hexbytes import HexBytes
 from polyfactory import BaseFactory
 from polyfactory.field_meta import FieldMeta, Null
+
 
 T = TypeVar("T")
 

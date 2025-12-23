@@ -35,7 +35,6 @@ MockProvider4 = create_mock_provider_class("MockProvider4")
 
 @pytest.mark.unit
 class TestIPFS:
-
     @pytest.fixture
     def mock_w3(self):
         return MagicMock()

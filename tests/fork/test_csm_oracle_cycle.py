@@ -25,7 +25,6 @@ def csm_repo_path(testruns_folder_path):
 
 @pytest.fixture(scope='session')
 def prepared_csm_repo(testruns_folder_path, csm_repo_path):
-
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # CI should have the repo cloned and prepared
         if os.path.exists(csm_repo_path):

@@ -1,5 +1,6 @@
 import os
 
+
 if os.path.exists(".env"):
     with open(".env", "r") as f:
         for line in f.readlines():

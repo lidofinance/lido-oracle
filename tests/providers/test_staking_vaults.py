@@ -5,7 +5,6 @@ from eth_typing import BlockNumber
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestStakingVaultsContractsSmoke:
-
     @pytest.mark.skip("No events in the range, need to update the test")
     def test_get_burned_events(self, web3_integration):
         events = web3_integration.lido_contracts.vault_hub.get_burned_events(

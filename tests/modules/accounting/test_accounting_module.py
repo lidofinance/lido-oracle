@@ -182,8 +182,9 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
 
     bs = ReferenceBlockStampFactory.build()
 
-    with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
-        Withdrawal, 'get_finalization_batches', return_value=[]
+    with (
+        patch.object(Withdrawal, '__init__', return_value=None),
+        patch.object(Withdrawal, 'get_finalization_batches', return_value=[]),
     ):
         batches, share_rate = accounting._get_finalization_data(bs)
 

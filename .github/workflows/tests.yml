@@ -73,8 +73,8 @@ jobs:
         run: |
           poetry install --no-interaction --with=dev
 
-      - name: Lint with black
-        run: poetry run black --check tests
+      - name: Lint with ruff format
+        run: poetry run ruff format --check tests
 
       - name: Lint with pylint
         run: poetry run pylint src tests

@@ -1,7 +1,8 @@
 import json
+
 import pytest
 
-from src.modules.csm.log import FramePerfLog, DutyAccumulator
+from src.modules.csm.log import DutyAccumulator, FramePerfLog
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
 from tests.factory.blockstamp import ReferenceBlockStampFactory

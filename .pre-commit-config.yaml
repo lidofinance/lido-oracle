@@ -1,9 +1,9 @@
 repos:
   - repo: local
     hooks:
-      - id: black-only-tests
-        name: Run Black on tests/ using Poetry
-        entry: poetry run black tests
+      - id: ruff-format-tests
+        name: Run Ruff format on tests/ using Poetry
+        entry: poetry run ruff format tests
         language: system
         types: [python]
         pass_filenames: false
@@ -14,9 +14,9 @@ repos:
         entry: poetry run conventional-pre-commit
         language: system
         stages: [commit-msg]
-      - id: isort-poetry
-        name: isort
-        entry: poetry run isort
+      - id: ruff-check-imports
+        name: ruff check imports
+        entry: poetry run ruff check --select I --fix
         language: system
         types: [python]
         stages: [pre-commit]

@@ -8,19 +8,19 @@ from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
-from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
+from src.modules.csm.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
+from src.modules.csm.state import DutyAccumulator, Frame, NetworkDuties, State
 from src.modules.csm.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
-    StrikesParams,
-    PerformanceCoefficients,
     CurveParams,
     KeyNumberValueInterval,
     KeyNumberValueIntervalList,
+    PerformanceCoefficients,
+    StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
-from src.types import NodeOperatorId, EpochNumber, ValidatorIndex, ReferenceBlockStamp
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 from src.web3py.extensions import CSM
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory

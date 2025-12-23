@@ -4,7 +4,6 @@ from unittest.mock import Mock
 import pytest
 from web3.exceptions import ContractCustomError
 
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     GWEI_TO_WEI,
@@ -22,6 +21,7 @@ from src.modules.submodules.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3

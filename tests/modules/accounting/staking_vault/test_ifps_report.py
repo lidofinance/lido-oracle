@@ -11,7 +11,6 @@ from src.utils.slot import get_blockstamp
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestIpfsReportSmoke:
-
     def test_ipfs_report_valid(self, web3_integration):
         cid = CIDv0("QmYnQ9gCriLj29uWC6DC3yFm6gYXNEAkMoHLjtJun8ASeQ")
         expected_tree_root = "0x82d726a060e4133328fb77dac69cfd84e14bb66fb0fd1b2c99ba058efb2f5a30"

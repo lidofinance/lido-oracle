@@ -42,6 +42,7 @@ from src.services.staking_vaults import StakingVaultsService
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 from tests.factory.web3_factory import Web3DataclassFactory
 
+
 faker = Faker()
 
 # =============================================================================
