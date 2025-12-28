@@ -108,7 +108,7 @@ class OracleReportLimits:
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
-    max_validator_exit_requests_per_report: int
+    balance_to_exit_per_day_limit_in_gwei: Gwei
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int

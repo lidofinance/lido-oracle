@@ -44,18 +44,24 @@ logger = logging.getLogger(__name__)
 
 class Ejector(BaseModule, ConsensusModule):
     """
-    Module that ejects lido validators depends on total value of unfinalized withdrawal requests.
+    The module that requests Lido validators exists so that unfinalized Withdrawal Requests (WR) are closed as quickly as possible,
+    without triggering unnecessary additional withdrawals.
 
     Flow:
-    1. Calculate withdrawals amount to cover with ETH.
+    1. Fetch ETH amount required to cover unfinalized WR.
     2. Calculate ETH rewards prediction per epoch.
+
     Loop:
-        1. Calculate withdrawn epoch for last validator in "to eject" list.
-        2. Calculate predicted rewards we get until last validator will be withdrawn.
-        3. Check if validators to eject + predicted rewards and withdrawals + current balance is enough to finalize all withdrawal requests.
-            - If True - eject all validators in list. End.
-        4. Add new validator to "to eject" list.
-        5. Recalculate withdrawn epoch.
+        1. Calculate the withdrawal epoch for the last validator in the "to eject" list.
+        2. Calculate the predicted rewards that will be received until the last validator is withdrawn.
+        3. Check whether the sum of the following components will be enough to cover all WR:
+            - Exiting validators’ balances
+            - Validators’ balances in the "to eject" list
+            - Predicted rewards
+            - Predicted validator top-ups
+            - Current balance on EL
+        4. If the sum is already enough to cover WR, exit the loop.
+        5. Get the next validator to eject.
 
     3. Decode lido validators into bytes and send report transaction
     """
@@ -168,7 +174,9 @@ class Ejector(BaseModule, ConsensusModule):
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
 
-        withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, validators_going_to_exit + vals_to_exit)
+        all_validators_to_be_exited = validators_going_to_exit + vals_to_exit
+
+        withdrawal_epoch = self._get_predicted_withdrawable_epoch(blockstamp, all_validators_to_be_exited)
         logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
         EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
 
@@ -180,7 +188,10 @@ class Ejector(BaseModule, ConsensusModule):
         total_available_balance = self._get_total_el_balance(blockstamp)
         logger.info({'msg': 'Calculate el balance.', 'value': total_available_balance})
 
-        return Wei(future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance)
+        top_ups = self._get_total_top_ups(all_validators_to_be_exited, blockstamp)
+        logger.info({'msg': 'Calculate top ups balance.', 'value': top_ups})
+
+        return Wei(future_rewards + future_withdrawals + total_available_balance + going_to_withdraw_balance + top_ups)
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self.report_contract.is_paused('latest')
@@ -210,6 +221,16 @@ class Ejector(BaseModule, ConsensusModule):
             self.w3.lido_contracts.get_withdrawal_balance(blockstamp) +
             self.w3.lido_contracts.lido.get_buffered_ether(blockstamp.block_hash)
         )
+
+    def _get_total_top_ups(self, validators: list[LidoValidator], blockstamp: BlockStamp) -> Wei:
+        top_ups_sum = Gwei(0)
+
+        for deposit in self.w3.cc.get_pending_deposits(blockstamp):
+            for validator in validators:
+                if deposit.pubkey == validator.pubkey:
+                    top_ups_sum += deposit.amount
+
+        return gwei_to_wei(top_ups_sum)
 
     def _get_predicted_withdrawable_epoch(
         self,
