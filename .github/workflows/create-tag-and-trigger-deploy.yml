@@ -50,7 +50,6 @@ jobs:
   deploy-trigger:
     needs: bump
     name: Trigger build and PR creation in the infra-mainnet
-    environment: release
     if: "contains(github.event.head_commit.message, 'chore(release)') || github.event_name == 'workflow_dispatch'"
     uses: ./.github/workflows/ci-prod.yml
     secrets: inherit
