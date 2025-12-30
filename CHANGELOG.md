@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [7.0.0 VaultOS](https://github.com/lidofinance/lido-oracle/releases/tag/7.0.0) - 2025-12
+
+### Vaults integration into AO
+
+### Changed
+- AO changes according to [LIP-31](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-31.md)
+
 ## [6.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/6.0.0) - 2025-07
 
 ### Support for Triggerable Withdrawals and CSM V2
 
 ### Changed
-- AO and VEBO changes according to [LIP-31](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-31.md)
+- AO and VEBO changes according to [LIP-30](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-30.md)
 - CSM changes according to [LIP-29](https://github.com/lidofinance/lido-improvement-proposals/blob/develop/LIPS/lip-29.md) 
 
 ## [5.1.0](https://github.com/lidofinance/lido-oracle/releases/tag/5.1.0) - 2025-04-01
