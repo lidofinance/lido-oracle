@@ -18,7 +18,7 @@ authors = [
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.14"
 prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
 pytest = "^7.2.1"
@@ -117,7 +117,7 @@ disable = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict_equality = true
 mypy_path = "stubs"
 disable_error_code = "valid-type,name-defined"
@@ -146,6 +146,7 @@ exclude = '''
 
 [tool.ruff]
 line-length = 120
+target-version = "py314"
 
 [tool.ruff.format]
 quote-style = "preserve"
