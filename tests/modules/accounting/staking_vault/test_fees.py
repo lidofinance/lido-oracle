@@ -924,6 +924,11 @@ class TestGetVaultsFees:
         blockstamp.block_number = 11
         blockstamp.ref_slot = SlotNumber(105)
 
+        prev_report_timestamp = 100 * FeeTestConstants.SECONDS_PER_SLOT
+        current_report_timestamp = 105 * FeeTestConstants.SECONDS_PER_SLOT
+        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
+        assert time_elapsed_seconds == 5 * FeeTestConstants.SECONDS_PER_SLOT
+
         total_value = SECONDS_IN_YEAR * TOTAL_BASIS_POINTS
         fees = service.get_vaults_fees(
             blockstamp=blockstamp,
@@ -938,7 +943,8 @@ class TestGetVaultsFees:
             current_frame=FrameNumber(0),
         )
 
-        assert fees[vault_adr].infra_fee == 5 * FeeTestConstants.SECONDS_PER_SLOT
+        expected_fee = StakingVaultsService.calc_fee_value(Decimal(total_value), time_elapsed_seconds, Decimal(1), 1)
+        assert fees[vault_adr].infra_fee == int(expected_fee)
 
     @pytest.mark.unit
     def test_fee_elapsed_time_missing_slots_at_end_with_event(self, mock_vault_hub_events):
@@ -1148,6 +1154,11 @@ class TestGetVaultsFees:
         blockstamp.block_number = 0
         blockstamp.ref_slot = SlotNumber(0)
 
+        prev_report_timestamp = -1 * FeeTestConstants.SECONDS_PER_SLOT
+        current_report_timestamp = 0
+        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
+        assert time_elapsed_seconds == FeeTestConstants.SECONDS_PER_SLOT
+
         total_value = SECONDS_IN_YEAR * TOTAL_BASIS_POINTS
         fees = service.get_vaults_fees(
             blockstamp=blockstamp,
@@ -1162,7 +1173,8 @@ class TestGetVaultsFees:
             current_frame=FrameNumber(0),
         )
 
-        assert fees[vault_adr].infra_fee == FeeTestConstants.SECONDS_PER_SLOT
+        expected_fee = StakingVaultsService.calc_fee_value(Decimal(total_value), time_elapsed_seconds, Decimal(1), 1)
+        assert fees[vault_adr].infra_fee == int(expected_fee)
 
     @pytest.mark.unit
     def test_raises_if_time_elapsed_negative(self):
