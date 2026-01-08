@@ -899,6 +899,272 @@ class TestGetVaultsFees:
         assert fees[vault_adr].infra_fee == 2 * FeeTestConstants.SECONDS_PER_SLOT
 
     @pytest.mark.unit
+    def test_fee_elapsed_time_missing_slots_at_start(self, mock_vault_hub_events):
+        """Missing slots immediately after the previous report should still accrue fees."""
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build_with_fees(
+            vault=vault_adr,
+            liability_shares=0,
+            max_liability_shares=0,
+            mintable_st_eth=0,
+            infra_fee_bp=1,
+            liquidity_fee_bp=0,
+            reservation_fee_bp=0,
+        )
+
+        vault_hub_mock = mock_vault_hub_events()
+        w3_mock = MagicMock()
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.lazy_oracle = MagicMock()
+
+        service = StakingVaultsService(w3_mock)
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(100), 10])
+
+        blockstamp = MagicMock()
+        blockstamp.block_number = 11
+        blockstamp.ref_slot = SlotNumber(105)
+
+        total_value = SECONDS_IN_YEAR * TOTAL_BASIS_POINTS
+        fees = service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={vault_adr: total_value},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+            core_apr_ratio=Decimal(1),
+            pre_total_pooled_ether=FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
+            pre_total_shares=FeeTestConstants.PRE_TOTAL_SHARES,
+            frame_config=MagicMock(),
+            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+            current_frame=FrameNumber(0),
+        )
+
+        assert fees[vault_adr].infra_fee == 5 * FeeTestConstants.SECONDS_PER_SLOT
+
+    @pytest.mark.unit
+    def test_fee_elapsed_time_missing_slots_at_end_with_event(self, mock_vault_hub_events):
+        """Missing slots after the last event should be included up to the report ref slot."""
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build_with_fees(
+            vault=vault_adr,
+            liability_shares=1,
+            max_liability_shares=1,
+            mintable_st_eth=0,
+            infra_fee_bp=0,
+            liquidity_fee_bp=1,
+            reservation_fee_bp=0,
+        )
+        prev_report = MagicMock()
+        prev_report.values = [
+            MerkleValueFactory.build(
+                vault_address=vault_adr,
+                fee=0,
+                liability_shares=1,
+                max_liability_shares=1,
+            )
+        ]
+
+        fee_event = VaultFeesUpdatedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(10),
+            pre_liquidity_fee_bp=2,
+        )
+        vault_hub_mock = mock_vault_hub_events(fee_updated_events=[fee_event])
+
+        w3_mock = MagicMock()
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.lazy_oracle = MagicMock()
+
+        service = StakingVaultsService(w3_mock)
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
+        service._get_block_timestamps = MagicMock(
+            return_value={BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT}
+        )
+
+        blockstamp = MagicMock()
+        blockstamp.block_number = 11
+        blockstamp.ref_slot = SlotNumber(110)
+
+        fees = service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={vault_adr: 0},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+            core_apr_ratio=Decimal(1),
+            pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
+            pre_total_shares=1,
+            frame_config=MagicMock(),
+            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+            current_frame=FrameNumber(0),
+        )
+
+        event_timestamp = StakingVaultsService._get_event_effective_timestamp(
+            fee_event,
+            vault_adr,
+            {BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT},
+            FeeTestConstants.SECONDS_PER_SLOT,
+        )
+        assert event_timestamp == 102 * FeeTestConstants.SECONDS_PER_SLOT
+
+        current_report_timestamp = 110 * FeeTestConstants.SECONDS_PER_SLOT
+        prev_report_timestamp = 100 * FeeTestConstants.SECONDS_PER_SLOT
+        interval_after_event = current_report_timestamp - event_timestamp
+        interval_before_event = event_timestamp - prev_report_timestamp
+        assert interval_after_event == 8 * FeeTestConstants.SECONDS_PER_SLOT
+        assert interval_before_event == 2 * FeeTestConstants.SECONDS_PER_SLOT
+
+        expected_fee = StakingVaultsService.calc_fee_value(
+            Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS),
+            interval_after_event,
+            Decimal(1),
+            1,
+        ) + StakingVaultsService.calc_fee_value(
+            Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS),
+            interval_before_event,
+            Decimal(1),
+            2,
+        )
+        assert fees[vault_adr].liquidity_fee == int(expected_fee)
+
+    @pytest.mark.unit
+    def test_fee_elapsed_time_missing_slots_in_middle(self, mock_vault_hub_events):
+        """Gaps between events should still be counted via timestamps/ref slots."""
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build_with_fees(
+            vault=vault_adr,
+            liability_shares=1,
+            max_liability_shares=1,
+            mintable_st_eth=0,
+            infra_fee_bp=0,
+            liquidity_fee_bp=1,
+            reservation_fee_bp=0,
+        )
+        prev_report = MagicMock()
+        prev_report.values = [
+            MerkleValueFactory.build(
+                vault_address=vault_adr,
+                fee=0,
+                liability_shares=1,
+                max_liability_shares=1,
+            )
+        ]
+
+        event_1 = VaultFeesUpdatedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(10),
+            pre_liquidity_fee_bp=2,
+        )
+        event_2 = VaultFeesUpdatedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(20),
+            pre_liquidity_fee_bp=3,
+        )
+        vault_hub_mock = mock_vault_hub_events(fee_updated_events=[event_1, event_2])
+
+        w3_mock = MagicMock()
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.lazy_oracle = MagicMock()
+
+        service = StakingVaultsService(w3_mock)
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
+        service._get_block_timestamps = MagicMock(
+            return_value={
+                BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT,
+                BlockNumber(20): 108 * FeeTestConstants.SECONDS_PER_SLOT,
+            }
+        )
+
+        blockstamp = MagicMock()
+        blockstamp.block_number = 21
+        blockstamp.ref_slot = SlotNumber(110)
+
+        fees = service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={vault_adr: 0},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+            core_apr_ratio=Decimal(1),
+            pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
+            pre_total_shares=1,
+            frame_config=MagicMock(),
+            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+            current_frame=FrameNumber(0),
+        )
+
+        event_1_timestamp = 102 * FeeTestConstants.SECONDS_PER_SLOT
+        event_2_timestamp = 108 * FeeTestConstants.SECONDS_PER_SLOT
+        current_report_timestamp = 110 * FeeTestConstants.SECONDS_PER_SLOT
+        prev_report_timestamp = 100 * FeeTestConstants.SECONDS_PER_SLOT
+
+        assert event_2_timestamp > event_1_timestamp
+        assert current_report_timestamp - event_2_timestamp == 2 * FeeTestConstants.SECONDS_PER_SLOT
+        assert event_2_timestamp - event_1_timestamp == 6 * FeeTestConstants.SECONDS_PER_SLOT
+        assert event_1_timestamp - prev_report_timestamp == 2 * FeeTestConstants.SECONDS_PER_SLOT
+
+        expected_fee = (
+            StakingVaultsService.calc_fee_value(
+                Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS),
+                current_report_timestamp - event_2_timestamp,
+                Decimal(1),
+                1,
+            )
+            + StakingVaultsService.calc_fee_value(
+                Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS),
+                event_2_timestamp - event_1_timestamp,
+                Decimal(1),
+                3,
+            )
+            + StakingVaultsService.calc_fee_value(
+                Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS),
+                event_1_timestamp - prev_report_timestamp,
+                Decimal(1),
+                2,
+            )
+        )
+        assert fees[vault_adr].liquidity_fee == int(expected_fee)
+
+    @pytest.mark.unit
+    def test_fee_elapsed_time_with_empty_prev_ref_slot(self, mock_vault_hub_events):
+        """A missing previous ref slot (-1) should still yield a positive interval."""
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build_with_fees(
+            vault=vault_adr,
+            liability_shares=0,
+            max_liability_shares=0,
+            mintable_st_eth=0,
+            infra_fee_bp=1,
+            liquidity_fee_bp=0,
+            reservation_fee_bp=0,
+        )
+
+        vault_hub_mock = mock_vault_hub_events()
+        w3_mock = MagicMock()
+        w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.lazy_oracle = MagicMock()
+
+        service = StakingVaultsService(w3_mock)
+        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(-1), 0])
+
+        blockstamp = MagicMock()
+        blockstamp.block_number = 0
+        blockstamp.ref_slot = SlotNumber(0)
+
+        total_value = SECONDS_IN_YEAR * TOTAL_BASIS_POINTS
+        fees = service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={vault_adr: total_value},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+            core_apr_ratio=Decimal(1),
+            pre_total_pooled_ether=FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
+            pre_total_shares=FeeTestConstants.PRE_TOTAL_SHARES,
+            frame_config=MagicMock(),
+            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+            current_frame=FrameNumber(0),
+        )
+
+        assert fees[vault_adr].infra_fee == FeeTestConstants.SECONDS_PER_SLOT
+
+    @pytest.mark.unit
     def test_raises_if_time_elapsed_negative(self):
         """Reject negative elapsed time between reports."""
         w3_mock = MagicMock()
