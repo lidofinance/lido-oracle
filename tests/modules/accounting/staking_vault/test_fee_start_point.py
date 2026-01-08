@@ -4,7 +4,6 @@ import pytest
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
 
-import src.services.staking_vaults as staking_vaults
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
@@ -38,7 +37,7 @@ class TestStartPointForFeeCalculations:
         ref_block = MagicMock()
         ref_block.block_number = BlockNumber(777)
         get_blockstamp_mock = MagicMock(return_value=ref_block)
-        monkeypatch.setattr(staking_vaults, "get_blockstamp", get_blockstamp_mock)
+        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", get_blockstamp_mock)
 
         blockstamp = ReferenceBlockStamp(
             state_root=MagicMock(),
@@ -83,7 +82,7 @@ class TestStartPointForFeeCalculations:
         ref_block = MagicMock()
         ref_block.block_number = BlockNumber(555)
         get_blockstamp_mock = MagicMock(return_value=ref_block)
-        monkeypatch.setattr(staking_vaults, "get_blockstamp", get_blockstamp_mock)
+        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", get_blockstamp_mock)
 
         blockstamp = ReferenceBlockStamp(
             state_root=MagicMock(),
@@ -128,7 +127,7 @@ class TestStartPointForFeeCalculations:
         bs = MagicMock()
         bs.block_number = BlockNumber(999)
         get_blockstamp_mock = MagicMock(return_value=bs)
-        monkeypatch.setattr(staking_vaults, "get_blockstamp", get_blockstamp_mock)
+        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", get_blockstamp_mock)
 
         blockstamp = ReferenceBlockStamp(
             state_root=MagicMock(),

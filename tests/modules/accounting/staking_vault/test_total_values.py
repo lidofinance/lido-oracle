@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import src.services.staking_vaults as staking_vaults
 from src.constants import MIN_DEPOSIT_AMOUNT
 from src.modules.accounting.types import ValidatorStage
 from src.services.staking_vaults import StakingVaultsService
@@ -464,7 +463,7 @@ class TestGetVaultsTotalValuesDefaults:
         service = StakingVaultsService(w3_mock)
 
         logger_mock = MagicMock()
-        monkeypatch.setattr(staking_vaults, "logger", logger_mock)
+        monkeypatch.setattr("src.services.staking_vaults.logger", logger_mock)
 
         service._get_validators_by_vault = MagicMock(return_value={})
         service._get_total_pending_amount_by_pubkey = MagicMock(return_value={})
