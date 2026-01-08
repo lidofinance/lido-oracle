@@ -5,14 +5,14 @@ from dataclasses import asdict
 from decimal import ROUND_UP, Decimal
 from typing import Any, Optional
 
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
 from src import variables
 from src.constants import (
     MIN_DEPOSIT_AMOUNT,
-    SLOTS_PER_YEAR,
+    SECONDS_IN_YEAR,
     TOTAL_BASIS_POINTS,
 )
 from src.modules.accounting.events import (
@@ -24,7 +24,6 @@ from src.modules.accounting.events import (
     VaultEventType,
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
-    sort_events,
 )
 from src.modules.accounting.types import (
     ExtraValue,
@@ -45,6 +44,8 @@ from src.modules.accounting.types import (
 )
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
+from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
@@ -495,38 +496,93 @@ class StakingVaultsService:
         return merkle_tree.tree[0] == root_hex and root_hex == expected_tree_root
 
     @staticmethod
-    def calc_fee_value(value: Decimal, block_elapsed: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
+    def calc_fee_value(value: Decimal, time_elapsed_seconds: int, core_apr_ratio: Decimal, fee_bp: int) -> Decimal:
+        """Compute fee value over elapsed seconds using core APR and basis points."""
         return (
             value
-            * Decimal(block_elapsed)
+            * Decimal(time_elapsed_seconds)
             * core_apr_ratio
             * Decimal(fee_bp)
-            / Decimal(SLOTS_PER_YEAR * TOTAL_BASIS_POINTS)
+            / Decimal(SECONDS_IN_YEAR * TOTAL_BASIS_POINTS)
         )
 
     @staticmethod
-    # pylint: disable=too-many-branches
-    def calc_liquidity_fee(
+    def _get_report_timestamp(ref_slot: SlotNumber, chain_config: ChainConfig) -> int:
+        """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
+        return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
+
+    def _get_block_timestamps(self, block_numbers: set[BlockNumber]) -> dict[BlockNumber, int]:
+        """
+        Fetch execution block timestamps for unique event block numbers.
+
+        This may issue one RPC call per unique block number, so keep the input set minimal.
+        We only need timestamps for blocks that contain vault events because event ordering
+        and fee intervals are computed in seconds, not block deltas.
+        """
+        if not block_numbers:
+            return {}
+
+        timestamps: dict[BlockNumber, int] = {}
+        for block_number in block_numbers:
+            timestamps[block_number] = int(self.w3.eth.get_block(block_number)["timestamp"])
+        return timestamps
+
+    @staticmethod
+    def _get_event_effective_timestamp(
+        event: VaultEventType,
+        vault_address: str,
+        block_timestamps: dict[BlockNumber, int],
+        seconds_per_slot: int,
+    ) -> int:
+        if event.block_number not in block_timestamps:
+            raise ValueError(f"Missing timestamp for block {event.block_number}")
+
+        block_timestamp = block_timestamps[event.block_number]
+        is_decrease_event = (
+            isinstance(
+                event,
+                (
+                    BurnedSharesOnVaultEvent,
+                    VaultRebalancedEvent,
+                    BadDebtWrittenOffToBeInternalizedEvent,
+                ),
+            )
+            or (isinstance(event, BadDebtSocializedEvent) and vault_address == event.vault_donor)
+        )
+
+        return block_timestamp + seconds_per_slot if is_decrease_event else block_timestamp
+
+    @staticmethod
+    def _calculate_liquidity_fee_by_events(
         vault_address: str,
         liability_shares: Shares,
         liquidity_fee_bp: int,
-        events: defaultdict[str, list[VaultEventType]],
-        prev_block_number: BlockNumber,
-        current_block: BlockNumber,
+        vault_events: list[VaultEventType],
+        prev_report_timestamp: int,
+        current_report_timestamp: int,
         pre_total_pooled_ether: Wei,
         pre_total_shares: Shares,
         core_apr_ratio: Decimal,
+        block_timestamps: dict[BlockNumber, int],
+        seconds_per_slot: int,
     ) -> tuple[Decimal, Shares]:
         """
         Liquidity fee = Minted_stETH × Lido_Core_APR × Liquidity_fee_rate
 
         We calculate the liquidity fee for the vault as a series of intervals
-        between minting, burning, and fee update events.
+        between minting, burning, and fee update events, using time (seconds).
+        `vault_events` should already be filtered to this vault.
 
         If there are no events, we just use `liability_shares` to compute minted stETH.
 
         Burn: In the future, shares go down; backwards, they go up.
         Mint: In the future, shares go up; backwards, they go down.
+
+        For timing, we use a start/end-of-slot model:
+        - Increase events (mints, fee updates) are effective at slot start (block timestamp).
+        - Decrease events (burns, rebalances, bad debt write-offs) are effective at slot end
+          (block timestamp + seconds_per_slot).
+        This ensures that a mint+burn in the same slot accrues fees for the full slot.
 
         liability_shares (Y)
                 ↑
@@ -542,7 +598,7 @@ class StakingVaultsService:
                 │                 │              │───────────│
                 │                 │              │           │
                 │                 │              │           │
-                └─────────────────┴──────────────┴───────────┴────────▶ block_number (X)
+                └─────────────────┴──────────────┴───────────┴────────▶ slot time (X)
 
                                  mintEvent      burnEvent  current_block
 
@@ -551,60 +607,77 @@ class StakingVaultsService:
         vault_liquidity_fee = Decimal(0)
         liquidity_fee = liquidity_fee_bp
 
-        if vault_address not in events:
-            blocks_elapsed = current_block - prev_block_number
-            minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-            vault_liquidity_fee += StakingVaultsService.calc_fee_value(
-                minted_steth, blocks_elapsed, core_apr_ratio, liquidity_fee
+        # We iterate through events backwards, calculating liquidity fee for each interval based
+        # on the `liability_shares` and the elapsed time between events.
+        # Sort by effective timestamp so end-of-slot events (burns, etc.) are applied after
+        # start-of-slot events in the same block, even if log indexes would suggest otherwise.
+        vault_events.sort(
+            key=lambda event: (
+                StakingVaultsService._get_event_effective_timestamp(
+                    event,
+                    vault_address,
+                    block_timestamps,
+                    seconds_per_slot,
+                ),
+                event.log_index,
+            ),
+            reverse=True,
+        )
+
+        for event in vault_events:
+            event_timestamp = StakingVaultsService._get_event_effective_timestamp(
+                event,
+                vault_address,
+                block_timestamps,
+                seconds_per_slot,
             )
-        elif len(events[vault_address]) > 0:
-            # In case of events, we iterate through them backwards, calculating liquidity fee for each interval based
-            # on the `liability_shares` and the elapsed blocks between events.
-            sort_events(events[vault_address])
-
-            for event in events[vault_address]:
-                blocks_elapsed_between_events = current_block - event.block_number
-                minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
-                vault_liquidity_fee += StakingVaultsService.calc_fee_value(
-                    minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
+            time_elapsed_seconds = current_report_timestamp - event_timestamp
+            if time_elapsed_seconds < 0:
+                raise ValueError(
+                    f"Negative time/slot interval for vault {vault_address}. "
+                    f"{current_report_timestamp=} {event_timestamp=}"
                 )
-
-                if isinstance(event, VaultConnectedEvent):
-                    # If we catch a VaultConnectedEvent, it means that in the past there could be no more events,
-                    # because the vault was previously disconnected.
-                    # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
-                    if liability_shares != 0:
-                        raise ValueError(
-                            f"Wrong vault liquidity shares by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_shares must be 0. got {liability_shares}"
-                        )
-
-                    return vault_liquidity_fee, liability_shares
-
-                # Because we are iterating backward in time, events must be applied in reverse.
-                # E.g., a burn reduces shares in the future, so going backward we add them back.
-                if isinstance(event, VaultFeesUpdatedEvent):
-                    liquidity_fee = event.pre_liquidity_fee_bp
-                elif isinstance(event, MintedSharesOnVaultEvent):
-                    liability_shares -= event.amount_of_shares
-                elif isinstance(event, BurnedSharesOnVaultEvent):
-                    liability_shares += event.amount_of_shares
-                elif isinstance(event, VaultRebalancedEvent):
-                    liability_shares += event.shares_burned
-                elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
-                    liability_shares += event.bad_debt_shares
-                elif isinstance(event, BadDebtSocializedEvent):
-                    if vault_address == event.vault_donor:
-                        liability_shares += event.bad_debt_shares
-                    else:
-                        liability_shares -= event.bad_debt_shares
-
-                current_block = event.block_number
-
-            blocks_elapsed_between_events = current_block - prev_block_number
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
             vault_liquidity_fee += StakingVaultsService.calc_fee_value(
-                minted_steth_on_event, blocks_elapsed_between_events, core_apr_ratio, liquidity_fee
+                minted_steth_on_event, time_elapsed_seconds, core_apr_ratio, liquidity_fee
             )
+
+            if isinstance(event, VaultConnectedEvent):
+                # If we catch a VaultConnectedEvent, it means that in the past there could be no more events,
+                # because the vault was previously disconnected.
+                # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
+                if liability_shares != 0:
+                    raise ValueError(
+                        f"Wrong vault liquidity shares by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_shares must be 0. got {liability_shares}"
+                    )
+
+                return vault_liquidity_fee, liability_shares
+
+            # Because we are iterating backward in time, events must be applied in reverse.
+            # E.g., a burn reduces shares in the future, so going backward we add them back.
+            if isinstance(event, VaultFeesUpdatedEvent):
+                liquidity_fee = event.pre_liquidity_fee_bp
+            elif isinstance(event, MintedSharesOnVaultEvent):
+                liability_shares -= event.amount_of_shares
+            elif isinstance(event, BurnedSharesOnVaultEvent):
+                liability_shares += event.amount_of_shares
+            elif isinstance(event, VaultRebalancedEvent):
+                liability_shares += event.shares_burned
+            elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
+                liability_shares += event.bad_debt_shares
+            elif isinstance(event, BadDebtSocializedEvent):
+                if vault_address == event.vault_donor:
+                    liability_shares += event.bad_debt_shares
+                else:
+                    liability_shares -= event.bad_debt_shares
+
+            current_report_timestamp = event_timestamp
+
+        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
+        minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
+        vault_liquidity_fee += StakingVaultsService.calc_fee_value(
+            minted_steth_on_event, time_elapsed_seconds, core_apr_ratio, liquidity_fee
+        )
 
         return vault_liquidity_fee, liability_shares
 
@@ -615,9 +688,17 @@ class StakingVaultsService:
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         current_frame: FrameNumber,
-    ) -> tuple[Optional[StakingVaultIpfsReport], BlockNumber]:
+    ) -> tuple[Optional[StakingVaultIpfsReport], SlotNumber, BlockNumber]:
+        """
+        Resolve the previous report context for vault fee accrual.
+
+        Returns a tuple of:
+        - prev_ipfs_report: parsed previous IPFS report (if available and valid)
+        - prev_ref_slot: reference slot used to compute elapsed time between reports
+        - events_from_block_number: first EL block number to scan for vault events (inclusive)
+        """
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
-        accounting_oracle = self.w3.lido_contracts.accounting_oracle
+        accounting_oracle: AccountingOracleContract = self.w3.lido_contracts.accounting_oracle
 
         if latest_onchain_ipfs_report_data.report_cid != "":
             prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid, current_frame)
@@ -638,7 +719,7 @@ class StakingVaultsService:
             # If any vault-related event occurred in the same block as the previous IPFS report,
             # it has already been included in that report. To avoid overlapping calculations,
             # we shift the starting point by one block forward.
-            return prev_ipfs_report, ref_block.block_number + 1
+            return prev_ipfs_report, SlotNumber(int(last_processing_ref_slot)), ref_block.block_number + 1
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
@@ -649,7 +730,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number + 1
+            return None, SlotNumber(int(last_processing_ref_slot)), ref_block.block_number + 1
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
@@ -658,11 +739,117 @@ class StakingVaultsService:
         bs = get_blockstamp(
             self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
         )
-        return None, bs.block_number
+        # Align with accounting's initial slot semantics: initial_ref_slot - 1.
+        # See src/modules/accounting/accounting.py:_get_slots_elapsed_from_last_report.
+        return None, SlotNumber(int(initial_ref_slot) - 1), bs.block_number
 
-    # This function is complex by design (business logic-heavy),
-    # so we disable the pylint warning for too many branches.
-    # pylint: disable=too-many-branches
+    @staticmethod
+    def _build_prev_report_maps(
+        prev_ipfs_report: Optional[StakingVaultIpfsReport],
+    ) -> tuple[defaultdict[ChecksumAddress, int], defaultdict[ChecksumAddress, int]]:
+        """Build lookup maps for previous fees and liability shares from the last report."""
+        prev_fee_map: defaultdict[ChecksumAddress, int] = defaultdict(int)
+        prev_liability_shares_map: defaultdict[ChecksumAddress, int] = defaultdict(int)
+        if prev_ipfs_report is not None:
+            for vault in prev_ipfs_report.values:
+                prev_fee_map[vault.vault_address] = vault.fee
+                prev_liability_shares_map[vault.vault_address] = vault.liability_shares
+        return prev_fee_map, prev_liability_shares_map
+
+    def _get_vault_events_for_fees(
+        self,
+        vault_hub: VaultHubContract,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+    ) -> tuple[defaultdict[str, list[VaultEventType]], set[str]]:
+        """
+        Fetch vault events over [from_block, to_block] and group them by vault address.
+
+        Returns events_by_vault and a set of vaults that reconnected in the interval.
+        """
+        events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
+        connected_vaults_set: set[str] = set()
+
+        for fees_updated_event in vault_hub.get_vault_fee_updated_events(from_block, to_block):
+            events[fees_updated_event.vault].append(fees_updated_event)
+
+        for minted_event in vault_hub.get_minted_events(from_block, to_block):
+            events[minted_event.vault].append(minted_event)
+
+        for burned_event in vault_hub.get_burned_events(from_block, to_block):
+            events[burned_event.vault].append(burned_event)
+
+        for rebalanced_event in vault_hub.get_vault_rebalanced_events(from_block, to_block):
+            events[rebalanced_event.vault].append(rebalanced_event)
+
+        for written_off_event in vault_hub.get_bad_debt_written_off_to_be_internalized_events(from_block, to_block):
+            events[written_off_event.vault].append(written_off_event)
+
+        for socialized_event in vault_hub.get_bad_debt_socialized_events(from_block, to_block):
+            events[socialized_event.vault_donor].append(socialized_event)
+            events[socialized_event.vault_acceptor].append(socialized_event)
+
+        for vault_connected_event in vault_hub.get_vault_connected_events(from_block, to_block):
+            events[vault_connected_event.vault].append(vault_connected_event)
+            connected_vaults_set.add(vault_connected_event.vault)
+
+        return events, connected_vaults_set
+
+    @staticmethod
+    def _calculate_vault_fee_components(
+        vault_address: ChecksumAddress,
+        vault_info: VaultInfo,
+        vault_total_value: int,
+        vault_events: list[VaultEventType],
+        time_elapsed_seconds: int,
+        prev_report_timestamp: int,
+        current_report_timestamp: int,
+        core_apr_ratio: Decimal,
+        pre_total_pooled_ether: Wei,
+        pre_total_shares: Shares,
+        block_timestamps: dict[BlockNumber, int],
+        seconds_per_slot: int,
+    ) -> tuple[Decimal, Decimal, Decimal, Shares]:
+        """Calculate infra, reservation, and liquidity fees for a single vault."""
+        # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
+        vault_infrastructure_fee = StakingVaultsService.calc_fee_value(
+            Decimal(vault_total_value), time_elapsed_seconds, core_apr_ratio, vault_info.infra_fee_bp
+        )
+
+        # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
+        vault_reservation_liquidity_fee = StakingVaultsService.calc_fee_value(
+            Decimal(vault_info.mintable_st_eth),
+            time_elapsed_seconds,
+            core_apr_ratio,
+            vault_info.reservation_fee_bp,
+        )
+
+        # If there are no events for this vault, we just use the liability shares to compute minted stETH.
+        if not vault_events:
+            liability_shares = vault_info.liability_shares
+            minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
+            vault_liquidity_fee = StakingVaultsService.calc_fee_value(
+                minted_steth, time_elapsed_seconds, core_apr_ratio, vault_info.liquidity_fee_bp
+            )
+            return vault_infrastructure_fee, vault_reservation_liquidity_fee, vault_liquidity_fee, liability_shares
+
+        # If there are events for this vault, we calculate the liquidity fee using the event-based helper.
+        vault_liquidity_fee, liability_shares = StakingVaultsService._calculate_liquidity_fee_by_events(
+            vault_address=vault_address,
+            liability_shares=vault_info.liability_shares,
+            liquidity_fee_bp=vault_info.liquidity_fee_bp,
+            vault_events=vault_events,
+            prev_report_timestamp=prev_report_timestamp,
+            current_report_timestamp=current_report_timestamp,
+            pre_total_pooled_ether=pre_total_pooled_ether,
+            pre_total_shares=pre_total_shares,
+            core_apr_ratio=core_apr_ratio,
+            block_timestamps=block_timestamps,
+            seconds_per_slot=seconds_per_slot,
+        )
+
+        return vault_infrastructure_fee, vault_reservation_liquidity_fee, vault_liquidity_fee, liability_shares
+
     def get_vaults_fees(
         self,
         blockstamp: ReferenceBlockStamp,
@@ -670,108 +857,88 @@ class StakingVaultsService:
         vaults_total_values: VaultTotalValueMap,
         latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         core_apr_ratio: Decimal,
-        pre_total_pooled_ether: int,
-        pre_total_shares: int,
+        pre_total_pooled_ether: Wei,
+        pre_total_shares: Shares,
         frame_config: FrameConfig,
         chain_config: ChainConfig,
         current_frame: FrameNumber,
     ) -> VaultFeeMap:
-        prev_ipfs_report, prev_block_number = self._get_start_point_for_fee_calculations(
-            blockstamp, latest_onchain_ipfs_report_data, frame_config, chain_config, current_frame
+
+        prev_ipfs_report, prev_ref_slot, events_from_block_number = self._get_start_point_for_fee_calculations(
+            blockstamp=blockstamp,
+            latest_onchain_ipfs_report_data=latest_onchain_ipfs_report_data,
+            frame_config=frame_config,
+            chain_config=chain_config,
+            current_frame=current_frame,
         )
 
-        vault_hub = self.w3.lido_contracts.vault_hub
-        prev_fee_map = defaultdict(int)
-        prev_liability_shares_map = defaultdict(int)
-        if prev_ipfs_report is not None:
-            for vault in prev_ipfs_report.values:
-                prev_fee_map[vault.vault_address] = vault.fee
-                prev_liability_shares_map[vault.vault_address] = vault.liability_shares
+        # Missed CL slots produce no EL blocks, so elapsed time must be derived from ref slots.
+        current_report_timestamp = self._get_report_timestamp(blockstamp.ref_slot, chain_config)
+        prev_report_timestamp = self._get_report_timestamp(prev_ref_slot, chain_config)
+        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
+        if time_elapsed_seconds < 0:
+            raise ValueError(
+                "Negative time/slot interval."
+                f" {current_report_timestamp=} {prev_report_timestamp=} {blockstamp.ref_slot=} {prev_ref_slot=}"
+            )
 
-        events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
-        vault_connected_events = vault_hub.get_vault_connected_events(prev_block_number, blockstamp.block_number)
-        fees_updated_events = vault_hub.get_vault_fee_updated_events(prev_block_number, blockstamp.block_number)
-        minted_events = vault_hub.get_minted_events(prev_block_number, blockstamp.block_number)
-        burn_events = vault_hub.get_burned_events(prev_block_number, blockstamp.block_number)
-        rebalanced_events = vault_hub.get_vault_rebalanced_events(prev_block_number, blockstamp.block_number)
-        bad_debt_socialized_events = vault_hub.get_bad_debt_socialized_events(
-            prev_block_number, blockstamp.block_number
+        vault_hub: VaultHubContract = self.w3.lido_contracts.vault_hub
+        prev_fee_map, prev_liability_shares_map = self._build_prev_report_maps(prev_ipfs_report)
+
+        # Events are fetched forward over [events_from_block_number, current_block] and applied backward by timestamp.
+        events, connected_vaults_set = self._get_vault_events_for_fees(
+            vault_hub=vault_hub,
+            from_block=events_from_block_number,
+            to_block=blockstamp.block_number,
         )
-        written_off_to_be_internalized_events = vault_hub.get_bad_debt_written_off_to_be_internalized_events(
-            prev_block_number, blockstamp.block_number
-        )
-
-        for fees_updated_event in fees_updated_events:
-            events[fees_updated_event.vault].append(fees_updated_event)
-
-        for minted_event in minted_events:
-            events[minted_event.vault].append(minted_event)
-
-        for burned_event in burn_events:
-            events[burned_event.vault].append(burned_event)
-
-        for rebalanced_event in rebalanced_events:
-            events[rebalanced_event.vault].append(rebalanced_event)
-
-        for written_off_event in written_off_to_be_internalized_events:
-            events[written_off_event.vault].append(written_off_event)
-
-        for socialized_event in bad_debt_socialized_events:
-            events[socialized_event.vault_donor].append(socialized_event)
-            events[socialized_event.vault_acceptor].append(socialized_event)
-
-        connected_vaults_set = set()
-        for vault_connected_event in vault_connected_events:
-            events[vault_connected_event.vault].append(vault_connected_event)
-            connected_vaults_set.add(vault_connected_event.vault)
 
         out: VaultFeeMap = {}
-        current_block = blockstamp.block_number
-        blocks_elapsed = current_block - prev_block_number
+
+        event_block_numbers = {event.block_number for vault_events in events.values() for event in vault_events}
+        block_timestamps = self._get_block_timestamps(event_block_numbers)
+
         for vault_address, vault_info in vaults.items():
-            # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
-            vaults_total_value = vaults_total_values.get(vault_address, 0)
-            vault_infrastructure_fee = StakingVaultsService.calc_fee_value(
-                Decimal(vaults_total_value), blocks_elapsed, core_apr_ratio, vault_info.infra_fee_bp
-            )
-
-            # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
-            vault_reservation_liquidity_fee = StakingVaultsService.calc_fee_value(
-                Decimal(vault_info.mintable_st_eth),
-                blocks_elapsed,
-                core_apr_ratio,
-                vault_info.reservation_fee_bp,
-            )
-
-            vault_liquidity_fee, liability_shares = StakingVaultsService.calc_liquidity_fee(
-                vault_address=vault_address,
-                liability_shares=vault_info.liability_shares,
-                liquidity_fee_bp=vault_info.liquidity_fee_bp,
-                events=events,
-                prev_block_number=prev_block_number,
-                current_block=blockstamp.block_number,
-                pre_total_pooled_ether=Wei(pre_total_pooled_ether),
-                pre_total_shares=pre_total_shares,
-                core_apr_ratio=core_apr_ratio,
-            )
-
-            vault_got_connected_event = vault_address in connected_vaults_set
-
             ## If the vault was disconnected and then reconnected between reports,
             ## we must not carry over liability_shares from the previous report.
             ##
             ## The fees were already paid, and the vault essentially starts a new lifecycle from zero.
             prev_liability_shares = prev_liability_shares_map[vault_address]
-            if vault_got_connected_event:
+            prev_fee = prev_fee_map[vault_address]
+            if vault_address in connected_vaults_set:
                 prev_liability_shares = 0
+                prev_fee = 0
 
-            if prev_liability_shares != liability_shares:
+            vault_events = events.get(vault_address, [])
+            vaults_total_value = vaults_total_values.get(vault_address, 0)
+
+            (
+                vault_infrastructure_fee,
+                vault_reservation_liquidity_fee,
+                vault_liquidity_fee,
+                vault_liability_shares,
+            ) = self._calculate_vault_fee_components(
+                vault_address=vault_address,
+                vault_info=vault_info,
+                vault_total_value=vaults_total_value,
+                vault_events=vault_events,
+                time_elapsed_seconds=time_elapsed_seconds,
+                prev_report_timestamp=prev_report_timestamp,
+                current_report_timestamp=current_report_timestamp,
+                core_apr_ratio=core_apr_ratio,
+                pre_total_pooled_ether=pre_total_pooled_ether,
+                pre_total_shares=pre_total_shares,
+                block_timestamps=block_timestamps,
+                seconds_per_slot=chain_config.seconds_per_slot,
+            )
+
+            if prev_liability_shares != vault_liability_shares:
                 raise ValueError(
-                    f"Wrong liability shares by vault {vault_address}. Actual {liability_shares} != Expected {prev_liability_shares}"
+                    f"Wrong liability shares by vault {vault_address}. "
+                    f"Actual {vault_liability_shares} != Expected {prev_liability_shares}"
                 )
 
             out[vault_address] = VaultFee(
-                prev_fee=int(0) if vault_got_connected_event else int(prev_fee_map[vault_address]),
+                prev_fee=int(prev_fee),
                 infra_fee=int(vault_infrastructure_fee.to_integral_value(ROUND_UP)),
                 reservation_fee=int(vault_reservation_liquidity_fee.to_integral_value(ROUND_UP)),
                 liquidity_fee=int(vault_liquidity_fee.to_integral_value(ROUND_UP)),

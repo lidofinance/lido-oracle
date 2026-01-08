@@ -161,12 +161,13 @@ class TestGetStartPointForFeeCalculations:
 
         service = StakingVaultsService(w3_mock)
 
-        prev_report, block_number = service._get_start_point_for_fee_calculations(
+        prev_report, prev_ref_slot, block_number = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert prev_report is None
         assert block_number == expected_block_number + 1
+        assert prev_ref_slot == accounting_oracle_mock.get_last_processing_ref_slot.return_value
 
     @pytest.mark.unit
     def test_fresh_devnet_case(self, blockstamp, frame_config, chain_config):
@@ -206,12 +207,61 @@ class TestGetStartPointForFeeCalculations:
 
         service = StakingVaultsService(w3_mock)
 
-        prev_report, block_number = service._get_start_point_for_fee_calculations(
+        prev_report, prev_ref_slot, block_number = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert prev_report is None
         assert block_number == expected_block_number
+        assert prev_ref_slot == SlotNumber(frame_config.initial_epoch * chain_config.slots_per_epoch - 1)
+
+    @pytest.mark.unit
+    def test_fresh_devnet_initial_epoch_zero_prev_ref_slot_negative_one(self, blockstamp, chain_config):
+        """Fresh devnet with initial_epoch=0 should return prev_ref_slot=-1."""
+        ipfs_data = OnChainIpfsVaultReportDataFactory.build(
+            tree_root=b'\xab\xcd\xef',
+            report_cid='',
+        )
+
+        expected_block_number = BlockNumber(6_000)
+
+        w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
+        w3_mock.cc.get_block_details.return_value = BlockDetailsResponse(
+            message=BlockMessage(
+                slot=MagicMock(),
+                proposer_index=MagicMock(),
+                parent_root=MagicMock(),
+                state_root=MagicMock(),
+                body=BeaconBlockBody(
+                    execution_payload=ExecutionPayload(
+                        parent_hash=MagicMock(),
+                        block_number=expected_block_number,
+                        timestamp=MagicMock(),
+                        block_hash=BlockHash(HexStr('0x0abc1234')),
+                    ),
+                    attestations=MagicMock(),
+                    sync_aggregate=SyncAggregate(sync_committee_bits=MagicMock()),
+                ),
+            ),
+            signature=MagicMock(),
+        )
+
+        accounting_oracle_mock = MagicMock()
+        accounting_oracle_mock.get_last_processing_ref_slot.return_value = None
+        w3_mock.lido_contracts.accounting_oracle = accounting_oracle_mock
+
+        frame_config = FrameConfig(initial_epoch=0, epochs_per_frame=2, fast_lane_length_slots=16)
+
+        service = StakingVaultsService(w3_mock)
+
+        prev_report, prev_ref_slot, block_number = service._get_start_point_for_fee_calculations(
+            blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
+        )
+
+        assert prev_report is None
+        assert block_number == expected_block_number
+        assert prev_ref_slot == SlotNumber(-1)
 
     @pytest.mark.unit
     def test_prev_ipfs_report_branch_shifts_block(self, blockstamp, frame_config, chain_config, monkeypatch):
@@ -239,10 +289,11 @@ class TestGetStartPointForFeeCalculations:
             lambda *args, **kwargs: fake_ref_block,
         )
 
-        report, block_number = service._get_start_point_for_fee_calculations(
+        report, prev_ref_slot, block_number = service._get_start_point_for_fee_calculations(
             blockstamp, ipfs_data, frame_config, chain_config, FrameNumber(0)
         )
 
         assert report is prev_report
         assert block_number == fake_ref_block.block_number + 1
+        assert prev_ref_slot == accounting_oracle_mock.get_last_processing_ref_slot.return_value
         service.is_tree_root_valid.assert_called_once()
