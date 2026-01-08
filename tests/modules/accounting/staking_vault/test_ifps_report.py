@@ -13,6 +13,10 @@ from src.utils.slot import get_blockstamp
 class TestIpfsReportSmoke:
 
     def test_ipfs_report_valid(self, web3_integration):
+        """Verifies that a real IPFS report can be fetched and its tree root validated
+        against an expected root hash. Ensures IPFS integration works correctly with
+        actual testnet data.
+        """
         cid = CIDv0("QmYnQ9gCriLj29uWC6DC3yFm6gYXNEAkMoHLjtJun8ASeQ")
         expected_tree_root = "0x82d726a060e4133328fb77dac69cfd84e14bb66fb0fd1b2c99ba058efb2f5a30"
 
@@ -24,6 +28,10 @@ class TestIpfsReportSmoke:
         assert True == sv.is_tree_root_valid(expected_tree_root, tree)
 
     def test_ipfs_window(self, web3_integration):
+        """Verifies that IPFS reports retrieved from on-chain data match the oracle's
+        last processing ref slot and that sequential reports have different block numbers.
+        Ensures IPFS report windowing works correctly with testnet data.
+        """
         sv = StakingVaultsService(web3_integration)
 
         block_hash = HexStr('0x4a45cce03c6c8b1bf287454f3b2237238155fc326337ddcf10c0aa1a36ad95f3')
