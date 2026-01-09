@@ -32,7 +32,7 @@ class TestCalculateVaultFeeComponents:
             liquidity_fee_bp=FeeTestConstants.LIQUIDITY_FEE_BP,
             reservation_fee_bp=FeeTestConstants.RESERVATION_FEE_BP,
         )
-        time_elapsed_seconds = 10
+        report_interval_seconds = 10
         core_apr_ratio = Decimal(1)
         pre_total_pooled_ether = 100
         pre_total_shares = 50
@@ -44,9 +44,9 @@ class TestCalculateVaultFeeComponents:
                 vault_info=vault_info,
                 vault_total_value=FeeTestConstants.VAULT_TOTAL_VALUE,
                 vault_events=[],
-                time_elapsed_seconds=time_elapsed_seconds,
-                prev_report_timestamp=0,
-                current_report_timestamp=10,
+                report_interval_seconds=report_interval_seconds,
+                prev_ref_slot_timestamp=0,
+                current_ref_slot_timestamp=10,
                 core_apr_ratio=core_apr_ratio,
                 pre_total_pooled_ether=pre_total_pooled_ether,
                 pre_total_shares=pre_total_shares,
@@ -57,19 +57,19 @@ class TestCalculateVaultFeeComponents:
 
         assert infra_fee == StakingVaultsService.calc_fee_value(
             Decimal(FeeTestConstants.VAULT_TOTAL_VALUE),
-            time_elapsed_seconds,
+            report_interval_seconds,
             core_apr_ratio,
             FeeTestConstants.INFRA_FEE_BP,
         )
         assert reservation_fee == StakingVaultsService.calc_fee_value(
             Decimal(FeeTestConstants.MINTABLE_STETH),
-            time_elapsed_seconds,
+            report_interval_seconds,
             core_apr_ratio,
             FeeTestConstants.RESERVATION_FEE_BP,
         )
         assert liquidity_fee == StakingVaultsService.calc_fee_value(
             minted_steth,
-            time_elapsed_seconds,
+            report_interval_seconds,
             core_apr_ratio,
             FeeTestConstants.LIQUIDITY_FEE_BP,
         )
@@ -104,9 +104,9 @@ class TestCalculateVaultFeeComponents:
                 vault_info=vault_info,
                 vault_total_value=FeeTestConstants.VAULT_TOTAL_VALUE,
                 vault_events=vault_events,
-                time_elapsed_seconds=10,
-                prev_report_timestamp=0,
-                current_report_timestamp=10,
+                report_interval_seconds=10,
+                prev_ref_slot_timestamp=0,
+                current_ref_slot_timestamp=10,
                 core_apr_ratio=Decimal(1),
                 pre_total_pooled_ether=100,
                 pre_total_shares=50,

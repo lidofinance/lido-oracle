@@ -558,8 +558,8 @@ class StakingVaultsService:
         liability_shares: Shares,
         liquidity_fee_bp: int,
         vault_events: list[VaultEventType],
-        prev_report_timestamp: int,
-        current_report_timestamp: int,
+        prev_ref_slot_timestamp: int,
+        current_ref_slot_timestamp: int,
         pre_total_pooled_ether: Wei,
         pre_total_shares: Shares,
         core_apr_ratio: Decimal,
@@ -606,6 +606,8 @@ class StakingVaultsService:
         """
         vault_liquidity_fee = Decimal(0)
         liquidity_fee = liquidity_fee_bp
+        # Track the boundary from the last processed event/report as we walk backward.
+        prev_event_timestamp = current_ref_slot_timestamp
 
         # We iterate through events backwards, calculating liquidity fee for each interval based
         # on the `liability_shares` and the elapsed time between events.
@@ -631,15 +633,15 @@ class StakingVaultsService:
                 block_timestamps,
                 seconds_per_slot,
             )
-            time_elapsed_seconds = current_report_timestamp - event_timestamp
-            if time_elapsed_seconds < 0:
+            interval_seconds = prev_event_timestamp - event_timestamp
+            if interval_seconds < 0:
                 raise ValueError(
-                    f"Negative time/slot interval for vault {vault_address}. "
-                    f"{current_report_timestamp=} {event_timestamp=}"
+                    f"Negative event interval for vault {vault_address}. "
+                    f"{prev_event_timestamp=} {event_timestamp=}"
                 )
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
             vault_liquidity_fee += StakingVaultsService.calc_fee_value(
-                minted_steth_on_event, time_elapsed_seconds, core_apr_ratio, liquidity_fee
+                minted_steth_on_event, interval_seconds, core_apr_ratio, liquidity_fee
             )
 
             if isinstance(event, VaultConnectedEvent):
@@ -671,12 +673,12 @@ class StakingVaultsService:
                 else:
                     liability_shares -= event.bad_debt_shares
 
-            current_report_timestamp = event_timestamp
+            prev_event_timestamp = event_timestamp
 
-        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
+        interval_seconds = prev_event_timestamp - prev_ref_slot_timestamp
         minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
         vault_liquidity_fee += StakingVaultsService.calc_fee_value(
-            minted_steth_on_event, time_elapsed_seconds, core_apr_ratio, liquidity_fee
+            minted_steth_on_event, interval_seconds, core_apr_ratio, liquidity_fee
         )
 
         return vault_liquidity_fee, liability_shares
@@ -801,9 +803,9 @@ class StakingVaultsService:
         vault_info: VaultInfo,
         vault_total_value: int,
         vault_events: list[VaultEventType],
-        time_elapsed_seconds: int,
-        prev_report_timestamp: int,
-        current_report_timestamp: int,
+        report_interval_seconds: int,
+        prev_ref_slot_timestamp: int,
+        current_ref_slot_timestamp: int,
         core_apr_ratio: Decimal,
         pre_total_pooled_ether: Wei,
         pre_total_shares: Shares,
@@ -813,15 +815,18 @@ class StakingVaultsService:
         """Calculate infra, reservation, and liquidity fees for a single vault."""
         # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
         vault_infrastructure_fee = StakingVaultsService.calc_fee_value(
-            Decimal(vault_total_value), time_elapsed_seconds, core_apr_ratio, vault_info.infra_fee_bp
+            value=Decimal(vault_total_value),
+            time_elapsed_seconds=report_interval_seconds,
+            core_apr_ratio=core_apr_ratio,
+            fee_bp=vault_info.infra_fee_bp,
         )
 
         # Mintable_stETH * Lido_Core_APR * Reservation_liquidity_fee_rate
         vault_reservation_liquidity_fee = StakingVaultsService.calc_fee_value(
-            Decimal(vault_info.mintable_st_eth),
-            time_elapsed_seconds,
-            core_apr_ratio,
-            vault_info.reservation_fee_bp,
+            value=Decimal(vault_info.mintable_st_eth),
+            time_elapsed_seconds=report_interval_seconds,
+            core_apr_ratio=core_apr_ratio,
+            fee_bp=vault_info.reservation_fee_bp,
         )
 
         # If there are no events for this vault, we just use the liability shares to compute minted stETH.
@@ -829,8 +834,12 @@ class StakingVaultsService:
             liability_shares = vault_info.liability_shares
             minted_steth = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
             vault_liquidity_fee = StakingVaultsService.calc_fee_value(
-                minted_steth, time_elapsed_seconds, core_apr_ratio, vault_info.liquidity_fee_bp
+                value=minted_steth,
+                time_elapsed_seconds=report_interval_seconds,
+                core_apr_ratio=core_apr_ratio,
+                fee_bp=vault_info.liquidity_fee_bp,
             )
+
             return vault_infrastructure_fee, vault_reservation_liquidity_fee, vault_liquidity_fee, liability_shares
 
         # If there are events for this vault, we calculate the liquidity fee using the event-based helper.
@@ -839,8 +848,8 @@ class StakingVaultsService:
             liability_shares=vault_info.liability_shares,
             liquidity_fee_bp=vault_info.liquidity_fee_bp,
             vault_events=vault_events,
-            prev_report_timestamp=prev_report_timestamp,
-            current_report_timestamp=current_report_timestamp,
+            prev_ref_slot_timestamp=prev_ref_slot_timestamp,
+            current_ref_slot_timestamp=current_ref_slot_timestamp,
             pre_total_pooled_ether=pre_total_pooled_ether,
             pre_total_shares=pre_total_shares,
             core_apr_ratio=core_apr_ratio,
@@ -873,13 +882,13 @@ class StakingVaultsService:
         )
 
         # Missed CL slots produce no EL blocks, so elapsed time must be derived from ref slots.
-        current_report_timestamp = self._get_report_timestamp(blockstamp.ref_slot, chain_config)
-        prev_report_timestamp = self._get_report_timestamp(prev_ref_slot, chain_config)
-        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
-        if time_elapsed_seconds < 0:
+        current_ref_slot_timestamp = self._get_report_timestamp(blockstamp.ref_slot, chain_config)
+        prev_ref_slot_timestamp = self._get_report_timestamp(prev_ref_slot, chain_config)
+        report_interval_seconds = current_ref_slot_timestamp - prev_ref_slot_timestamp
+        if report_interval_seconds < 0:
             raise ValueError(
-                "Negative time/slot interval."
-                f" {current_report_timestamp=} {prev_report_timestamp=} {blockstamp.ref_slot=} {prev_ref_slot=}"
+                "Negative report interval."
+                f" {current_ref_slot_timestamp=} {prev_ref_slot_timestamp=} {blockstamp.ref_slot=} {prev_ref_slot=}"
             )
 
         vault_hub: VaultHubContract = self.w3.lido_contracts.vault_hub
@@ -921,9 +930,9 @@ class StakingVaultsService:
                 vault_info=vault_info,
                 vault_total_value=vaults_total_value,
                 vault_events=vault_events,
-                time_elapsed_seconds=time_elapsed_seconds,
-                prev_report_timestamp=prev_report_timestamp,
-                current_report_timestamp=current_report_timestamp,
+                report_interval_seconds=report_interval_seconds,
+                prev_ref_slot_timestamp=prev_ref_slot_timestamp,
+                current_ref_slot_timestamp=current_ref_slot_timestamp,
                 core_apr_ratio=core_apr_ratio,
                 pre_total_pooled_ether=pre_total_pooled_ether,
                 pre_total_shares=pre_total_shares,

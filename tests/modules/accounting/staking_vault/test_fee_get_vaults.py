@@ -67,7 +67,7 @@ class TestGetVaultsFees:
 
         call_kwargs = service._calculate_vault_fee_components.call_args.kwargs
         assert call_kwargs["vault_total_value"] == 0
-        assert call_kwargs["time_elapsed_seconds"] == 0
+        assert call_kwargs["report_interval_seconds"] == 0
         assert fees[vault_adr].prev_fee == 0
 
     @pytest.mark.unit
@@ -591,7 +591,7 @@ class TestGetVaultsFees:
 
         chain_config = MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT)
 
-        with pytest.raises(ValueError, match='Negative time/slot interval'):
+        with pytest.raises(ValueError, match='Negative report interval'):
             service.get_vaults_fees(
                 blockstamp=blockstamp,
                 vaults={},
