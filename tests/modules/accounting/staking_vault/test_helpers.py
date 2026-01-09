@@ -1,7 +1,3 @@
-"""
-Unit tests for helper utilities in StakingVaultsService.
-"""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,7 +20,9 @@ class TestPendingDepositHelpers:
 
     @pytest.mark.unit
     def test_get_total_pending_amount_by_pubkey(self):
-        """Ensure amounts are aggregated per pubkey."""
+        """Verifies that pending deposit amounts are correctly aggregated per pubkey.
+        Ensures multiple pending deposits for the same validator are summed together.
+        """
         pending = [
             PendingDepositFactory.build(pubkey=TestPubkeys.PUBKEY_0, amount=Gwei(1_000)),
             PendingDepositFactory.build(pubkey=TestPubkeys.PUBKEY_0, amount=Gwei(2_000)),
@@ -42,7 +40,10 @@ class TestValidatorFilteringHelpers:
 
     @pytest.mark.unit
     def test_get_non_eligible_for_activation_pubkeys(self):
-        """Only far-future validators belonging to vault WCs should be returned."""
+        """Verifies that only far-future validators (not eligible for activation)
+        belonging to tracked vault withdrawal credentials are returned. Ensures eligible
+        validators and validators from other vaults are filtered out.
+        """
         validators = [
             ValidatorFactory.build(
                 validator=ValidatorStateFactory.build_not_eligible_for_activation(
@@ -74,7 +75,10 @@ class TestValidatorFilteringHelpers:
 
     @pytest.mark.unit
     def test_get_unmatched_deposits_pubkeys(self):
-        """Deposits without matching validators are detected."""
+        """Verifies that pending deposits without matching validators are correctly
+        detected and returned. Ensures only deposits with tracked withdrawal credentials
+        are included in the result.
+        """
         validators = [
             ValidatorFactory.build(
                 validator=ValidatorStateFactory.build(
@@ -112,7 +116,10 @@ class TestStatusFetchingHelpers:
 
     @pytest.mark.unit
     def test_get_pubkey_statuses_by_vault_groups_statuses(self):
-        """Statuses are grouped under their staking vaults."""
+        """Verifies that validator statuses are correctly grouped by their staking
+        vault addresses. Ensures status retrieval and grouping works correctly for
+        multiple validators across different vaults.
+        """
         status_vault_0 = ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0)
         status_vault_1 = ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_1)
 

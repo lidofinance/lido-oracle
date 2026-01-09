@@ -1,7 +1,3 @@
-"""
-IPFS report and start point calculation tests.
-"""
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -37,7 +33,10 @@ class TestGetIpfsReport:
 
     @pytest.mark.unit
     def test_get_ipfs_report_success(self):
-        """Test successful IPFS report retrieval."""
+        """Verifies that IPFS reports are correctly fetched and parsed from IPFS using
+        a CID. Ensures the report structure is correctly deserialized with tree roots
+        and vault values.
+        """
         mock_fetched_bytes = (
             b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
             b'"int256"], "tree": ['
@@ -62,7 +61,9 @@ class TestGetIpfsReport:
 
     @pytest.mark.unit
     def test_get_ipfs_report_empty_cid_raises(self):
-        """Test that empty CID raises ValueError."""
+        """Verifies that a ValueError is raised when attempting to fetch an IPFS report
+        with an empty CID. Ensures invalid CIDs are rejected before attempting IPFS queries.
+        """
         service = StakingVaultsService(MagicMock())
 
         with pytest.raises(ValueError, match="Arg ipfs_report_cid could not be ''"):
@@ -97,7 +98,10 @@ class TestGetStartPointForFeeCalculations:
 
     @pytest.mark.unit
     def test_invalid_tree_root_raises(self, blockstamp, frame_config, chain_config):
-        """Test that invalid tree root raises ValueError."""
+        """Verifies that a ValueError is raised when the IPFS report tree root doesn't
+        match the on-chain tree root. Ensures tree integrity validation prevents using
+        reports with mismatched merkle roots.
+        """
         ipfs_data = OnChainIpfsVaultReportDataFactory.build(
             tree_root=b'\xab\xcd\xef',
             report_cid='cid123',
@@ -125,7 +129,10 @@ class TestGetStartPointForFeeCalculations:
 
     @pytest.mark.unit
     def test_no_ipfs_but_has_oracle_data(self, blockstamp, frame_config, chain_config):
-        """Test start point calculation when no IPFS report but oracle data exists."""
+        """Verifies start point calculation when no IPFS report exists but oracle
+        processing data is available. Ensures fee calculations can start from the
+        last processing ref slot even without a previous IPFS report.
+        """
         ipfs_data = OnChainIpfsVaultReportDataFactory.build(
             tree_root=b'',
             report_cid='',
@@ -171,7 +178,10 @@ class TestGetStartPointForFeeCalculations:
 
     @pytest.mark.unit
     def test_fresh_devnet_case(self, blockstamp, frame_config, chain_config):
-        """Test start point calculation for fresh devnet (no previous reports)."""
+        """Verifies start point calculation for a fresh devnet with no previous reports.
+        Ensures initial fee calculations start from the frame's initial epoch when no
+        processing history exists.
+        """
         ipfs_data = OnChainIpfsVaultReportDataFactory.build(
             tree_root=b'\xab\xcd\xef',
             report_cid='',
@@ -217,7 +227,10 @@ class TestGetStartPointForFeeCalculations:
 
     @pytest.mark.unit
     def test_fresh_devnet_initial_epoch_zero_prev_ref_slot_negative_one(self, blockstamp, chain_config):
-        """Fresh devnet with initial_epoch=0 should return prev_ref_slot=-1."""
+        """Verifies that when initial_epoch is 0 and no previous reports exist, the
+        previous ref slot is set to -1. Ensures edge case handling for devnets starting
+        from epoch 0.
+        """
         ipfs_data = OnChainIpfsVaultReportDataFactory.build(
             tree_root=b'\xab\xcd\xef',
             report_cid='',
@@ -265,7 +278,10 @@ class TestGetStartPointForFeeCalculations:
 
     @pytest.mark.unit
     def test_prev_ipfs_report_branch_shifts_block(self, blockstamp, frame_config, chain_config, monkeypatch):
-        """When previous IPFS exists, start block should be ref_block + 1."""
+        """Verifies that when a previous IPFS report exists with valid tree root,
+        the start block for fee calculations is set to the reference block + 1.
+        Ensures fee event scanning starts after the previously processed block.
+        """
         ipfs_data = OnChainIpfsVaultReportDataFactory.build(
             tree_root=b'\x01',
             report_cid='cid123',
