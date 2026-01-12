@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from src.types import SlotNumber
 
-
 ZERO_HASH = bytes([0]*32)
 
 
@@ -25,6 +24,9 @@ class ChainConfig:
     seconds_per_slot: int
     genesis_time: int
 
+@dataclass(frozen=True)
+class ConsensusGenesisConfig:
+    genesis_time: int
 
 @dataclass(frozen=True)
 class CurrentFrame:

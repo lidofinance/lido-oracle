@@ -6,6 +6,7 @@ from prometheus_client import start_http_server
 from web3_multi_provider.metrics import init_metrics
 
 from src import constants, variables
+from src.constants import PRECISION_E27
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
@@ -13,7 +14,7 @@ from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
 from src.modules.ejector.ejector import Ejector
-from src.providers.ipfs import IPFSProvider, Kubo, MultiIPFSProvider, Pinata, PublicIPFS
+from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.types import OracleModule
 from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
@@ -21,6 +22,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
     FallbackProviderModule,
+    IPFS,
     KeysAPIClientModule,
     LazyCSM,
     LidoContracts,
@@ -28,6 +30,9 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
+from decimal import getcontext
+
+getcontext().prec = PRECISION_E27
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +73,7 @@ def main(module_name: OracleModule):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     logger.info({'msg': 'Initialize IPFS providers.'})
-    ipfs = MultiIPFSProvider(
-        ipfs_providers(),
-        retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS,
-    )
+    ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
 
     logger.info({'msg': 'Check configured providers.'})
     if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
@@ -91,8 +93,6 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
-
-    logger.info({'msg': 'Sanity checks.'})
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
@@ -138,6 +138,46 @@ def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAP
 
 
 def ipfs_providers() -> Iterator[IPFSProvider]:
+    """
+    Create IPFS providers in PRIORITY order.
+
+    WARNING: Yields order here used for CID selection fallback when quorum
+    consensus fails. Do not change order without considering impact.
+
+    Storacha has highest priority because it's the only provider where we control
+    the entire content addressing process. While other providers receive raw content
+    and handle CAR/UnixFS assembly on their side (potentially with different
+    implementations), Storacha receives our locally-assembled CAR files, ensuring
+    the returned CID matches our own CAR conversion logic. This makes consensus
+    more reliable when providers disagree on CID calculation.
+    """
+    if (
+        variables.STORACHA_AUTH_SECRET and
+        variables.STORACHA_AUTHORIZATION and
+        variables.STORACHA_SPACE_DID
+    ):
+        yield Storacha(
+            variables.STORACHA_AUTH_SECRET,
+            variables.STORACHA_AUTHORIZATION,
+            variables.STORACHA_SPACE_DID,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.LIDO_IPFS_HOST and variables.LIDO_IPFS_TOKEN:
+        yield LidoIPFS(
+            variables.LIDO_IPFS_HOST,
+            variables.LIDO_IPFS_TOKEN,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
+    if variables.PINATA_JWT and variables.PINATA_DEDICATED_GATEWAY_URL and variables.PINATA_DEDICATED_GATEWAY_TOKEN:
+        yield Pinata(
+            variables.PINATA_JWT,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+            dedicated_gateway_url=variables.PINATA_DEDICATED_GATEWAY_URL,
+            dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
+        )
+
     if variables.KUBO_HOST:
         yield Kubo(
             variables.KUBO_HOST,
@@ -146,13 +186,6 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
-    if variables.PINATA_JWT:
-        yield Pinata(
-            variables.PINATA_JWT,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-        )
-
-    yield PublicIPFS(timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS)
 
 
 if __name__ == '__main__':

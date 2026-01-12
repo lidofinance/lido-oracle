@@ -8,18 +8,34 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.metrics.prometheus.basic import ORACLE_SLOT_NUMBER, ORACLE_BLOCK_NUMBER, GENESIS_TIME, ACCOUNT_BALANCE
+from src.metrics.prometheus.basic import (
+    ACCOUNT_BALANCE,
+    GENESIS_TIME,
+    ORACLE_BLOCK_NUMBER,
+    ORACLE_SLOT_NUMBER,
+)
 from src.metrics.prometheus.business import (
-    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
-    ORACLE_MEMBER_INFO
+    ORACLE_MEMBER_INFO,
+    ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
 )
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.modules.submodules.types import ChainConfig, MemberInfo, ZERO_HASH, CurrentFrame, FrameConfig
+from src.modules.submodules.exceptions import (
+    ContractVersionMismatch,
+    IncompatibleOracleVersion,
+    IsNotMemberException,
+)
+from src.modules.submodules.types import (
+    ZERO_HASH,
+    ChainConfig,
+    ConsensusGenesisConfig,
+    CurrentFrame,
+    FrameConfig,
+    MemberInfo,
+)
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber, FrameNumber
+from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
@@ -65,7 +81,7 @@ class ConsensusModule(ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.w3.cc.get_genesis().genesis_time
+        genesis_time = self.get_cc_genesis_config().genesis_time
         GENESIS_TIME.set(genesis_time)
         if any(
             (
@@ -99,6 +115,11 @@ class ConsensusModule(ABC):
     def get_chain_config(self, blockstamp: BlockStamp) -> ChainConfig:
         consensus_contract = self._get_consensus_contract(blockstamp)
         return consensus_contract.get_chain_config(blockstamp.block_hash)
+
+    @lru_cache(maxsize=1)
+    def get_cc_genesis_config(self) -> ConsensusGenesisConfig:
+        genesis = self.w3.cc.get_genesis()
+        return ConsensusGenesisConfig(genesis_time=genesis.genesis_time)
 
     @lru_cache(maxsize=1)
     def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
@@ -265,7 +286,13 @@ class ConsensusModule(ABC):
             )
         ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
         if not ready_to_report:
-            logger.info({'msg': 'Some message that Oracle waits for contacts to be updated'})
+            logger.info({
+                'msg': 'Oracle waits for contacts to be updated.',
+                'expected_contract_version': self.COMPATIBLE_CONTRACT_VERSION,
+                'expected_consensus_version': self.COMPATIBLE_CONSENSUS_VERSION,
+                'actual_contract_version': contract_version_latest,
+                'actual_consensus_version': consensus_version_latest,
+            })
         return ready_to_report
 
     # ----- Working with report -----
@@ -452,6 +479,17 @@ class ConsensusModule(ABC):
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
         return Web3Converter(chain_config, frame_config)
+
+    @lru_cache(maxsize=1)
+    def get_frame_number_by_slot(self, blockstamp: ReferenceBlockStamp) -> FrameNumber:
+        converter = self._get_web3_converter(blockstamp)
+        frame_number = converter.get_frame_by_slot(blockstamp.ref_slot)
+        logger.info({
+            "msg": "Get current frame from blockstamp",
+            "frame": frame_number,
+            "slot": blockstamp.ref_slot
+        })
+        return FrameNumber(frame_number)
 
     @abstractmethod
     @lru_cache(maxsize=1)

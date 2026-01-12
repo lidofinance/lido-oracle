@@ -811,7 +811,7 @@ def test_calculate_distribution_in_frame(
 
     frame = (EpochNumber(0), EpochNumber(31))
     state = State()
-    state.migrate(*frame, epochs_per_frame=32, consensus_version=3)
+    state.migrate(*frame, epochs_per_frame=32)
     state.data = {frame: frame_state_data}
 
     distribution = Distribution(w3, converter=..., state=state)

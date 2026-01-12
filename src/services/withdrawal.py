@@ -87,7 +87,7 @@ class Withdrawal:
         state = BatchState(
             remaining_eth_budget=available_eth,
             finished=False,
-            batches=tuple([0] * max_length),
+            batches=list([0] * max_length),
             batches_length=0
         )
 

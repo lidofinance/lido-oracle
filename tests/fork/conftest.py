@@ -24,18 +24,25 @@ from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.ipfs import CID, MultiIPFSProvider
+from src.providers.ipfs import CID
 from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import clear_global_cache
-from src.utils.slot import get_next_non_missed_slot
+from src.utils.slot import get_non_missed_slot_header
 from src.variables import (
     HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
 from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import KeysAPIClientModule, LazyCSM, LidoContracts, LidoValidatorsProvider, TransactionUtils
+from src.web3py.extensions import (
+    IPFS,
+    KeysAPIClientModule,
+    LazyCSM,
+    LidoContracts,
+    LidoValidatorsProvider,
+    TransactionUtils,
+)
 
 logger = logging.getLogger('fork_tests')
 
@@ -206,6 +213,18 @@ def frame_config(initial_epoch, epochs_per_frame, fast_lane_length_slots):
     return _frame_config
 
 
+def get_next_non_missed_slot(
+    cc: ConsensusClient,
+    slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+) -> BlockDetailsResponse:
+    """
+    Get non-missed slot data. In case of missed slot, we take first next non-missed slot.
+    """
+    _, existing_header = get_non_missed_slot_header(cc, slot, last_finalized_slot_number)
+    return cc.get_block_details(existing_header.data.root)
+
+
 @pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])
 def blockstamp_for_forking(
     request, frame_config: FrameConfig, real_cl_client: ConsensusClient, real_finalized_slot: SlotNumber
@@ -271,13 +290,13 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
 
 
 @pytest.fixture()
-def mocked_ipfs_client(monkeypatch):
+def mocked_ipfs_client(monkeypatch, forked_el_client):
     def _publish(self, content: bytes, name: str | None = None) -> CID:
         return CID('Qm' + 'f' * 46)
 
     with monkeypatch.context():
-        monkeypatch.setattr(MultiIPFSProvider, 'publish', _publish)
-        ipfs = MultiIPFSProvider(ipfs_providers())
+        monkeypatch.setattr(IPFS, 'publish', _publish)
+        ipfs = IPFS(forked_el_client, ipfs_providers())  # Web3 instance not needed for mocked publish
         yield ipfs
 
 

@@ -9,11 +9,11 @@ from src.modules.submodules.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
-from src.types import EpochNumber, Gwei, StakingModuleId, NodeOperatorId, ValidatorIndex
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
+    LidoValidator,
     NodeOperator,
     StakingModule,
-    LidoValidator,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -52,9 +52,7 @@ def lido_validators(web3):
                 is_active=True,
                 is_target_limit_active=False,
                 target_validators_count=0,
-                stuck_validators_count=0,
                 refunded_validators_count=0,
-                stuck_penalty_end_timestamp=0,
                 total_exited_validators=0,
                 total_deposited_validators=5,
                 depositable_validators_count=0,
@@ -65,9 +63,7 @@ def lido_validators(web3):
                 is_active=True,
                 is_target_limit_active=False,
                 target_validators_count=0,
-                stuck_validators_count=0,
                 refunded_validators_count=0,
-                stuck_penalty_end_timestamp=0,
                 total_exited_validators=1,
                 total_deposited_validators=5,
                 depositable_validators_count=0,
@@ -125,11 +121,7 @@ def lido_validators(web3):
 
 @pytest.fixture
 def validator_state(web3, lido_validators):
-    service = LidoValidatorStateService(web3)
-    service.w3.lido_contracts.validators_exit_bus_oracle.get_last_requested_validator_indices = Mock(
-        return_value=[3, 8]
-    )
-    return service
+    return LidoValidatorStateService(web3)
 
 
 @pytest.fixture
@@ -158,7 +150,7 @@ def test_get_recently_requested_validators_by_operator(monkeypatch, web3, valida
         return_value=exit_event_lookback_window
     )
 
-    global_indexes = validator_state.get_recently_requested_validators_by_operator(12, blockstamp)
+    global_indexes = validator_state.get_recently_requested_to_exit_validators_by_node_operator(12, blockstamp)
     assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
     mock_get_events_in_past.assert_called_once_with(

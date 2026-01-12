@@ -9,8 +9,16 @@ from src.metrics.prometheus.csm import (
     CSM_CURRENT_FRAME_RANGE_R_EPOCH,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.csm.checkpoint import FrameCheckpointProcessor, FrameCheckpointsIterator, MinStepIsNotReached
-from src.modules.csm.distribution import Distribution, DistributionResult, StrikesValidator
+from src.modules.csm.checkpoint import (
+    FrameCheckpointProcessor,
+    FrameCheckpointsIterator,
+    MinStepIsNotReached,
+)
+from src.modules.csm.distribution import (
+    Distribution,
+    DistributionResult,
+    StrikesValidator,
+)
 from src.modules.csm.helpers.last_report import LastReport
 from src.modules.csm.log import FramePerfLog
 from src.modules.csm.state import State
@@ -34,10 +42,6 @@ from src.web3py.extensions.lido_validators import NodeOperatorId
 from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
-
-
-class NoModuleFound(Exception):
-    """Raised if no module find in the StakingRouter by the provided address"""
 
 
 class CSMError(Exception):
@@ -128,8 +132,9 @@ class CSOracle(BaseModule, ConsensusModule):
             strikes_tree_cid=strikes_cid or "",
         ).as_tuple()
 
-    def _get_last_report(self, blockstamp: BlockStamp) -> LastReport:
-        return LastReport.load(self.w3, blockstamp)
+    def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
+        current_frame = self.get_frame_number_by_slot(blockstamp)
+        return LastReport.load(self.w3, blockstamp, current_frame)
 
     def calculate_distribution(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
@@ -159,8 +164,6 @@ class CSOracle(BaseModule, ConsensusModule):
 
     def collect_data(self, blockstamp: BlockStamp) -> bool:
         """Ongoing report data collection for the estimated reference slot"""
-
-        consensus_version = self.get_consensus_version(blockstamp)
 
         logger.info({"msg": "Collecting data for the report"})
 
@@ -192,7 +195,7 @@ class CSOracle(BaseModule, ConsensusModule):
             logger.info({"msg": "The starting epoch of the epochs range is not finalized yet"})
             return False
 
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame, consensus_version)
+        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
         if self.state.is_fulfilled:
@@ -241,17 +244,6 @@ class CSOracle(BaseModule, ConsensusModule):
     def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]) -> StrikesTree:
         if not strikes:
             raise ValueError("No strikes to build a tree")
-
-        # XXX: We put a stone here to make sure, that even with only 1 validator in the tree, it's
-        # still possible to report strikes. The CSStrikes contract reverts if the proof's length
-        # is zero, which is the case when the tree has only one leaf.
-        stone = (NodeOperatorId(self.w3.csm.module.MAX_OPERATORS_COUNT), HexBytes(b""))
-        strikes[stone] = StrikesList()
-
-        # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
-        if stone in strikes and len(strikes) > 2:
-            strikes.pop(stone)
-
         tree = StrikesTree.new(tuple((no_id, pubkey, strikes) for ((no_id, pubkey), strikes) in strikes.items()))
         logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree

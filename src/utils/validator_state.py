@@ -10,12 +10,11 @@ from src.constants import (
     MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT,
     MAX_SEED_LOOKAHEAD,
     MIN_ACTIVATION_BALANCE,
-    MIN_PER_EPOCH_CHURN_LIMIT,
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
-    SHARD_COMMITTEE_PERIOD,
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
+from src.utils.units import gwei_to_wei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
@@ -35,11 +34,6 @@ def is_on_exit(validator: Validator) -> bool:
     return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
 
 
-def get_validator_age(validator: Validator, ref_epoch: EpochNumber) -> int:
-    """Validator age in epochs from activation to ref_epoch"""
-    return max(ref_epoch - validator.validator.activation_epoch, 0)
-
-
 def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
     """
     Check if ``validator`` is partially withdrawable.
@@ -53,6 +47,13 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
         and has_max_effective_balance
         and has_excess_balance
     )
+
+
+def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bool:
+    """
+    Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
+    """
+    return validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
 
 
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
@@ -91,19 +92,6 @@ def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, ep
     )
 
 
-def is_validator_eligible_to_exit(validator: Validator, epoch: EpochNumber) -> bool:
-    """
-    Check if `validator` can exit.
-    Verify the validator has been active long enough.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#voluntary-exits
-
-    The validator can only exit if it has no pending withdrawals in the queue.
-    This method don't take partial withdrawals into account because Lido protocol doesn't support partial withdrawals.
-    """
-    active_long_enough = validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= epoch
-    return active_long_enough and not is_on_exit(validator)
-
-
 def calculate_total_active_effective_balance(all_validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
     """
     Return the combined effective balance of the active validators.
@@ -136,10 +124,6 @@ def compute_activation_exit_epoch(ref_epoch: EpochNumber):
     return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
 
 
-def get_validator_churn_limit(active_validators_count: int):
-    return max(MIN_PER_EPOCH_CHURN_LIMIT, active_validators_count // CHURN_LIMIT_QUOTIENT)
-
-
 # @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
 def get_activation_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
     return min(MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT, get_balance_churn_limit(total_active_balance))
@@ -159,3 +143,7 @@ def get_max_effective_balance(validator: ValidatorState) -> Gwei:
     if has_compounding_withdrawal_credential(validator):
         return MAX_EFFECTIVE_BALANCE_ELECTRA
     return MIN_ACTIVATION_BALANCE
+
+
+def calculate_vault_validators_balances(validators: list[Validator]) -> int:
+    return sum(gwei_to_wei(validator.balance) for validator in validators)

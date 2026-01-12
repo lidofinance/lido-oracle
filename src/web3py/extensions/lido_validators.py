@@ -67,9 +67,7 @@ class NodeOperator(Nested):
     is_active: bool
     is_target_limit_active: NodeOperatorLimitMode
     target_validators_count: int
-    stuck_validators_count: int
     refunded_validators_count: int
-    stuck_penalty_end_timestamp: int
     total_exited_validators: int
     total_deposited_validators: int
     depositable_validators_count: int
@@ -80,9 +78,9 @@ class NodeOperator(Nested):
         _id, is_active, (
             is_target_limit_active,
             target_validators_count,
-            stuck_validators_count,
+            _stuck_validators_count,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L748
             refunded_validators_count,
-            stuck_penalty_end_timestamp,
+            _stuck_penalty_end_timestamp,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L757
             total_exited_validators,
             total_deposited_validators,
             depositable_validators_count,
@@ -94,9 +92,7 @@ class NodeOperator(Nested):
             # In case mode > 2, consider its force priority
             NodeOperatorLimitMode(min(is_target_limit_active, 2)),
             target_validators_count,
-            stuck_validators_count,
             refunded_validators_count,
-            stuck_penalty_end_timestamp,
             total_exited_validators,
             total_deposited_validators,
             depositable_validators_count,
@@ -184,10 +180,10 @@ class LidoValidatorsProvider(Module):
         return no_validators
 
     @lru_cache(maxsize=1)
-    def get_module_validators_by_node_operators(
+    def get_used_module_validators_by_node_operators(
         self,
         module_address: StakingModuleAddress,
-        blockstamp: BlockStamp
+        blockstamp: BlockStamp,
     ) -> ValidatorsByNodeOperator:
         """
         Get module validators by querying the KeysAPI for the module keys.
@@ -199,21 +195,19 @@ class LidoValidatorsProvider(Module):
         Returns:
             ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
         """
-        # Fetch module operator keys from the KeysAPI
-        kapi = self.w3.kac.get_module_operators_keys(module_address, blockstamp)
-        if (kapi_module_address := kapi['module']['stakingModuleAddress']) != module_address:
-            raise ValueError(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
-        operators = kapi['operators']
-        keys = {k.key: k for k in kapi['keys']}
-        validators = self.w3.cc.get_validators(blockstamp)
-        module_id = StakingModuleId(int(kapi['module']['id']))
+
+        kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
+        module_id = StakingModuleId(kapi['module']['id'])
+
 
         # Make sure even empty NO will be presented in dict
         no_validators: ValidatorsByNodeOperator = {
-            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in operators
+            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
         }
 
         # Map validators to their corresponding node operators
+        validators = self.w3.cc.get_validators(blockstamp)
+        keys = {k.key: k for k in kapi['keys']}
         for validator in validators:
             lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:

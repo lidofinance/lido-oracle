@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Self
 
 from src import variables
+from src.constants import CSM_STATE_VERSION
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -84,15 +85,19 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _consensus_version: int
+    _version: int
+
+    EXTENSION = ".pkl"
 
     def __init__(self) -> None:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._consensus_version = 0
+        self._version = CSM_STATE_VERSION
 
-    EXTENSION = ".pkl"
+    @property
+    def version(self) -> int | None:
+        return getattr(self, "_version", None)
 
     @classmethod
     def load(cls) -> Self:
@@ -156,7 +161,6 @@ class State:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
-        self._consensus_version = 0
         assert self.is_empty
 
     @lru_cache(variables.CSM_ORACLE_MAX_CONCURRENCY)
@@ -185,16 +189,15 @@ class State:
     def log_progress(self) -> None:
         logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
-    def migrate(
-        self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int, consensus_version: int
-    ) -> None:
-        if self._consensus_version and consensus_version != self._consensus_version:
-            logger.warning(
-                {
-                    "msg": f"Cache was built for consensus version {self._consensus_version}. "
-                    f"Discarding data to migrate to consensus version {consensus_version}"
-                }
-            )
+    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
+        if self.version != CSM_STATE_VERSION:
+            if self.version is not None:
+                logger.warning(
+                    {
+                        "msg": f"Cache was built with version={self.version}. "
+                        f"Discarding data to migrate to cache version={CSM_STATE_VERSION}"
+                    }
+                )
             self.clear()
 
         new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
@@ -205,7 +208,7 @@ class State:
 
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._consensus_version = consensus_version
+        self._version = CSM_STATE_VERSION
         self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):

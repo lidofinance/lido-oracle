@@ -5,7 +5,7 @@ import pytest
 
 from src.providers.http_provider import NotOkResponse
 from src.types import SlotNumber
-from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot, get_next_non_missed_slot
+from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot, get_non_missed_slot_header
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
@@ -100,46 +100,3 @@ def test_get_third_non_missed_slot_backward(web3):
 
     assert slot_details.message.slot < finalized_blockstamp.slot_number
     assert slot_details.message.slot == parent_slot
-
-
-@pytest.mark.unit
-def test_get_third_non_missed_slot_forward(web3):
-    ref_slot = SlotNumber(1541622)
-    finalized_blockstamp = ReferenceBlockStampFactory.build(slot_number=ref_slot + 10)
-
-    missed_slots_count = 3
-    first_non_missed_slot = ref_slot + missed_slots_count
-
-    # Mock get_block_header to fail twice, succeed on the third call with first_non_missed_slot
-    def get_block_header(state_id):
-        setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
-        if getattr(get_block_header, "call_count") < missed_slots_count:
-            raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
-        else:
-            return BlockHeaderFullResponseFactory.build(
-                data={
-                    "header": {
-                        "message": {
-                            "slot": first_non_missed_slot,
-                        },
-                    },
-                }
-            )
-
-    web3.cc.get_block_header = Mock(side_effect=get_block_header)
-    web3.cc.get_block_details = Mock(
-        return_value=BlockDetailsResponseFactory.build(
-            message={
-                "slot": first_non_missed_slot,
-            }
-        )
-    )
-
-    slot_details = get_next_non_missed_slot(
-        web3.cc,
-        slot=ref_slot,
-        last_finalized_slot_number=finalized_blockstamp.slot_number,
-    )
-
-    assert slot_details.message.slot < finalized_blockstamp.slot_number
-    assert slot_details.message.slot == 1541625

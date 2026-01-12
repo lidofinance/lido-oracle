@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
+from src.constants import CSM_STATE_VERSION
 from src.modules.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import ValidatorIndex
 from src.utils.range import sequence
@@ -331,40 +332,38 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
 @pytest.mark.unit
 def test_migrate_discards_data_on_version_change():
     state = State()
-    state._consensus_version = 1
+    state._version = CSM_STATE_VERSION + 1
     state.clear = Mock()
     state.commit = Mock()
-    state.migrate(0, 63, 32, 2)
+    state.migrate(0, 63, 32)
 
-    assert state.frames == [(0, 31), (32, 63)]
-    assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state._consensus_version == 2
     state.clear.assert_called_once()
     state.commit.assert_called_once()
+    assert state.frames == [(0, 31), (32, 63)]
+    assert state._epochs_to_process == tuple(sequence(0, 63))
+    assert state.version == CSM_STATE_VERSION
 
 
 @pytest.mark.unit
 def test_migrate_no_migration_needed():
     state = State()
-    state._consensus_version = 1
     state.data = {
         (0, 31): defaultdict(DutyAccumulator),
         (32, 63): defaultdict(DutyAccumulator),
     }
     state._epochs_to_process = tuple(sequence(0, 63))
     state.commit = Mock()
-    state.migrate(0, 63, 32, 1)
+    state.migrate(0, 63, 32)
 
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state._consensus_version == 1
+    assert state.version == CSM_STATE_VERSION
     state.commit.assert_not_called()
 
 
 @pytest.mark.unit
 def test_migrate_migrates_data():
     state = State()
-    state._consensus_version = 1
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -378,7 +377,7 @@ def test_migrate_migrates_data():
         ),
     }
     state.commit = Mock()
-    state.migrate(0, 63, 64, 1)
+    state.migrate(0, 63, 64)
 
     assert state.data == {
         (0, 63): NetworkDuties(
@@ -389,7 +388,7 @@ def test_migrate_migrates_data():
     }
     assert state.frames == [(0, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state._consensus_version == 1
+    assert state.version == CSM_STATE_VERSION
     state.commit.assert_called_once()
 
 
@@ -405,7 +404,7 @@ def test_migrate_invalidates_unmigrated_frames():
         ),
     }
     state.commit = Mock()
-    state.migrate(0, 31, 32, 1)
+    state.migrate(0, 31, 32)
 
     assert state.data == {
         (0, 31): NetworkDuties(),
@@ -440,7 +439,7 @@ def test_migrate_discards_unmigrated_frame():
     }
     state._processed_epochs = set(sequence(0, 95))
     state.commit = Mock()
-    state.migrate(0, 63, 32, 1)
+    state.migrate(0, 63, 32)
 
     assert state.data == {
         (0, 31): NetworkDuties(

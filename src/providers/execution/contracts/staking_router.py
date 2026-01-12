@@ -1,6 +1,7 @@
 import logging
-from abc import abstractmethod
 
+from src.modules.accounting.types import StakingFeeAggregateDistribution
+from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import BlockIdentifier
@@ -73,4 +74,19 @@ class StakingRouterContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address,
         })
+        return response
+
+    def get_staking_fee_aggregate_distribution(self, block_identifier: BlockIdentifier = 'latest') -> StakingFeeAggregateDistribution:
+        """
+        Returns all registered staking modules
+        """
+        response = self.functions.getStakingFeeAggregateDistribution().call(block_identifier=block_identifier)
+
+        logger.info({
+            'msg': 'Call `getStakingFeeAggregateDistribution()`.',
+            'value': response,
+            'block_identifier': repr(block_identifier),
+            'to': self.address,
+        })
+        response = named_tuple_to_dataclass(response, StakingFeeAggregateDistribution)
         return response

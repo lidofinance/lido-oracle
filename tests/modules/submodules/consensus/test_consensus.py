@@ -267,16 +267,16 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
 @pytest.mark.parametrize(
     'contract_version,consensus_version,expected',
     [
-        pytest.param(3, 2, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
         pytest.param(3, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        pytest.param(2, 3, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
-        (2, 2, True),
+        pytest.param(4, 4, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        pytest.param(2, 2, False, marks=pytest.mark.xfail(raises=ContractVersionMismatch, strict=True)),
+        (3, 2, True),
     ],
 )
 def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version, expected):
     bs = ReferenceBlockStampFactory.build()
 
-    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 2
+    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 3
     consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
 
     check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
@@ -415,3 +415,25 @@ def test_get_web3_converter(consensus):
 
     assert converter.frame_config == fc
     assert converter.chain_config == cc
+
+
+@pytest.mark.unit
+def test_get_frame_number_by_slot__known_slot_and_config__returns_expected_frame_number(consensus):
+    blockstamp = ReferenceBlockStampFactory.build(ref_slot=1000000)
+
+    chain_config = ChainConfigFactory.build(
+        slots_per_epoch=32,
+        genesis_time=1606824023,
+    )
+    frame_config = FrameConfigFactory.build(
+        initial_epoch=0,
+        epochs_per_frame=225,
+    )
+
+    consensus.get_chain_config = Mock(return_value=chain_config)
+    consensus.get_frame_config = Mock(return_value=frame_config)
+
+    result = consensus.get_frame_number_by_slot(blockstamp)
+
+    expected_frame = 138
+    assert result == expected_frame

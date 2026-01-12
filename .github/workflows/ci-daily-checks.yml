@@ -23,9 +23,14 @@ jobs:
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
           LIDO_LOCATOR_ADDRESS: ${{ secrets.LIDO_LOCATOR_ADDRESS }}
           CSM_MODULE_ADDRESS: ${{ secrets.CSM_MODULE_ADDRESS }}
-          GW3_ACCESS_KEY: ${{ secrets.GW3_ACCESS_KEY }}
-          GW3_SECRET_KEY: ${{ secrets.GW3_SECRET_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
+          PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN}}
+          LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
+          LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
+          STORACHA_AUTH_SECRET: ${{ secrets.STORACHA_AUTH_SECRET }}
+          STORACHA_AUTHORIZATION: ${{ secrets.STORACHA_AUTHORIZATION }}
+          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
         run: |
           cat << EOF > .env
           OPSGENIE_API_KEY=${OPSGENIE_API_KEY}
@@ -38,6 +43,13 @@ jobs:
           GW3_ACCESS_KEY=${GW3_ACCESS_KEY}
           GW3_SECRET_KEY=${GW3_SECRET_KEY}
           PINATA_JWT=${PINATA_JWT}
+          PINATA_DEDICATED_GATEWAY_URL=${PINATA_DEDICATED_GATEWAY_URL}
+          PINATA_DEDICATED_GATEWAY_TOKEN=${PINATA_DEDICATED_GATEWAY_TOKEN}
+          LIDO_IPFS_TOKEN=${LIDO_IPFS_TOKEN}
+          LIDO_IPFS_HOST=${LIDO_IPFS_HOST}
+          STORACHA_AUTH_SECRET=${STORACHA_AUTH_SECRET}
+          STORACHA_AUTHORIZATION=${STORACHA_AUTHORIZATION}
+          STORACHA_SPACE_DID=${STORACHA_SPACE_DID}
           EOF
 
           docker build -t lido-oracle-ci . && docker run --env-file .env --rm lido-oracle-ci check
