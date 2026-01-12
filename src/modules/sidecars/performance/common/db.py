@@ -32,7 +32,12 @@ class EpochsDemand(SQLModel, table=True):
 
 
 class DutiesDB:
-    def __init__(self, *, connect_timeout: int | None = None, statement_timeout_ms: int | None = None):
+    def __init__(
+        self,
+        *,
+        connect_timeout: int | None = None,
+        statement_timeout_ms: int | None = None,
+    ):
         self._statement_timeout_ms = statement_timeout_ms
         self.engine = self._build_engine(connect_timeout)
         self._setup_database()
@@ -107,7 +112,7 @@ class DutiesDB:
         att_misses: AttDutyMisses,
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
-    ):
+    ) -> None:
         att_list: list[int] = [int(v) for v in att_misses] if att_misses else []
         prop_vids: list[int] = [int(p.validator_index) for p in proposals] if proposals else []
         prop_flags: list[bool] = [bool(p.is_proposed) for p in proposals] if proposals else []
@@ -186,6 +191,16 @@ class DutiesDB:
         with self.get_session() as session:
             result = session.exec(select(Duty.epoch).order_by(desc(col(Duty.epoch))).limit(1)).first()
             return EpochNumber(int(result)) if result else None
+
+    def epochs_count(self) -> int:
+        with self.get_session() as session:
+            stmt = select(func.count()).select_from(Duty)  # pylint: disable=not-callable
+            return int(session.exec(stmt).one())
+
+    def demands_count(self) -> int:
+        with self.get_session() as session:
+            stmt = select(func.count()).select_from(EpochsDemand)  # pylint: disable=not-callable
+            return int(session.exec(stmt).one())
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         with self.get_session() as session:

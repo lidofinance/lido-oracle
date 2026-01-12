@@ -7,6 +7,10 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
 from src import variables
+from src.metrics.prometheus.performance_collector import (
+    PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT,
+    PERFORMANCE_COLLECTOR_ERRORS_TOTAL,
+)
 from src.modules.common.daemon_module import DaemonModule
 from src.modules.common.types import ModuleExecuteDelay, ChainConfig
 from src.modules.sidecars.performance.collector.checkpoint import (
@@ -51,15 +55,21 @@ class PerformanceCollector(DaemonModule):
             yield
         except DecoratorTimeoutError as error:
             logger.error({'msg': 'Performance collector do not respond.', 'error': str(error)})
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="timeout").inc()
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="connection").inc()
         except NotOkResponse as error:
             logger.error({'msg': ''.join(traceback.format_exception(error))})
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="not_ok_response").inc()
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="inconsistent_data").inc()
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="value_error").inc()
         except Exception as error:
+            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="unknown").inc()
             raise error
 
     def _build_converter(self) -> ChainConverter:
@@ -81,6 +91,8 @@ class PerformanceCollector(DaemonModule):
         # finalized epoch. As a result we can have a delay in frame finalization.
         finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
 
+        self._update_demand_metrics()
+
         epochs_range_to_process = self.define_epochs_to_process_range(finalized_epoch)
         if not epochs_range_to_process:
             return ModuleExecuteDelay.NEXT_SLOT
@@ -92,7 +104,12 @@ class PerformanceCollector(DaemonModule):
             end_epoch,
             finalized_epoch,
         )
-        processor = FrameCheckpointProcessor(self.cc, self.db, converter, last_finalized_blockstamp)
+        processor = FrameCheckpointProcessor(
+            self.cc,
+            self.db,
+            converter,
+            last_finalized_blockstamp,
+        )
 
         checkpoint_count = 0
         for checkpoint in checkpoints:
@@ -107,6 +124,7 @@ class PerformanceCollector(DaemonModule):
             self._reset_cycle_timeout()
 
             if self.new_epochs_range_demand_appeared():
+                self._update_demand_metrics()
                 logger.info({"msg": "New epochs demand is found during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
@@ -116,6 +134,9 @@ class PerformanceCollector(DaemonModule):
         })
 
         return ModuleExecuteDelay.NEXT_SLOT
+
+    def _update_demand_metrics(self) -> None:
+        PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT.set(self.db.demands_count())
 
     def define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
         max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS

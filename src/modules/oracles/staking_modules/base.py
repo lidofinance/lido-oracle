@@ -1,15 +1,18 @@
 import atexit
 import logging
+from time import time
 
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.staking_module import (
-    STAKING_MODULE_CURRENT_FRAME_RANGE_L_EPOCH,
-    STAKING_MODULE_CURRENT_FRAME_RANGE_R_EPOCH,
-)
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.metrics.prometheus.performance_oracle import (
+    PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME,
+    PERFORMANCE_ORACLE_TARGET_L_EPOCH,
+    PERFORMANCE_ORACLE_TARGET_R_EPOCH,
+    PERFORMANCE_ORACLE_WAITING_FOR_DATA,
+)
 from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
@@ -127,13 +130,16 @@ class SMPerformanceOracle(OracleModule):
         self.state.log_progress()
 
         is_range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
+        PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set(time())
         if is_range_available:
+            PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(0)
             logger.info({
                 "msg": "Performance data range is already available",
                 "start_epoch": l_epoch,
                 "end_epoch": r_epoch
             })
             return
+        PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
 
         current_demand = self.w3.performance.get_epochs_demand(self.consumer)
         current_epochs_range = (current_demand.l_epoch, current_demand.r_epoch) if current_demand else None
@@ -406,8 +412,8 @@ class SMPerformanceOracle(OracleModule):
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
-        STAKING_MODULE_CURRENT_FRAME_RANGE_L_EPOCH.set(l_epoch)
-        STAKING_MODULE_CURRENT_FRAME_RANGE_R_EPOCH.set(r_epoch)
+        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(int(l_epoch))
+        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(int(r_epoch))
 
         logger.info({
             "msg": "Epochs range for the report",
