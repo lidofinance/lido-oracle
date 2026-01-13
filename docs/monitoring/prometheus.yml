@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: performance-web
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - performance-web:9020
+
+  - job_name: performance-collector
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - performance-collector:9000
+
+  - job_name: csm-oracle
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - csm-oracle:9000
+
+  - job_name: cm-oracle
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - cm-oracle:9000
+

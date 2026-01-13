@@ -4,12 +4,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
+import time
 from typing import Iterable, Sequence
 
 from hexbytes import HexBytes
 
 from src import variables
 from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SYNC_COMMITTEE_SIZE
+from src.metrics.prometheus.performance_collector import (
+    PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT,
+    PERFORMANCE_COLLECTOR_DB_MAX_EPOCH,
+    PERFORMANCE_COLLECTOR_DB_MIN_EPOCH,
+)
 from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty, AttDutyMisses
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.modules.common.types import ZERO_HASH
@@ -123,8 +129,14 @@ class FrameCheckpointProcessor:
         self.converter = converter
         self.db = db
         self.finalized_blockstamp = finalized_blockstamp
+        self._metrics_lock = Lock()
+        self._last_metrics_refresh = 0.0
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
+        self._refresh_db_metrics()
+        with self._metrics_lock:
+            self._last_metrics_refresh = time.time()
+
         logger.info(
             {"msg": f"Processing checkpoint for slot {checkpoint.slot} with {len(checkpoint.duty_epochs)} epochs"}
         )
@@ -280,6 +292,30 @@ class FrameCheckpointProcessor:
             proposals=propose_duties,
             syncs=sync_duties,
         )
+        self._maybe_refresh_db_metrics()
+
+    def _maybe_refresh_db_metrics(self, interval_seconds: float = 30.0) -> None:
+        with self._metrics_lock:
+            now = time.time()
+            if now - self._last_metrics_refresh < interval_seconds:
+                return
+            self._last_metrics_refresh = now
+        self._refresh_db_metrics()
+
+    def _refresh_db_metrics(self) -> None:
+        db_epochs_count = self.db.epochs_count()
+        if db_epochs_count == 0:
+            PERFORMANCE_COLLECTOR_DB_MIN_EPOCH.set(0)
+            PERFORMANCE_COLLECTOR_DB_MAX_EPOCH.set(0)
+            PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT.set(0)
+            return
+
+        db_min = self.db.min_epoch() or 0
+        db_max = self.db.max_epoch() or 0
+
+        PERFORMANCE_COLLECTOR_DB_MIN_EPOCH.set(db_min)
+        PERFORMANCE_COLLECTOR_DB_MAX_EPOCH.set(db_max)
+        PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT.set(db_epochs_count)
 
     @timeit(
         lambda args, duration: logger.info(
