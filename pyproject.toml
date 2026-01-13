@@ -34,6 +34,7 @@ dag-cbor="^0.3.3"
 ipld-dag-pb = "^0.0.1"
 
 [tool.poetry.group.dev.dependencies]
+faker = "^37.3.0"
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pydantic = "^2.4.0"
