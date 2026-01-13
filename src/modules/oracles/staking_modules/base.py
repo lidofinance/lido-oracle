@@ -89,6 +89,9 @@ class SMPerformanceOracle(OracleModule):
             })
             return
         try:
+            demand = performance_client.get_epochs_demand(self.consumer)
+            if not demand:
+                logger.info({"msg": "No demand on shutdown", "consumer": self.consumer})
             performance_client.delete_epochs_demand(self.consumer)
             logger.info({
                 "msg": "Cleared Performance Collector demand on shutdown",
