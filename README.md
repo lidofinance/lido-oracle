@@ -19,18 +19,33 @@ docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 
 # 4. Run the Oracle (dry mode by default)
 docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
+
+# 5. Run the Staking Module stack via docker compose
+#    (Postgres + performance sidecars + a specific oracle; see docker-compose.yml)
+
+# CSM oracle stack
+docker compose up -d --build csm-oracle
+
+# CM oracle stack
+docker compose up -d --build cm-oracle
 ```
 
 Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator-manual) for more details.
 
 ## How it works
 
-There are 3 modules in the oracle:
+Core oracle modules:
 
-- Accounting (accounting)
-- Valdiators Exit Bus (ejector)
-- Community Staking Module (csm)
-- Curated Module (cm)
+- Accounting (`accounting`)
+- Validators Exit Bus (`ejector`)
+- Community Staking Module (`csm`)
+- Curated Module (`cm`)
+
+Sidecars:
+
+- Checks (`check`)
+- Performance Collector (`performance_collector`)
+- Performance Web Server (`performance_web_server`)
 
 ### Accounting module
 
@@ -47,7 +62,7 @@ Work is divided into frames (~24 hours / 225 epochs):
 
 ### Ejector module
 
-Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_interator.py`.
+Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_iterator.py`.
 
 **Flow**
 
@@ -62,9 +77,29 @@ Work is divided into frames (~8 hours / 75 epochs):
 Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the Staking Module.
 
 Work is divided into frames (~28 days / 6300 epochs):
-- **Data collection**: Processes new epoches and collect attestations.
-- **IPFS data submittion**: Uploads report and full logs to IPFS.
+- **Data collection**: Processes new epochs and collects attestations.
+- **IPFS data submission**: Uploads report and full logs to IPFS.
 - **Update report**: Submits report to the CSFeeOracle contract.
+
+#### How it runs
+
+For Staking Module oracles, `docker-compose.yml` describes a small local stack with Postgres + two “performance” sidecars.
+This is meant as a reference deployment layout (not a full production guide).
+
+Services and responsibilities:
+
+- `postgres` - stores performance/attestation-related data (volume-backed).
+- `init-db` - one-shot initialization that creates the database/user schema in Postgres (runs `scripts/init_performance_db.sh`).
+- `performance-collector` - periodically pulls data from the Consensus client (`CONSENSUS_CLIENT_URI`) and writes it to Postgres.
+- `performance-web` - reads Postgres and exposes an HTTP API.
+- `csm-oracle` - the actual oracle module:
+  - reads from EL/CL/Keys API (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
+  - queries performance data via `PERFORMANCE_COLLECTOR_URI` (in compose it points to `http://performance-web:9020/`)
+  - publishes artifacts to IPFS (via `LIDO_IPFS_*` / Pinata / Storacha / Kubo settings)
+
+Data flow (simplified):
+
+`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` → `IPFS / chain`
 
 # Usage
 
@@ -184,7 +219,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True                | `http://localhost:5052`        |
 | `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True                | `http://localhost:8080`        |
 | `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True                | `0x1...`                       |
-| `CS_MODULE_ADDRESS`                               | Address of the Community Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
+| `CS_MODULE_ADDRESS`                                     | Address of the Community Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
 | `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False               | `0x1...`                       |
 | `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False               | `/app/private_key`             |
 | `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | True                | `aBcD1234...`                  |
@@ -230,7 +265,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
-> STAKING_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> CS_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
 
 ### Alerts
@@ -268,7 +303,7 @@ The oracle exposes the following basic metrics:
 | Metric name                 | Description                                                     | Labels                                                                                                                                             |
 |-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | build_info                  | Build info                                                      | version, branch, commit                                                                                                                            |
-| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, STAKING_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, CS_MODULE_ADDRESS, CURATED_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
 | genesis_time                | Fetched genesis time from node                                  |                                                                                                                                                    |
 | account_balance             | Fetched account balance from EL                                 | address                                                                                                                                            |
 | slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                      |

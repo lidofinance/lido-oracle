@@ -101,6 +101,11 @@ services:
     build: .
     container_name: csm-oracle
     command: ["-m", "src.main", "csm"]
+    depends_on:
+      performance-collector:
+        condition: service_healthy
+      performance-web:
+        condition: service_healthy
     environment:
       CS_MODULE_ADDRESS: ${CS_MODULE_ADDRESS}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
@@ -123,6 +128,11 @@ services:
 #    build: .
 #    container_name: cm-oracle
 #    command: ["-m", "src.main", "cm"]
+#    depends_on:
+#      performance-collector:
+#        condition: service_healthy
+#      performance-web:
+#        condition: service_healthy
 #    environment:
 #      CURATED_MODULE_ADDRESS: ${CURATED_MODULE_ADDRESS}
 #      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
