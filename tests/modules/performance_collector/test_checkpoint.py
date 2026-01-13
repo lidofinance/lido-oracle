@@ -364,6 +364,9 @@ def test_check_duties_processes_epoch_with_attestations_and_sync_committee(frame
 
     frame_checkpoint_processor.cc.get_block_attestations_and_sync = Mock(return_value=([attestation], sync_aggregate))
     frame_checkpoint_processor.db.has_epoch = lambda: False
+    frame_checkpoint_processor.db.min_epoch = lambda: EpochNumber(8)
+    frame_checkpoint_processor.db.max_epoch = lambda: EpochNumber(9)
+    frame_checkpoint_processor.db.epochs_count = lambda: 2
 
     frame_checkpoint_processor._check_duties(
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
@@ -395,6 +398,9 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
 
     frame_checkpoint_processor.cc.get_block_attestations_and_sync = Mock(return_value=([], sync_aggregate))
     frame_checkpoint_processor.db.has_epoch = lambda: False
+    frame_checkpoint_processor.db.min_epoch = lambda: EpochNumber(8)
+    frame_checkpoint_processor.db.max_epoch = lambda: EpochNumber(9)
+    frame_checkpoint_processor.db.epochs_count = lambda: 2
 
     frame_checkpoint_processor._check_duties(
         checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
