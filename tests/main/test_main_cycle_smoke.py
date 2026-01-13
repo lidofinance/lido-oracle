@@ -38,6 +38,14 @@ class TestIntegrationMainCycleSmoke:
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES", 3)
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY", 0)
 
+        # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
+        if module_name == "csm":
+
+            def mock_collect_data(self, blockstamp):
+                return True
+
+            monkeypatch.setattr("src.modules.csm.csm.CSOracle.collect_data", mock_collect_data)
+
         manager = multiprocessing.Manager()
         log_queue = manager.Queue()
         listener = logging.handlers.QueueListener(log_queue, caplog.handler)
