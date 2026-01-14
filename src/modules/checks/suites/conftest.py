@@ -1,4 +1,5 @@
 import pytest
+import os
 from unittest.mock import patch
 from _pytest._io import TerminalWriter
 from xdist import is_xdist_controller  # type: ignore[import]
@@ -56,25 +57,35 @@ def web3():
 @pytest.fixture()
 def web3_cs_module():
     """Web3 fixture configured for CS module (reuses CSM entrypoint logic)."""
-    with patch.object(variables, 'CURATED_MODULE_ADDRESS', None):
-        return build_oracle_web3(OracleWeb3Config(
+    module_address = os.getenv("CS_MODULE_ADDRESS")
+    if not module_address:
+        pytest.skip("CS_MODULE_ADDRESS is not set")
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
+        web3 = build_oracle_web3(OracleWeb3Config(
             use_lido_contracts=False,
             use_staking_module_contracts=True,
             use_ipfs=False,
             use_performance_client=False,
         ))
+        _ = web3.staking_module
+        return web3
 
 
 @pytest.fixture()
 def web3_curated_module():
     """Web3 fixture configured for Curated module (reuses CM entrypoint logic)."""
-    with patch.object(variables, 'CS_MODULE_ADDRESS', None):
-        return build_oracle_web3(OracleWeb3Config(
+    module_address = os.getenv("CURATED_MODULE_ADDRESS")
+    if not module_address:
+        pytest.skip("CURATED_MODULE_ADDRESS is not set")
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
+        web3 = build_oracle_web3(OracleWeb3Config(
             use_lido_contracts=False,
             use_staking_module_contracts=True,
             use_ipfs=False,
             use_performance_client=False,
         ))
+        _ = web3.staking_module
+        return web3
 
 
 @pytest.fixture(
@@ -84,7 +95,7 @@ def web3_curated_module():
         pytest.param(
             6300,
             id="Blockstamp CSM frame ago",
-            marks=pytest.mark.skipif(variables.CS_MODULE_ADDRESS is None and variables.CURATED_MODULE_ADDRESS is None, reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set"),
+            marks=pytest.mark.skipif(os.getenv("CS_MODULE_ADDRESS") is None and os.getenv("CURATED_MODULE_ADDRESS") is None, reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set"),
         ),
     ]
 )
@@ -146,18 +157,24 @@ def pytest_configure(config):
 
 
 def pytest_report_teststatus(report, config):
+    def _skip_reason() -> str:
+        longrepr = getattr(report, "longrepr", None)
+        if isinstance(longrepr, tuple) and longrepr:
+            return str(longrepr[-1])
+        if longrepr:
+            return str(longrepr)
+        return "Skipped"
+
     if report.when == "setup":
         if report.skipped:
-            reason = report.longrepr[-1]
-            return "skipped", reason, "Skipped"
+            return "skipped", _skip_reason(), "Skipped"
     if report.when == "call":
         if report.passed:
             return "passed", "✅ Checked", "✅ Checked"
         if report.failed:
             return "failed", "❌ Failed", "❌ Failed"
         if report.skipped:
-            reason = report.longrepr[-1]
-            return "skipped", reason, "Skipped"
+            return "skipped", _skip_reason(), "Skipped"
     return None
 
 

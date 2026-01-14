@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import subprocess
 import time
 from contextlib import contextmanager
@@ -303,15 +304,31 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
 
 
 @pytest.fixture()
-def web3_cs_module(web3):
-    with patch.object(variables, "CURATED_MODULE_ADDRESS", None):
+def cs_module_address() -> str:
+    address = os.getenv("CS_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CS_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def curated_module_address() -> str:
+    address = os.getenv("CURATED_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CURATED_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def web3_cs_module(web3, cs_module_address):
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", cs_module_address):
         web3.attach_modules({'staking_module': StakingModuleContracts})
         yield web3
 
 
 @pytest.fixture()
-def web3_curated_module(web3):
-    with patch.object(variables, "CS_MODULE_ADDRESS", None):
+def web3_curated_module(web3, curated_module_address):
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", curated_module_address):
         web3.attach_modules({'staking_module': StakingModuleContracts})
         yield web3
 

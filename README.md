@@ -219,7 +219,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True                | `http://localhost:5052`        |
 | `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True                | `http://localhost:8080`        |
 | `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True                | `0x1...`                       |
-| `CS_MODULE_ADDRESS`                                     | Address of the Community Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
+| `STAKING_MODULE_ADDRESS`                               | Address of the Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
 | `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False               | `0x1...`                       |
 | `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False               | `/app/private_key`             |
 | `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | True                | `aBcD1234...`                  |
@@ -265,7 +265,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
-> CS_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> STAKING_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
 
 ### Alerts
@@ -303,7 +303,7 @@ The oracle exposes the following basic metrics:
 | Metric name                 | Description                                                     | Labels                                                                                                                                             |
 |-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | build_info                  | Build info                                                      | version, branch, commit                                                                                                                            |
-| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, CS_MODULE_ADDRESS, CURATED_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, STAKING_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
 | genesis_time                | Fetched genesis time from node                                  |                                                                                                                                                    |
 | account_balance             | Fetched account balance from EL                                 | address                                                                                                                                            |
 | slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                      |

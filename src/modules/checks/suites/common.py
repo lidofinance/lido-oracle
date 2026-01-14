@@ -1,6 +1,5 @@
 """Common checks"""
 import pytest
-from src import variables
 
 from src.modules.oracles.common.runtime import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
 from src.modules.oracles.accounting.accounting import Accounting
@@ -16,15 +15,23 @@ def skip_locator(web3):
 
 
 @pytest.fixture()
-def skip_csm():
-    if not variables.CS_MODULE_ADDRESS:
-        pytest.skip('CS_MODULE_ADDRESS is not set')
+def skip_csm(web3_cs_module):
+    contract_version = web3_cs_module.staking_module.oracle.get_contract_version()
+    if contract_version != CSPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
+        pytest.skip(
+            f'Staking module contract version {contract_version} is not compatible with CSM '
+            f'(expected {CSPerformanceOracle.COMPATIBLE_CONTRACT_VERSION})'
+        )
 
 
 @pytest.fixture()
-def skip_cm():
-    if not variables.CURATED_MODULE_ADDRESS:
-        pytest.skip('CURATED_MODULE_ADDRESS is not set')
+def skip_cm(web3_curated_module):
+    contract_version = web3_curated_module.staking_module.oracle.get_contract_version()
+    if contract_version != CMPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
+        pytest.skip(
+            f'Staking module contract version {contract_version} is not compatible with Curated Module '
+            f'(expected {CMPerformanceOracle.COMPATIBLE_CONTRACT_VERSION})'
+        )
 
 
 @pytest.fixture()
@@ -38,12 +45,12 @@ def ejector(web3, skip_locator):
 
 
 @pytest.fixture()
-def csm(web3_cs_module, skip_locator, skip_csm):
+def csm(web3_cs_module, skip_csm):
     return CSPerformanceOracle(web3_cs_module)
 
 
 @pytest.fixture()
-def cm(web3_curated_module, skip_locator, skip_cm):
+def cm(web3_curated_module, skip_cm):
     return CMPerformanceOracle(web3_curated_module)
 
 

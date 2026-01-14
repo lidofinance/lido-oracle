@@ -72,9 +72,7 @@ export EXECUTION_CLIENT_URI=...
 export CONSENSUS_CLIENT_URI=...
 export KEYS_API_URI=...
 
-# Set exactly one module address:
-export CS_MODULE_ADDRESS=...       # for `csm`
-# export CURATED_MODULE_ADDRESS=... # for `cm`
+export STAKING_MODULE_ADDRESS=...  # staking module contract address (for `csm`/`cm`)
 
 export MAX_CYCLE_LIFETIME_IN_SECONDS=60000  # Reasonable high value to make sure the oracle has enough time to process the whole frame.
 ```
