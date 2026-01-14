@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.accounting.types import BeaconStat
+from src.modules.oracles.accounting.types import BeaconStat
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (

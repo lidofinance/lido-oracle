@@ -2,7 +2,7 @@ import pytest
 from eth_typing import BlockNumber
 from web3.types import Timestamp
 
-from src.modules.submodules.types import FrameConfig, ChainConfig
+from src.modules.common.types import FrameConfig, ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.types import ReferenceBlockStamp, SlotNumber, EpochNumber

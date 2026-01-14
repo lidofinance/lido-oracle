@@ -113,7 +113,7 @@ class ConsensusClient(HTTPProvider):
         )
         return BlockDetailsResponse.from_response(**data)
 
-    @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
+    @lru_cache(maxsize=variables.PERFORMANCE_COLLECTOR_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
     def get_block_attestations_and_sync(
         self, state_id: SlotNumber | BlockRoot
     ) -> tuple[list[BlockAttestation], SyncAggregate]:

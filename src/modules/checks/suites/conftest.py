@@ -1,4 +1,6 @@
 import pytest
+import os
+from unittest.mock import patch
 from _pytest._io import TerminalWriter
 from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
@@ -8,6 +10,7 @@ from src.types import EpochNumber, SlotNumber, BlockRoot
 from src.utils.blockstamp import build_blockstamp
 from src.utils.api import opsgenie_api
 from src.utils.slot import get_reference_blockstamp
+from src.modules.oracles.common.runtime import OracleWeb3Config, build_oracle_web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
@@ -16,7 +19,6 @@ from src.web3py.extensions import (
     TransactionUtils,
     LidoContracts,
     FallbackProviderModule,
-    CSM,
 )
 from src.web3py.types import Web3
 
@@ -28,6 +30,7 @@ _config = None
 
 @pytest.fixture()
 def web3():
+    """Basic web3 fixture without staking module contracts."""
     web3 = Web3(
         FallbackProviderModule(
             variables.EXECUTION_CLIENT_URI, request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION}
@@ -47,10 +50,42 @@ def web3():
     )
     if variables.LIDO_LOCATOR_ADDRESS:
         web3.attach_modules({'lido_contracts': LidoContracts})
-    if variables.CSM_MODULE_ADDRESS:
-        web3.attach_modules({'csm': CSM})
 
     return web3
+
+
+@pytest.fixture()
+def web3_cs_module():
+    """Web3 fixture configured for CS module (reuses CSM entrypoint logic)."""
+    module_address = os.getenv("CS_MODULE_ADDRESS")
+    if not module_address:
+        pytest.skip("CS_MODULE_ADDRESS is not set")
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
+        web3 = build_oracle_web3(OracleWeb3Config(
+            use_lido_contracts=False,
+            use_staking_module_contracts=True,
+            use_ipfs=False,
+            use_performance_client=False,
+        ))
+        _ = web3.staking_module
+        return web3
+
+
+@pytest.fixture()
+def web3_curated_module():
+    """Web3 fixture configured for Curated module (reuses CM entrypoint logic)."""
+    module_address = os.getenv("CURATED_MODULE_ADDRESS")
+    if not module_address:
+        pytest.skip("CURATED_MODULE_ADDRESS is not set")
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
+        web3 = build_oracle_web3(OracleWeb3Config(
+            use_lido_contracts=False,
+            use_staking_module_contracts=True,
+            use_ipfs=False,
+            use_performance_client=False,
+        ))
+        _ = web3.staking_module
+        return web3
 
 
 @pytest.fixture(
@@ -60,7 +95,7 @@ def web3():
         pytest.param(
             6300,
             id="Blockstamp CSM frame ago",
-            marks=pytest.mark.skipif(variables.CSM_MODULE_ADDRESS is None, reason="CSM_MODULE_ADDRESS is not set"),
+            marks=pytest.mark.skipif(os.getenv("CS_MODULE_ADDRESS") is None and os.getenv("CURATED_MODULE_ADDRESS") is None, reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set"),
         ),
     ]
 )
@@ -122,18 +157,24 @@ def pytest_configure(config):
 
 
 def pytest_report_teststatus(report, config):
+    def _skip_reason() -> str:
+        longrepr = getattr(report, "longrepr", None)
+        if isinstance(longrepr, tuple) and longrepr:
+            return str(longrepr[-1])
+        if longrepr:
+            return str(longrepr)
+        return "Skipped"
+
     if report.when == "setup":
         if report.skipped:
-            reason = report.longrepr[-1]
-            return "skipped", reason, "Skipped"
+            return "skipped", _skip_reason(), "Skipped"
     if report.when == "call":
         if report.passed:
             return "passed", "✅ Checked", "✅ Checked"
         if report.failed:
             return "failed", "❌ Failed", "❌ Failed"
         if report.skipped:
-            reason = report.longrepr[-1]
-            return "skipped", reason, "Skipped"
+            return "skipped", _skip_reason(), "Skipped"
     return None
 
 

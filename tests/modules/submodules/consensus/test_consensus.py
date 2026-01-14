@@ -8,10 +8,10 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.modules.submodules import consensus as consensus_module
-from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
-from src.modules.submodules.types import ChainConfig
+from src.modules.oracles.common import consensus as consensus_module
+from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
+from src.modules.oracles.common.exceptions import IncompatibleOracleVersion, ContractVersionMismatch
+from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
 from src.utils.validator_state import is_on_exit

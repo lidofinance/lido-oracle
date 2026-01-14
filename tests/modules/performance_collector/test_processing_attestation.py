@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.performance.collector.checkpoint import (
+from src.modules.sidecars.performance.collector.checkpoint import (
     get_committee_indices,
     hex_bitlist_to_list,
     hex_bitvector_to_list,

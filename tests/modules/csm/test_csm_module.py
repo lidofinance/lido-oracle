@@ -7,16 +7,18 @@ from unittest.mock import Mock, PropertyMock, call, patch
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX, CSM_LOGS_VERSION
-from src.modules.csm.csm import CSMError, CSOracle, LastReport
-from src.modules.csm.distribution import Distribution
-from src.modules.csm.log import FramePerfLog, Logs
-from src.modules.csm.state import State
-from src.modules.csm.tree import RewardsTree, StrikesTree
-from src.modules.csm.types import StrikesList
-from src.modules.performance.common.db import Duty
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ZERO_HASH, CurrentFrame
+from src.constants import UINT64_MAX, STAKING_MODULE_LOGS_VERSION
+from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
+from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from src.modules.oracles.staking_modules.common.distribution import Distribution
+from src.modules.oracles.staking_modules.common.log import Logs
+from src.modules.oracles.staking_modules.common.state import State
+from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
+from src.modules.oracles.staking_modules.common.types import StrikesList
+from src.modules.sidecars.performance.common.db import Duty
+from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
+from src.modules.common.types import ZERO_HASH, CurrentFrame
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -34,11 +36,11 @@ def mock_load_state(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture()
 def module(web3):
-    yield CSOracle(web3)
+    yield CSPerformanceOracle(web3)
 
 
 @pytest.mark.unit
-def test_init(module: CSOracle):
+def test_init(module: CSPerformanceOracle):
     assert module
 
 
@@ -71,7 +73,7 @@ def make_validator(index: int, activation_epoch: int = 0, exit_epoch: int = 100)
 
 
 @pytest.fixture()
-def mock_chain_config(module: CSOracle):
+def mock_chain_config(module: CSPerformanceOracle):
     module.get_chain_config = Mock(
         return_value=ChainConfigFactory.build(
             slots_per_epoch=32,
@@ -207,14 +209,14 @@ class FrameTestParam:
                 last_processing_ref_slot=0,
                 current_ref_slot=last_slot_of_epoch(1),
                 finalized_slot=last_slot_of_epoch(1),
-                expected_frame=CSMError,
+                expected_frame=SMPerformanceOracleError,
             ),
             id="negative_first_frame",
         ),
     ],
 )
 @pytest.mark.unit
-def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, param: FrameTestParam):
+def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoReturn, param: FrameTestParam):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
             initial_epoch=slot_to_epoch(param.initial_ref_slot),
@@ -223,7 +225,7 @@ def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, para
         )
     )
 
-    module.w3.csm.get_csm_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
+    module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
     module.get_initial_or_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(param.current_ref_slot),
@@ -246,7 +248,7 @@ def test_current_frame_range(module: CSOracle, mock_chain_config: NoReturn, para
 
 
 @pytest.mark.unit
-def test_set_epochs_range_to_collect_posts_new_demand(module: CSOracle, mock_chain_config: NoReturn):
+def test_set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
@@ -264,11 +266,13 @@ def test_set_epochs_range_to_collect_posts_new_demand(module: CSOracle, mock_cha
     module.state.log_progress.assert_called_once()
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
     module.w3.performance.get_epochs_demand.assert_called_once()
-    module.w3.performance.post_epochs_demand.assert_called_once_with("CSOracle", 10, 20)
+    module.w3.performance.post_epochs_demand.assert_called_once_with("CSPerformanceOracle", 10, 20)
 
 
 @pytest.mark.unit
-def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSOracle, mock_chain_config: NoReturn):
+def test_set_epochs_range_to_collect_skips_post_when_demand_same(
+    module: CSPerformanceOracle, mock_chain_config: NoReturn
+):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
@@ -276,7 +280,7 @@ def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSOracl
     module.converter = Mock(return_value=converter)
     module.get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
-    module.w3.performance.get_epochs_demands = Mock(return_value={"CSOracle": (10, 20)})
+    module.w3.performance.get_epochs_demands = Mock(return_value={"CSPerformanceOracle": (10, 20)})
     module.w3.performance.post_epochs_demand = Mock()
 
     module.set_epochs_range_to_collect(blockstamp)
@@ -287,7 +291,7 @@ def test_set_epochs_range_to_collect_skips_post_when_demand_same(module: CSOracl
 
 
 @pytest.fixture()
-def mock_frame_config(module: CSOracle):
+def mock_frame_config(module: CSPerformanceOracle):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
             initial_epoch=0,
@@ -351,7 +355,7 @@ class CollectDataCase:
 )
 @pytest.mark.unit
 def test_collect_data_handles_range_availability(
-    module: CSOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog, case: CollectDataCase
+    module: CSPerformanceOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog, case: CollectDataCase
 ):
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=case.range_available)
@@ -375,7 +379,7 @@ def test_collect_data_handles_range_availability(
 
 
 @pytest.mark.unit
-def test_fulfill_state_handles_epoch_data(module: CSOracle):
+def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
@@ -449,7 +453,7 @@ def test_fulfill_state_handles_epoch_data(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
+def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerformanceOracle):
     inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
@@ -483,7 +487,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_validate_state_uses_ref_epoch(module: CSOracle):
+def test_validate_state_uses_ref_epoch(module: CSPerformanceOracle):
     blockstamp = ReferenceBlockStampFactory.build(ref_epoch=123)
     module.get_epochs_range_to_process = Mock(return_value=(5, 10))
     module.state = Mock(validate=Mock())
@@ -502,10 +506,10 @@ def test_validate_state_uses_ref_epoch(module: CSOracle):
     ],
 )
 @pytest.mark.unit
-def test_is_main_data_submitted(module: CSOracle, last_ref_slot: int, current_ref_slot: int, expected: bool):
+def test_is_main_data_submitted(module: CSPerformanceOracle, last_ref_slot: int, current_ref_slot: int, expected: bool):
     blockstamp = ReferenceBlockStampFactory.build()
     module.w3 = Mock()
-    module.w3.csm.get_csm_last_processing_ref_slot = Mock(return_value=SlotNumber(last_ref_slot))
+    module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=SlotNumber(last_ref_slot))
     module.get_initial_or_current_frame = Mock(
         return_value=CurrentFrame(
             ref_slot=SlotNumber(current_ref_slot),
@@ -518,7 +522,7 @@ def test_is_main_data_submitted(module: CSOracle, last_ref_slot: int, current_re
 
 @pytest.mark.parametrize("submitted", [True, False])
 @pytest.mark.unit
-def test_is_contract_reportable_relies_on_is_main_data_submitted(module: CSOracle, submitted: bool):
+def test_is_contract_reportable_relies_on_is_main_data_submitted(module: CSPerformanceOracle, submitted: bool):
     module.is_main_data_submitted = Mock(return_value=submitted)
 
     result = module.is_contract_reportable(ReferenceBlockStampFactory.build())
@@ -528,7 +532,7 @@ def test_is_contract_reportable_relies_on_is_main_data_submitted(module: CSOracl
 
 
 @pytest.mark.unit
-def test_publish_tree_uploads_encoded_tree(module: CSOracle):
+def test_publish_tree_uploads_encoded_tree(module: CSPerformanceOracle):
     tree = Mock()
     tree.encode.return_value = b"tree"
     module.w3 = Mock()
@@ -541,7 +545,7 @@ def test_publish_tree_uploads_encoded_tree(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_publish_log_uploads_encoded_log(module: CSOracle, monkeypatch: pytest.MonkeyPatch):
+def test_publish_log_uploads_encoded_log(module: CSPerformanceOracle, monkeypatch: pytest.MonkeyPatch):
     logs = Logs()
     logs.frames = [Mock()]
     encode_mock = Mock(return_value=b"log")
@@ -749,12 +753,10 @@ class BuildReportTestParam:
     ],
 )
 @pytest.mark.unit
-def test_build_report(module: CSOracle, param: BuildReportTestParam):
+def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
     module.validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
-    module._get_last_report = Mock(return_value=param.last_report)
-    # mock current frame
-    module.calculate_distribution = param.curr_distribution
+    module.calculate_distribution = Mock(return_value=(param.curr_distribution(), param.last_report))
     module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
     module.make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
     module.publish_tree = Mock(
@@ -770,11 +772,11 @@ def test_build_report(module: CSOracle, param: BuildReportTestParam):
 
     assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
-    assert module.publish_log.call_args[0][0]._ver == CSM_LOGS_VERSION
+    assert module.publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
 
 
 @pytest.mark.unit
-def test_execute_module_not_collected(module: CSOracle):
+def test_execute_module_not_collected(module: CSPerformanceOracle):
     module._check_compatability = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.set_epochs_range_to_collect = Mock()
@@ -787,7 +789,7 @@ def test_execute_module_not_collected(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_execute_module_skips_collecting_if_forward_compatible(module: CSOracle):
+def test_execute_module_skips_collecting_if_forward_compatible(module: CSPerformanceOracle):
     module._check_compatability = Mock(return_value=False)
     module.collect_data = Mock(return_value=False)
 
@@ -799,7 +801,7 @@ def test_execute_module_skips_collecting_if_forward_compatible(module: CSOracle)
 
 
 @pytest.mark.unit
-def test_execute_module_no_report_blockstamp(module: CSOracle):
+def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
     module._check_compatability = Mock(return_value=True)
     module.set_epochs_range_to_collect = Mock()
     module.collect_data = Mock(return_value=True)
@@ -812,7 +814,7 @@ def test_execute_module_no_report_blockstamp(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_execute_module_processed(module: CSOracle):
+def test_execute_module_processed(module: CSPerformanceOracle):
     module.set_epochs_range_to_collect = Mock()
     module.collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
@@ -826,31 +828,36 @@ def test_execute_module_processed(module: CSOracle):
 
 
 @pytest.mark.unit
-def test_calculate_distribution_lru_cache(module: CSOracle):
+def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
     blockstamp = Mock()
     last_report = Mock()
+    last_report.strikes = {}  # Create proper dictionary instead of Mock
+    last_report.rewards = []  # Add empty list instead of Mock for rewards
     mock_distribution_result = Mock()
 
-    with patch('src.modules.csm.csm.Distribution') as MockDistribution:
+    with patch('src.modules.oracles.staking_modules.base.Distribution') as MockDistribution:
         mock_distribution_instance = MockDistribution.return_value
         mock_distribution_instance.calculate.return_value = mock_distribution_result
 
         module.converter = Mock()
         module.state = Mock()
+        module._get_last_report = Mock(return_value=last_report)
 
-        result1 = module.calculate_distribution(blockstamp, last_report)
+        result1, last_report1 = module.calculate_distribution(blockstamp)
 
-        result2 = module.calculate_distribution(blockstamp, last_report)
+        result2, last_report2 = module.calculate_distribution(blockstamp)
 
         assert result1 is result2
+        assert last_report1 is last_report2
         assert result1 is mock_distribution_result
+        assert last_report1 is last_report
 
         assert MockDistribution.call_count == 1
         assert mock_distribution_instance.calculate.call_count == 1
 
         module.calculate_distribution.cache_clear()
 
-        result3 = module.calculate_distribution(blockstamp, last_report)
+        result3, last_report3 = module.calculate_distribution(blockstamp)
 
         assert MockDistribution.call_count == 2
         assert result3 is mock_distribution_result
@@ -868,8 +875,8 @@ class RewardsTreeTestParam:
         pytest.param(RewardsTreeTestParam(shares={}, expected_tree_values=ValueError), id="empty"),
     ],
 )
-def test_make_rewards_tree_negative(module: CSOracle, param: RewardsTreeTestParam):
-    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+def test_make_rewards_tree_negative(module: CSPerformanceOracle, param: RewardsTreeTestParam):
+    module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     with pytest.raises(ValueError):
         module.make_rewards_tree(param.shares)
@@ -918,8 +925,8 @@ def test_make_rewards_tree_negative(module: CSOracle, param: RewardsTreeTestPara
     ],
 )
 @pytest.mark.unit
-def test_make_rewards_tree(module: CSOracle, param: RewardsTreeTestParam):
-    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+def test_make_rewards_tree(module: CSPerformanceOracle, param: RewardsTreeTestParam):
+    module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     tree = module.make_rewards_tree(param.shares)
     assert tree.values == param.expected_tree_values
@@ -938,8 +945,8 @@ class StrikesTreeTestParam:
     ],
 )
 @pytest.mark.unit
-def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestParam):
-    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+def test_make_strikes_tree_negative(module: CSPerformanceOracle, param: StrikesTreeTestParam):
+    module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     with pytest.raises(ValueError):
         module.make_strikes_tree(param.strikes)
@@ -977,8 +984,8 @@ def test_make_strikes_tree_negative(module: CSOracle, param: StrikesTreeTestPara
     ],
 )
 @pytest.mark.unit
-def test_make_strikes_tree(module: CSOracle, param: StrikesTreeTestParam):
-    module.w3.csm.module.MAX_OPERATORS_COUNT = UINT64_MAX
+def test_make_strikes_tree(module: CSPerformanceOracle, param: StrikesTreeTestParam):
+    module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     tree = module.make_strikes_tree(param.strikes)
     assert tree.values == param.expected_tree_values
@@ -989,17 +996,17 @@ class TestLastReport:
     def test_load(self, web3: Web3):
         blockstamp = Mock()
 
-        web3.csm.get_rewards_tree_root = Mock(return_value=HexBytes(b"42"))
-        web3.csm.get_rewards_tree_cid = Mock(return_value=CID("QmRT"))
-        web3.csm.get_strikes_tree_root = Mock(return_value=HexBytes(b"17"))
-        web3.csm.get_strikes_tree_cid = Mock(return_value=CID("QmST"))
+        web3.staking_module.get_rewards_tree_root = Mock(return_value=HexBytes(b"42"))
+        web3.staking_module.get_rewards_tree_cid = Mock(return_value=CID("QmRT"))
+        web3.staking_module.get_strikes_tree_root = Mock(return_value=HexBytes(b"17"))
+        web3.staking_module.get_strikes_tree_cid = Mock(return_value=CID("QmST"))
 
         last_report = LastReport.load(web3, blockstamp, FrameNumber(0))
 
-        web3.csm.get_rewards_tree_root.assert_called_once_with(blockstamp)
-        web3.csm.get_rewards_tree_cid.assert_called_once_with(blockstamp)
-        web3.csm.get_strikes_tree_root.assert_called_once_with(blockstamp)
-        web3.csm.get_strikes_tree_cid.assert_called_once_with(blockstamp)
+        web3.staking_module.get_rewards_tree_root.assert_called_once_with(blockstamp)
+        web3.staking_module.get_rewards_tree_cid.assert_called_once_with(blockstamp)
+        web3.staking_module.get_strikes_tree_root.assert_called_once_with(blockstamp)
+        web3.staking_module.get_strikes_tree_cid.assert_called_once_with(blockstamp)
 
         assert last_report.rewards_tree_root == HexBytes(b"42")
         assert last_report.rewards_tree_cid == CID("QmRT")

@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import OnChainIpfsVaultReportData
+from src.modules.oracles.accounting.types import OnChainIpfsVaultReportData
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 

@@ -13,7 +13,7 @@ from src.constants import (
     MIN_DEPOSIT_AMOUNT,
     TOTAL_BASIS_POINTS,
 )
-from src.modules.accounting.events import (
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -24,7 +24,7 @@ from src.modules.accounting.events import (
     VaultRebalancedEvent,
     sort_events,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     BLOCKS_PER_YEAR,
     ExtraValue,
     MerkleValue,
@@ -41,7 +41,7 @@ from src.modules.accounting.types import (
     VaultToValidators,
     VaultTreeNode,
 )
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber

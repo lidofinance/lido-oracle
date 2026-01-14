@@ -10,8 +10,8 @@ from src.metrics.prometheus.validators import (
     ALL_SLASHED_VALIDATORS,
     LIDO_SLASHED_VALIDATORS,
 )
-from src.modules.accounting.types import ReportSimulationResults
-from src.modules.submodules.consensus import FrameConfig, ChainConfig
+from src.modules.oracles.accounting.types import ReportSimulationResults
+from src.modules.oracles.common.consensus import FrameConfig, ChainConfig
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.services.bunker_cases.types import BunkerConfig

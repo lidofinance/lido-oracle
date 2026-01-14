@@ -1,5 +1,6 @@
 from src.types import SlotNumber, EpochNumber, FrameNumber
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig
+from src.modules.common.types import FrameConfig
 
 
 def epoch_from_slot(slot: SlotNumber, slots_per_epoch: int) -> EpochNumber:

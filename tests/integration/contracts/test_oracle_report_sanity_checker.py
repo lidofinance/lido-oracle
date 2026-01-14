@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.types import OracleReportLimits
+from src.modules.oracles.accounting.types import OracleReportLimits
 from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
 
 

@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey

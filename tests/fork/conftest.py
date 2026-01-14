@@ -1,10 +1,12 @@
 import json
 import logging
+import os
 import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast, get_args
+from unittest.mock import patch
 
 import pytest
 import xdist
@@ -16,10 +18,10 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import ipfs_providers
-from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
-from src.modules.submodules.types import FrameConfig
+from src.modules.oracles.common.consensus import ConsensusModule
+from src.modules.oracles.common.oracle_module import BaseModule
+from src.modules.common.types import FrameConfig
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
@@ -38,13 +40,13 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     KeysAPIClientModule,
-    LazyCSM,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
     PerformanceClientModule,
     FallbackProviderModule,
 )
+from src.web3py.extensions.staking_module import StakingModuleContracts
 
 logger = logging.getLogger('fork_tests')
 
@@ -106,14 +108,14 @@ def set_delay_and_sleep(monkeypatch):
 @pytest.fixture(autouse=True)
 def patch_csm_contract_load(monkeypatch):
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES",
         3,
     )
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY",
         0,
     )
-    logger.info("TESTRUN Patched CSM CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
+    logger.info("TESTRUN Patched Staking Module CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
     yield
 
 
@@ -292,7 +294,6 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "csm": LazyCSM,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             "ipfs": lambda: mocked_ipfs_client,
@@ -300,6 +301,36 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
         }
     )
     yield forked_el_client
+
+
+@pytest.fixture()
+def cs_module_address() -> str:
+    address = os.getenv("CS_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CS_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def curated_module_address() -> str:
+    address = os.getenv("CURATED_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CURATED_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def web3_cs_module(web3, cs_module_address):
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", cs_module_address):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
+
+
+@pytest.fixture()
+def web3_curated_module(web3, curated_module_address):
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", curated_module_address):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
 
 
 @pytest.fixture()

@@ -2,7 +2,7 @@ import logging
 
 from web3.types import BlockIdentifier
 
-from src.modules.ejector.types import EjectorProcessingState
+from src.modules.oracles.ejector.types import EjectorProcessingState
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
