@@ -508,6 +508,32 @@ class StakingVaultsService:
         )
 
     @staticmethod
+    def _apply_event_backward(
+        event: VaultEventType,
+        vault_address: str,
+        liability_shares: Shares,
+        liquidity_fee: int,
+    ) -> tuple[Shares, int]:
+        """Apply event in reverse chronological order, returning updated shares and fee."""
+        shares_delta = 0
+        new_fee = liquidity_fee
+
+        if isinstance(event, VaultFeesUpdatedEvent):
+            new_fee = event.pre_liquidity_fee_bp
+        elif isinstance(event, MintedSharesOnVaultEvent):
+            shares_delta = -event.amount_of_shares
+        elif isinstance(event, BurnedSharesOnVaultEvent):
+            shares_delta = event.amount_of_shares
+        elif isinstance(event, VaultRebalancedEvent):
+            shares_delta = event.shares_burned
+        elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
+            shares_delta = event.bad_debt_shares
+        elif isinstance(event, BadDebtSocializedEvent):
+            shares_delta = event.bad_debt_shares if vault_address == event.vault_donor else -event.bad_debt_shares
+
+        return liability_shares + shares_delta, new_fee  # type: ignore[return-value]
+
+    @staticmethod
     def _get_report_timestamp(ref_slot: SlotNumber, chain_config: ChainConfig) -> int:
         """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
         return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
@@ -597,21 +623,9 @@ class StakingVaultsService:
 
             # Because we are iterating backward in time, events must be applied in reverse.
             # E.g., a burn reduces shares in the future, so going backward we add them back.
-            if isinstance(event, VaultFeesUpdatedEvent):
-                liquidity_fee = event.pre_liquidity_fee_bp
-            elif isinstance(event, MintedSharesOnVaultEvent):
-                liability_shares -= event.amount_of_shares
-            elif isinstance(event, BurnedSharesOnVaultEvent):
-                liability_shares += event.amount_of_shares
-            elif isinstance(event, VaultRebalancedEvent):
-                liability_shares += event.shares_burned
-            elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
-                liability_shares += event.bad_debt_shares
-            elif isinstance(event, BadDebtSocializedEvent):
-                if vault_address == event.vault_donor:
-                    liability_shares += event.bad_debt_shares
-                else:
-                    liability_shares -= event.bad_debt_shares
+            liability_shares, liquidity_fee = StakingVaultsService._apply_event_backward(
+                event, vault_address, liability_shares, liquidity_fee
+            )
 
             prev_event_timestamp = event_timestamp
 
