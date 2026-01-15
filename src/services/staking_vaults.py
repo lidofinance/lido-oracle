@@ -543,11 +543,13 @@ class StakingVaultsService:
         """
         Liquidity fee = Minted_stETH × Lido_Core_APR × Liquidity_fee_rate
 
-        We calculate the liquidity fee for the vault as a series of intervals
-        between minting, burning, and fee update events, using time (seconds).
-        `vault_events` should already be filtered to this vault.
+        We calculate the liquidity fee for the vault as a series of time intervals
+        between vault events (mints, burns, fee updates, rebalances, bad debt events).
+        All events use their block's execution timestamp directly.
 
-        If there are no events, we just use `liability_shares` to compute minted stETH.
+        Events are processed in reverse chronological order (backward in time) to
+        reconstruct the liability_shares at each point in time. The fee accrual is
+        calculated for each interval between consecutive events.
 
         Burn: In the future, shares go down; backwards, they go up.
         Mint: In the future, shares go up; backwards, they go down.
@@ -566,7 +568,7 @@ class StakingVaultsService:
                 │                 │              │───────────│
                 │                 │              │           │
                 │                 │              │           │
-                └─────────────────┴──────────────┴───────────┴────────▶ slot time (X)
+                └─────────────────┴──────────────┴───────────┴────────▶ time (seconds)
 
                                  mintEvent      burnEvent  current_block
 
@@ -580,12 +582,11 @@ class StakingVaultsService:
         # We iterate through events backwards, calculating liquidity fee for each interval based
         # on the `liability_shares` and the elapsed time between events.
         # Sort by (block_timestamp, log_index) in reverse order to process events backwards in time.
-        vault_events.sort(
-            key=lambda event: (block_timestamps[event.block_number], event.log_index),
-            reverse=True,
-        )
+        vault_events.sort(key=lambda e: (e.block_number, e.log_index), reverse=True)
 
         for event in vault_events:
+            if event.block_number not in block_timestamps:
+                raise ValueError(f"Missing timestamp for block {event.block_number}")
             event_timestamp = block_timestamps[event.block_number]
             interval_seconds = prev_event_timestamp - event_timestamp
             if interval_seconds < 0:
