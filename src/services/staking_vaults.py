@@ -528,31 +528,6 @@ class StakingVaultsService:
         return timestamps
 
     @staticmethod
-    def _get_event_effective_timestamp(
-        event: VaultEventType,
-        vault_address: str,
-        block_timestamps: dict[BlockNumber, int],
-        seconds_per_slot: int,
-    ) -> int:
-        if event.block_number not in block_timestamps:
-            raise ValueError(f"Missing timestamp for block {event.block_number}")
-
-        block_timestamp = block_timestamps[event.block_number]
-        is_decrease_event = (
-            isinstance(
-                event,
-                (
-                    BurnedSharesOnVaultEvent,
-                    VaultRebalancedEvent,
-                    BadDebtWrittenOffToBeInternalizedEvent,
-                ),
-            )
-            or (isinstance(event, BadDebtSocializedEvent) and vault_address == event.vault_donor)
-        )
-
-        return block_timestamp + seconds_per_slot if is_decrease_event else block_timestamp
-
-    @staticmethod
     def _calculate_liquidity_fee_by_events(
         vault_address: str,
         liability_shares: Shares,
@@ -564,7 +539,6 @@ class StakingVaultsService:
         pre_total_shares: Shares,
         core_apr_ratio: Decimal,
         block_timestamps: dict[BlockNumber, int],
-        seconds_per_slot: int,
     ) -> tuple[Decimal, Shares]:
         """
         Liquidity fee = Minted_stETH × Lido_Core_APR × Liquidity_fee_rate
@@ -577,12 +551,6 @@ class StakingVaultsService:
 
         Burn: In the future, shares go down; backwards, they go up.
         Mint: In the future, shares go up; backwards, they go down.
-
-        For timing, we use a start/end-of-slot model:
-        - Increase events (mints, fee updates) are effective at slot start (block timestamp).
-        - Decrease events (burns, rebalances, bad debt write-offs) are effective at slot end
-          (block timestamp + seconds_per_slot).
-        This ensures that a mint+burn in the same slot accrues fees for the full slot.
 
         liability_shares (Y)
                 ↑
@@ -611,28 +579,14 @@ class StakingVaultsService:
 
         # We iterate through events backwards, calculating liquidity fee for each interval based
         # on the `liability_shares` and the elapsed time between events.
-        # Sort by effective timestamp so end-of-slot events (burns, etc.) are applied after
-        # start-of-slot events in the same block, even if log indexes would suggest otherwise.
+        # Sort by (block_timestamp, log_index) in reverse order to process events backwards in time.
         vault_events.sort(
-            key=lambda event: (
-                StakingVaultsService._get_event_effective_timestamp(
-                    event,
-                    vault_address,
-                    block_timestamps,
-                    seconds_per_slot,
-                ),
-                event.log_index,
-            ),
+            key=lambda event: (block_timestamps[event.block_number], event.log_index),
             reverse=True,
         )
 
         for event in vault_events:
-            event_timestamp = StakingVaultsService._get_event_effective_timestamp(
-                event,
-                vault_address,
-                block_timestamps,
-                seconds_per_slot,
-            )
+            event_timestamp = block_timestamps[event.block_number]
             interval_seconds = prev_event_timestamp - event_timestamp
             if interval_seconds < 0:
                 raise ValueError(
@@ -810,7 +764,6 @@ class StakingVaultsService:
         pre_total_pooled_ether: Wei,
         pre_total_shares: Shares,
         block_timestamps: dict[BlockNumber, int],
-        seconds_per_slot: int,
     ) -> tuple[Decimal, Decimal, Decimal, Shares]:
         """Calculate infra, reservation, and liquidity fees for a single vault."""
         # Infrastructure fee = Total_value * Lido_Core_APR * Infrastructure_fee_rate
@@ -854,7 +807,6 @@ class StakingVaultsService:
             pre_total_shares=pre_total_shares,
             core_apr_ratio=core_apr_ratio,
             block_timestamps=block_timestamps,
-            seconds_per_slot=seconds_per_slot,
         )
 
         return vault_infrastructure_fee, vault_reservation_liquidity_fee, vault_liquidity_fee, liability_shares
@@ -937,7 +889,6 @@ class StakingVaultsService:
                 pre_total_pooled_ether=pre_total_pooled_ether,
                 pre_total_shares=pre_total_shares,
                 block_timestamps=block_timestamps,
-                seconds_per_slot=chain_config.seconds_per_slot,
             )
 
             if prev_liability_shares != vault_liability_shares:

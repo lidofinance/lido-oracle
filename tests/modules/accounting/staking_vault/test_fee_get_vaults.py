@@ -397,13 +397,8 @@ class TestGetVaultsFees:
             current_frame=FrameNumber(0),
         )
 
-        event_timestamp = StakingVaultsService._get_event_effective_timestamp(
-            fee_event,
-            vault_adr,
-            {BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT},
-            FeeTestConstants.SECONDS_PER_SLOT,
-        )
-        assert event_timestamp == 102 * FeeTestConstants.SECONDS_PER_SLOT
+        # Event timestamp is the block timestamp directly
+        event_timestamp = 102 * FeeTestConstants.SECONDS_PER_SLOT
 
         current_report_timestamp = 110 * FeeTestConstants.SECONDS_PER_SLOT
         prev_report_timestamp = 100 * FeeTestConstants.SECONDS_PER_SLOT

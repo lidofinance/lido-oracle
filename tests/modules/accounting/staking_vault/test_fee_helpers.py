@@ -8,7 +8,6 @@ from tests.modules.accounting.staking_vault.conftest import (
     BadDebtSocializedEventFactory,
     BadDebtWrittenOffEventFactory,
     BurnedSharesEventFactory,
-    FeeTestConstants,
     MerkleValueFactory,
     MintedSharesEventFactory,
     VaultAddresses,
@@ -65,94 +64,6 @@ class TestBuildPrevReportMaps:
         assert prev_liability_shares_map[VaultAddresses.VAULT_1] == 444
         assert set(prev_fee_map.keys()) == {VaultAddresses.VAULT_0, VaultAddresses.VAULT_1}
         assert set(prev_liability_shares_map.keys()) == {VaultAddresses.VAULT_0, VaultAddresses.VAULT_1}
-
-
-class TestGetEventEffectiveTimestamp:
-    """Tests for _get_event_effective_timestamp helper."""
-
-    @pytest.mark.unit
-    def test_increase_events_use_slot_start(self):
-        """Verifies that events that increase vault state (mint, fee updates, bad debt
-        acceptor) have effective timestamps at slot start. Ensures fee accrual begins
-        immediately on the increased amount for the full slot duration.
-        """
-        block_timestamps = {BlockNumber(1): 100}
-        seconds_per_slot = FeeTestConstants.SECONDS_PER_SLOT
-
-        minted_event = MintedSharesEventFactory.build(vault=VaultAddresses.VAULT_0, block_number=BlockNumber(1))
-        fees_updated_event = VaultFeesUpdatedEventFactory.build(
-            vault=VaultAddresses.VAULT_0, block_number=BlockNumber(1)
-        )
-        socialized_event = BadDebtSocializedEventFactory.build(
-            vault_donor=VaultAddresses.VAULT_1,
-            vault_acceptor=VaultAddresses.VAULT_0,
-            block_number=BlockNumber(1),
-        )
-
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                minted_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == 100
-        )
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                fees_updated_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == 100
-        )
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                socialized_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == 100
-        )
-
-    @pytest.mark.unit
-    def test_decrease_events_use_slot_end(self):
-        """Verifies that events that decrease vault state (burn, rebalance, write-off,
-        bad debt donor) have effective timestamps at slot end. Ensures fees accrue on
-        the full amount for the current slot before the decrease applies.
-        """
-        block_timestamps = {BlockNumber(1): 100}
-        seconds_per_slot = FeeTestConstants.SECONDS_PER_SLOT
-
-        burned_event = BurnedSharesEventFactory.build(vault=VaultAddresses.VAULT_0, block_number=BlockNumber(1))
-        rebalanced_event = VaultRebalancedEventFactory.build(vault=VaultAddresses.VAULT_0, block_number=BlockNumber(1))
-        written_off_event = BadDebtWrittenOffEventFactory.build(
-            vault=VaultAddresses.VAULT_0, block_number=BlockNumber(1)
-        )
-        socialized_event = BadDebtSocializedEventFactory.build(
-            vault_donor=VaultAddresses.VAULT_0,
-            vault_acceptor=VaultAddresses.VAULT_1,
-            block_number=BlockNumber(1),
-        )
-
-        expected = 100 + seconds_per_slot
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                burned_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == expected
-        )
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                rebalanced_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == expected
-        )
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                written_off_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == expected
-        )
-        assert (
-            StakingVaultsService._get_event_effective_timestamp(
-                socialized_event, VaultAddresses.VAULT_0, block_timestamps, seconds_per_slot
-            )
-            == expected
-        )
 
 
 class TestGetVaultEventsForFees:

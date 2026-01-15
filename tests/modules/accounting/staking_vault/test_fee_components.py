@@ -51,7 +51,6 @@ class TestCalculateVaultFeeComponents:
                 pre_total_pooled_ether=pre_total_pooled_ether,
                 pre_total_shares=pre_total_shares,
                 block_timestamps={},
-                seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT,
             )
         )
 
@@ -111,7 +110,6 @@ class TestCalculateVaultFeeComponents:
                 pre_total_pooled_ether=100,
                 pre_total_shares=50,
                 block_timestamps=block_timestamps,
-                seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT,
             )
         )
 
