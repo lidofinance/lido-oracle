@@ -9,7 +9,7 @@ from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Timestamp, Wei
 
 from src.constants import FAR_FUTURE_EPOCH, TOTAL_BASIS_POINTS
-from src.modules.accounting.events import (
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -20,7 +20,7 @@ from src.modules.accounting.events import (
     VaultRebalancedEvent,
     sort_events,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -33,7 +33,7 @@ from src.modules.accounting.types import (
     VaultsMap,
     VaultTotalValueMap,
 )
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import (
     BeaconBlockBody,
     BlockDetailsResponse,
@@ -2261,7 +2261,7 @@ class TestStakingVaults:
 
         ipfs_data = OnChainIpfsVaultReportData(
             timestamp=1690000100, ref_slot=SlotNumber(1230), tree_root=b'\xab\xcd\xef', report_cid=""
-        )  # важно!
+        )  # Important!
 
         frame_config = FrameConfig(initial_epoch=10, epochs_per_frame=2, fast_lane_length_slots=16)
 

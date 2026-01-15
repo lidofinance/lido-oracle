@@ -1,8 +1,8 @@
 import pytest
 
-from src.modules.accounting.accounting import Accounting
-from src.modules.ejector.ejector import Ejector
-from src.modules.submodules.types import FrameConfig
+from src.modules.oracles.accounting.accounting import Accounting
+from src.modules.oracles.ejector.ejector import Ejector
+from src.modules.common.types import FrameConfig
 from src.utils.range import sequence
 from tests.fork.conftest import first_slot_of_epoch
 

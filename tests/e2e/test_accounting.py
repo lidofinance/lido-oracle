@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.accounting.accounting import Accounting
+from src.modules.oracles.accounting.accounting import Accounting
 from tests.e2e.conftest import wait_for_message_appeared
 
 

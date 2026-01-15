@@ -1,10 +1,11 @@
 """Common checks"""
 import pytest
 
-from src.main import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
-from src.modules.accounting.accounting import Accounting
-from src.modules.ejector.ejector import Ejector
-from src.modules.csm.csm import CSOracle
+from src.modules.oracles.common.runtime import check_providers_chain_ids as chain_ids_check  # rename to not conflict with test
+from src.modules.oracles.accounting.accounting import Accounting
+from src.modules.oracles.ejector.ejector import Ejector
+from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 
 
 @pytest.fixture()
@@ -14,9 +15,23 @@ def skip_locator(web3):
 
 
 @pytest.fixture()
-def skip_csm(web3):
-    if not hasattr(web3, 'csm'):
-        pytest.skip('CSM_MODULE_ADDRESS is not set')
+def skip_csm(web3_cs_module):
+    contract_version = web3_cs_module.staking_module.oracle.get_contract_version()
+    if contract_version != CSPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
+        pytest.skip(
+            f'Staking module contract version {contract_version} is not compatible with CSM '
+            f'(expected {CSPerformanceOracle.COMPATIBLE_CONTRACT_VERSION})'
+        )
+
+
+@pytest.fixture()
+def skip_cm(web3_curated_module):
+    contract_version = web3_curated_module.staking_module.oracle.get_contract_version()
+    if contract_version != CMPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
+        pytest.skip(
+            f'Staking module contract version {contract_version} is not compatible with Curated Module '
+            f'(expected {CMPerformanceOracle.COMPATIBLE_CONTRACT_VERSION})'
+        )
 
 
 @pytest.fixture()
@@ -30,8 +45,13 @@ def ejector(web3, skip_locator):
 
 
 @pytest.fixture()
-def csm(web3, skip_locator, skip_csm):
-    return CSOracle(web3)
+def csm(web3_cs_module, skip_csm):
+    return CSPerformanceOracle(web3_cs_module)
+
+
+@pytest.fixture()
+def cm(web3_curated_module, skip_cm):
+    return CMPerformanceOracle(web3_curated_module)
 
 
 def check_providers_chain_ids(web3):
@@ -52,3 +72,8 @@ def check_ejector_contract_configs(ejector):
 def check_csm_contract_configs(csm):
     """Make sure csm contract configs are valid"""
     csm.check_contract_configs()
+
+
+def check_cm_contract_configs(cm):
+    """Make sure cm contract configs are valid"""
+    cm.check_contract_configs()

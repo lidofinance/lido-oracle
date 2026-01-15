@@ -7,10 +7,10 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.modules.accounting import accounting as accounting_module
-from src.modules.accounting.accounting import Accounting, logger as accounting_logger
-from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting import accounting as accounting_module
+from src.modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
+from src.modules.oracles.accounting.third_phase.types import FormatList
+from src.modules.oracles.accounting.types import (
     AccountingProcessingState,
     ReportSimulationFeeDistribution,
     ReportSimulationPayload,
@@ -20,8 +20,8 @@ from src.modules.accounting.types import (
     VaultsMap,
     VaultTreeNode,
 )
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import (
+from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
+from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
     CurrentFrame,

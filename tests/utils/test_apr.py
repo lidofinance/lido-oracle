@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from src.modules.accounting.types import SECONDS_IN_YEAR
+from src.modules.oracles.accounting.types import SECONDS_IN_YEAR
 from src.utils.apr import calculate_gross_core_apr
 
 pytestmark = pytest.mark.unit
@@ -88,7 +88,7 @@ class TestCalculateStethAprRay:
     def test_large_numbers_precision(self):
         """Test APR calculation with high precision values."""
         apr = calculate_gross_core_apr(
-            post_internal_ether=10**27 + 5 * 10**25,  # increased на 5%
+            post_internal_ether=10**27 + 5 * 10**25,  # increased by 5%
             post_internal_shares=10**27,
             shares_minted_as_fees=0,
             pre_total_ether=10**27,

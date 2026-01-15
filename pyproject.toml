@@ -30,6 +30,12 @@ oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = 
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
 dag-cbor="^0.3.3"
+fastapi = "^0.121.3"
+uvicorn = "^0.38.0"
+gunicorn = "^21.2.0"
+sqlmodel = "^0.0.27"
+psycopg2-binary = "^2.9.11"
+prometheus-fastapi-instrumentator = "^7.1.0"
 
 [tool.poetry.group.dev.dependencies]
 base58 = "^2.1.1"
@@ -53,6 +59,7 @@ pre-commit = "3.8"
 ipython = "^9.0"
 isort = "^6.0.1"
 conventional-pre-commit = "^4.0.0"
+types-gunicorn = "^23.0.0.20251031"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

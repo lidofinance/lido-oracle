@@ -3,7 +3,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import Wei, BlockIdentifier
 
-from src.modules.accounting.types import BatchState, WithdrawalRequestStatus
+from src.modules.oracles.accounting.types import BatchState, WithdrawalRequestStatus
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 

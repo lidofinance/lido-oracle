@@ -5,7 +5,7 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src import variables
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     OnChainIpfsVaultReportData,
     ValidatorStage,
     VaultInfo,

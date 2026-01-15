@@ -12,10 +12,14 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     EFFECTIVE_BALANCE_INCREMENT,
 )
-from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
-from src.modules.csm.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, State, NetworkDuties, Frame
-from src.modules.csm.types import StrikesList
+from src.modules.oracles.staking_modules.common.distribution import (
+    Distribution,
+    ValidatorDuties,
+    ValidatorDutiesOutcome,
+)
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State, NetworkDuties, Frame
+from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
@@ -26,7 +30,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
-from src.web3py.extensions import CSM
+from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
@@ -297,11 +301,13 @@ def test_calculate_distribution(
     expected_strikes,
 ):
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
-    w3.csm.get_curve_params = mocked_curve_params
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
+    w3.staking_module.get_curve_params = mocked_curve_params
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {f: {} for f in frames}
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
@@ -323,11 +329,13 @@ def test_calculate_distribution(
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    w3.csm.get_curve_params = Mock(...)
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
+    w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -351,11 +359,13 @@ def test_calculate_distribution_handles_invalid_distribution():
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    w3.csm.get_curve_params = Mock(...)
+    w3 = Mock(
+        spec=Web3, staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract))
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
+    w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -835,11 +845,11 @@ def test_calculate_distribution_in_frame(
 ):
     log = FramePerfLog(blockstamp=..., frame=...)
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM))
-    w3.csm.get_curve_params = mocked_curve_params
+    w3 = Mock(spec=Web3, staking_module=Mock(spec=StakingModuleContracts))
+    w3.staking_module.get_curve_params = mocked_curve_params
 
     frame = (EpochNumber(0), EpochNumber(31))
-    state = State()
+    state = State(oracle_name='test')
     state.migrate(*frame, epochs_per_frame=32)
     state.data = {frame: frame_state_data}
 
@@ -1120,7 +1130,7 @@ def test_merge_strikes(
     expected: dict,
 ):
     distribution = Distribution(Mock(csm=Mock()), Mock(), Mock())
-    distribution.w3.csm.get_curve_params = Mock(
+    distribution.w3.staking_module.get_curve_params = Mock(
         side_effect=lambda no_id, _: Mock(strikes_params=threshold_per_op[no_id])
     )
 
@@ -1271,10 +1281,10 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
 
 @pytest.mark.unit
 def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
-    w3 = Mock(spec=Web3, csm=Mock())
+    w3 = Mock(spec=Web3, staking_module=Mock())
     reward_share_data = Mock()
     reward_share_data.get_for = Mock(side_effect=lambda k: {1: 1.0, 2: 0.9, 3: 0.8, 4: 0.7, 5: 0.6, 6: 0.5}[k])
-    w3.csm.get_curve_params = Mock(
+    w3.staking_module.get_curve_params = Mock(
         return_value=CurveParams(
             strikes_params=...,
             perf_leeway_data=Mock(get_for=Mock(return_value=0.0)),
@@ -1283,7 +1293,7 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
         )
     )
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_network_performance = Mock(return_value=0.9)
 
     frame = (EpochNumber(0), EpochNumber(31))

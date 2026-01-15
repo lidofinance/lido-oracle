@@ -1,7 +1,6 @@
 from packaging.version import Version
 
 from src.types import Gwei
-
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2**64 - 1
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
@@ -33,6 +32,7 @@ MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#sync-committee
+SYNC_COMMITTEE_SIZE = 512
 EPOCHS_PER_SYNC_COMMITTEE_PERIOD = 256
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
 DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
@@ -49,7 +49,7 @@ PRECISION_E27 = 27
 SHARE_RATE_PRECISION_E27 = 10**PRECISION_E27
 TOTAL_BASIS_POINTS = 10000
 
-# Lido CSM constants for network performance calculation
+# Lido Staking Module constants for network performance calculation
 ATTESTATIONS_WEIGHT = 54
 BLOCKS_WEIGHT = 8
 SYNC_WEIGHT = 2
@@ -61,7 +61,7 @@ UINT64_MAX = 2**64 - 1
 UINT256_MAX = 2**256 - 1
 
 ALLOWED_KAPI_VERSION = Version('1.5.0')
-CSM_STATE_VERSION = 1
-CSM_LOGS_VERSION = 1
+STAKING_MODULE_STATE_VERSION = 1
+STAKING_MODULE_LOGS_VERSION = 1
 
 GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits

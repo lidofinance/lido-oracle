@@ -14,11 +14,11 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import Ejector, logger as ejector_logger
-from src.modules.ejector.types import EjectorProcessingState
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, CurrentFrame
+from src.modules.oracles.ejector import ejector as ejector_module
+from src.modules.oracles.ejector.ejector import Ejector, logger as ejector_logger
+from src.modules.oracles.ejector.types import EjectorProcessingState
+from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
+from src.modules.common.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
