@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "7.0.0-beta.0"
+version = "7.0.0"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports consensus layer states (the number of visible validators and their summarized balances) to the Lido dApp contracts running on execution layer."
 authors = [
     "Dmitry Chernukhin",
@@ -13,6 +13,7 @@ authors = [
     "Sergey Khomutinin",
     "Smelov Vladimir",
     "Vladimir Gorkavenko",
+    "Yuri Tkachenko",
 ]
 license = "GPL 3.0"
 
@@ -30,6 +31,7 @@ oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = 
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
 dag-cbor="^0.3.3"
+ipld-dag-pb = "^0.0.1"
 fastapi = "^0.121.3"
 uvicorn = "^0.38.0"
 gunicorn = "^21.2.0"

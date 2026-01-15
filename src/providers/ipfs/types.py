@@ -28,7 +28,12 @@ class FetchError(IPFSError):
 
 
 class UploadError(IPFSError):
-    pass
+    def __str__(self) -> str:
+        if self.args:
+            return super().__str__()
+        if self.__cause__ is not None:
+            return str(self.__cause__)
+        return super().__str__()
 
 
 class CIDValidationError(IPFSError):

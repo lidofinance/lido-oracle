@@ -6,6 +6,7 @@ import requests
 
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
+from ...utils.version import get_oracle_version
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,10 @@ class LidoIPFS(IPFSProvider):
         self.timeout = timeout
 
     def _get_headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}"}
+        return {
+            "Authorization": f"Bearer {self.token}",
+            "User-Agent": f"Lido-Oracle/v{get_oracle_version()}"
+        }
 
     def _fetch(self, cid: CID) -> bytes:
         """Fetch content by CID from Lido IPFS node.

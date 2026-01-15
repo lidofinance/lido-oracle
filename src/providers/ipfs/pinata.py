@@ -73,7 +73,7 @@ class Pinata(IPFSProvider):
         url = urljoin(self.API_ENDPOINT, '/pinning/pinFileToIPFS')
         try:
             with self.session as s:
-                resp = s.post(url, files={"file": content})
+                resp = s.post(url, files={"file": content}, timeout=self.timeout)
                 resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})

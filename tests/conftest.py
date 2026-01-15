@@ -13,15 +13,15 @@ from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    ConsensusClientModule,
     IPFS,
+    ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from src.web3py.extensions import FallbackProviderModule
 
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
