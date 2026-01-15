@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_REV }}
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
