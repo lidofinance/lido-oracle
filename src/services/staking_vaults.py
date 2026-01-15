@@ -49,6 +49,7 @@ from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
+from src.utils.block import get_block_timestamps
 from src.utils.slot import get_blockstamp
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
@@ -511,22 +512,6 @@ class StakingVaultsService:
         """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
         return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
 
-    def _get_block_timestamps(self, block_numbers: set[BlockNumber]) -> dict[BlockNumber, int]:
-        """
-        Fetch execution block timestamps for unique event block numbers.
-
-        This may issue one RPC call per unique block number, so keep the input set minimal.
-        We only need timestamps for blocks that contain vault events because event ordering
-        and fee intervals are computed in seconds, not block deltas.
-        """
-        if not block_numbers:
-            return {}
-
-        timestamps: dict[BlockNumber, int] = {}
-        for block_number in block_numbers:
-            timestamps[block_number] = int(self.w3.eth.get_block(block_number)["timestamp"])
-        return timestamps
-
     @staticmethod
     def _calculate_liquidity_fee_by_events(
         vault_address: str,
@@ -581,7 +566,7 @@ class StakingVaultsService:
 
         # We iterate through events backwards, calculating liquidity fee for each interval based
         # on the `liability_shares` and the elapsed time between events.
-        # Sort by (block_timestamp, log_index) in reverse order to process events backwards in time.
+        # Sort by (block_number, log_index) in reverse order to process events backwards in time.
         vault_events.sort(key=lambda e: (e.block_number, e.log_index), reverse=True)
 
         for event in vault_events:
@@ -857,7 +842,7 @@ class StakingVaultsService:
         out: VaultFeeMap = {}
 
         event_block_numbers = {event.block_number for vault_events in events.values() for event in vault_events}
-        block_timestamps = self._get_block_timestamps(event_block_numbers)
+        block_timestamps = get_block_timestamps(self.w3, event_block_numbers, chain_config.seconds_per_slot)
 
         for vault_address, vault_info in vaults.items():
             ## If the vault was disconnected and then reconnected between reports,

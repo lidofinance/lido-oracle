@@ -1,5 +1,5 @@
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_typing import BlockNumber
@@ -376,26 +376,27 @@ class TestGetVaultsFees:
 
         service = StakingVaultsService(w3_mock)
         service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
-        service._get_block_timestamps = MagicMock(
-            return_value={BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT}
-        )
 
         blockstamp = MagicMock()
         blockstamp.block_number = 11
         blockstamp.ref_slot = SlotNumber(110)
 
-        fees = service.get_vaults_fees(
-            blockstamp=blockstamp,
-            vaults={vault_adr: vault},
-            vaults_total_values={vault_adr: 0},
-            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
-            core_apr_ratio=Decimal(1),
-            pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
-            pre_total_shares=1,
-            frame_config=MagicMock(),
-            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
-            current_frame=FrameNumber(0),
-        )
+        with patch(
+            "src.services.staking_vaults.get_block_timestamps",
+            return_value={BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT},
+        ):
+            fees = service.get_vaults_fees(
+                blockstamp=blockstamp,
+                vaults={vault_adr: vault},
+                vaults_total_values={vault_adr: 0},
+                latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+                core_apr_ratio=Decimal(1),
+                pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
+                pre_total_shares=1,
+                frame_config=MagicMock(),
+                chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+                current_frame=FrameNumber(0),
+            )
 
         # Event timestamp is the block timestamp directly
         event_timestamp = 102 * FeeTestConstants.SECONDS_PER_SLOT
@@ -464,29 +465,30 @@ class TestGetVaultsFees:
 
         service = StakingVaultsService(w3_mock)
         service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
-        service._get_block_timestamps = MagicMock(
-            return_value={
-                BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT,
-                BlockNumber(20): 108 * FeeTestConstants.SECONDS_PER_SLOT,
-            }
-        )
 
         blockstamp = MagicMock()
         blockstamp.block_number = 21
         blockstamp.ref_slot = SlotNumber(110)
 
-        fees = service.get_vaults_fees(
-            blockstamp=blockstamp,
-            vaults={vault_adr: vault},
-            vaults_total_values={vault_adr: 0},
-            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
-            core_apr_ratio=Decimal(1),
-            pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
-            pre_total_shares=1,
-            frame_config=MagicMock(),
-            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
-            current_frame=FrameNumber(0),
-        )
+        with patch(
+            "src.services.staking_vaults.get_block_timestamps",
+            return_value={
+                BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT,
+                BlockNumber(20): 108 * FeeTestConstants.SECONDS_PER_SLOT,
+            },
+        ):
+            fees = service.get_vaults_fees(
+                blockstamp=blockstamp,
+                vaults={vault_adr: vault},
+                vaults_total_values={vault_adr: 0},
+                latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
+                core_apr_ratio=Decimal(1),
+                pre_total_pooled_ether=SECONDS_IN_YEAR * TOTAL_BASIS_POINTS,
+                pre_total_shares=1,
+                frame_config=MagicMock(),
+                chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
+                current_frame=FrameNumber(0),
+            )
 
         event_1_timestamp = 102 * FeeTestConstants.SECONDS_PER_SLOT
         event_2_timestamp = 108 * FeeTestConstants.SECONDS_PER_SLOT
