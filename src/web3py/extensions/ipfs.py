@@ -1,7 +1,10 @@
 import logging
 import random
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (  # pylint: disable=no-name-in-module
+    ThreadPoolExecutor,
+    as_completed,
+)
 from dataclasses import asdict, dataclass
 from functools import wraps
 from typing import Iterable

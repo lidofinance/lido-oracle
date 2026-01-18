@@ -5,9 +5,9 @@ ARG POETRY_VERSION=1.3.2
 ARG SOURCE_DATE_EPOCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    libffi-dev=3.4.4-1 \
-    g++=4:12.2.0-3 \
-    curl=7.88.1-10+deb12u14 \
+    libffi-dev=3.4.8-2 \
+    g++=4:14.2.0-1 \
+    curl=8.14.1-2+deb13u2 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /var/cache/* \
@@ -49,8 +49,8 @@ ARG POETRY_VERSION
 RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    git=1:2.39.5-0+deb12u2 \
-    htop=3.2.2-2 \
+    git=1:2.47.3-0+deb13u1 \
+    htop=3.4.1-5 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
