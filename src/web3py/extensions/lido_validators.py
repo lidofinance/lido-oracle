@@ -65,6 +65,8 @@ class StakingModule(FromResponse):
     min_deposit_block_distance: int
     # WC Type
     withdrawal_credentials_type: int
+    # Allocation type
+    allocation_type: AllocationType
 
     def __hash__(self):
         return hash(self.id)
@@ -154,8 +156,6 @@ class LidoValidatorsProvider(Module):
                     lido_id=key,
                     **asdict(validators_keys_dict[key.key]),
                 ))
-            # else:
-            #     not_found_lido_validators.append(key)
 
         return lido_validators
 

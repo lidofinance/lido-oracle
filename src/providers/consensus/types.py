@@ -181,6 +181,7 @@ class PendingDeposit(Nested):
     slot: SlotNumber
 
 
+@dataclass
 class PendingConsolidations:
     source_index: int
     target_index: int

@@ -1,12 +1,14 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import cast
 
 from eth_typing import HexStr
 
 from src.constants import TOTAL_BASIS_POINTS, EPOCHS_PER_DAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.providers.execution.contracts.staking_module import StakingModuleContract
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
@@ -15,7 +17,7 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator,
     StakingModule,
     NodeOperator,
-    NodeOperatorLimitMode,
+    NodeOperatorLimitMode, AllocationType,
 )
 from src.web3py.types import Web3
 
@@ -108,17 +110,42 @@ class ValidatorExitIterator:
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
 
     def _prepare_data_structure(self):
+        self._prepare_module_stats()
+        self._prepare_node_operator_stats()
+        self._prepare_validator_stats()
+
+    def _prepare_module_stats(self):
         modules = self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp.block_hash)
         for module in modules:
             self.module_stats[module.id] = StakingModuleStats(module)
 
-        node_operators = self.w3.lido_validators.get_lido_node_operators(self.blockstamp)
-        for node_operator in node_operators:
-            self.node_operators_stats[(node_operator.staking_module.id, node_operator.id)] = NodeOperatorStats(
-                node_operator,
-                self.module_stats[node_operator.staking_module.id],
-            )
+    def _prepare_node_operator_stats(self):
+        sm_node_operators = self.w3.lido_validators.get_lido_node_operators_by_modules(self.blockstamp)
+        for staking_module, node_operators in sm_node_operators.items():
+            for node_operator in node_operators:
+                self.node_operators_stats[(node_operator.staking_module.id, node_operator.id)] = NodeOperatorStats(
+                    node_operator,
+                    self.module_stats[node_operator.staking_module.id],
+                )
 
+            sm = self.module_stats[staking_module].staking_module
+            if sm.allocation_type == AllocationType.DYNAMIC:
+                sm_contract = cast(
+                    StakingModuleContract,
+                    self.w3.eth.contract(
+                        address=sm.staking_module_address,
+                        ContractFactoryClass=StakingModuleContract,
+                        decode_tuples=True,
+                    ),
+                )
+
+                sm_no_id_list = [no.id for no in node_operators]
+
+                weights = sm_contract.get_node_operator_weight(sm_no_id_list, self.blockstamp.block_hash)
+                for index, no_id in enumerate(sm_no_id_list):
+                    self.node_operators_stats[(sm.id, no_id)].weight = weights[index]
+
+    def _prepare_validator_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         for gid, validators_list in lido_validators.items():
             self.exitable_validators[gid] = list(filter(self.get_can_request_exit_predicate(gid), validators_list))
@@ -156,7 +183,7 @@ class ValidatorExitIterator:
             # Calculate predictable effective balance by each NO
             for v in validators:
                 # --- Calculate predictable effective balance ---
-                validator_pending_deposits_balance = sum(pd.amount for pd in pending_deposits_by_pubkey[v.pubkey])
+                validator_pending_deposits_balance = sum(pd.amount for pd in pending_deposits_by_pubkey[v.validator.pubkey])
                 # No double accounting of consolidations because each source validator can only have one valid consolidation request
                 # Revise this if consolidations are allowed to be sent to multiple targets
                 validator_pending_consolidations_balance = sum(get_validator_balance_by_index(lido_validators, pc.source_index) for pc in pending_consolidations_by_target_index[v.index])
@@ -175,7 +202,7 @@ class ValidatorExitIterator:
         lido_keys: dict[HexStr, LidoKey] = {key.key: key for key in self.w3.kac.get_used_lido_keys(self.blockstamp)}
         validator_pubkeys: list[HexStr] = [v.validator.pubkey for v in self.w3.cc.get_validators(self.blockstamp)]
         staking_modules = {
-            sm.address: sm.id
+            sm.staking_module_address: sm.id
             for sm in self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp)
         }
 
@@ -294,10 +321,16 @@ class ValidatorExitIterator:
 
     def _max_share_rate_coefficient_predicate(self, node_operator: NodeOperatorStats) -> float:
         """
-        The higher coefficient the higher priority to eject validator
-        """
-        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
+        The higher coefficient the higher priority to eject validator.
 
+        if  0 <  result     - node operator has excess balance.
+        if -1 <= result < 0 - node operators has ok balance.
+        if -2 == result     - node operator has no balance.
+        """
+        if node_operator.module_stats.predictable_balance == 0:
+            return -2
+
+        max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
         max_module_predictable_balance = int(max_share_rate * self.total_lido_predictable_balance)
 
         if node_operator.module_stats.predictable_balance > max_module_predictable_balance:
@@ -305,7 +338,8 @@ class ValidatorExitIterator:
 
         return - 1 / node_operator.module_stats.predictable_balance
 
-    def _no_weight_predicate(self, node_operator: NodeOperatorStats) -> float:
+    @staticmethod
+    def _no_weight_predicate(node_operator: NodeOperatorStats) -> float:
         if node_operator.predictable_balance == 0:
             return 0
 
@@ -323,39 +357,3 @@ class ValidatorExitIterator:
             first_val_index = validators[0].index
 
         return first_val_index
-
-    def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        """
-        Returns a list of validators from NOs that are requested for forced exit.
-        This includes an additional scenario where enough validators have been ejected to fulfill the withdrawal requests,
-        but forced ejections are still necessary.
-        """
-        result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
-
-        # Extra validators limited by a VEBO report
-        while self.index < self.report_size:
-            for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
-                if self._no_force_predicate(no_stats) == 0:
-                    # The current and all further NOs in the list have no forced validators to exit. Cycle done
-                    return result
-
-                gid = (
-                    no_stats.node_operator.staking_module.id,
-                    no_stats.node_operator.id,
-                )
-
-                if self.exitable_validators[gid]:
-                    # When found Node Operator
-                    self.index += 1
-                    result.append((gid, self._eject_validator(gid)))
-                    break
-            else:
-                break
-
-        return result
-
-    def no_remaining_forced_predicate(self, no: NodeOperatorStats) -> tuple:
-        return (
-            -self._no_force_predicate(no),
-            self._lowest_validator_index_predicate(no),
-        )

@@ -151,11 +151,6 @@ class Ejector(BaseModule, ConsensusModule):
             'validators_to_eject_count': len(validators_to_eject),
         })
 
-        forced_validators = validators_iterator.get_remaining_forced_validators()
-        if forced_validators:
-            logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
-            validators_to_eject.extend(forced_validators)
-
         return validators_to_eject
 
     def _get_total_expected_balance(self, vals_to_exit: list[Validator], blockstamp: ReferenceBlockStamp) -> Wei:
@@ -223,12 +218,12 @@ class Ejector(BaseModule, ConsensusModule):
         )
 
     def _get_total_top_ups(self, validators: list[LidoValidator], blockstamp: BlockStamp) -> Wei:
+        validator_pubkeys = {validator.validator.pubkey for validator in validators}
         top_ups_sum = Gwei(0)
 
         for deposit in self.w3.cc.get_pending_deposits(blockstamp):
-            for validator in validators:
-                if deposit.pubkey == validator.pubkey:
-                    top_ups_sum += deposit.amount
+            if deposit.pubkey in validator_pubkeys:
+                top_ups_sum += deposit.amount
 
         return gwei_to_wei(top_ups_sum)
 
