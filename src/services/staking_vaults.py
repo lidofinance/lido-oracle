@@ -9,8 +9,10 @@ from eth_typing import BlockNumber
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import BlockIdentifier, Wei
 
+from src import variables
 from src.constants import (
     MIN_DEPOSIT_AMOUNT,
+    SLOTS_PER_YEAR,
     TOTAL_BASIS_POINTS,
 )
 from src.modules.accounting.events import (
@@ -25,7 +27,6 @@ from src.modules.accounting.events import (
     sort_events,
 )
 from src.modules.accounting.types import (
-    BLOCKS_PER_YEAR,
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -77,55 +78,57 @@ class StakingVaultsService:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
 
-        A validator is included in the TV calculation if EITHER of the following conditions is true:
+        1. For each validator, if activation_eligibility_epoch != FAR_FUTURE_EPOCH
+            TV += validator.balance + pending_deposits
 
-        1. It has already passed activation eligibility: validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
-            - add full balance + pending deposits are added to TV, as the validator is for sure will be activated
-        2. If not-yet-eligible, then validator is checked over the registered PDG validator stages:
-            - PREDEPOSITED: add 1 ETH to TV, as only the predeposit is counted and not the validator balance
-            - ACTIVATED: count as `already passed activation`, thus add full balance + pending deposits to TV
-            - all other stages are skipped as not related to the non-eligible for activation validators
+        2. For each validator, if activation_eligibility_epoch == FAR_FUTURE_EPOCH
+            TV += (depending on PDG stage)
 
-        NB: In the PDG validator proving flow, a validator initially receives 1 ETH on the consensus layer as a
-            predeposit. After the proof is submitted, an additional 31 ETH immediately appears on the consensus layer
-            as a pending deposit. If we ignore these pending deposits, vault's TV would appear to drop by 32 ETH
-            until the pending deposit is finalized and the validator is activated. To avoid this misleading drop,
-            the calculation of a validator's total balance must include all pending deposits, but only for those
-            validators that passed PDG flow. All side-deposited validators will appear in the TV as soon as the
-            validator becomes eligible for activation.
+        ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+        │ PDG STAGE          │  NONE  │  PREDEPOSITED  │     PROVEN     │    ACTIVATED    │   COMPENSATED │
+        │ ───────────────────┼────────┼────────────────┼────────────────┼─────────────────┼────────────── │
+        │ TV CONTRIBUTION    │   0    │     1 ETH      │       0        │  balance + pend │      0        │
+        └─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+        3. For each pending deposit, if pubkey is not associated with any validator
+            TV += 1 ETH if PDG stage is PREDEPOSITED (only once per pubkey, to avoid double-counting)
+
+           * pending deposits can't be ACTIVATED on PDG, as activation happens only for created validators.
+
+        NB: In the PDG validator proving process, a validator initially receives 1 ETH on the consensus layer as a
+            predeposit (PREDEPOSITED). Once the proof is submitted, an additional 31 ETH immediately shows up on the
+            consensus layer as a pending deposit (ACTIVATED). Ignoring these pending deposits would make the vault's TV
+            appear to decrease by 32 ETH until the deposit is finalized and the validator is activated. To prevent this
+            misleading drop, the TV calculation should include all pending deposits, but only for validators that have
+            passed the PDG flow. All validators with side-deposits will be reflected in the TV as soon as they are
+            eligible for activation.
         """
         validators_by_vault = self._get_validators_by_vault(validators, vaults)
         total_pending_amount_by_pubkey = self._get_total_pending_amount_by_pubkey(pending_deposits)
-        inactive_validator_statuses = self._get_non_activated_validator_stages(validators, vaults, block_identifier)
+
+        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
+
+        non_eligible_pubkeys = self._get_non_eligible_for_activation_validators_pubkeys(validators, vault_wcs)
+        validator_statuses_by_vault = self._get_pubkey_statuses_by_vault(
+            pubkeys=non_eligible_pubkeys,
+            block_identifier=block_identifier,
+        )
+
+        unmatched_pubkeys = self._get_unmatched_deposits_pubkeys(validators, pending_deposits, vault_wcs)
+        unmatched_pending_deposits_statuses_by_vault = self._get_pubkey_statuses_by_vault(
+            pubkeys=unmatched_pubkeys,
+            block_identifier=block_identifier,
+        )
 
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
-            vault_total: int = int(vault.aggregated_balance)
-
-            for validator in validators_by_vault.get(vault_address, []):
-                validator_pubkey = validator.pubkey.to_0x_hex()
-                validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
-                total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
-
-                # Include validator balance and all pending deposits in TV when validator is eligible for activation or
-                # has already passed activation
-                if not has_far_future_activation_eligibility_epoch(validator.validator):
-                    vault_total += int(total_validator_balance)
-
-                # For not-yet-eligible validators, use PDG stages:
-                # - PREDEPOSITED: add 1 ETH (guaranteed)
-                # - ACTIVATED: add full balance + pending deposits
-                # All other stages are skipped as not related to the non-eligible for activation validators
-                else:
-                    status = inactive_validator_statuses.get(validator_pubkey)
-                    # Skip if validator pubkey in PDG is not associated with the current vault
-                    if status is None or status.staking_vault != vault_address:
-                        continue
-
-                    if status.stage == ValidatorStage.PREDEPOSITED:
-                        vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
-                    elif status.stage == ValidatorStage.ACTIVATED:
-                        vault_total += int(total_validator_balance)
+            vault_total = self._calculate_vault_total_value(
+                vault_aggregated_balance=vault.aggregated_balance,
+                vault_validators=validators_by_vault.get(vault_address, []),
+                total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
+                vault_validator_statuses=validator_statuses_by_vault.get(vault_address, {}),
+                vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(vault_address, {}),
+            )
 
             total_values[vault_address] = Wei(vault_total)
             logger.info({
@@ -134,39 +137,6 @@ class StakingVaultsService:
             })
 
         return total_values
-
-    def _get_non_activated_validator_stages(
-        self,
-        validators: list[Validator],
-        vaults: VaultsMap,
-        block_identifier: BlockIdentifier = 'latest',
-    ) -> dict[str, ValidatorStatus]:
-        """
-        Get PDG validator stages for non-activated validators for connected vaults from the lazy oracle.
-        """
-
-        vault_wcs = {v.withdrawal_credentials for v in vaults.values()}
-        pubkeys = [
-            v.pubkey.to_0x_hex()
-            for v in validators
-            if has_far_future_activation_eligibility_epoch(v.validator)
-            and v.validator.withdrawal_credentials in vault_wcs
-        ]
-
-        return self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
-            pubkeys=pubkeys,
-            block_identifier=block_identifier,
-        )
-
-    @staticmethod
-    def _get_total_pending_amount_by_pubkey(
-        pending_deposits: list[PendingDeposit],
-    ) -> dict[str, Gwei]:
-        deposits: defaultdict[str, int] = defaultdict(int)
-        for deposit in pending_deposits:
-            deposits[deposit.pubkey] += int(deposit.amount)
-
-        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
     @staticmethod
     def _get_validators_by_vault(validators: list[Validator], vaults: VaultsMap) -> VaultToValidators:
@@ -183,6 +153,157 @@ class StakingVaultsService:
                 vault_to_validators[vault_info.vault].append(validator)
 
         return vault_to_validators
+
+    @staticmethod
+    def _get_total_pending_amount_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
+        """
+        Calculates the total pending amount for each pubkey.
+        """
+        deposits: defaultdict[str, int] = defaultdict(int)
+        for deposit in pending_deposits:
+            deposits[deposit.pubkey] += int(deposit.amount)
+
+        return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
+
+    @staticmethod
+    def _get_non_eligible_for_activation_validators_pubkeys(validators: list[Validator], vault_wcs: set[str]) -> set[str]:
+        """
+        Get set of pubkeys of non-eligible for activation validators that are associated with the vaults.
+        """
+        return {
+            v.validator.pubkey
+            for v in validators
+            if has_far_future_activation_eligibility_epoch(v.validator)
+               and v.validator.withdrawal_credentials in vault_wcs
+        }
+
+    @staticmethod
+    def _get_unmatched_deposits_pubkeys(
+        validators: list[Validator],
+        pending_deposits: list[PendingDeposit],
+        vault_wcs: set[str]
+    ) -> set[str]:
+        """
+        Get set of pubkeys of pending deposits that are associated with the vaults and do not have matching validator.
+        """
+        all_validator_pubkeys = {v.validator.pubkey for v in validators}
+        return {
+            deposit.pubkey
+            for deposit in pending_deposits
+            if deposit.withdrawal_credentials in vault_wcs and deposit.pubkey not in all_validator_pubkeys
+        }
+
+    def _get_pubkey_statuses_by_vault(
+        self,
+        pubkeys: set[str],
+        block_identifier: BlockIdentifier,
+    ) -> dict[str, dict[str, ValidatorStatus]]:
+        """
+        Fetches validator statuses from the PDG for the given pubkeys.
+        """
+        statuses = self.w3.lido_contracts.lazy_oracle.get_validator_statuses(
+            pubkeys=list(pubkeys),
+            block_identifier=block_identifier,
+            batch_size=variables.VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
+        )
+
+        statuses_by_vault: dict[str, dict[str, ValidatorStatus]] = defaultdict(dict)
+        for pubkey, status in statuses.items():
+            statuses_by_vault[status.staking_vault][pubkey] = status
+
+        return statuses_by_vault
+
+    @staticmethod
+    def _calculate_vault_total_value(
+        vault_aggregated_balance: Wei,
+        vault_validators: list[Validator],
+        total_pending_amount_by_pubkey: dict[str, Gwei],
+        vault_validator_statuses: dict[str, ValidatorStatus],
+        vault_unmatched_pending_deposit_statuses: dict[str, ValidatorStatus],
+    ) -> int:
+        """
+        Calculates total value for a single vault.
+
+        Starting point:
+        ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+        │                               Vault Aggregated Balance (Execution Layer)                                    │
+        │                                 Initial TV = vault.aggregated_balance                                       │
+        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                          │
+                                     Validators and Pending Deposits Contributions
+                                                          │
+                     ┌────────────────────────────────────┼────────────────────────────────────┐
+                     │                                    │                                    │
+                     ▼                                    ▼                                    ▼
+            ┌─────────────────────────┐        ┌─────────────────────────┐        ┌─────────────────────────┐
+            │   ELIGIBLE VALIDATORS   │        │ NON-ELIGIBLE VALIDATORS │        │  UNMATCHED PENDING      │
+            │                         │        │                         │        │  DEPOSITS               │
+            │  activation_elig ≠      │        │  activation_elig =      │        │                         │
+            │  FAR_FUTURE_EPOCH       │        │  FAR_FUTURE_EPOCH       │        │  (pubkey not in any     │
+            │                         │        │                         │        │    vault validator)     │
+            └─────────────────────────┘        └─────────────────────────┘        └─────────────────────────┘
+                     │                                    │                                    │
+                     │                                    │                                    │
+                     ▼                                    ▼                                    ▼
+            ┌─────────────────────────┐        ┌─────────────────────────┐        ┌─────────────────────────┐
+            │  Add FULL value:        │        │  Check PDG Stage:       │        │  Check PDG Stage:       │
+            │                         │        │                         │        │                         │
+            │  TV += balance +        │        │  • PREDEPOSITED         │        │  • PREDEPOSITED         │
+            │        pendings         │        │    TV += 1 ETH          │        │    TV += 1 ETH          │
+            │                         │        │          (guaranteed)   │        │          (guaranteed)   │
+            └─────────────────────────┘        │                         │        │                         │
+                                               │  • ACTIVATED            │        │  • Other stages         │
+                                               │    TV += balance +      │        │    └─► Skip             │
+                                               │          pendings       │        │                         │
+                                               │                         │        └─────────────────────────┘
+                                               │  • Other stages         │
+                                               │    └─► Skip             │
+                                               └─────────────────────────┘
+                      │                                    │                                    │
+                      └────────────────────────────────────┼────────────────────────────────────┘
+                                                           │
+                                                           ▼
+                                        ┌───────────────────────────────────────┐
+                                        │    FINAL VAULT TOTAL VALUE (TV)       │
+                                        └───────────────────────────────────────┘
+
+        """
+        vault_total = int(vault_aggregated_balance)
+
+        for validator in vault_validators:
+            validator_pubkey = validator.validator.pubkey
+            validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
+            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
+
+            # Include validator balance and all pending deposits in TV when validator is eligible for activation or
+            # has already passed activation
+            if not has_far_future_activation_eligibility_epoch(validator.validator):
+                vault_total += int(total_validator_balance)
+
+            # For not-yet-eligible validators, use PDG stages:
+            # - PREDEPOSITED: add 1 ETH (guaranteed)
+            # - ACTIVATED: add full balance + pending deposits
+            # All other stages are skipped as not related to the non-eligible for activation validators
+            else:
+                status = vault_validator_statuses.get(validator_pubkey)
+                # Skip if validator pubkey not found in PDG
+                if status is None:
+                    continue
+
+                if status.stage == ValidatorStage.PREDEPOSITED:
+                    vault_total += int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+                elif status.stage == ValidatorStage.ACTIVATED:
+                    vault_total += int(total_validator_balance)
+
+        # Only sum 1 ETH for unmatched pending deposits in PREDEPOSITED stage
+        num_predeposited = sum(
+            status.stage == ValidatorStage.PREDEPOSITED
+            for status in vault_unmatched_pending_deposit_statuses.values()
+        )
+
+        vault_total += num_predeposited * int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+
+        return vault_total
 
     def get_vaults_slashing_reserve(
         self, bs: ReferenceBlockStamp, vaults: VaultsMap, validators: list[Validator], chain_config: ChainConfig
@@ -380,7 +501,7 @@ class StakingVaultsService:
             * Decimal(block_elapsed)
             * core_apr_ratio
             * Decimal(fee_bp)
-            / Decimal(BLOCKS_PER_YEAR * TOTAL_BASIS_POINTS)
+            / Decimal(SLOTS_PER_YEAR * TOTAL_BASIS_POINTS)
         )
 
     @staticmethod

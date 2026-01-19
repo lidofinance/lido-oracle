@@ -152,7 +152,7 @@ class ValidatorExitIterator:
             self.exitable_validators[gid].sort(key=lambda val: val.index)
 
     def _calculate_lido_stats(self):
-        # Calculate currents stats on CL
+        # Calculate current stats on CL
         self._calculate_lido_cl_stats()
         # Calculate all new validators coming, but not yet on CL
         self._calculate_lido_predictable_stats()

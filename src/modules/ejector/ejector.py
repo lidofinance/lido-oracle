@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 class Ejector(BaseModule, ConsensusModule):
     """
-    The module that requests Lido validators exists so that unfinalized Withdrawal Requests (WR) are closed as quickly as possible,
+    The module that requests that Lido validators exit so that unfinalized Withdrawal Requests (WR) are closed as quickly as possible,
     without triggering unnecessary additional withdrawals.
 
     Flow:

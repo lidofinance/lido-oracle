@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from src.modules.accounting.types import SECONDS_IN_YEAR
+from src.constants import SECONDS_IN_YEAR
 from src.utils.apr import calculate_gross_core_apr
 
 pytestmark = pytest.mark.unit
@@ -149,9 +149,6 @@ class TestCalculateStethAprRay:
         )
 
         assert apr == Decimal("0.001") * Decimal(SECONDS_IN_YEAR) / Decimal("3600")
-
-    import pytest
-    from decimal import Decimal
 
     @pytest.mark.parametrize(
         "pre_ether, post_ether, expected_apr",

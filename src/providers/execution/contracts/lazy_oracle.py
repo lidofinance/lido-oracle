@@ -109,7 +109,7 @@ class LazyOracleContract(ContractInterface):
     def get_validator_statuses(
         self,
         pubkeys: list[str],
-        batch_size: int = variables.VAULT_VALIDATOR_STAGES_BATCH_SIZE,
+        batch_size: int,
         block_identifier: BlockIdentifier = 'latest',
     ) -> dict[str, ValidatorStatus]:
         """
