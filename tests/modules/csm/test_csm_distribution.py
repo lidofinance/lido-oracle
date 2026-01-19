@@ -540,6 +540,105 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 },
             ),
         ),
+        # Leeway of 1.0 disables strikes regardless of performance
+        (
+            100,
+            {
+                (..., NodeOperatorId(1)): [
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(1),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x01", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(2),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x02", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                ],
+            },
+            NetworkDuties(
+                attestations=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+                proposals=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+                syncs=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+            ),
+            Mock(
+                return_value=CurveParams(
+                    strikes_params=...,
+                    perf_leeway_data=Mock(get_for=Mock(return_value=1)),
+                    reward_share_data=Mock(get_for=Mock(return_value=1)),
+                    perf_coeffs=PerformanceCoefficients(),
+                )
+            ),
+            # Expected:
+            # Distribution map
+            {
+                NodeOperatorId(1): 100,
+            },
+            # Distributed rewards
+            100,
+            # Rebate to protocol
+            0,
+            # Strikes
+            {},
+            FramePerfLog(
+                blockstamp=...,
+                frame=...,
+                distributable=100,
+                distributed_rewards=100,
+                rebate_to_protocol=0,
+                operators={
+                    NodeOperatorId(1): OperatorFrameSummary(
+                        distributed_rewards=100,
+                        performance_coefficients=PerformanceCoefficients(),
+                        validators={
+                            ValidatorIndex(1): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=0.0,
+                                threshold=0.0,
+                                rewards_share=1.0,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=0),
+                                proposal_duty=DutyAccumulator(assigned=10, included=0),
+                                sync_duty=DutyAccumulator(assigned=10, included=0),
+                            ),
+                            ValidatorIndex(2): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=1.0,
+                                threshold=0.0,
+                                rewards_share=1.0,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=10),
+                                proposal_duty=DutyAccumulator(assigned=10, included=10),
+                                sync_duty=DutyAccumulator(assigned=10, included=10),
+                            ),
+                        },
+                    )
+                },
+            ),
+        ),
         #  Mixed. With custom threshold and reward share
         (
             100,
