@@ -89,7 +89,7 @@ class Distribution:
 
             result.strikes = self._process_strikes(result.strikes, strikes_in_frame, frame_blockstamp)
             if not strikes_in_frame:
-                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]. Just shifting current strikes."})
+                logger.info({"msg": f"No strikes in frame [{from_epoch};{to_epoch}]"})
 
             result.total_rewards += distributed_rewards_in_frame
             result.total_rebate += rebate_to_protocol_in_frame
@@ -146,6 +146,8 @@ class Distribution:
         frame_strikes: dict[StrikesValidator, int] = {}
 
         network_perf = self._get_network_performance(frame)
+
+        logger.info({"msg": f"Network performance in {frame=}: {network_perf=}"})
 
         for (_, no_id), validators in operators_to_validators.items():
             active_validators = [v for v in validators if self.state.data[frame].attestations[v.index].assigned > 0]
@@ -246,7 +248,7 @@ class Distribution:
         if duties.sync:
             log_validator.sync_duty = duties.sync
 
-        if performance > threshold:
+        if performance >= threshold:
             #
             #  - Count of assigned attestations used as a metrics of time the validator was active in the current frame.
             #  - Reward share is a share of the operator's reward the validator should get, and

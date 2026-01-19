@@ -930,6 +930,17 @@ def test_get_network_performance_raises_error_for_invalid_performance():
         ),
         (
             ValidatorDuties(
+                attestation=DutyAccumulator(assigned=10, included=5),
+                proposal=DutyAccumulator(assigned=10, included=5),
+                sync=DutyAccumulator(assigned=10, included=5),
+            ),
+            False,
+            0.5,
+            1,
+            ValidatorDutiesOutcome(participation_share=10 * 32, rebate_share=0, strikes=0),
+        ),
+        (
+            ValidatorDuties(
                 attestation=DutyAccumulator(assigned=10, included=10),
                 proposal=DutyAccumulator(assigned=10, included=10),
                 sync=DutyAccumulator(assigned=10, included=10),
