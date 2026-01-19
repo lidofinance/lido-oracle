@@ -20,9 +20,9 @@ repos:
         language: system
         types: [python]
         stages: [pre-commit]
-      - id: mypy
-        name: mypy
-        entry: poetry run mypy
+      - id: pyright
+        name: pyright
+        entry: poetry run pyright
         language: system
         types: [python]
         files: '^(src)/'

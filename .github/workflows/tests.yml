@@ -79,5 +79,5 @@ jobs:
       - name: Lint with pylint
         run: poetry run pylint src tests
 
-      - name: Lint mypy
-        run: poetry run mypy src
+      - name: Lint with pyright
+        run: poetry run pyright src

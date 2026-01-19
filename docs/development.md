@@ -75,7 +75,7 @@ Used the following tools:
 
 - [black](https://github.com/psf/black)
 - [pylint](https://github.com/pylint-dev/pylint/)
-- [mypy](https://github.com/python/mypy/)
+- [pyright](https://github.com/microsoft/pyright/)
   See the [configuration](pyproject.toml) for details for each linter.
 
 Make sure that your code is formatted correctly and passes all checks:
@@ -89,7 +89,7 @@ make lint
 ```bash
 black tests
 pylint src tests
-mypy src
+pyright src
 ```
 
 ## Tests

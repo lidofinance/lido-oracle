@@ -26,10 +26,10 @@ BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
-type Shares = NewType('Shares', int)
-type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
-type VaultsTreeCid = NewType('VaultsTreeCid', str)
-type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
+Shares = NewType('Shares', int)
+VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
+VaultsTreeCid = NewType('VaultsTreeCid', str)
+VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
 
 FinalizationShareRate = NewType('FinalizationShareRate', int)
 

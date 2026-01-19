@@ -180,7 +180,7 @@ class ConsensusClient(HTTPProvider):
                 )
             else:
                 raise error
-        return SyncCommittee.from_response(**data)
+        return SyncCommittee.from_response(**data)  # type: ignore[arg-type]
 
     @list_of_dataclasses(ProposerDuties.from_response)
     def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
