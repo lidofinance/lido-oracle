@@ -122,11 +122,11 @@ class Ejector(BaseModule, ConsensusModule):
 
         expected_balance = self._get_total_expected_balance([], blockstamp)
 
-        chain_config = self.get_chain_config(blockstamp)
         validators_iterator = iter(ValidatorExitIterator(
             w3=self.w3,
             blockstamp=blockstamp,
-            chain_config=chain_config,
+            chain_config=self.get_chain_config(blockstamp),
+            frame_config=self.get_frame_config(blockstamp),
         ))
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []

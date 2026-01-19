@@ -1,3 +1,4 @@
+# pylint: disable=R0801
 import logging
 
 from web3.types import BlockIdentifier

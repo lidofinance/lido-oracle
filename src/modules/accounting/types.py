@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import NewType, Self
+from typing import NewType
 
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
@@ -102,7 +102,7 @@ class AccountingProcessingState:
 
 @dataclass
 class OracleReportLimits:
-    exit_balance_per_day_limit: int
+    exit_balance_per_day_limit_in_gwei: Gwei
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int

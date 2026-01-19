@@ -77,6 +77,13 @@ class ValidatorExitIterator:
     | V       |                                                                       | Highest rate weight to effective balance              |                        |
     | V       |                                                                       |                                                       | Lowest validator index |
     """
+    max_current_exit_balance: Gwei
+    max_balance_limit_per_frame: Gwei
+    total_lido_predictable_balance: Gwei
+    module_stats: dict[StakingModuleId, StakingModuleStats]
+    node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
+    exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+
     def __init__(
         self,
         w3: Web3,
@@ -93,9 +100,8 @@ class ValidatorExitIterator:
     # --- Iterator initialization ---
     @duration_meter()
     def __iter__(self) -> 'ValidatorExitIterator':
-        self.index = 0
         # Sum of all max effective balances for validators going to exit. Required to make sure we pass a sanity check.
-        self._max_exit_balance = 0
+        self.max_current_exit_balance = 0
 
         self._reset_iterator_data()
         self._prepare_data_structure()
@@ -223,7 +229,7 @@ class ValidatorExitIterator:
             self.node_operators_stats[gid].predictable_balance += deposit.amount
 
     def _get_report_limits(self):
-        exit_limit_per_day = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash).exit_balance_per_day_limit
+        exit_limit_per_day = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash).exit_balance_per_day_limit_in_gwei
 
         self.max_balance_limit_per_frame = exit_limit_per_day / EPOCHS_PER_DAY * self.frame_config.epochs_per_frame
 
@@ -241,9 +247,9 @@ class ValidatorExitIterator:
                 continue
 
             v: LidoValidator = self._eject_validator(gid)
-            self._max_exit_balance += get_max_effective_balance(v.validator)
+            self.max_current_exit_balance += get_max_effective_balance(v.validator)
 
-            if self._max_exit_balance > self.max_balance_limit_per_frame:
+            if self.max_current_exit_balance > self.max_balance_limit_per_frame:
                 raise StopIteration
 
             return gid, v
