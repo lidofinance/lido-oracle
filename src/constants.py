@@ -64,3 +64,5 @@ ALLOWED_KAPI_VERSION = Version('1.5.0')
 CSM_STATE_VERSION = 1
 
 GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
+
+EPOCHS_PER_DAY = 225

@@ -104,7 +104,7 @@ class AccountingProcessingState:
 
 @dataclass
 class OracleReportLimits:
-    exited_validators_per_day_limit: int
+    exit_balance_per_day_limit: int
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
@@ -116,13 +116,6 @@ class OracleReportLimits:
     initial_slashing_amount_p_wei: int | None = None
     inactivity_penalties_amount_p_wei: int | None = None
     cl_balance_oracles_error_upper_bp_limit: int | None = None
-
-    @classmethod
-    def from_response(cls, **kwargs) -> Self:
-        # Compatability breaking rename. `churn_validators_per_day_limit` was split into:
-        # exited_validators_per_day_limit and appeared_validators_per_day_limit
-        # Unpack structure by order
-        return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
 
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]

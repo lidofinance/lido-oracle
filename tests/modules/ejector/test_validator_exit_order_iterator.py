@@ -133,7 +133,7 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[(1, 1)].predictable_validators == 2
 
     iterator.max_validators_to_exit = 3
-    iterator._load_blockchain_state = Mock()
+    iterator._get_report_limits = Mock()
 
     validators_to_eject = list(iterator)
     assert len(validators_to_eject) == 3

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
 
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
@@ -130,7 +130,7 @@ class BlockMessage(Nested, FromResponse):
 
 @dataclass
 class ValidatorState(Nested, FromResponse):
-    pubkey: str
+    pubkey: HexStr
     withdrawal_credentials: str
     effective_balance: Gwei
     slashed: bool
@@ -174,8 +174,8 @@ class PendingPartialWithdrawal(Nested):
 
 @dataclass
 class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
+    pubkey: HexStr
+    withdrawal_credentials: HexStr
     amount: Gwei
     signature: str
     slot: SlotNumber

@@ -154,6 +154,8 @@ class LidoValidatorsProvider(Module):
                     lido_id=key,
                     **asdict(validators_keys_dict[key.key]),
                 ))
+            # else:
+            #     not_found_lido_validators.append(key)
 
         return lido_validators
 
