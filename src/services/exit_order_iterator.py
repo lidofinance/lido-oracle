@@ -5,7 +5,7 @@ from typing import cast
 
 from eth_typing import HexStr
 
-from src.constants import TOTAL_BASIS_POINTS, EPOCHS_PER_DAY
+from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.execution.contracts.staking_module import StakingModuleContract
@@ -44,14 +44,14 @@ class NodeOperatorStats:
     soft_exit_to: int | None = None
 
 
-def get_validator_balance_by_index(lido_validators, source_index):
+def get_validator_balance_by_index(lido_validators: list[LidoValidator], source_index: int) -> Gwei:
     for validators in lido_validators.values():
         for validator in validators:
             if validator.index == source_index:
                 return validator.balance
 
     # If validator not found it is probably non-lido one. We can ignore it to optimize search
-    return 0
+    return Gwei(0)
 
 
 def get_effective_balance(validator: LidoValidator, incoming_balance: Gwei = Gwei(0)) -> Gwei:
@@ -107,6 +107,7 @@ class ValidatorExitIterator:
         self._prepare_data_structure()
         self._calculate_lido_stats()
         self._get_report_limits()
+
         return self
 
     def _reset_iterator_data(self):
@@ -223,15 +224,13 @@ class ValidatorExitIterator:
 
             gid = (staking_modules[lido_key.moduleAddress].id, lido_key.operatorIndex)
 
-            # Deposit to non-exiting yet Lido validator
+            # Deposit to not-yet-existing Lido validator
             self.total_lido_predictable_balance += deposit.amount
             self.module_stats[gid[0]].predictable_balance += deposit.amount
             self.node_operators_stats[gid].predictable_balance += deposit.amount
 
     def _get_report_limits(self):
-        exit_limit_per_day = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash).exit_balance_per_day_limit_in_gwei
-
-        self.max_balance_limit_per_frame = exit_limit_per_day / EPOCHS_PER_DAY * self.frame_config.epochs_per_frame
+        self.max_balance_limit_per_frame = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash).exit_balance_per_report_limit_in_gwei
 
     # --- Iterator ---
     @duration_meter()
@@ -300,7 +299,7 @@ class ValidatorExitIterator:
             - self._no_force_predicate(node_operator),
             - self._no_soft_predicate(node_operator),
             - self._max_share_rate_coefficient_predicate(node_operator),
-            self._no_weight_predicate(node_operator),
+            - self._no_weight_predicate(node_operator),
             self._lowest_validator_index_predicate(node_operator),
         )
 
@@ -349,7 +348,7 @@ class ValidatorExitIterator:
         if node_operator.predictable_balance == 0:
             return 0
 
-        return node_operator.weight / node_operator.predictable_balance
+        return node_operator.predictable_balance / node_operator.weight
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         validators = self.exitable_validators[(
