@@ -31,8 +31,6 @@ type VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 type VaultsTreeCid = NewType('VaultsTreeCid', str)
 type VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
 
-SECONDS_IN_YEAR = 365 * 24 * 60 * 60
-BLOCKS_PER_YEAR = 2_628_000
 FinalizationShareRate = NewType('FinalizationShareRate', int)
 
 
