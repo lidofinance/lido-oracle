@@ -508,7 +508,7 @@ class StakingVaultsService:
         )
 
     @staticmethod
-    def _apply_event_backward(
+    def _apply_event(
         event: VaultEventType,
         vault_address: str,
         liability_shares: Shares,
@@ -623,13 +623,22 @@ class StakingVaultsService:
 
             # Because we are iterating backward in time, events must be applied in reverse.
             # E.g., a burn reduces shares in the future, so going backward we add them back.
-            liability_shares, liquidity_fee = StakingVaultsService._apply_event_backward(
-                event, vault_address, liability_shares, liquidity_fee
+            liability_shares, liquidity_fee = StakingVaultsService._apply_event(
+                event=event,
+                vault_address=vault_address,
+                liability_shares=liability_shares,
+                liquidity_fee=liquidity_fee,
             )
 
             prev_event_timestamp = event_timestamp
 
         interval_seconds = prev_event_timestamp - prev_ref_slot_timestamp
+        if interval_seconds < 0:
+            raise ValueError(
+                f"Negative event interval for vault {vault_address}. "
+                f"{prev_event_timestamp=} {prev_ref_slot_timestamp=}"
+            )
+
         minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
         vault_liquidity_fee += StakingVaultsService.calc_fee_value(
             minted_steth_on_event, interval_seconds, core_apr_ratio, liquidity_fee
