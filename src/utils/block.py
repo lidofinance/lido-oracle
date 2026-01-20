@@ -1,10 +1,13 @@
-"""Execution layer block utilities."""
-
-from typing import Any
+"""Execution layer block utilities for efficient timestamp fetching."""
 
 from eth_typing import BlockNumber
 from web3 import Web3
-from web3.exceptions import Web3TypeError
+
+# Maximum number of intermediate blocks to batch-fetch at once.
+# When a segment has missed slots and fewer intermediates than this threshold,
+# we batch-fetch them all instead of continuing binary search.
+# Trade-off: higher value = fewer RPC round-trips but more data per call.
+BATCH_FETCH_MAX = 10
 
 
 def get_block_timestamps(
@@ -15,208 +18,92 @@ def get_block_timestamps(
     """
     Fetch execution block timestamps for a set of block numbers.
 
-    Uses batch RPC requests with adaptive anchor strategy to minimize HTTP round-trips:
-    1. Batch fetch anchor points across the block range
-    2. Identify segments with missed slots (timestamp mismatch)
-    3. Recursively narrow down only segments with gaps
-    4. Calculate timestamps arithmetically for gap-free segments
+    Uses a hybrid strategy to minimize RPC round-trips:
+      1) Batch-fetch first and last block timestamps.
+      2) If timestamps match expected difference (no missed slots), calculate
+         all intermediate timestamps arithmetically.
+      3) If segment is small (<= BATCH_FETCH_MAX intermediates), batch-fetch all.
+      4) Otherwise, binary search: fetch median and recurse on both halves.
 
     Performance:
-    - Best case (no missed slots): 1 batch RPC call (2 blocks)
-    - Typical case (1-2 gaps): 2-3 batch RPC calls (~15-20 blocks total)
-    - Worst case: Falls back to fetching all blocks
-
-    Since missed slots are rare (~1-2% of slots), this typically requires
-    only 1-2 HTTP round-trips for any number of blocks.
+      - Best case (no missed slots): 1 batch RPC call (2 blocks)
+      - Small segments with gaps: 1 additional batch call
+      - Large segments with gaps: O(log n) calls to isolate gaps
     """
     if not block_numbers:
         return {}
 
-    sorted_blocks = sorted(block_numbers)
-    timestamps: dict[BlockNumber, int] = {}
-
-    _fill_timestamps_batched(w3, sorted_blocks, seconds_per_slot, timestamps)
-    return timestamps
-
-
-def _fill_timestamps_batched(
-    w3: Web3,
-    blocks: list[BlockNumber],
-    seconds_per_slot: int,
-    timestamps: dict[BlockNumber, int],
-    num_anchors: int = 10,
-) -> None:
-    """Fill timestamps using batch RPC with adaptive anchor strategy."""
-    if not blocks:
-        return
+    blocks = sorted(block_numbers)
 
     if len(blocks) == 1:
-        _fetch_single_block(w3, blocks[0], timestamps)
-        return
+        return {blocks[0]: _get_ts(w3, blocks[0])}
 
-    _fetch_endpoints(w3, blocks, timestamps)
+    # Batch-fetch endpoints, then recursively calculate all timestamps
+    endpoints = _batch_get_ts(w3, [blocks[0], blocks[-1]])
+    first_ts = endpoints[blocks[0]]
+    last_ts = endpoints[blocks[-1]]
 
-    if _try_calculate_all(blocks, timestamps, seconds_per_slot):
-        return
-
-    if len(blocks) == 2:
-        return
-
-    if len(blocks) <= 10 or num_anchors <= 2:
-        _binary_search_fill(w3, blocks, seconds_per_slot, timestamps, num_anchors)
-        return
-
-    _anchor_strategy_fill(w3, blocks, seconds_per_slot, timestamps, num_anchors)
+    timestamps = _calculate_timestamps(w3, blocks, first_ts, last_ts, seconds_per_slot)
+    return dict(zip(blocks, timestamps, strict=True))
 
 
-def _fetch_single_block(
-    w3: Web3, block: BlockNumber, timestamps: dict[BlockNumber, int]
-) -> None:
-    """Fetch timestamp for a single block if not cached."""
-    if block not in timestamps:
-        block_data = w3.eth.get_block(block)
-        timestamps[block] = int(block_data["timestamp"])
+def _get_ts(w3: Web3, block: BlockNumber) -> int:
+    """Fetch timestamp for a single block."""
+    return int(w3.eth.get_block(block)["timestamp"])
 
 
-def _fetch_endpoints(
-    w3: Web3, blocks: list[BlockNumber], timestamps: dict[BlockNumber, int]
-) -> None:
-    """Fetch first and last block timestamps if not cached."""
-    first_block, last_block = blocks[0], blocks[-1]
-    if first_block not in timestamps:
-        block_data = w3.eth.get_block(first_block)
-        timestamps[first_block] = int(block_data["timestamp"])
-    if last_block not in timestamps:
-        block_data = w3.eth.get_block(last_block)
-        timestamps[last_block] = int(block_data["timestamp"])
-
-
-def _try_calculate_all(
-    blocks: list[BlockNumber],
-    timestamps: dict[BlockNumber, int],
-    seconds_per_slot: int,
-) -> bool:
-    """Try to calculate all timestamps if no missed slots. Returns True if successful."""
-    first_block, last_block = blocks[0], blocks[-1]
-    first_ts, last_ts = timestamps[first_block], timestamps[last_block]
-    expected_ts = first_ts + (last_block - first_block) * seconds_per_slot
-
-    if last_ts != expected_ts:
-        return False
-
-    for block in blocks:
-        if block not in timestamps:
-            timestamps[block] = first_ts + (block - first_block) * seconds_per_slot
-    return True
-
-
-def _binary_search_fill(
-    w3: Web3,
-    blocks: list[BlockNumber],
-    seconds_per_slot: int,
-    timestamps: dict[BlockNumber, int],
-    num_anchors: int,
-) -> None:
-    """Fill timestamps using binary search strategy."""
-    mid = len(blocks) // 2
-    _fill_timestamps_batched(w3, blocks[: mid + 1], seconds_per_slot, timestamps, num_anchors)
-    _fill_timestamps_batched(w3, blocks[mid:], seconds_per_slot, timestamps, num_anchors)
-
-
-def _anchor_strategy_fill(
-    w3: Web3,
-    blocks: list[BlockNumber],
-    seconds_per_slot: int,
-    timestamps: dict[BlockNumber, int],
-    num_anchors: int,
-) -> None:
-    """Fill timestamps using anchor point strategy for large ranges."""
-    anchor_indices = _select_anchor_indices(len(blocks), num_anchors)
-    anchor_blocks = [blocks[i] for i in anchor_indices]
-
-    blocks_to_fetch = [b for b in anchor_blocks if b not in timestamps]
-    if blocks_to_fetch:
-        fetched = _batch_fetch_timestamps(w3, blocks_to_fetch)
-        for block, ts in zip(blocks_to_fetch, fetched, strict=True):
-            timestamps[block] = ts
-
-    _process_segments(w3, blocks, anchor_indices, seconds_per_slot, timestamps)
-
-
-def _process_segments(
-    w3: Web3,
-    blocks: list[BlockNumber],
-    anchor_indices: list[int],
-    seconds_per_slot: int,
-    timestamps: dict[BlockNumber, int],
-) -> None:
-    """Process each segment between anchor points."""
-    for i in range(len(anchor_indices) - 1):
-        segment = blocks[anchor_indices[i] : anchor_indices[i + 1] + 1]
-        if len(segment) <= 1:
-            continue
-
-        seg_first, seg_last = segment[0], segment[-1]
-        seg_first_ts, seg_last_ts = timestamps[seg_first], timestamps[seg_last]
-        expected = seg_first_ts + (seg_last - seg_first) * seconds_per_slot
-
-        if seg_last_ts == expected:
-            for block in segment:
-                if block not in timestamps:
-                    timestamps[block] = seg_first_ts + (block - seg_first) * seconds_per_slot
-        else:
-            _fill_timestamps_batched(w3, segment, seconds_per_slot, timestamps, num_anchors=4)
-
-
-def _select_anchor_indices(length: int, num_anchors: int) -> list[int]:
-    """Select anchor indices distributed across the range."""
-    if length <= 2 or num_anchors >= length:
-        return list(range(length))
-
-    step = (length - 1) / (num_anchors - 1)
-    indices = sorted(set(round(i * step) for i in range(num_anchors)))
-
-    if indices[0] != 0:
-        indices.insert(0, 0)
-    if indices[-1] != length - 1:
-        indices.append(length - 1)
-
-    return indices
-
-
-def _batch_fetch_timestamps(w3: Web3, blocks: list[BlockNumber]) -> list[int]:
-    """Fetch multiple block timestamps, using batch RPC if available."""
+def _batch_get_ts(w3: Web3, blocks: list[BlockNumber]) -> dict[BlockNumber, int]:
+    """
+    Batch-fetch timestamps for multiple blocks in one RPC call.
+    Falls back to sequential fetching if batch requests aren't supported.
+    """
     if not blocks:
-        return []
+        return {}
 
-    return _try_batch_fetch(w3, blocks)
-
-
-def _sequential_fetch(w3: Web3, blocks: list[BlockNumber]) -> list[int]:
-    """Fetch block timestamps sequentially."""
-    return [int(w3.eth.get_block(block)["timestamp"]) for block in blocks]
-
-
-def _try_batch_fetch(w3: Web3, blocks: list[BlockNumber]) -> list[int]:
-    """Try batch fetch, fall back to sequential on failure."""
     try:
         with w3.batch_requests() as batch:
-            for block in blocks:
-                batch.add(w3.eth.get_block(block))
-            results: list[Any] = batch.execute()
+            for b in blocks:
+                batch.add(w3.eth.get_block(b))
+            results = batch.execute()
+        return {b: int(r["timestamp"]) for b, r in zip(blocks, results, strict=True)}
+    except Exception:
+        return {b: _get_ts(w3, b) for b in blocks}
 
-        return _parse_batch_results(results, w3, blocks)
-    except (AttributeError, TypeError, KeyError, Web3TypeError):
-        return _sequential_fetch(w3, blocks)
 
-
-def _parse_batch_results(
-    results: list[Any], w3: Web3, blocks: list[BlockNumber]
+def _calculate_timestamps(
+    w3: Web3,
+    blocks: list[BlockNumber],
+    first_ts: int,
+    last_ts: int,
+    seconds_per_slot: int,
 ) -> list[int]:
-    """Parse batch results, falling back to sequential if invalid."""
-    timestamps = []
-    for result in results:
-        if not isinstance(result, dict) or "timestamp" not in result:
-            return _sequential_fetch(w3, blocks)
-        timestamps.append(int(result["timestamp"]))
-    return timestamps
+    """
+    Calculate timestamps for sorted blocks given known endpoint timestamps.
+    Returns list of timestamps in same order as input blocks.
+    """
+    if len(blocks) <= 2:
+        return [first_ts] if len(blocks) == 1 else [first_ts, last_ts]
+
+    # Check for missed slots: if block N is at time T, block N+k should be at T + k*slot_time
+    expected_last_ts = first_ts + (blocks[-1] - blocks[0]) * seconds_per_slot
+    if expected_last_ts == last_ts:
+        # No missed slots: calculate all timestamps arithmetically
+        base = blocks[0]
+        return [first_ts + (b - base) * seconds_per_slot for b in blocks]
+
+    # Missed slot(s) detected
+    intermediates = blocks[1:-1]
+    if len(intermediates) <= BATCH_FETCH_MAX:
+        # Small segment: batch-fetch all intermediate blocks
+        fetched = _batch_get_ts(w3, intermediates)
+        return [first_ts] + [fetched[b] for b in intermediates] + [last_ts]
+
+    # Large segment: binary search - fetch median and recurse on both halves
+    mid = len(blocks) // 2
+    mid_ts = _get_ts(w3, blocks[mid])
+
+    left = _calculate_timestamps(w3, blocks[: mid + 1], first_ts, mid_ts, seconds_per_slot)
+    right = _calculate_timestamps(w3, blocks[mid:], mid_ts, last_ts, seconds_per_slot)
+
+    # Merge: left includes mid, right starts with mid - skip duplicate
+    return left + right[1:]
