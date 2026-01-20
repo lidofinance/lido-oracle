@@ -46,18 +46,19 @@ TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
 
 @pytest.fixture(autouse=True)
 def check_test_marks_compatibility(request):
-    all_test_markers = {x.name for x in request.node.iter_markers()}
+    markers = {x.name for x in request.node.iter_markers()}
 
-    if not all_test_markers or not {UNIT_MARKER, INTEGRATION_MARKER} & all_test_markers:
-        pytest.fail('Test must be marked with at least one marker, e.g. @pytest.mark.unit or @pytest.mark.integration.')
+    has_unit = UNIT_MARKER in markers
+    has_integration = INTEGRATION_MARKER in markers
+    has_integration_mod = bool(markers & INTEGRATION_TESTS_MODIFICATORS_MARKERS)
 
-    elif (
-        UNIT_MARKER in all_test_markers
-        and {INTEGRATION_MARKER}.union(INTEGRATION_TESTS_MODIFICATORS_MARKERS) & all_test_markers
-    ):
+    if not has_unit and not has_integration:
+        pytest.fail('Test must be marked with either @pytest.mark.unit or @pytest.mark.integration.')
+
+    elif has_unit and (has_integration or has_integration_mod):
         pytest.fail('Test can not be both unit and integration at the same time.')
 
-    elif INTEGRATION_TESTS_MODIFICATORS_MARKERS & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
+    elif has_integration_mod and not has_integration:
         pytest.fail(
             f'Test can not be run with {INTEGRATION_TESTS_MODIFICATORS_MARKERS} markers without @pytest.mark.integration.'
         )
