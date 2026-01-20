@@ -64,7 +64,6 @@ class BlockAttestationFactory(Web3DataclassFactory[BlockAttestationResponse]):
 
 
 class BlockDetailsResponseFactory(Web3DataclassFactory[BlockDetailsResponse]):
-
     @classmethod
     def build(cls, **kwargs) -> BlockDetailsResponse:
         instance = super().build(**kwargs)

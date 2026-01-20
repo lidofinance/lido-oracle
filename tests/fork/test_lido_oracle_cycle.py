@@ -45,6 +45,7 @@ def missed_initial_frame(frame_config: FrameConfig):
 
 
 @pytest.mark.fork
+@pytest.mark.integration
 @pytest.mark.parametrize(
     'module',
     [accounting_module, ejector_module],
@@ -78,6 +79,6 @@ def test_lido_module_report(module, set_oracle_members, running_finalized_slots,
         )
 
     last_processing_after_report = module.report_contract.get_last_processing_ref_slot()
-    assert (
-        last_processing_after_report == report_frame.ref_slot
-    ), "Last processing ref slot should equal to report ref slot"
+    assert last_processing_after_report == report_frame.ref_slot, (
+        "Last processing ref slot should equal to report ref slot"
+    )

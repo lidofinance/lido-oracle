@@ -327,6 +327,9 @@ Special metrics for CSM oracle:
 ## Setup
 Check out our [development setup guide](docs/development.md).
 
+## Testing
+Check out our [testing guide](docs/testing.md).
+
 ## Release flow
 
 To create new release:

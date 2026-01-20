@@ -22,7 +22,6 @@ from tests.modules.accounting.staking_vault.conftest import (
     OnChainIpfsVaultReportDataFactory,
     VaultAddresses,
     VaultConnectedEventFactory,
-    VaultFeeFactory,
     VaultFeesUpdatedEventFactory,
     VaultInfoFactory,
 )

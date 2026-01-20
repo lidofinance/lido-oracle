@@ -1,8 +1,9 @@
-import pytest
 import logging
+from unittest.mock import Mock
+
+import pytest
 import requests
 import responses
-from unittest.mock import Mock
 
 from src.utils.api.opsgenie import OpsGenieAPI
 

@@ -1,17 +1,15 @@
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
-from dataclasses import dataclass
 
 from src import variables
-from src.modules.accounting.accounting import Accounting
 from src.modules.accounting.types import ReportData
-from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
-from src.types import SlotNumber, Gwei, StakingModuleId
-
+from src.modules.submodules.types import ZERO_HASH, ChainConfig, FrameConfig
+from src.types import Gwei, SlotNumber, StakingModuleId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 

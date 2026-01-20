@@ -21,6 +21,7 @@ from src.web3py.extensions.lido_validators import (
 )
 from src.web3py.types import Web3
 
+
 logger = logging.getLogger(__name__)
 
 

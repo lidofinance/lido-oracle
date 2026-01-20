@@ -54,6 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+RUN bash -c "set -o pipefail && curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup"
+ENV PATH="/root/.foundry/bin:${PATH}"
+
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 RUN python3 -m venv "$VENV_PATH" && \

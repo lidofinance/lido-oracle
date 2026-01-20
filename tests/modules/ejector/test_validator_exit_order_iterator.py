@@ -1,3 +1,4 @@
+from types import MethodType
 from unittest.mock import Mock
 
 import pytest
@@ -8,7 +9,6 @@ from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, NodeOperatorFactory, StakingModuleFactory
 from tests.factory.web3_factory import Web3DataclassFactory
-from types import MethodType
 
 
 class ModuleStatsFactory(Web3DataclassFactory[StakingModuleStats]): ...
@@ -204,17 +204,13 @@ def test_no_force_and_soft_predicate(iterator):
     assert [
         nos[0].node_operator.id,
         nos[3].node_operator.id,
-    ] == [
-        no.node_operator.id for no in sorted_nos
-    ][:2]
+    ] == [no.node_operator.id for no in sorted_nos][:2]
 
     sorted_nos = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
     assert [
         nos[2].node_operator.id,
         nos[1].node_operator.id,
-    ] == [
-        no.node_operator.id for no in sorted_nos
-    ][:2]
+    ] == [no.node_operator.id for no in sorted_nos][:2]
 
 
 @pytest.mark.unit
