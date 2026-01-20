@@ -136,7 +136,7 @@ def _anchor_strategy_fill(
     blocks_to_fetch = [b for b in anchor_blocks if b not in timestamps]
     if blocks_to_fetch:
         fetched = _batch_fetch_timestamps(w3, blocks_to_fetch)
-        for block, ts in zip(blocks_to_fetch, fetched):
+        for block, ts in zip(blocks_to_fetch, fetched, strict=True):
             timestamps[block] = ts
 
     _process_segments(w3, blocks, anchor_indices, seconds_per_slot, timestamps)
