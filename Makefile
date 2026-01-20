@@ -46,8 +46,8 @@ poetry-lock: up
 	$(EXEC_CMD) poetry lock --no-update
 
 lint: up
-	$(EXEC_CMD) black tests
-	$(EXEC_CMD) pylint src tests --jobs=2
+	$(EXEC_CMD) ruff format tests
+	$(EXEC_CMD) ruff check src tests
 	$(EXEC_CMD) pyright src
 
 isort: up

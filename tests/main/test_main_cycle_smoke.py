@@ -13,7 +13,6 @@ from src.types import OracleModule
 @pytest.mark.mainnet
 @pytest.mark.integration
 class TestIntegrationMainCycleSmoke:
-
     def run_main_with_logging(self, module_name, log_queue):
         queue_handler = logging.handlers.QueueHandler(log_queue)
         logger = logging.getLogger()

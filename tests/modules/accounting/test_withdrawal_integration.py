@@ -2,10 +2,10 @@ import pytest
 from eth_typing import BlockNumber
 from web3.types import Timestamp
 
-from src.modules.submodules.types import FrameConfig, ChainConfig
-from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.types import ReferenceBlockStamp, SlotNumber, EpochNumber
+from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.services.withdrawal import Withdrawal
+from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
 
 
 def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:

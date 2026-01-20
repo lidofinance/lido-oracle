@@ -11,6 +11,7 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
+
 FAR_FUTURE_EPOCH = 2**64 - 1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13

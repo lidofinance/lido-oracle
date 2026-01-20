@@ -46,15 +46,13 @@ types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
-hypothesis = "^6.150.1"
-black = "^24.8"
-pylint = "^3.2.3"
+hypothesis = "^6.68.2"
+ruff = "^0.14.0"
 pyright = "^1.1.390"
 responses = "^0.25.7"
 eth-tester = "^0.13.0b1"
 pre-commit = "3.8"
 ipython = "^9.0"
-isort = "^6.0.1"
 conventional-pre-commit = "^4.0.0"
 
 [build-system]
@@ -133,30 +131,32 @@ ignore = [
     "src/utils/car/schemes/unixfs_pb2.py"  # generated protobuf file
 ]
 
-[tool.black]
-line-length = 120
-skip-string-normalization = true
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
-
 [tool.ruff]
 line-length = 120
+target-version = "py312"
+
+# Exclude directories and protobuf generated files
+exclude = [
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "*_pb2.py",  # Protobuf generated files
+]
 
 [tool.ruff.format]
+# Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
+# Match black's behavior
+indent-style = "space"
+skip-magic-trailing-comma = false
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
+[tool.ruff.lint.isort]
+# Equivalent to isort's profile = "black" and combine_as_imports = true
+combine-as-imports = true
+lines-after-imports = 2

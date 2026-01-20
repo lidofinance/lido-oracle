@@ -1,10 +1,10 @@
 import pytest
 
 from src.constants import (
+    EPOCHS_PER_SLASHINGS_VECTOR,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
-    EPOCHS_PER_SLASHINGS_VECTOR,
 )
 from src.modules.submodules.consensus import FrameConfig
 from src.modules.submodules.types import ChainConfig

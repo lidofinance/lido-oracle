@@ -2,14 +2,13 @@ import pytest
 import requests
 import responses
 
-from src.providers.ipfs.lido_ipfs import LidoIPFS
 from src.providers.ipfs.cid import CID
-from src.providers.ipfs.types import FetchError, UploadError, CIDValidationError
+from src.providers.ipfs.lido_ipfs import LidoIPFS
+from src.providers.ipfs.types import CIDValidationError, FetchError, UploadError
 
 
 @pytest.mark.unit
 class TestLidoIPFS:
-
     @pytest.fixture
     def lido_ipfs_provider(self):
         return LidoIPFS(host="https://ipfs-test.lido.fi", token="test_bearer_token", timeout=30)

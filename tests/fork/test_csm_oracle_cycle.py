@@ -25,7 +25,6 @@ def csm_repo_path(testruns_folder_path):
 
 @pytest.fixture(scope='session')
 def prepared_csm_repo(testruns_folder_path, csm_repo_path):
-
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # CI should have the repo cloned and prepared
         if os.path.exists(csm_repo_path):
@@ -107,9 +106,9 @@ def test_csm_module_report(module, set_oracle_members, running_finalized_slots, 
         )
 
     last_processing_after_report = module.w3.csm.oracle.get_last_processing_ref_slot()
-    assert (
-        last_processing_after_report == report_frame.ref_slot
-    ), "Last processing ref slot should equal to initial ref slot"
+    assert last_processing_after_report == report_frame.ref_slot, (
+        "Last processing ref slot should equal to initial ref slot"
+    )
 
     to_distribute_after_report = module.w3.csm.fee_distributor.shares_to_distribute()
     assert to_distribute_after_report < to_distribute_before_report, "Shares to distribute should decrease"

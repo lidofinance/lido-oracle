@@ -1,6 +1,6 @@
 import random
-import pytest
 
+import pytest
 from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 

@@ -1,9 +1,10 @@
-import unittest
-import pytest
-from unittest.mock import patch, mock_open
 import json
+import unittest
+from unittest.mock import mock_open, patch
 
-from src.utils.build import get_build_info, UNKNOWN_BUILD_INFO
+import pytest
+
+from src.utils.build import UNKNOWN_BUILD_INFO, get_build_info
 
 
 @pytest.mark.unit

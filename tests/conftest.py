@@ -24,6 +24,7 @@ from src.web3py.extensions import (
 )
 from src.web3py.types import Web3
 
+
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
 MAINNET_MARKER = 'mainnet'
