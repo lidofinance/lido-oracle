@@ -36,7 +36,7 @@ repos:
         stages: [commit]
       - id: pytest-unit
         name: Run pytest unit tests
-        entry: poetry run pytest tests -m "not integration and not e2e"
+        entry: poetry run pytest tests -m "unit"
         language: system
         pass_filenames: false
         stages: [commit]
