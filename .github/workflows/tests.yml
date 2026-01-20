@@ -80,5 +80,5 @@ jobs:
       - name: Lint with ruff check
         run: poetry run ruff check src tests
 
-      - name: Lint mypy
-        run: poetry run mypy src
+      - name: Lint with pyright
+        run: poetry run pyright src

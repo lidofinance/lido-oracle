@@ -6,9 +6,9 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
-from web3.types import TxReceipt, Wei, TxParams, BlockData
+from web3.types import BlockData, TxParams, TxReceipt, Wei
 
-from src import variables, constants
+from src import constants, variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 
@@ -78,7 +78,7 @@ class TransactionUtils(Module):
         params: TxParams = {
             "from": account.address,
             "maxFeePerGas": Wei(
-                latest_block["baseFeePerGas"] * 2 + max_priority_fee
+                latest_block["baseFeePerGas"] * 2 + max_priority_fee  # type: ignore[index]
             ),
             "maxPriorityFeePerGas": max_priority_fee,
             "nonce": self.w3.eth.get_transaction_count(account.address),

@@ -74,7 +74,7 @@ Where `<module>` is one of:
 Used the following tools:
 
 - [ruff](https://github.com/astral-sh/ruff) (formatter and linter)
-- [mypy](https://github.com/python/mypy/)
+- [pyright](https://github.com/microsoft/pyright/)
   See the [configuration](pyproject.toml) for details for each linter.
 
 Make sure that your code is formatted correctly and passes all checks:
@@ -88,7 +88,7 @@ make lint
 ```bash
 ruff format tests
 ruff check src tests
-mypy src
+pyright src
 ```
 
 ## Tests

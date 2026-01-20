@@ -27,9 +27,12 @@ from src.modules.accounting.types import (
     ReportData,
     ReportSimulationPayload,
     ReportSimulationResults,
+    Shares,
     ValidatorsBalance,
     ValidatorsCount,
     VaultsReport,
+    VaultsTreeCid,
+    VaultsTreeRoot,
     WqReport,
 )
 from src.modules.submodules.consensus import (
@@ -308,7 +311,7 @@ class Accounting(BaseModule, ConsensusModule):
             cl_balance=gwei_to_wei(cl_balance),
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
             el_rewards_vault_balance=el_rewards,
-            shares_requested_to_burn=self.get_shares_to_burn(blockstamp),
+            shares_requested_to_burn=Shares(self.get_shares_to_burn(blockstamp)),
             withdrawal_finalization_batches=withdrawal_finalization_batches,
             simulated_share_rate=simulated_share_rate,
         )
@@ -414,7 +417,7 @@ class Accounting(BaseModule, ConsensusModule):
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
         if len(vaults) == 0:
-            return ZERO_HASH, ''
+            return VaultsTreeRoot(ZERO_HASH), VaultsTreeCid('')
 
         current_frame = self.get_frame_number_by_slot(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
@@ -475,7 +478,7 @@ class Accounting(BaseModule, ConsensusModule):
         VAULTS_TOTAL_VALUE.set(sum(vaults_total_values.values()))
         logger.info({'msg': "Tree's proof ipfs", 'ipfs': str(tree_cid), 'treeHex': f"0x{merkle_tree.root.hex()}"})
 
-        return merkle_tree.root, str(tree_cid)
+        return VaultsTreeRoot(merkle_tree.root), VaultsTreeCid(str(tree_cid))
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
         exited_validators, orl = self._get_generic_extra_data(blockstamp)
@@ -518,7 +521,7 @@ class Accounting(BaseModule, ConsensusModule):
             count_exited_validators_by_staking_module=exit_validators_count_list,
             withdrawal_vault_balance=withdrawal_vault_balance,
             el_rewards_vault_balance=el_rewards_vault_balance,
-            shares_requested_to_burn=shares_requested_to_burn,
+            shares_requested_to_burn=Shares(shares_requested_to_burn),
             withdrawal_finalization_batches=finalization_batches,
             finalization_share_rate=finalization_share_rate,
             is_bunker=is_bunker,

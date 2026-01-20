@@ -40,7 +40,7 @@ ipfshttpclient = "^0.7.0"
 pydantic = "^2.4.0"
 pytest-cov = "^7.0.0"
 polyfactory = "^3.2.0"
-# {{{ stubs for mypy
+# {{{ type stubs
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
@@ -48,7 +48,7 @@ types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
 ruff = "^0.14.0"
-mypy = "^1.10.0"
+pyright = "^1.1.390"
 responses = "^0.25.7"
 eth-tester = "^0.13.0b1"
 pre-commit = "3.8"
@@ -72,15 +72,64 @@ addopts = "-s -vv --strict-markers"
 [tool.coverage.run]
 branch = true
 
-[tool.mypy]
-python_version = "3.12"
-strict_equality = true
-mypy_path = "stubs"
-disable_error_code = "valid-type,name-defined"
+[tool.pylint.master]
+ignore-patterns = ".*_pb2\\.py"
+generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
 
-[[tool.mypy.overrides]]
-module = "src.web3py.contract_tweak"
-ignore_errors = true  # skipped because of extensive copy-paste from the upstream
+[tool.pylint.format]
+max-line-length = "120"
+min-similarity-lines = 6
+
+[tool.pylint."messages control"]
+disable = [
+    # Disabled by default
+    "raw-checker-failed",
+    "bad-inline-option",
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    # Disabled by us
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "invalid-name",
+    "unused-argument",
+    "wrong-import-order",
+    "ungrouped-imports",
+    "line-too-long",
+    "too-many-instance-attributes",
+    "too-many-arguments",
+    "too-many-locals",
+    "unspecified-encoding",
+    "bare-except",
+    "fixme",
+    "cell-var-from-loop",
+    "invalid-envvar-default",
+    "global-statement",
+    "redefined-outer-name",
+    "too-many-positional-arguments",
+]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+stubPath = "stubs"
+exclude = [
+    "**/__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist"
+]
+ignore = [
+    "src/web3py/contract_tweak.py",  # skipped because of extensive copy-paste from the upstream
+    "src/utils/car/schemes/unixfs_pb2.py"  # generated protobuf file
+]
 
 [tool.ruff]
 line-length = 120
