@@ -50,10 +50,13 @@ lint: up
 	$(EXEC_CMD) pylint src tests --jobs=2
 	$(EXEC_CMD) mypy src
 
+isort: up
+	$(EXEC_CMD) isort $(ORACLE_ISORT_PATH)
+
 # Use ORACLE_TEST_PATH to run specific tests, e.g.:
 # make test ORACLE_TEST_PATH=tests/providers_clients/test_keys_api_client.py
 test: up
-	$(EXEC_CMD) pytest $(ORACLE_TEST_PATH)
+	$(EXEC_CMD) pytest $${ORACLE_TEST_PATH:-tests/}
 
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting

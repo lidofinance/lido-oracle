@@ -21,8 +21,8 @@ license = "GPL 3.0"
 python = "^3.12"
 prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
-pytest = "^7.2.1"
-pytest-xdist = "^3.2.1"
+pytest = "^9.0.2"
+pytest-xdist = "^3.8.0"
 more-itertools = "^10.1.0"
 web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
@@ -34,23 +34,24 @@ dag-cbor="^0.3.3"
 ipld-dag-pb = "^0.0.1"
 
 [tool.poetry.group.dev.dependencies]
+faker = "^37.3.0"
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pydantic = "^2.4.0"
-pytest-cov = "^4.0.0"
-polyfactory = "^2.19.0"
+pytest-cov = "^7.0.0"
+polyfactory = "^3.2.0"
 # {{{ stubs for mypy
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
-hypothesis = "^6.68.2"
+hypothesis = "^6.150.1"
 black = "^24.8"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 responses = "^0.25.7"
-eth-tester = "^0.12.1b1"
+eth-tester = "^0.13.0b1"
 pre-commit = "3.8"
 ipython = "^9.0"
 isort = "^6.0.1"
@@ -62,12 +63,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 markers = [
-    "unit: tests with using mocks and don't make external requests",
-    "integration: tests with using providers",
-    "e2e: complex tests with using providers and real Ethereum network",
-    "fork: tests with using forked Ethereum network",
-    "mainnet: tests that depends on mainnet",
-    "testnet: tests that depends on testnet",
+    "unit: tests using mocks without external requests",
+    "integration: tests involving external providers",
+    "mainnet: integration tests reliant on the mainnet",
+    "testnet: integration tests reliant on the testnet",
+    "fork: integration tests using a forked Ethereum network",
 ]
 addopts = "-s -vv --strict-markers"
 
