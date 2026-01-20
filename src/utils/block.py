@@ -4,6 +4,7 @@ from typing import Any
 
 from eth_typing import BlockNumber
 from web3 import Web3
+from web3.exceptions import Web3TypeError
 
 
 def get_block_timestamps(
@@ -183,21 +184,10 @@ def _select_anchor_indices(length: int, num_anchors: int) -> list[int]:
     return indices
 
 
-def _is_batch_available(w3: Web3) -> bool:
-    """Check if Web3 batch requests are available (not a mock)."""
-    batch_requests = getattr(w3, "batch_requests", None)
-    if batch_requests is None:
-        return False
-    return not hasattr(batch_requests, "_mock_name")
-
-
 def _batch_fetch_timestamps(w3: Web3, blocks: list[BlockNumber]) -> list[int]:
     """Fetch multiple block timestamps, using batch RPC if available."""
     if not blocks:
         return []
-
-    if not _is_batch_available(w3):
-        return _sequential_fetch(w3, blocks)
 
     return _try_batch_fetch(w3, blocks)
 
@@ -216,7 +206,7 @@ def _try_batch_fetch(w3: Web3, blocks: list[BlockNumber]) -> list[int]:
             results: list[Any] = batch.execute()
 
         return _parse_batch_results(results, w3, blocks)
-    except (AttributeError, TypeError, KeyError):
+    except (AttributeError, TypeError, KeyError, Web3TypeError):
         return _sequential_fetch(w3, blocks)
 
 
