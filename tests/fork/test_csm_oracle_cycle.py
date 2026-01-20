@@ -77,6 +77,7 @@ def missed_initial_frame(frame_config: FrameConfig):
 
 
 @pytest.mark.fork
+@pytest.mark.integration
 @pytest.mark.parametrize(
     'module',
     [csm_module],
