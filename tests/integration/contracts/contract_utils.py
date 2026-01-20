@@ -1,12 +1,13 @@
 import logging
 import re
-from dataclasses import is_dataclass, fields
+from dataclasses import fields, is_dataclass
 from types import UnionType
-from typing import Any, Callable, Type, get_type_hints, get_origin
+from typing import Any, Callable, Type, get_origin, get_type_hints
 
 from eth_typing import Address, ChecksumAddress
 
 from src.providers.execution.base_interface import ContractInterface
+
 
 HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)
 ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)

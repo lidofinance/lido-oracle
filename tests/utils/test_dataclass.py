@@ -5,6 +5,7 @@ import pytest
 
 from src.utils.dataclass import DecodeToDataclassException, FromResponse, Nested, list_of_dataclasses
 
+
 pytestmark = pytest.mark.unit
 
 

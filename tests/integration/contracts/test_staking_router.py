@@ -1,6 +1,6 @@
 import pytest
 
-from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
+from src.web3py.extensions.lido_validators import NodeOperator, StakingModule
 from tests.factory.no_registry import StakingModuleFactory
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 

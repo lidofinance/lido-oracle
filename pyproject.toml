@@ -46,15 +46,13 @@ types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
-hypothesis = "^6.150.1"
-black = "^24.8"
-pylint = "^3.2.3"
+hypothesis = "^6.68.2"
+ruff = "^0.14.0"
 mypy = "^1.10.0"
 responses = "^0.25.7"
 eth-tester = "^0.13.0b1"
 pre-commit = "3.8"
 ipython = "^9.0"
-isort = "^6.0.1"
 conventional-pre-commit = "^4.0.0"
 
 [build-system]
@@ -74,48 +72,6 @@ addopts = "-s -vv --strict-markers"
 [tool.coverage.run]
 branch = true
 
-[tool.pylint.master]
-ignore-patterns = ".*_pb2\\.py"
-generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
-
-[tool.pylint.format]
-max-line-length = "120"
-min-similarity-lines = 6
-
-[tool.pylint."messages control"]
-disable = [
-    # Disabled by default
-    "raw-checker-failed",
-    "bad-inline-option",
-    "locally-disabled",
-    "file-ignored",
-    "suppressed-message",
-    "useless-suppression",
-    "deprecated-pragma",
-    "use-symbolic-message-instead",
-    # Disabled by us
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "too-few-public-methods",
-    "invalid-name",
-    "unused-argument",
-    "wrong-import-order",
-    "ungrouped-imports",
-    "line-too-long",
-    "too-many-instance-attributes",
-    "too-many-arguments",
-    "too-many-locals",
-    "unspecified-encoding",
-    "bare-except",
-    "fixme",
-    "cell-var-from-loop",
-    "invalid-envvar-default",
-    "global-statement",
-    "redefined-outer-name",
-    "too-many-positional-arguments",
-]
-
 [tool.mypy]
 python_version = "3.12"
 strict_equality = true
@@ -126,30 +82,32 @@ disable_error_code = "valid-type,name-defined"
 module = "src.web3py.contract_tweak"
 ignore_errors = true  # skipped because of extensive copy-paste from the upstream
 
-[tool.black]
-line-length = 120
-skip-string-normalization = true
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
-
 [tool.ruff]
 line-length = 120
+target-version = "py312"
+
+# Exclude directories and protobuf generated files
+exclude = [
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "*_pb2.py",  # Protobuf generated files
+]
 
 [tool.ruff.format]
+# Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
+# Match black's behavior
+indent-style = "space"
+skip-magic-trailing-comma = false
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
+[tool.ruff.lint.isort]
+# Equivalent to isort's profile = "black" and combine_as_imports = true
+combine-as-imports = true
+lines-after-imports = 2

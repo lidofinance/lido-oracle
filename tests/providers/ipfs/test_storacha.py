@@ -2,14 +2,13 @@ import pytest
 import requests
 import responses
 
-from src.providers.ipfs.storacha import Storacha
 from src.providers.ipfs.cid import CID
-from src.providers.ipfs.types import FetchError, UploadError, CIDValidationError
+from src.providers.ipfs.storacha import Storacha
+from src.providers.ipfs.types import CIDValidationError, FetchError, UploadError
 
 
 @pytest.mark.unit
 class TestStoracha:
-
     @pytest.fixture
     def storacha_provider(self):
         return Storacha(

@@ -19,6 +19,7 @@ from src.types import Gwei
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
+
 faker = Faker()
 
 

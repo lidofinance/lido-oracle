@@ -1,13 +1,12 @@
 import pytest
 
+from src.providers.ipfs.cid import is_cid_v0
 from src.utils.car import CARConverter
 from src.utils.car.converter import DEFAULT_CHUNK_SIZE
-from src.providers.ipfs.cid import is_cid_v0
 
 
 @pytest.mark.unit
 class TestCARConverter:
-
     @pytest.fixture
     def converter(self):
         return CARConverter()

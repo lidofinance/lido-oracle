@@ -16,7 +16,7 @@ from src.modules.csm.types import StrikesList
 from src.modules.submodules.oracle_module import ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH, CurrentFrame
 from src.providers.ipfs import CID
-from src.types import NodeOperatorId, SlotNumber, FrameNumber
+from src.types import FrameNumber, NodeOperatorId, SlotNumber
 from src.utils.types import hex_str_to_bytes
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory

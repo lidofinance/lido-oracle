@@ -1,4 +1,5 @@
 import pytest
+
 from src.utils.lazy_object_proxy import LazyObjectProxy
 
 
@@ -41,7 +42,6 @@ class Counter:
 
 @pytest.mark.unit
 class TestUnitLazyObjectProxy:
-
     def test_lazy_init__access_attr__lazy_inited(self):
         is_object_created = False
 
