@@ -1,7 +1,10 @@
 """Execution layer block utilities for efficient timestamp fetching."""
 
+from typing import Any
+
 from eth_typing import BlockNumber
 from web3 import Web3
+from web3.exceptions import Web3Exception
 
 # Maximum number of intermediate blocks to batch-fetch at once.
 # When a segment has missed slots and fewer intermediates than this threshold,
@@ -64,9 +67,9 @@ def _batch_get_ts(w3: Web3, blocks: list[BlockNumber]) -> dict[BlockNumber, int]
         with w3.batch_requests() as batch:
             for b in blocks:
                 batch.add(w3.eth.get_block(b))
-            results = batch.execute()
+            results: list[Any] = batch.execute()
         return {b: int(r["timestamp"]) for b, r in zip(blocks, results, strict=True)}
-    except Exception:
+    except (Web3Exception, AttributeError, TypeError, KeyError):
         return {b: _get_ts(w3, b) for b in blocks}
 
 
