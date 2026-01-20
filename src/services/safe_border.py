@@ -1,6 +1,8 @@
 import math
 from typing import Iterable
 
+from eth_typing import HexStr
+
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.consensus import ChainConfig, FrameConfig
@@ -205,7 +207,7 @@ class SafeBorder(Web3Converter):
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[HexStr]) -> bool:
         """
         Returns number of slashed validators for the frame for the given validators
         Slashed flag can't be undone, so we can only look at the last slot

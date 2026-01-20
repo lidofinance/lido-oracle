@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StakingModuleStats:
     staking_module: StakingModule
-    predictable_balance: Gwei = 0
+    predictable_balance: Gwei = Gwei(0)
 
 
 @dataclass
@@ -36,15 +36,15 @@ class NodeOperatorStats:
     module_stats: StakingModuleStats
 
     predictable_validators: int = 0
-    predictable_balance: Gwei = 0
+    predictable_balance: Gwei = Gwei(0)
 
-    weight: float = 1
+    weight: float = 1.0
 
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
 
 
-def get_validator_balance_by_index(lido_validators: list[LidoValidator], source_index: int) -> Gwei:
+def get_validator_balance_by_index(lido_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]], source_index: int) -> Gwei:
     for validators in lido_validators.values():
         for validator in validators:
             if validator.index == source_index:
@@ -101,7 +101,7 @@ class ValidatorExitIterator:
     @duration_meter()
     def __iter__(self) -> 'ValidatorExitIterator':
         # Sum of all max effective balances for validators going to exit. Required to make sure we pass a sanity check.
-        self.max_current_exit_balance = 0
+        self.max_current_exit_balance = Gwei(0)
 
         self._reset_iterator_data()
         self._prepare_data_structure()
@@ -111,7 +111,7 @@ class ValidatorExitIterator:
         return self
 
     def _reset_iterator_data(self):
-        self.total_lido_predictable_balance = 0
+        self.total_lido_predictable_balance = Gwei(0)
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
