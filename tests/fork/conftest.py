@@ -44,6 +44,7 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 
+
 logger = logging.getLogger('fork_tests')
 
 # pylint: disable=logging-fstring-interpolation

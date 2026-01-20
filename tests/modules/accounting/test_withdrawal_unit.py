@@ -1,10 +1,11 @@
+from unittest.mock import Mock
+
 import pytest
 
-from unittest.mock import Mock
-from src.services.withdrawal import Withdrawal
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.modules.accounting.types import BatchState
+from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.services.withdrawal import Withdrawal
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 

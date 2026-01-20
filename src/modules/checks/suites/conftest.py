@@ -4,22 +4,21 @@ from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
-from src.types import EpochNumber, SlotNumber, BlockRoot
-from src.utils.blockstamp import build_blockstamp
+from src.types import BlockRoot, EpochNumber, SlotNumber
 from src.utils.api import opsgenie_api
+from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
+    CSM,
     ConsensusClientModule,
+    FallbackProviderModule,
     KeysAPIClientModule,
+    LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
-    LidoContracts,
-    FallbackProviderModule,
-    CSM,
 )
 from src.web3py.types import Web3
-
 
 TITLE_PROPERTY_NAME = "test_title"
 
@@ -112,7 +111,7 @@ def pytest_configure(config):
 
     session_like = SessionLike()
     session_like.config = config
-    if is_xdist_controller(session_like):
+    if is_xdist_controller(session_like):  # type: ignore[arg-type]
         dsession = config.pluginmanager.getplugin("dsession")
         config.pluginmanager.unregister(dsession.trdist, "terminaldistreporter")
 
@@ -149,7 +148,7 @@ def pytest_runtest_logreport(report) -> None:
     session_like = SessionLike()
     session_like.config = _config
 
-    if not is_xdist_controller(session_like):
+    if not is_xdist_controller(session_like):  # type: ignore[arg-type]
         return
 
     if report.when == 'setup' and not report.passed:
@@ -186,7 +185,7 @@ def pytest_runtest_setup(item: pytest.Item):
     if not check_doc or not parent:
         check_doc = f"Placeholder doc for {item.nodeid}"
 
-    check_params = f"[{item.callspec.id}]" if hasattr(item, "callspec") else ""
+    check_params = f"[{item.callspec.id}]" if hasattr(item, "callspec") else ""  # type: ignore[attr-defined]
 
     check_params_colorized = tw.markup(check_params, cyan=True)
     module_doc_colorized = tw.markup(f"[{module_doc}]", blue=True)

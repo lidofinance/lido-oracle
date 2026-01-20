@@ -14,7 +14,6 @@ import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from faker import Faker
 from hexbytes import HexBytes
-from polyfactory import Use
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -41,6 +40,7 @@ from src.providers.consensus.types import PendingDeposit, Validator, ValidatorSt
 from src.services.staking_vaults import StakingVaultsService
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 from tests.factory.web3_factory import Web3DataclassFactory
+
 
 faker = Faker()
 
