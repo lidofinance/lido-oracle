@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_UP, Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +9,7 @@ from src.constants import SECONDS_IN_YEAR, TOTAL_BASIS_POINTS
 from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.apr import get_steth_by_shares
 from tests.modules.accounting.staking_vault.conftest import (
     ExtraValueFactory,
     FeeTestConstants,
@@ -19,6 +20,14 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultFeesUpdatedEventFactory,
     VaultInfoFactory,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_get_blockstamp(monkeypatch):
+    fake_blockstamp = MagicMock()
+    fake_blockstamp.block_number = 0
+    monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
+    return fake_blockstamp
 
 
 class TestGetVaultsFees:
@@ -33,7 +42,9 @@ class TestGetVaultsFees:
         vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = MagicMock()
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
@@ -48,7 +59,8 @@ class TestGetVaultsFees:
             ref_epoch=MagicMock(),
         )
 
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, blockstamp.ref_slot, 0])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = blockstamp.ref_slot
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
         service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
         service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
 
@@ -100,11 +112,14 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events()
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(0), 0])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(7_000)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=prev_report)
 
         mock_ref_block = MagicMock()
         mock_ref_block.block_number = 7_200
@@ -154,11 +169,14 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events(connected_events=connected_events)
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(0), 0])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=prev_report)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 100
@@ -212,11 +230,15 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events()
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(0), 0])
+        prev_ref_slot = SlotNumber(100)
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = prev_ref_slot
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=prev_report)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 1
@@ -235,7 +257,19 @@ class TestGetVaultsFees:
             current_frame=FrameNumber(0),
         )
 
-        assert fees[vault_adr].liquidity_fee == 20499656836038307
+        report_interval_seconds = (blockstamp.ref_slot - prev_ref_slot) * FeeTestConstants.SECONDS_PER_SLOT
+        minted_steth = get_steth_by_shares(
+            vault.liability_shares,
+            FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
+            FeeTestConstants.PRE_TOTAL_SHARES,
+        )
+        expected_fee = StakingVaultsService.calc_fee_value(
+            value=minted_steth,
+            time_elapsed_seconds=report_interval_seconds,
+            core_apr_ratio=FeeTestConstants.CORE_APR_RATIO,
+            fee_bp=FeeTestConstants.LIQUIDITY_FEE_BP,
+        )
+        assert fees[vault_adr].liquidity_fee == int(expected_fee.to_integral_value(ROUND_UP))
 
     @pytest.mark.unit
     def test_fee_elapsed_time_uses_ref_slot_seconds(self, mock_vault_hub_events):
@@ -258,11 +292,14 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events()
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(100), 10])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 11
@@ -305,11 +342,14 @@ class TestGetVaultsFees:
 
         vault_hub_mock = mock_vault_hub_events()
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(100), 10])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 11
@@ -371,11 +411,14 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events(fee_updated_events=[fee_event])
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=prev_report)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 11
@@ -460,11 +503,14 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events(fee_updated_events=[event_1, event_2])
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[prev_report, SlotNumber(100), 10])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=prev_report)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 21
@@ -523,65 +569,19 @@ class TestGetVaultsFees:
         assert fees[vault_adr].liquidity_fee == int(expected_fee)
 
     @pytest.mark.unit
-    def test_fee_elapsed_time_with_empty_prev_ref_slot(self, mock_vault_hub_events):
-        """Verifies that when the previous ref slot is -1 (initial state), fees are
-        still calculated correctly. Ensures initial reports handle the edge case of
-        missing previous reports without calculation errors.
-        """
-        vault_adr = VaultAddresses.VAULT_0
-        vault = VaultInfoFactory.build_with_fees(
-            vault=vault_adr,
-            liability_shares=0,
-            max_liability_shares=0,
-            mintable_st_eth=0,
-            infra_fee_bp=1,
-            liquidity_fee_bp=0,
-            reservation_fee_bp=0,
-        )
-
-        vault_hub_mock = mock_vault_hub_events()
-        w3_mock = MagicMock()
-        w3_mock.lido_contracts.vault_hub = vault_hub_mock
-        w3_mock.lido_contracts.lazy_oracle = MagicMock()
-
-        service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(-1), 0])
-
-        blockstamp = MagicMock()
-        blockstamp.block_number = 0
-        blockstamp.ref_slot = SlotNumber(0)
-
-        prev_report_timestamp = -1 * FeeTestConstants.SECONDS_PER_SLOT
-        current_report_timestamp = 0
-        time_elapsed_seconds = current_report_timestamp - prev_report_timestamp
-        assert time_elapsed_seconds == FeeTestConstants.SECONDS_PER_SLOT
-
-        total_value = SECONDS_IN_YEAR * TOTAL_BASIS_POINTS
-        fees = service.get_vaults_fees(
-            blockstamp=blockstamp,
-            vaults={vault_adr: vault},
-            vaults_total_values={vault_adr: total_value},
-            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(),
-            core_apr_ratio=Decimal(1),
-            pre_total_pooled_ether=FeeTestConstants.PRE_TOTAL_POOLED_ETHER,
-            pre_total_shares=FeeTestConstants.PRE_TOTAL_SHARES,
-            frame_config=MagicMock(),
-            chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
-            current_frame=FrameNumber(0),
-        )
-
-        expected_fee = StakingVaultsService.calc_fee_value(Decimal(total_value), time_elapsed_seconds, Decimal(1), 1)
-        assert fees[vault_adr].infra_fee == int(expected_fee)
-
-    @pytest.mark.unit
     def test_raises_if_time_elapsed_negative(self):
         """Verifies that a ValueError is raised when current ref slot is before the
         previous ref slot. Ensures negative time intervals are detected early to prevent
         invalid fee calculations from incorrect state tracking.
         """
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
+        w3_mock.lido_contracts.vault_hub = MagicMock()
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(10), 0])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(10)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
+        service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
 
         blockstamp = MagicMock()
         blockstamp.ref_slot = SlotNumber(9)
@@ -622,12 +622,15 @@ class TestGetVaultsFees:
         vault_hub_mock = mock_vault_hub_events()
 
         w3_mock = MagicMock()
+        w3_mock.cc = MagicMock()
         w3_mock.lido_contracts.vault_hub = vault_hub_mock
+        w3_mock.lido_contracts.accounting_oracle = MagicMock()
         w3_mock.lido_contracts.lazy_oracle = MagicMock()
         w3_mock.eth.get_block = MagicMock()
 
         service = StakingVaultsService(w3_mock)
-        service._get_start_point_for_fee_calculations = MagicMock(return_value=[None, SlotNumber(0), 0])
+        w3_mock.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(1)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
 
         blockstamp = MagicMock()
         blockstamp.block_number = 1

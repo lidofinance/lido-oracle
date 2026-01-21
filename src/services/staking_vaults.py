@@ -646,67 +646,29 @@ class StakingVaultsService:
 
         return vault_liquidity_fee, liability_shares
 
-    def _get_start_point_for_fee_calculations(
+    def _get_prev_vault_ipfs_report(
         self,
-        blockstamp: ReferenceBlockStamp,
         latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
-        frame_config: FrameConfig,
-        chain_config: ChainConfig,
         current_frame: FrameNumber,
-    ) -> tuple[Optional[StakingVaultIpfsReport], SlotNumber, BlockNumber]:
+    ) -> Optional[StakingVaultIpfsReport]:
         """
-        Resolve the previous report context for vault fee accrual.
+        Fetch and validate the previous IPFS report if available.
 
-        Returns a tuple of:
-        - prev_ipfs_report: parsed previous IPFS report (if available and valid)
-        - prev_ref_slot: reference slot used to compute elapsed time between reports
-        - events_from_block_number: first EL block number to scan for vault events (inclusive)
+        Returns the parsed previous IPFS report, or None if not available.
         """
-        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
-        accounting_oracle: AccountingOracleContract = self.w3.lido_contracts.accounting_oracle
+        if latest_onchain_ipfs_report_data.report_cid == "":
+            return None
 
-        if latest_onchain_ipfs_report_data.report_cid != "":
-            prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid, current_frame)
-            tree_root_hex = Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)
+        prev_ipfs_report = self.get_ipfs_report(latest_onchain_ipfs_report_data.report_cid, current_frame)
+        tree_root_hex = Web3.to_hex(latest_onchain_ipfs_report_data.tree_root)
 
-            if not self.is_tree_root_valid(tree_root_hex, prev_ipfs_report):
-                raise ValueError(
-                    f"Invalid tree root in IPFS report data. "
-                    f"Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
-                )
-
-            last_processing_ref_slot = accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-            ref_block = get_blockstamp(
-                self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
+        if not self.is_tree_root_valid(tree_root_hex, prev_ipfs_report):
+            raise ValueError(
+                f"Invalid tree root in IPFS report data. "
+                f"Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
             )
 
-            # Prevent double-counting of vault events:
-            # If any vault-related event occurred in the same block as the previous IPFS report,
-            # it has already been included in that report. To avoid overlapping calculations,
-            # we shift the starting point by one block forward.
-            return prev_ipfs_report, SlotNumber(int(last_processing_ref_slot)), ref_block.block_number + 1
-
-        ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
-        ## Mainnet
-        ##   in case when we don't have prev ipfs report - we DO have previous oracle report
-        ##   it means we have to take this point for getting fees at the FIRST time only
-        last_processing_ref_slot = accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-        if last_processing_ref_slot:
-            ref_block = get_blockstamp(
-                self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
-            )
-            return None, SlotNumber(int(last_processing_ref_slot)), ref_block.block_number + 1
-
-        ## Fresh devnet
-        ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
-        # If skipped, we reference the block from the first non-missed slot (frame length offset presumes availability).
-        initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
-        bs = get_blockstamp(
-            self.w3.cc, SlotNumber(initial_ref_slot), SlotNumber(int(initial_ref_slot + slots_per_frame))
-        )
-        # Align with accounting's initial slot semantics: initial_ref_slot - 1.
-        # See src/modules/accounting/accounting.py:_get_slots_elapsed_from_last_report.
-        return None, SlotNumber(int(initial_ref_slot) - 1), bs.block_number
+        return prev_ipfs_report
 
     @staticmethod
     def _build_prev_report_maps(
@@ -833,13 +795,36 @@ class StakingVaultsService:
         chain_config: ChainConfig,
         current_frame: FrameNumber,
     ) -> VaultFeeMap:
+        accounting_oracle: AccountingOracleContract = self.w3.lido_contracts.accounting_oracle
+        vault_hub: VaultHubContract = self.w3.lido_contracts.vault_hub
 
-        prev_ipfs_report, prev_ref_slot, events_from_block_number = self._get_start_point_for_fee_calculations(
-            blockstamp=blockstamp,
+        prev_ipfs_report = self._get_prev_vault_ipfs_report(
             latest_onchain_ipfs_report_data=latest_onchain_ipfs_report_data,
-            frame_config=frame_config,
-            chain_config=chain_config,
             current_frame=current_frame,
+        )
+
+        # Get the last processing ref slot
+        last_processing_ref_slot: SlotNumber = accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
+        if last_processing_ref_slot:
+            prev_ref_slot = SlotNumber(int(last_processing_ref_slot))
+        else:
+            # Fresh devnet: no previous Oracle report, use initial epoch
+            # To align with the accounting contract (_get_slots_elapsed_from_last_report)
+            prev_ref_slot = SlotNumber(frame_config.initial_epoch * chain_config.slots_per_epoch - 1)
+
+        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
+        prev_report_blockstamp = get_blockstamp(
+            cc=self.w3.cc,
+            slot=prev_ref_slot,
+            last_finalized_slot_number=SlotNumber(int(prev_ref_slot) + slots_per_frame),
+        )
+
+        # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.
+        events, connected_vaults_set = self._get_vault_events_for_fees(
+            vault_hub=vault_hub,
+            # Do not incude events from last block of last frame
+            from_block=prev_report_blockstamp.block_number + 1,
+            to_block=blockstamp.block_number,
         )
 
         # Missed CL slots produce no EL blocks, so elapsed time must be derived from ref slots.
@@ -852,16 +837,7 @@ class StakingVaultsService:
                 f" {current_ref_slot_timestamp=} {prev_ref_slot_timestamp=} {blockstamp.ref_slot=} {prev_ref_slot=}"
             )
 
-        vault_hub: VaultHubContract = self.w3.lido_contracts.vault_hub
         prev_fee_map, prev_liability_shares_map = self._build_prev_report_maps(prev_ipfs_report)
-
-        # Events are fetched forward over [events_from_block_number, current_block] and applied backward by timestamp.
-        events, connected_vaults_set = self._get_vault_events_for_fees(
-            vault_hub=vault_hub,
-            from_block=events_from_block_number,
-            to_block=blockstamp.block_number,
-        )
-
         out: VaultFeeMap = {}
 
         event_block_numbers = {event.block_number for vault_events in events.values() for event in vault_events}
