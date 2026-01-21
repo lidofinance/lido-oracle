@@ -11,16 +11,16 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestGetVaults:
-    """Tests for get_vaults method."""
 
-    def test_get_vaults_uses_specific_block_identifier(self):
-        """Verifies that get_vaults correctly passes the block_identifier to all methods
-        in the LazyOracle chain. Ensures vault data is fetched from the correct block
-        rather than always using "latest".
-        """
+    def test_get_vaults_uses_specific_block_identifier(self, web3):
+        # Setup
         vault_0 = VaultInfoFactory.build(
             vault=VaultAddresses.VAULT_0,
             withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -45,15 +45,16 @@ class TestGetVaults:
                 )
                 return self.vaults
 
-        w3_mock = MagicMock()
         lazy_oracle = LazyOracleStub([vault_0, vault_1])
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle
+        web3.lido_contracts.lazy_oracle = lazy_oracle
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
         block_identifier = BlockNumber(1234)
 
+        # Act
         result = service.get_vaults(block_identifier=block_identifier)
 
+        # Assert
         lazy_oracle.get_vaults_count.assert_called_once_with(block_identifier=block_identifier)
         lazy_oracle.get_vaults.assert_called_once_with(
             block_identifier=block_identifier,

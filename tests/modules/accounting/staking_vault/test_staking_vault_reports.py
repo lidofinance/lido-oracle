@@ -1,20 +1,18 @@
-from unittest.mock import MagicMock
-
 import pytest
 
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestGetIpfsReport:
-    """Tests for get_ipfs_report method."""
 
-    def test_get_ipfs_report_success(self):
-        """Verifies that IPFS reports are correctly fetched and parsed from IPFS using
-        a CID. Ensures the report structure is correctly deserialized with tree roots
-        and vault values.
-        """
+    def test_get_ipfs_report_success(self, web3):
+        # Setup
         mock_fetched_bytes = (
             b'{"format": "standard-v1", "leafEncoding": ["address", "uint256", "uint256", "uint256", '
             b'"int256"], "tree": ['
@@ -29,19 +27,16 @@ class TestGetIpfsReport:
             b'"slashingReserve": 4}}'
         )
 
-        w3_mock = MagicMock()
-        w3_mock.ipfs.fetch.return_value = mock_fetched_bytes
+        web3.ipfs.fetch.return_value = mock_fetched_bytes
+        service = StakingVaultsService(web3)
 
-        service = StakingVaultsService(w3_mock)
+        # Act
         result = service.get_ipfs_report('QmMockCID123', FrameNumber(0))
 
+        # Assert
         assert result.tree[0] == '0x7ca488c27e66ddc3fb44b8cc14e72181b71d420ed65f5b77d6da1ca329b4f3c1'
 
-    def test_get_ipfs_report_empty_cid_raises(self):
-        """Verifies that a ValueError is raised when attempting to fetch an IPFS report
-        with an empty CID. Ensures invalid CIDs are rejected before attempting IPFS queries.
-        """
-        service = StakingVaultsService(MagicMock())
-
+    def test_get_ipfs_report_empty_cid_raises(self, web3):
+        service = StakingVaultsService(web3)
         with pytest.raises(ValueError, match="Arg ipfs_report_cid could not be ''"):
             service.get_ipfs_report('', FrameNumber(0))

@@ -18,16 +18,16 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultRebalancedEventFactory,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestCalculateLiquidityFeeByEvents:
-    """Tests for _calculate_liquidity_fee_by_events static method."""
 
     def test_with_events(self):
-        """Verifies liquidity fee calculation correctly processes mint, burn, and fee update
-        events, computing fees for each time interval between state changes. Ensures accurate
-        fee accrual when vault state changes mid-period using time-weighted calculations.
-        """
+        # Setup
         vault_adr = VaultAddresses.VAULT_0
         vault_events = [
             MintedSharesEventFactory.build(
@@ -48,6 +48,7 @@ class TestCalculateLiquidityFeeByEvents:
             ),
         ]
 
+        # Act
         result = StakingVaultsService._calculate_liquidity_fee_by_events(
             vault_address=vault_adr,
             liability_shares=FeeTestConstants.LIABILITY_SHARES,
@@ -65,16 +66,14 @@ class TestCalculateLiquidityFeeByEvents:
             },
         )
 
+        # Assert
         expected_fee = Decimal('16995441781507364.3604745483')
         expected_shares = 2_879_999_910_015_672_558_976
 
         assert result == (expected_fee, expected_shares)
 
     def test_fee_update_ordered_by_log_index(self):
-        """Verifies that multiple fee update events in the same block are processed in log
-        index order, ensuring deterministic fee calculation. Checks that transaction ordering
-        within a block is correctly handled for state changes.
-        """
+        # Setup
         vault_adr = VaultAddresses.VAULT_0
         event_low = VaultFeesUpdatedEventFactory.build(
             vault=vault_adr,
@@ -89,6 +88,7 @@ class TestCalculateLiquidityFeeByEvents:
             pre_liquidity_fee_bp=200,
         )
 
+        # Act
         fee, shares = StakingVaultsService._calculate_liquidity_fee_by_events(
             vault_address=vault_adr,
             liability_shares=10,
@@ -102,6 +102,7 @@ class TestCalculateLiquidityFeeByEvents:
             block_timestamps={BlockNumber(1): 10},
         )
 
+        # Assert
         expected_fee = StakingVaultsService.calc_fee_value(Decimal(10), 10, Decimal(1), 650) + (
             StakingVaultsService.calc_fee_value(Decimal(10), 10, Decimal(1), 100)
         )
@@ -109,10 +110,7 @@ class TestCalculateLiquidityFeeByEvents:
         assert shares == 10
 
     def test_raises_if_connected_with_non_zero_shares(self):
-        """Verifies that a ValueError is raised when a vault connection event occurs with
-        non-zero liability shares. Ensures vault connections only happen during initial
-        setup, preventing fee calculation errors from invalid state transitions.
-        """
+        # Setup
         vault_address = VaultAddresses.VAULT_2
         wrong_shares = 10_000_000
 
@@ -129,6 +127,7 @@ class TestCalculateLiquidityFeeByEvents:
 
         vault_events = [minted_event, connected_event]
 
+        # Act & Assert
         with pytest.raises(ValueError, match=r'Wrong vault liquidity shares by vault .* got .*'):
             StakingVaultsService._calculate_liquidity_fee_by_events(
                 vault_address=vault_address,
@@ -147,10 +146,7 @@ class TestCalculateLiquidityFeeByEvents:
             )
 
     def test_raises_if_event_after_current_report(self):
-        """Verifies that events with timestamps after the current report timestamp are
-        rejected with a ValueError. Ensures fee calculations remain historical and prevents
-        forward-looking calculations that would cause temporal inconsistencies.
-        """
+        # Setup
         vault_adr = VaultAddresses.VAULT_0
         vault_events = [
             MintedSharesEventFactory.build(
@@ -160,6 +156,7 @@ class TestCalculateLiquidityFeeByEvents:
             ),
         ]
 
+        # Act & Assert
         with pytest.raises(ValueError, match='Negative event interval'):
             StakingVaultsService._calculate_liquidity_fee_by_events(
                 vault_address=vault_adr,
@@ -175,16 +172,14 @@ class TestCalculateLiquidityFeeByEvents:
             )
 
     def test_rebalanced_event_increases_liability_shares_backwards(self):
-        """Verifies that VaultRebalancedEvent increases liability_shares by shares_burned
-        when processing events in reverse order. Ensures backward reconstruction correctly
-        restores pre-event liability for accurate fee calculations.
-        """
+        # Setup
         event = VaultRebalancedEventFactory.build(
             vault=VaultAddresses.VAULT_0,
             block_number=BlockNumber(1),
             shares_burned=5,
         )
 
+        # Act
         _, liability_shares = StakingVaultsService._calculate_liquidity_fee_by_events(
             vault_address=VaultAddresses.VAULT_0,
             liability_shares=10,
@@ -198,19 +193,18 @@ class TestCalculateLiquidityFeeByEvents:
             block_timestamps={BlockNumber(1): 0},
         )
 
+        # Assert
         assert liability_shares == 15
 
     def test_written_off_event_increases_liability_shares_backwards(self):
-        """Verifies that BadDebtWrittenOffEvent adds bad_debt_shares to liability_shares
-        when processing events in reverse order. Ensures the pre-event liability baseline
-        is correctly restored for accurate fee calculations.
-        """
+        # Setup
         event = BadDebtWrittenOffEventFactory.build(
             vault=VaultAddresses.VAULT_0,
             block_number=BlockNumber(1),
             bad_debt_shares=7,
         )
 
+        # Act
         _, liability_shares = StakingVaultsService._calculate_liquidity_fee_by_events(
             vault_address=VaultAddresses.VAULT_0,
             liability_shares=20,
@@ -224,13 +218,11 @@ class TestCalculateLiquidityFeeByEvents:
             block_timestamps={BlockNumber(1): 0},
         )
 
+        # Assert
         assert liability_shares == 27
 
     def test_socialized_acceptor_decreases_liability_shares_backwards(self):
-        """Verifies that BadDebtSocializedEvent reduces liability_shares for the acceptor
-        when processing events in reverse order. Ensures reverse traversal correctly
-        undoes the acceptor's share increase for accurate fee calculations.
-        """
+        # Setup
         event = BadDebtSocializedEventFactory.build(
             vault_donor=VaultAddresses.VAULT_1,
             vault_acceptor=VaultAddresses.VAULT_0,
@@ -238,6 +230,7 @@ class TestCalculateLiquidityFeeByEvents:
             bad_debt_shares=9,
         )
 
+        # Act
         _, liability_shares = StakingVaultsService._calculate_liquidity_fee_by_events(
             vault_address=VaultAddresses.VAULT_0,
             liability_shares=30,
@@ -251,4 +244,5 @@ class TestCalculateLiquidityFeeByEvents:
             block_timestamps={BlockNumber(1): 0},
         )
 
+        # Assert
         assert liability_shares == 21

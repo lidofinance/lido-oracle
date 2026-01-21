@@ -5,10 +5,13 @@ import pytest
 from src.services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import FeeTestConstants
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestCalcFeeValue:
-    """Tests for calc_fee_value static method."""
 
     @pytest.mark.parametrize(
         'vault_total_value, time_elapsed_seconds, core_apr_ratio, fee_bp, expected',
@@ -29,11 +32,9 @@ class TestCalcFeeValue:
             ),
         ],
     )
-    def test_infra_fee_calculation(self, vault_total_value, time_elapsed_seconds, core_apr_ratio, fee_bp, expected):
-        """Verifies infrastructure fees are correctly calculated based on vault total value,
-        elapsed time, core APR ratio, and fee basis points. Ensures fees charged on total
-        vault value are computed accurately for proper fee distribution.
-        """
+    def test_calc_fee_value__infra_fee__returns_expected_fee(
+        self, vault_total_value, time_elapsed_seconds, core_apr_ratio, fee_bp, expected
+    ):
         result = StakingVaultsService.calc_fee_value(
             Decimal(vault_total_value), time_elapsed_seconds, Decimal(str(core_apr_ratio)), fee_bp
         )
@@ -58,11 +59,9 @@ class TestCalcFeeValue:
             ),
         ],
     )
-    def test_reservation_fee_calculation(self, mintable_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected):
-        """Verifies reservation liquidity fees are correctly calculated based on mintable
-        stETH amount (reserved liquidity), elapsed time, and fee basis points. Ensures
-        opportunity cost of reserved funds is accurately reflected in fee calculations.
-        """
+    def test_calc_fee_value__reservation_fee__returns_expected_fee(
+        self, mintable_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected
+    ):
         result = StakingVaultsService.calc_fee_value(
             Decimal(mintable_steth), time_elapsed_seconds, Decimal(str(core_apr_ratio)), fee_bp
         )
@@ -87,11 +86,9 @@ class TestCalcFeeValue:
             ),
         ],
     )
-    def test_liquidity_fee_calculation(self, minted_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected):
-        """Verifies liquidity fees are correctly calculated based on minted stETH amount
-        (actual liquidity provided), elapsed time, and fee basis points. Ensures liquidity
-        providers are compensated accurately based on actual minted amounts and holding duration.
-        """
+    def test_calc_fee_value__liquidity_fee__returns_expected_fee(
+        self, minted_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected
+    ):
         result = StakingVaultsService.calc_fee_value(
             Decimal(minted_steth), time_elapsed_seconds, Decimal(str(core_apr_ratio)), fee_bp
         )

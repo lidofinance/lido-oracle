@@ -17,16 +17,16 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestGetVaultsSlashingReserve:
-    """Tests for get_vaults_slashing_reserve method."""
 
-    def test_slashing_reserve_calculation(self):
-        """Verifies slashing reserves are correctly calculated for slashed validators
-        based on their balance and reserve ratio. Ensures slashed validators contribute
-        the correct reserve amount to their vault.
-        """
+    def test_slashing_reserve_calculation(self, web3):
+        # Setup
         mock_ref_epoch = EpochNumber(40_000)
 
         ref_block_stamp = ReferenceBlockStamp(
@@ -92,7 +92,6 @@ class TestGetVaultsSlashingReserve:
             genesis_time=MagicMock(),
         )
 
-        w3_mock = MagicMock()
         oracle_daemon_config_mock = MagicMock()
         oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=8_192)
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=8_192)
@@ -100,12 +99,15 @@ class TestGetVaultsSlashingReserve:
         cc_mock = MagicMock()
         cc_mock.get_validator_state = MagicMock(return_value=validator_1)
 
-        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
-        w3_mock.cc = cc_mock
+        web3.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        web3.cc = cc_mock
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
+
+        # Act
         result = service.get_vaults_slashing_reserve(ref_block_stamp, vaults_map, validators, chain_config)
 
+        # Assert
         expected_reserve_1 = int(
             (Decimal(gwei_to_wei(validator_1.balance)) * Decimal(650) / Decimal(TOTAL_BASIS_POINTS)).to_integral_value()
         )
@@ -117,11 +119,8 @@ class TestGetVaultsSlashingReserve:
         assert expected_reserve_2 == 4_160_000_000_000_000_000
         assert result == {vault_address_1: expected_reserve_1, vault_address_2: expected_reserve_2}
 
-    def test_slashing_reserve_boundary_uses_past_state(self):
-        """Verifies that when ref_epoch equals withdrawable_epoch - left_shift, the
-        calculation uses past validator state. Ensures the slashing window is inclusive
-        at the lower bound, matching protocol specification.
-        """
+    def test_slashing_reserve_boundary_uses_past_state(self, web3):
+        # Setup
         mock_ref_epoch = EpochNumber(10_000)
         left_shift = 100
         right_shift = 200
@@ -172,7 +171,6 @@ class TestGetVaultsSlashingReserve:
             genesis_time=MagicMock(),
         )
 
-        w3_mock = MagicMock()
         oracle_daemon_config_mock = MagicMock()
         oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=left_shift)
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=right_shift)
@@ -183,12 +181,15 @@ class TestGetVaultsSlashingReserve:
         cc_mock = MagicMock()
         cc_mock.get_validator_state.side_effect = [past_state_1, past_state_2]
 
-        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
-        w3_mock.cc = cc_mock
+        web3.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        web3.cc = cc_mock
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
+
+        # Act
         result = service.get_vaults_slashing_reserve(ref_block_stamp, vaults_map, validators, chain_config)
 
+        # Assert
         expected_slot_id = (mock_ref_epoch - left_shift) * chain_config.slots_per_epoch
         cc_mock.get_validator_state.assert_any_call(SlotNumber(expected_slot_id), validator_1.index)
         cc_mock.get_validator_state.assert_any_call(SlotNumber(expected_slot_id), validator_2.index)
@@ -204,11 +205,8 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    def test_slashing_reserve_before_window_uses_current_balance(self):
-        """Verifies that when ref_epoch is before the slashing window, current validator
-        balances are used. Ensures historical state queries are avoided when the slashing
-        window hasn't started yet.
-        """
+    def test_slashing_reserve_before_window_uses_current_balance(self, web3):
+        # Setup
         mock_ref_epoch = EpochNumber(10_000)
         left_shift = 100
 
@@ -256,21 +254,23 @@ class TestGetVaultsSlashingReserve:
             genesis_time=MagicMock(),
         )
 
-        w3_mock = MagicMock()
         oracle_daemon_config_mock = MagicMock()
         oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=left_shift)
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=200)
 
         cc_mock = MagicMock()
 
-        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
-        w3_mock.cc = cc_mock
+        web3.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        web3.cc = cc_mock
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
+
+        # Act
         result = service.get_vaults_slashing_reserve(
             ref_block_stamp, vaults_map, [validator_1, validator_2], chain_config
         )
 
+        # Assert
         cc_mock.get_validator_state.assert_not_called()
         expected_reserve = int(
             (Decimal(gwei_to_wei(validator_1.balance)) * Decimal(650) / Decimal(TOTAL_BASIS_POINTS)).to_integral_value()
@@ -279,11 +279,8 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    def test_slashing_reserve_upper_boundary_uses_past_state(self):
-        """Verifies that when ref_epoch equals withdrawable_epoch + right_shift, past
-        validator state is still used. Ensures the upper bound is inclusive and reserves
-        aren't dropped prematurely.
-        """
+    def test_slashing_reserve_upper_boundary_uses_past_state(self, web3):
+        # Setup
         mock_ref_epoch = EpochNumber(10_000)
         left_shift = 100
         right_shift = 200
@@ -324,7 +321,6 @@ class TestGetVaultsSlashingReserve:
             genesis_time=MagicMock(),
         )
 
-        w3_mock = MagicMock()
         oracle_daemon_config_mock = MagicMock()
         oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=left_shift)
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=right_shift)
@@ -334,12 +330,15 @@ class TestGetVaultsSlashingReserve:
         cc_mock = MagicMock()
         cc_mock.get_validator_state.return_value = past_state
 
-        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
-        w3_mock.cc = cc_mock
+        web3.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        web3.cc = cc_mock
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
+
+        # Act
         result = service.get_vaults_slashing_reserve(ref_block_stamp, vaults_map, [validator], chain_config)
 
+        # Assert
         expected_slot_id = (mock_ref_epoch - left_shift) * chain_config.slots_per_epoch
         cc_mock.get_validator_state.assert_called_once_with(SlotNumber(expected_slot_id), validator.index)
 
@@ -348,11 +347,8 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    def test_slashing_reserve_after_window_no_reserve(self):
-        """Verifies that when ref_epoch is beyond withdrawable_epoch + right_shift, no
-        reserves are returned. Ensures slashing reserves are not counted after the
-        slashing penalty window has closed.
-        """
+    def test_slashing_reserve_after_window_no_reserve(self, web3):
+        # Setup
         mock_ref_epoch = EpochNumber(10_000)
         left_shift = 200
         right_shift = 100
@@ -393,18 +389,20 @@ class TestGetVaultsSlashingReserve:
             genesis_time=MagicMock(),
         )
 
-        w3_mock = MagicMock()
         oracle_daemon_config_mock = MagicMock()
         oracle_daemon_config_mock.slashing_reserve_we_left_shift = MagicMock(return_value=left_shift)
         oracle_daemon_config_mock.slashing_reserve_we_right_shift = MagicMock(return_value=right_shift)
 
         cc_mock = MagicMock()
 
-        w3_mock.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
-        w3_mock.cc = cc_mock
+        web3.lido_contracts.oracle_daemon_config = oracle_daemon_config_mock
+        web3.cc = cc_mock
 
-        service = StakingVaultsService(w3_mock)
+        service = StakingVaultsService(web3)
+
+        # Act
         result = service.get_vaults_slashing_reserve(ref_block_stamp, vaults_map, [validator], chain_config)
 
+        # Assert
         cc_mock.get_validator_state.assert_not_called()
         assert result == {}

@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock, call
 
 import pytest
 
@@ -17,16 +17,31 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def configure_validator_statuses(web3, validator_statuses):
+    lazy_oracle = MagicMock()
+
+    def get_validator_statuses(pubkeys, *args, **kwargs):
+        return {k: v for k, v in validator_statuses.items() if k in pubkeys}
+
+    lazy_oracle.get_validator_statuses.side_effect = get_validator_statuses
+    web3.lido_contracts.lazy_oracle = lazy_oracle
+
+
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestGetVaultsTotalValues:
-    """Tests for get_vaults_total_values method."""
 
-    def test_basic_calculation_with_validators_and_pending_deposits(self, staking_vaults_service, default_vaults_map):
-        """Verifies total value calculation correctly sums validator balances, execution
-        layer balances, and pending deposits. Ensures all value sources are included
-        in vault total value calculations.
-        """
+    def test_basic_calculation_with_validators_and_pending_deposits(self, web3, default_vaults_map):
+        # Setup
         validators = [
             ValidatorFactory.build(
                 balance=Gwei(32_834_904_184),
@@ -77,8 +92,18 @@ class TestGetVaultsTotalValues:
             ),
         ]
 
-        result = staking_vaults_service.get_vaults_total_values(default_vaults_map, validators, pending_deposits, {})
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
 
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier="latest",
+        )
+
+        # Assert
         expected = {
             VaultAddresses.VAULT_0: 34_834_904_184_000_000_000,  # 32.8 ETH + 1 EL + 1 pending
             VaultAddresses.VAULT_1: 41_000_000_000_000_000_000,  # 40 ETH + 0 EL + 1 pending
@@ -87,11 +112,8 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    def test_pending_deposit_with_wrong_wc_ignored(self, staking_vaults_service, default_vaults_map):
-        """Verifies that pending deposits with withdrawal credentials not matching the
-        validator's credentials are ignored. Ensures only valid deposits are counted
-        in vault total values.
-        """
+    def test_pending_deposit_with_wrong_wc_ignored(self, web3, default_vaults_map):
+        # Setup
         validators = [
             ValidatorFactory.build(
                 balance=Gwei(32_834_904_184),
@@ -111,8 +133,18 @@ class TestGetVaultsTotalValues:
             ),
         ]
 
-        result = staking_vaults_service.get_vaults_total_values(default_vaults_map, validators, pending_deposits, {})
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
 
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier="latest",
+        )
+
+        # Assert
         # Pending deposit should be counted for vault_0 (where validator is)
         expected = {
             VaultAddresses.VAULT_0: 36_834_904_184_000_000_000,  # includes pending deposit
@@ -122,11 +154,8 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    def test_multiple_pending_deposits_for_same_validator(self, staking_vaults_service, default_vaults_map):
-        """Verifies that multiple pending deposits for the same validator are correctly
-        summed together. Ensures all pending deposits are accounted for in total value
-        calculations.
-        """
+    def test_multiple_pending_deposits_for_same_validator(self, web3, default_vaults_map):
+        # Setup
         validators = [
             ValidatorFactory.build(
                 balance=Gwei(32_000_000_000),
@@ -159,8 +188,18 @@ class TestGetVaultsTotalValues:
             ),
         ]
 
-        result = staking_vaults_service.get_vaults_total_values(default_vaults_map, validators, pending_deposits, {})
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
 
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=validators,
+            pending_deposits=pending_deposits,
+            block_identifier="latest",
+        )
+
+        # Assert
         expected = {
             VaultAddresses.VAULT_0: 1_000_000_000_000_000_000,
             VaultAddresses.VAULT_1: 35_000_000_000_000_000_000,  # 32 ETH + 3 pending
@@ -169,13 +208,8 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    def test_pending_deposit_without_validator_counts_predeposit(
-        self, mock_w3_with_validator_statuses, default_vaults_map
-    ):
-        """Verifies that pending deposits without matching validators count as 1 ETH
-        if the validator status is PREDEPOSITED. Ensures predeposited validators are
-        properly valued even before activation.
-        """
+    def test_pending_deposit_without_validator_counts_predeposit(self, web3, default_vaults_map):
+        # Setup
         pending_pubkey = (
             '0xb5b222b452892bd62a7d2b4925e15bf9823c4443313d86d3e1fe549c86aa8919d0cdd1d5b60'
             'd9d3184f3966ced21699f124a14a0d8c1f1ae3e9f25715f40c3e7'
@@ -192,11 +226,13 @@ class TestGetVaultsTotalValues:
 
         validator_statuses = {pending_pubkey: ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
+        # Assert
         expected = {
             VaultAddresses.VAULT_0: 2_000_000_000_000_000_000,
             VaultAddresses.VAULT_1: 0,
@@ -208,13 +244,9 @@ class TestGetVaultsTotalValues:
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesWithValidatorStatuses:
-    """Tests for vault total values with various validator stages."""
 
-    def test_predeposited_validator_counts_1_eth(self, mock_w3_with_validator_statuses, default_vaults_map):
-        """Verifies that PREDEPOSITED validators count as 1 ETH regardless of their
-        actual balance. Ensures predeposited validators are valued consistently before
-        activation regardless of beacon chain state.
-        """
+    def test_predeposited_validator_counts_1_eth(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99002'
 
         validators = [
@@ -230,22 +262,20 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         validator_statuses = {pubkey: ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
+        # Assert
         expected_vault_0 = default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance + gwei_to_wei(
             Gwei(1_000_000_000)
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    def test_activated_validator_counts_full_balance_plus_pending(
-        self, mock_w3_with_validator_statuses, default_vaults_map
-    ):
-        """Verifies that ACTIVATED validators count their full balance plus any pending
-        deposits. Ensures activated validators are fully valued including all their assets.
-        """
+    def test_activated_validator_counts_full_balance_plus_pending(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99005'
 
         validators = [
@@ -269,11 +299,13 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         validator_statuses = {pubkey: ValidatorStatusFactory.build_activated(VaultAddresses.VAULT_0)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
+        # Assert
         expected_vault_0 = (
             default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
             + gwei_to_wei(Gwei(1_000_000_000))
@@ -281,11 +313,8 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    def test_proven_validator_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
-        """Verifies that PROVEN validators are not counted in total value calculations.
-        Ensures validators that haven't reached PREDEPOSITED or ACTIVATED status don't
-        contribute to vault total values.
-        """
+    def test_proven_validator_not_counted(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99003'
 
         validators = [
@@ -301,20 +330,17 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         validator_statuses = {pubkey: ValidatorStatusFactory.build_proven(VaultAddresses.VAULT_0)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
+        # Assert
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
-    def test_predeposited_validator_with_pending_deposit_no_double_count(
-        self, mock_w3_with_validator_statuses, default_vaults_map
-    ):
-        """Verifies that PREDEPOSITED validators with pending deposits don't double count
-        the deposit amount. Ensures total value calculation uses the 1 ETH valuation
-        for predeposited validators regardless of pending deposits.
-        """
+    def test_predeposited_validator_with_pending_deposit_no_double_count(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
 
         validators = [
@@ -338,21 +364,20 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         validator_statuses = {pubkey: ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
+        # Assert
         expected_vault_0 = default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance + gwei_to_wei(
             Gwei(1_000_000_000)
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    def test_doppelganger_pubkey_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
-        """Verifies that validators with pubkeys matching a different vault's withdrawal
-        credentials (doppelgangers) are not counted. Ensures validators are only counted
-        for their actual vault based on withdrawal credentials.
-        """
+    def test_doppelganger_pubkey_not_counted(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
 
         validators = [
@@ -368,28 +393,22 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         validator_statuses = {pubkey: ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_1)}
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
+        # Assert
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
         assert result[VaultAddresses.VAULT_1] == default_vaults_map[VaultAddresses.VAULT_1].aggregated_balance
 
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesEdgeCases:
-    """Additional edge cases for total value calculations."""
 
-    def test_unmatched_pending_deposit_non_predeposited_stage_ignored(
-        self,
-        mock_w3_with_validator_statuses,
-        default_vaults_map,
-    ):
-        """Verifies that pending deposits without matching validators are ignored if
-        the validator status is not PREDEPOSITED. Ensures only valid predeposited
-        deposits contribute to total values.
-        """
+    def test_unmatched_pending_deposit_non_predeposited_stage_ignored(self, web3, default_vaults_map):
+        # Setup
         pending_pubkey = '0x1234'
 
         pending_deposits = [
@@ -406,19 +425,18 @@ class TestGetVaultsTotalValuesEdgeCases:
             )
         }
 
-        w3_mock = mock_w3_with_validator_statuses(validator_statuses)
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, validator_statuses)
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, [], pending_deposits)
 
+        # Assert
         # No extra 1 ETH should be counted because stage is not PREDEPOSITED.
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
-    def test_far_future_validator_without_status_skipped(self, mock_w3_with_validator_statuses, default_vaults_map):
-        """Verifies that far-future validators without Predeposit Guardian (PDG) status
-        are skipped in total value calculations. Ensures only validators with confirmed
-        status contribute to vault values.
-        """
+    def test_far_future_validator_without_status_skipped(self, web3, default_vaults_map):
+        # Setup
         pubkey = '0xdeadbeef'
 
         validators = [
@@ -433,26 +451,23 @@ class TestGetVaultsTotalValuesEdgeCases:
         ]
 
         # No PDG data returned for the validator
-        w3_mock = mock_w3_with_validator_statuses({})
-        service = StakingVaultsService(w3_mock)
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
+        # Assert
         # Validator should be ignored entirely.
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesDefaults:
-    """Tests for default parameters and logging behavior."""
 
-    def test_defaults_and_logging(self, monkeypatch, default_vaults_map):
-        """Verifies that get_vaults_total_values uses "latest" as the default block
-        identifier for status fetches and logs total value per vault. Ensures default
-        block selection is consistent and logging provides observability.
-        """
-        w3_mock = MagicMock()
-        service = StakingVaultsService(w3_mock)
+    def test_defaults_and_logging(self, web3, monkeypatch, default_vaults_map):
+        # Setup
+        service = StakingVaultsService(web3)
 
         logger_mock = MagicMock()
         monkeypatch.setattr("src.services.staking_vaults.logger", logger_mock)
@@ -464,29 +479,31 @@ class TestGetVaultsTotalValuesDefaults:
         service._get_unmatched_deposits_pubkeys = MagicMock(return_value=set())
         service._calculate_vault_total_value = MagicMock(return_value=123)
 
+        # Act
         result = service.get_vaults_total_values(default_vaults_map, [], [])
 
-        assert service._get_pubkey_statuses_by_vault.call_count == 2
-        for call in service._get_pubkey_statuses_by_vault.call_args_list:
-            assert call.kwargs["block_identifier"] == "latest"
+        # Assert
+        service._get_pubkey_statuses_by_vault.assert_has_calls(
+            [call(pubkeys=ANY, block_identifier="latest"), call(pubkeys=ANY, block_identifier="latest")],
+            any_order=False,
+        )
 
         assert all(value == 123 for value in result.values())
         assert logger_mock.info.call_count == len(default_vaults_map)
-        for call in logger_mock.info.call_args_list:
-            payload = call.args[0]
-            assert payload["msg"].startswith("Calculate vault TVL:")
-            assert "value" in payload
+        logger_mock.info.assert_has_calls(
+            [
+                call({"msg": f"Calculate vault TVL: {vault_address}.", "value": 123})
+                for vault_address in default_vaults_map
+            ],
+            any_order=False,
+        )
 
 
 @pytest.mark.unit
 class TestCalculateVaultTotalValue:
-    """Tests for _calculate_vault_total_value internal logic."""
 
     def test_mixed_validators_and_unmatched_pending(self):
-        """Verifies total value calculation with mixed validator states and unmatched
-        pending deposits in one scenario. Ensures all aggregation rules work correctly
-        together for eligible, predeposited, activated, and unmatched deposit cases.
-        """
+        # Setup
         vault_balance = gwei_to_wei(Gwei(10_000_000_000))
 
         eligible_validator = ValidatorFactory.build(
@@ -533,6 +550,7 @@ class TestCalculateVaultTotalValue:
             "0xbbb": ValidatorStatusFactory.build(stage=ValidatorStage.PROVEN, staking_vault=VaultAddresses.VAULT_0),
         }
 
+        # Act
         result = StakingVaultsService._calculate_vault_total_value(
             vault_aggregated_balance=vault_balance,
             vault_validators=[
@@ -546,6 +564,7 @@ class TestCalculateVaultTotalValue:
             vault_unmatched_pending_deposit_statuses=vault_unmatched_pending_deposit_statuses,
         )
 
+        # Assert
         eligible_total = gwei_to_wei(Gwei(3_000_000_000))
         activated_total = gwei_to_wei(Gwei(32_000_000_000))
         expected = (
@@ -559,10 +578,7 @@ class TestCalculateVaultTotalValue:
         assert result == expected
 
     def test_missing_status_does_not_stop_processing(self):
-        """Verifies that when a validator has missing PDG status, only that validator
-        is skipped while others continue to be processed. Ensures missing status data
-        doesn't stop processing of remaining validators.
-        """
+        # Setup
         vault_balance = gwei_to_wei(Gwei(0))
 
         missing_status_validator = ValidatorFactory.build(
@@ -584,6 +600,7 @@ class TestCalculateVaultTotalValue:
             TestPubkeys.PUBKEY_1: ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0),
         }
 
+        # Act
         result = StakingVaultsService._calculate_vault_total_value(
             vault_aggregated_balance=vault_balance,
             vault_validators=[missing_status_validator, predeposited_validator],
@@ -592,4 +609,5 @@ class TestCalculateVaultTotalValue:
             vault_unmatched_pending_deposit_statuses={},
         )
 
+        # Assert
         assert result == int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))

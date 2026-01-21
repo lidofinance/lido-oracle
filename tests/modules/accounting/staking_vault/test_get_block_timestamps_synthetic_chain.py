@@ -9,6 +9,10 @@ SECONDS_PER_SLOT = 12
 BLOCKS_PER_DAY = 7200
 MAX_RPC_CALLS = 500
 
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
 
 def _timestamp_for_block(block_num: int, first_block: int, base_ts: int, missed_after: set[int]) -> int:
     """
@@ -44,23 +48,16 @@ def _make_web3_mock(get_block):
     return w3
 
 
+# =============================================================================
+# Tests
+# =============================================================================
+
+
 @pytest.mark.unit
 class TestBlockTimestampsSyntheticChain:
-    """Scenario tests for block timestamp fetching without RPC access."""
 
     def test_full_day_no_missed_slots(self):
-        """
-        Test optimal performance case: a full day of blocks with no missed slots.
-
-        This test verifies that when blocks are produced at perfectly regular intervals
-        with no gaps, the get_block_timestamps function can interpolate all timestamps
-        by only fetching the first and last block (2 RPC calls total).
-
-        Expected behavior:
-        - All 7200 blocks (one day) should have correct timestamps
-        - Only 2 RPC calls should be made (first and last block)
-        - This demonstrates maximum efficiency of the binary search optimization
-        """
+        # Setup
         first_block = 10_000
         base_ts = 1_700_000_000
         missed_after: set[int] = set()  # No missed slots in this test
@@ -73,17 +70,17 @@ class TestBlockTimestampsSyntheticChain:
         mock_get_block = MagicMock(side_effect=get_block)
         w3 = _make_web3_mock(mock_get_block)
 
+        # Act
         result = get_block_timestamps(w3, blocks, SECONDS_PER_SLOT)
-        # Build expected timestamps directly from the same synthetic model.
+
+        # Assert
         expected = {
             BlockNumber(b): _timestamp_for_block(b, first_block, base_ts, missed_after)
             for b in range(first_block, first_block + BLOCKS_PER_DAY)
         }
 
         assert result == expected
-        # No missed slots => only endpoints need to be fetched (optimal case).
         assert mock_get_block.call_count == 2
-        # Each RPC is ~1ms; keep under 100ms budget.
         assert mock_get_block.call_count <= MAX_RPC_CALLS
 
     @pytest.mark.parametrize(
@@ -95,21 +92,7 @@ class TestBlockTimestampsSyntheticChain:
         ],
     )
     def test_samples_with_missed_slots_match_manual(self, stride):
-        """
-        Test binary search optimization with sampled blocks and missed slots.
-
-        This test simulates a realistic scenario where:
-        1. We only need timestamps for a subset of blocks (sampled at regular intervals)
-        2. There are missed slots in the chain (causing timestamp irregularities, randomly distributed)
-
-        The binary search optimization should:
-        - Detect the missed slots by noticing timestamp gaps
-        - Only fetch additional blocks where needed to refine the search
-        - Stay within the performance budget (MAX_RPC_CALLS)
-
-        Args:
-            stride: How many blocks to skip between samples (10, 100, or 1000)
-        """
+        # Setup
         first_block = 20_000
         base_ts = 1_800_000_000
 
@@ -126,12 +109,11 @@ class TestBlockTimestampsSyntheticChain:
 
         mock_get_block = MagicMock(side_effect=get_block)
         w3 = _make_web3_mock(mock_get_block)
+
+        # Act
         result = get_block_timestamps(w3, blocks, SECONDS_PER_SLOT)
 
-        # Expected values from the synthetic model (manual fetch equivalent).
+        # Assert
         expected = {BlockNumber(b): _timestamp_for_block(b, first_block, base_ts, missed_after) for b in sampled_blocks}
-
-        # Verify all timestamps are correct
         assert result == expected
-        # Ensure we stay within the performance budget (each RPC is ~1ms; keep under budget)
         assert mock_get_block.call_count <= MAX_RPC_CALLS

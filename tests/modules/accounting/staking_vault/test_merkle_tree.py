@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -24,23 +25,19 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestBuildTreeData:
-    """Tests for build_tree_data and merkle tree methods."""
 
     def test_merkle_tree_filename_constant(self):
-        """Verifies that MERKLE_TREE_VAULTS_FILENAME remains constant at
-        'staking_vaults_merkle_tree.json'. Ensures IPFS publishing uses a stable filename
-        and accidental edits are detected.
-        """
         assert MERKLE_TREE_VAULTS_FILENAME == "staking_vaults_merkle_tree.json"
 
     def test_build_tree_uses_zero_slashing_reserve_when_missing(self):
-        """Verifies that when vaults_slashing_reserve lacks an entry for a vault, the
-        tree node uses 0 for slashing reserve. Ensures missing reserves default to zero
-        and prevents accidental inflation of reserve values on-chain.
-        """
+        # Setup
         vault_address = VaultAddresses.VAULT_0
         vault_info = VaultInfoFactory.build(vault=vault_address)
 
@@ -48,15 +45,14 @@ class TestBuildTreeData:
         vaults_total_values: VaultTotalValueMap = {vault_address: 1_000}
         vaults_fees: VaultFeeMap = {vault_address: VaultFeeFactory.build()}
 
+        # Act
         tree_data = StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, {})
 
+        # Assert
         assert tree_data[0][-1] == 0
 
     def test_build_tree_happy_path(self):
-        """Verifies tree data is built correctly from vault information, total values,
-        fees, and slashing reserves. Ensures tree data structure matches the expected
-        format for merkle tree generation and on-chain verification.
-        """
+        # Setup
         vault_address = ChecksumAddress(HexAddress(HexStr('0x1234567890abcdef1234567890abcdef12345678')))
 
         vault_info = VaultInfoFactory.build(
@@ -74,10 +70,12 @@ class TestBuildTreeData:
         slashing_reserve = 5_555
         vaults_slashing_reserve: VaultReserveMap = {vault_address: slashing_reserve}
 
+        # Act
         tree_data = StakingVaultsService.build_tree_data(
             vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve
         )
 
+        # Assert
         assert len(tree_data) == 1
         assert tree_data[0] == (
             vault_address,
@@ -89,24 +87,19 @@ class TestBuildTreeData:
         )
 
     def test_build_tree_missing_total_value_raises(self):
-        """Verifies that a ValueError is raised when a vault is missing a corresponding
-        total value entry. Ensures tree construction has all required data and fails
-        fast on incomplete data preparation.
-        """
+        # Setup
         vault_address = ChecksumAddress(HexAddress(HexStr('0x1234567890abcdef1234567890abcdef12345678')))
         vault_info = VaultInfoFactory.build(vault=vault_address)
 
         vaults: VaultsMap = {vault_address: vault_info}
         vaults_total_values = {ChecksumAddress(HexAddress(HexStr('0xanother_vault_address_rauses_errror'))): 1_000}
 
+        # Act & Assert
         with pytest.raises(ValueError, match=f'Vault {vault_address} is not in total_values'):
             StakingVaultsService.build_tree_data(vaults, vaults_total_values, {}, {})
 
     def test_build_tree_missing_vault_fees_raises(self):
-        """Verifies that a ValueError is raised when a vault is missing a corresponding
-        fee entry. Ensures all required fee components are present for merkle tree
-        construction and detects incomplete fee calculations.
-        """
+        # Setup
         vault_address = ChecksumAddress(HexAddress(HexStr('0x1234567890abcdef1234567890abcdef12345678')))
         vault_info = VaultInfoFactory.build(vault=vault_address)
 
@@ -116,35 +109,25 @@ class TestBuildTreeData:
             ChecksumAddress(HexAddress(HexStr('0xanother_vault_address_rauses_errror'))): VaultFeeFactory.build()
         }
 
+        # Act & Assert
         with pytest.raises(ValueError, match=f'Vault {vault_address} is not in vaults_fees'):
             StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, {vault_address: 0})
 
 
 @pytest.mark.unit
 class TestTreeEncoder:
-    """Tests for tree_encoder static method."""
 
     def test_encode_bytes(self):
-        """Verifies bytes are correctly encoded as hexadecimal strings with '0x' prefix.
-        Ensures merkle tree roots and hashes can be serialized to JSON and are compatible
-        with on-chain formats.
-        """
         result = StakingVaultsService.tree_encoder(b'\x12\x34')
         assert result == '0x1234'
 
     def test_encode_cid(self):
-        """Verifies IPFS Content Identifiers (CIDs) are correctly encoded as strings.
-        Ensures CIDs can be serialized in JSON output for IPFS report data.
-        """
         cid = CID('cid12345')
         result = StakingVaultsService.tree_encoder(cid)
         assert result == 'cid12345'
 
     def test_encode_dataclass(self):
-        """Verifies dataclass objects (like ReferenceBlockStamp) are correctly encoded
-        as dictionaries with field names as keys. Ensures complex objects can be
-        serialized to JSON-compatible structures for IPFS publication.
-        """
+        # Setup
         bs = ReferenceBlockStamp(
             state_root=StateRoot(HexStr('state_root')),
             slot_number=SlotNumber(123456),
@@ -155,7 +138,10 @@ class TestTreeEncoder:
             ref_epoch=EpochNumber(123451),
         )
 
+        # Act
         result = StakingVaultsService.tree_encoder(bs)
+
+        # Assert
         assert result == {
             'block_hash': '0xabc123',
             'block_number': 789654,
@@ -167,17 +153,12 @@ class TestTreeEncoder:
         }
 
     def test_encode_invalid_type_raises(self):
-        """Verifies that a TypeError is raised when attempting to encode unsupported types.
-        Ensures type safety by only allowing serializable data structures, preventing
-        runtime errors during tree serialization.
-        """
         with pytest.raises(TypeError, match="Object of type <class 'int'> is not JSON serializable"):
             StakingVaultsService.tree_encoder(42)
 
 
 @pytest.mark.unit
 class TestDumpedTreeAndPublish:
-    """Tests for dump/publish helpers."""
 
     @pytest.fixture
     def basic_setup(self):
@@ -207,16 +188,15 @@ class TestDumpedTreeAndPublish:
         return vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve, bs
 
     def test_get_dumped_tree_contains_expected_fields(self, basic_setup):
-        """Verifies the dumped tree structure contains all expected fields (values,
-        extraValues, blockHash, etc.). Ensures the dumped format matches the expected
-        schema for IPFS publication and on-chain verification.
-        """
+        # Setup
         vaults, total_values, fees, reserves, bs = basic_setup
         tree = StakingVaultsService.get_merkle_tree(
             StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves)
         )
 
         chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=0)
+
+        # Act
         dumped = StakingVaultsService.get_dumped_tree(
             tree=tree,
             vaults=vaults,
@@ -226,16 +206,14 @@ class TestDumpedTreeAndPublish:
             vaults_fee_map=fees,
         )
 
+        # Assert
         value_entry = dumped['values'][0]['value']
         assert value_entry[0] == VaultAddresses.VAULT_0
         assert dumped['extraValues'][VaultAddresses.VAULT_0]['prevFee'] == str(fees[VaultAddresses.VAULT_0].prev_fee)
         assert dumped['blockHash'] == bs.block_hash
 
     def test_get_dumped_tree_formats_values_and_timestamp(self, basic_setup):
-        """Verifies that dumped tree values are stringified, timestamp is calculated
-        as genesis_time + slot*seconds_per_slot, and prevTreeCID is preserved. Ensures
-        the dumped structure maintains stable field naming and formatting for external consumption.
-        """
+        # Setup
         vaults, _, _, reserves, bs = basic_setup
         total_values = {VaultAddresses.VAULT_0: Wei(123)}
         fees = {
@@ -246,6 +224,8 @@ class TestDumpedTreeAndPublish:
         )
 
         chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
+
+        # Act
         dumped = StakingVaultsService.get_dumped_tree(
             tree=tree,
             vaults=vaults,
@@ -255,6 +235,7 @@ class TestDumpedTreeAndPublish:
             vaults_fee_map=fees,
         )
 
+        # Assert
         assert dumped["timestamp"] == chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot
         assert dumped["refSlot"] == bs.ref_slot
         assert dumped["blockNumber"] == bs.block_number
@@ -267,19 +248,16 @@ class TestDumpedTreeAndPublish:
         assert value_entry["value"][2] == str(fees[VaultAddresses.VAULT_0].total())
         assert "treeIndex" in value_entry
 
-    def test_publish_tree_calls_ipfs_with_ascii_payload(self, basic_setup):
-        """Verifies that tree publishing serializes the tree to JSON and publishes it
-        to IPFS with ASCII encoding and the correct filename. Ensures IPFS payloads
-        are correctly formatted and the filename matches expected constants for retrieval.
-        """
+    def test_publish_tree_calls_ipfs_with_ascii_payload(self, basic_setup, web3):
+        # Setup
         vaults, total_values, fees, reserves, bs = basic_setup
-        w3_mock = MagicMock()
-        w3_mock.ipfs.publish.return_value = 'cid123'
-        service = StakingVaultsService(w3_mock)
+        web3.ipfs.publish.return_value = 'cid123'
+        service = StakingVaultsService(web3)
 
         tree = service.get_merkle_tree(StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves))
         chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=0)
 
+        # Act
         cid = service.publish_tree(
             tree=tree,
             vaults=vaults,
@@ -289,20 +267,23 @@ class TestDumpedTreeAndPublish:
             vaults_fee_map=fees,
         )
 
-        w3_mock.ipfs.publish.assert_called_once()
-        args, kwargs = w3_mock.ipfs.publish.call_args
-        assert args[1] == MERKLE_TREE_VAULTS_FILENAME
-        # Ensure ascii encoding
-        assert isinstance(args[0], bytes)
-        args[0].decode('ascii')
-        assert b'"refSlot"' in args[0]
+        # Assert
+        expected_payload = json.dumps(
+            service.get_dumped_tree(
+                tree=tree,
+                vaults=vaults,
+                bs=bs,
+                prev_tree_cid='prev',
+                chain_config=chain_config,
+                vaults_fee_map=fees,
+            ),
+            default=service.tree_encoder,
+        ).encode('ascii')
+        web3.ipfs.publish.assert_called_once_with(expected_payload, MERKLE_TREE_VAULTS_FILENAME)
         assert cid == 'cid123'
 
-    def test_is_tree_root_valid_checks_root(self):
-        """Verifies that tree root validation correctly checks if a provided root hash
-        matches one of the roots in the report's tree array. Ensures merkle tree integrity
-        is validated before on-chain verification.
-        """
+    def test_is_tree_root_valid_checks_root(self, web3):
+        # Setup
         tree_data = [
             (
                 VaultAddresses.VAULT_0,
@@ -313,7 +294,7 @@ class TestDumpedTreeAndPublish:
                 0,
             )
         ]
-        service = StakingVaultsService(MagicMock())
+        service = StakingVaultsService(web3)
         merkle_tree = service.get_merkle_tree(tree_data)
         expected_root = f'0x{merkle_tree.root.hex()}'
 
@@ -327,5 +308,6 @@ class TestDumpedTreeAndPublish:
         )
         report = SimpleNamespace(values=[vault_record], tree=[expected_root])
 
+        # Act & Assert
         assert service.is_tree_root_valid(expected_root, report)
         assert not service.is_tree_root_valid('0xdead', report)

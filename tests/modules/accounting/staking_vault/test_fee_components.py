@@ -14,16 +14,15 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestCalculateVaultFeeComponents:
-    """Tests for _calculate_vault_fee_components helper."""
 
     def test_no_events_uses_liability_shares(self):
-        """Verifies that when no events occur, all fee types (infra, reservation, liquidity)
-        are calculated using current vault state. Ensures straightforward time-weighted
-        calculations work correctly without state changes.
-        """
         vault_info = VaultInfoFactory.build_with_fees(
             vault=VaultAddresses.VAULT_0,
             liability_shares=FeeTestConstants.LIABILITY_SHARES,
@@ -75,10 +74,6 @@ class TestCalculateVaultFeeComponents:
         assert liability_shares == vault_info.liability_shares
 
     def test_with_events_uses_event_helper(self, monkeypatch):
-        """Verifies that when events exist, liquidity fee calculation uses the event-based
-        helper method while infra and reservation fees use simple calculations. Ensures
-        complex event-based logic is only applied where needed.
-        """
         sentinel_fee = Decimal('123.45')
         sentinel_shares = 987
         helper_mock = MagicMock(return_value=(sentinel_fee, sentinel_shares))

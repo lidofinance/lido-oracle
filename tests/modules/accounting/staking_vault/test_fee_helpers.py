@@ -16,26 +16,21 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultRebalancedEventFactory,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
+
 
 @pytest.mark.unit
 class TestBuildPrevReportMaps:
-    """Tests for _build_prev_report_maps helper."""
 
     def test_no_prev_report(self):
-        """Verifies that when no previous report exists, fee and liability shares maps
-        initialize with zero values for all vaults. Ensures first-time reports handle
-        missing prior state correctly without errors.
-        """
         prev_fee_map, prev_liability_shares_map = StakingVaultsService._build_prev_report_maps(None)
 
         assert prev_fee_map[VaultAddresses.VAULT_0] == 0
         assert prev_liability_shares_map[VaultAddresses.VAULT_0] == 0
 
     def test_empty_prev_report_values(self):
-        """Verifies that when a previous report exists but has no vault values, maps still
-        initialize with zeros. Ensures graceful handling of empty reports without causing
-        calculation errors.
-        """
         prev_report = MagicMock()
         prev_report.values = []
 
@@ -45,10 +40,6 @@ class TestBuildPrevReportMaps:
         assert prev_liability_shares_map[VaultAddresses.VAULT_1] == 0
 
     def test_with_prev_report(self):
-        """Verifies that when a previous report contains vault data, maps correctly extract
-        and store fee and liability shares values by vault address. Ensures previous report
-        values are properly loaded for calculating fee deltas and validating continuity.
-        """
         vault_0 = MerkleValueFactory.build(vault_address=VaultAddresses.VAULT_0, fee=111, liability_shares=222)
         vault_1 = MerkleValueFactory.build(vault_address=VaultAddresses.VAULT_1, fee=333, liability_shares=444)
         prev_report = MagicMock()
@@ -66,13 +57,21 @@ class TestBuildPrevReportMaps:
 
 @pytest.mark.unit
 class TestGetVaultEventsForFees:
-    """Tests for _get_vault_events_for_fees helper."""
 
-    def test_groups_events_and_tracks_connected_vaults(self):
-        """Verifies that all vault events are correctly grouped by vault address and
-        newly connected vaults are tracked separately. Ensures event processing handles
-        per-vault state changes correctly and identifies vaults needing special handling.
-        """
+    @pytest.fixture
+    def vault_hub_mock(self):
+        mock = MagicMock()
+        mock.get_vault_fee_updated_events = MagicMock(return_value=[])
+        mock.get_minted_events = MagicMock(return_value=[])
+        mock.get_burned_events = MagicMock(return_value=[])
+        mock.get_vault_rebalanced_events = MagicMock(return_value=[])
+        mock.get_bad_debt_socialized_events = MagicMock(return_value=[])
+        mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(return_value=[])
+        mock.get_vault_connected_events = MagicMock(return_value=[])
+        return mock
+
+    def test_groups_events_and_tracks_connected_vaults(self, web3, vault_hub_mock):
+        # Setup
         from_block = BlockNumber(1)
         to_block = BlockNumber(100)
 
@@ -87,7 +86,6 @@ class TestGetVaultEventsForFees:
         )
         connected_event = VaultConnectedEventFactory.build(vault=VaultAddresses.VAULT_3)
 
-        vault_hub_mock = MagicMock()
         vault_hub_mock.get_vault_fee_updated_events.return_value = [fee_updated_event]
         vault_hub_mock.get_minted_events.return_value = [minted_event]
         vault_hub_mock.get_burned_events.return_value = [burned_event]
@@ -96,9 +94,12 @@ class TestGetVaultEventsForFees:
         vault_hub_mock.get_bad_debt_socialized_events.return_value = [socialized_event]
         vault_hub_mock.get_vault_connected_events.return_value = [connected_event]
 
-        service = StakingVaultsService(MagicMock())
+        service = StakingVaultsService(web3)
+
+        # Act
         events, connected_vaults = service._get_vault_events_for_fees(vault_hub_mock, from_block, to_block)
 
+        # Assert
         vault_hub_mock.get_vault_fee_updated_events.assert_called_once_with(from_block, to_block)
         vault_hub_mock.get_minted_events.assert_called_once_with(from_block, to_block)
         vault_hub_mock.get_burned_events.assert_called_once_with(from_block, to_block)
