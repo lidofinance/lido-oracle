@@ -19,10 +19,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestCalculateLiquidityFeeByEvents:
     """Tests for _calculate_liquidity_fee_by_events static method."""
 
-    @pytest.mark.unit
     def test_with_events(self):
         """Verifies liquidity fee calculation correctly processes mint, burn, and fee update
         events, computing fees for each time interval between state changes. Ensures accurate
@@ -70,7 +70,6 @@ class TestCalculateLiquidityFeeByEvents:
 
         assert result == (expected_fee, expected_shares)
 
-    @pytest.mark.unit
     def test_fee_update_ordered_by_log_index(self):
         """Verifies that multiple fee update events in the same block are processed in log
         index order, ensuring deterministic fee calculation. Checks that transaction ordering
@@ -109,7 +108,6 @@ class TestCalculateLiquidityFeeByEvents:
         assert fee == expected_fee
         assert shares == 10
 
-    @pytest.mark.unit
     def test_raises_if_connected_with_non_zero_shares(self):
         """Verifies that a ValueError is raised when a vault connection event occurs with
         non-zero liability shares. Ensures vault connections only happen during initial
@@ -148,7 +146,6 @@ class TestCalculateLiquidityFeeByEvents:
                 },
             )
 
-    @pytest.mark.unit
     def test_raises_if_event_after_current_report(self):
         """Verifies that events with timestamps after the current report timestamp are
         rejected with a ValueError. Ensures fee calculations remain historical and prevents
@@ -177,7 +174,6 @@ class TestCalculateLiquidityFeeByEvents:
                 block_timestamps={BlockNumber(1): 10},
             )
 
-    @pytest.mark.unit
     def test_rebalanced_event_increases_liability_shares_backwards(self):
         """Verifies that VaultRebalancedEvent increases liability_shares by shares_burned
         when processing events in reverse order. Ensures backward reconstruction correctly
@@ -204,7 +200,6 @@ class TestCalculateLiquidityFeeByEvents:
 
         assert liability_shares == 15
 
-    @pytest.mark.unit
     def test_written_off_event_increases_liability_shares_backwards(self):
         """Verifies that BadDebtWrittenOffEvent adds bad_debt_shares to liability_shares
         when processing events in reverse order. Ensures the pre-event liability baseline
@@ -231,7 +226,6 @@ class TestCalculateLiquidityFeeByEvents:
 
         assert liability_shares == 27
 
-    @pytest.mark.unit
     def test_socialized_acceptor_decreases_liability_shares_backwards(self):
         """Verifies that BadDebtSocializedEvent reduces liability_shares for the acceptor
         when processing events in reverse order. Ensures reverse traversal correctly

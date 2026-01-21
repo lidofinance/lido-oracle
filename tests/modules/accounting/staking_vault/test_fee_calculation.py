@@ -6,10 +6,10 @@ from src.services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import FeeTestConstants
 
 
+@pytest.mark.unit
 class TestCalcFeeValue:
     """Tests for calc_fee_value static method."""
 
-    @pytest.mark.unit
     @pytest.mark.parametrize(
         'vault_total_value, time_elapsed_seconds, core_apr_ratio, fee_bp, expected',
         [
@@ -39,7 +39,6 @@ class TestCalcFeeValue:
         )
         assert result == expected
 
-    @pytest.mark.unit
     @pytest.mark.parametrize(
         'mintable_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected',
         [
@@ -69,7 +68,6 @@ class TestCalcFeeValue:
         )
         assert result == expected
 
-    @pytest.mark.unit
     @pytest.mark.parametrize(
         'minted_steth, time_elapsed_seconds, core_apr_ratio, fee_bp, expected',
         [

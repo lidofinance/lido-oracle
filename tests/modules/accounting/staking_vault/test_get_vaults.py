@@ -12,10 +12,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestGetVaults:
     """Tests for get_vaults method."""
 
-    @pytest.mark.unit
     def test_get_vaults_uses_specific_block_identifier(self):
         """Verifies that get_vaults correctly passes the block_identifier to all methods
         in the LazyOracle chain. Ensures vault data is fetched from the correct block

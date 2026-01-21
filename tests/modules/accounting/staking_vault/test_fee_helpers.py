@@ -17,10 +17,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestBuildPrevReportMaps:
     """Tests for _build_prev_report_maps helper."""
 
-    @pytest.mark.unit
     def test_no_prev_report(self):
         """Verifies that when no previous report exists, fee and liability shares maps
         initialize with zero values for all vaults. Ensures first-time reports handle
@@ -31,7 +31,6 @@ class TestBuildPrevReportMaps:
         assert prev_fee_map[VaultAddresses.VAULT_0] == 0
         assert prev_liability_shares_map[VaultAddresses.VAULT_0] == 0
 
-    @pytest.mark.unit
     def test_empty_prev_report_values(self):
         """Verifies that when a previous report exists but has no vault values, maps still
         initialize with zeros. Ensures graceful handling of empty reports without causing
@@ -45,7 +44,6 @@ class TestBuildPrevReportMaps:
         assert prev_fee_map[VaultAddresses.VAULT_1] == 0
         assert prev_liability_shares_map[VaultAddresses.VAULT_1] == 0
 
-    @pytest.mark.unit
     def test_with_prev_report(self):
         """Verifies that when a previous report contains vault data, maps correctly extract
         and store fee and liability shares values by vault address. Ensures previous report
@@ -66,10 +64,10 @@ class TestBuildPrevReportMaps:
         assert set(prev_liability_shares_map.keys()) == {VaultAddresses.VAULT_0, VaultAddresses.VAULT_1}
 
 
+@pytest.mark.unit
 class TestGetVaultEventsForFees:
     """Tests for _get_vault_events_for_fees helper."""
 
-    @pytest.mark.unit
     def test_groups_events_and_tracks_connected_vaults(self):
         """Verifies that all vault events are correctly grouped by vault address and
         newly connected vaults are tracked separately. Ensures event processing handles

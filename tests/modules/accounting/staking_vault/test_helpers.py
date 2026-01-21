@@ -15,10 +15,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestPendingDepositHelpers:
     """Tests for pending deposit helper methods."""
 
-    @pytest.mark.unit
     def test_get_total_pending_amount_by_pubkey(self):
         """Verifies that pending deposit amounts are correctly aggregated per pubkey.
         Ensures multiple pending deposits for the same validator are summed together.
@@ -35,10 +35,10 @@ class TestPendingDepositHelpers:
         assert result[TestPubkeys.PUBKEY_1] == Gwei(3_000)
 
 
+@pytest.mark.unit
 class TestValidatorFilteringHelpers:
     """Tests for validator filtering helper methods."""
 
-    @pytest.mark.unit
     def test_get_non_eligible_for_activation_pubkeys(self):
         """Verifies that only far-future validators (not eligible for activation)
         belonging to tracked vault withdrawal credentials are returned. Ensures eligible
@@ -73,7 +73,6 @@ class TestValidatorFilteringHelpers:
 
         assert result == {TestPubkeys.PUBKEY_0}
 
-    @pytest.mark.unit
     def test_get_unmatched_deposits_pubkeys(self):
         """Verifies that pending deposits without matching validators are correctly
         detected and returned. Ensures only deposits with tracked withdrawal credentials
@@ -111,10 +110,10 @@ class TestValidatorFilteringHelpers:
         assert result == {TestPubkeys.PUBKEY_2}
 
 
+@pytest.mark.unit
 class TestStatusFetchingHelpers:
     """Tests for validator status fetching helper."""
 
-    @pytest.mark.unit
     def test_get_pubkey_statuses_by_vault_groups_statuses(self):
         """Verifies that validator statuses are correctly grouped by their staking
         vault addresses. Ensures status retrieval and grouping works correctly for

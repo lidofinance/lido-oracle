@@ -5,7 +5,6 @@ This module provides reusable test data builders and pytest fixtures
 for testing the StakingVaultsService.
 """
 
-from collections import defaultdict
 from decimal import Decimal
 from typing import Any
 from unittest.mock import MagicMock
@@ -14,7 +13,6 @@ import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from faker import Faker
 from hexbytes import HexBytes
-from polyfactory import Use
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -31,7 +29,6 @@ from src.modules.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
-    StakingVaultIpfsReport,
     ValidatorStage,
     ValidatorStatus,
     VaultFee,
@@ -441,27 +438,6 @@ class ExtraValueFactory(Web3DataclassFactory[ExtraValue]):
     reservation_fee = '0'
 
 
-class StakingVaultIpfsReportFactory(Web3DataclassFactory[StakingVaultIpfsReport]):
-    """Factory for StakingVaultIpfsReport."""
-
-    format = 'v1'
-    leaf_encoding = ['encoding1']
-    tree = ['node1']
-    block_number = BlockNumber(0)
-    block_hash = MagicMock()
-    ref_slot = MagicMock()
-    timestamp = MagicMock()
-    prev_tree_cid = MagicMock()
-
-    @classmethod
-    def build(cls, **kwargs: Any) -> StakingVaultIpfsReport:
-        if 'values' not in kwargs:
-            kwargs['values'] = []
-        if 'extra_values' not in kwargs:
-            kwargs['extra_values'] = {}
-        return super().build(**kwargs)
-
-
 class OnChainIpfsVaultReportDataFactory(Web3DataclassFactory[OnChainIpfsVaultReportData]):
     """Factory for OnChainIpfsVaultReportData."""
 
@@ -474,24 +450,6 @@ class OnChainIpfsVaultReportDataFactory(Web3DataclassFactory[OnChainIpfsVaultRep
 # =============================================================================
 # Pytest Fixtures
 # =============================================================================
-
-
-@pytest.fixture
-def vault_addresses() -> VaultAddresses:
-    """Provide access to pre-defined vault addresses."""
-    return VaultAddresses()
-
-
-@pytest.fixture
-def withdrawal_credentials() -> WithdrawalCredentials:
-    """Provide access to pre-defined withdrawal credentials."""
-    return WithdrawalCredentials()
-
-
-@pytest.fixture
-def test_pubkeys() -> TestPubkeys:
-    """Provide access to pre-defined validator pubkeys."""
-    return TestPubkeys()
 
 
 @pytest.fixture
@@ -585,26 +543,3 @@ def mock_vault_hub_events():
         return vault_hub_mock
 
     return _create
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
-def create_events_dict(events_list) -> defaultdict[str, list]:
-    """Convert a list of events to a dictionary keyed by vault address."""
-    events = defaultdict(list)
-    for event in events_list:
-        vault = getattr(event, 'vault', None) or getattr(event, 'vault_donor', None)
-        if vault:
-            events[vault].append(event)
-        # Handle BadDebtSocializedEvent which has both donor and acceptor
-        if hasattr(event, 'vault_acceptor'):
-            events[event.vault_acceptor].append(event)
-    return events
-
-
-def gwei_to_wei(gwei: Gwei) -> Wei:
-    """Convert Gwei to Wei."""
-    return Wei(int(gwei) * 10**9)

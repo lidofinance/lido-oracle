@@ -10,10 +10,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestGetValidatorsByVault:
     """Tests for _get_validators_by_vault static method."""
 
-    @pytest.mark.unit
     def test_single_validator(self, default_vaults_map):
         """Verifies that a single validator is correctly grouped into its vault based
         on withdrawal credentials. Ensures basic validator-to-vault mapping works correctly.
@@ -34,7 +34,6 @@ class TestGetValidatorsByVault:
         assert VaultAddresses.VAULT_0 in result
         assert len(result[VaultAddresses.VAULT_0]) == 1
 
-    @pytest.mark.unit
     def test_multiple_validators_different_vaults(self, default_vaults_map):
         """Verifies that multiple validators are correctly grouped into their respective
         vaults based on withdrawal credentials. Ensures validators are mapped to the
@@ -74,7 +73,6 @@ class TestGetValidatorsByVault:
         assert len(result[VaultAddresses.VAULT_1]) == 1
         assert len(result[VaultAddresses.VAULT_2]) == 1
 
-    @pytest.mark.unit
     def test_multiple_validators_same_vault(self, default_vaults_map):
         """Verifies that multiple validators with the same withdrawal credentials are
         correctly grouped into the same vault. Ensures vaults can contain multiple
@@ -94,7 +92,6 @@ class TestGetValidatorsByVault:
         assert VaultAddresses.VAULT_0 in result
         assert len(result[VaultAddresses.VAULT_0]) == 3
 
-    @pytest.mark.unit
     def test_unknown_withdrawal_credentials_excluded(self, default_vaults_map):
         """Verifies that validators with withdrawal credentials not matching any vault
         are excluded from the result. Ensures only validators belonging to tracked vaults
@@ -118,7 +115,6 @@ class TestGetValidatorsByVault:
         assert VaultAddresses.VAULT_0 in result
         assert all(validators[1] not in vault_validators for vault_validators in result.values())
 
-    @pytest.mark.unit
     def test_empty_validators(self, default_vaults_map):
         """Verifies that an empty validators list returns an empty result dictionary.
         Ensures the function handles edge cases gracefully without errors.
@@ -126,7 +122,6 @@ class TestGetValidatorsByVault:
         result = StakingVaultsService._get_validators_by_vault([], default_vaults_map)
         assert result == {}
 
-    @pytest.mark.unit
     def test_empty_vaults_map(self):
         """Verifies that when no vaults are tracked, validators are not grouped into
         any vault and an empty result is returned. Ensures validators are only mapped

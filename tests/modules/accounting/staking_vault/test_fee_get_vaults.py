@@ -30,10 +30,10 @@ def mock_get_blockstamp(monkeypatch):
     return fake_blockstamp
 
 
+@pytest.mark.unit
 class TestGetVaultsFees:
     """Tests for get_vaults_fees method."""
 
-    @pytest.mark.unit
     def test_zero_time_elapsed_allowed(self):
         """Verifies that zero time elapsed between reports is handled correctly without
         errors. Ensures same-slot reports don't inflate fees or cause calculation failures.
@@ -82,7 +82,6 @@ class TestGetVaultsFees:
         assert call_kwargs["report_interval_seconds"] == 0
         assert fees[vault_adr].prev_fee == 0
 
-    @pytest.mark.unit
     def test_raises_if_liability_shares_mismatch(self, mock_vault_hub_events):
         """Verifies that a ValueError is raised when liability shares from current vault
         state don't match the previous report. Ensures state continuity across reports
@@ -139,7 +138,6 @@ class TestGetVaultsFees:
                 current_frame=FrameNumber(0),
             )
 
-    @pytest.mark.unit
     def test_prev_fee_reset_after_reconnect(self, mock_vault_hub_events):
         """Verifies that when a vault reconnects, its previous fee is reset to zero.
         Ensures vault reconnection starts a fresh fee tracking period without carrying
@@ -199,7 +197,6 @@ class TestGetVaultsFees:
 
         assert fees[vault_adr].prev_fee == 0
 
-    @pytest.mark.unit
     def test_no_events_liquidity_fee(self, mock_vault_hub_events):
         """Verifies that when no events occur, liquidity fees accrue continuously over
         the full report interval based on liability shares. Ensures simple time-weighted
@@ -271,7 +268,6 @@ class TestGetVaultsFees:
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee.to_integral_value(ROUND_UP))
 
-    @pytest.mark.unit
     def test_fee_elapsed_time_uses_ref_slot_seconds(self, mock_vault_hub_events):
         """Verifies that fee calculations use reference slot timestamps (consensus time)
         rather than execution block timestamps. Ensures fee calculations align with
@@ -323,7 +319,6 @@ class TestGetVaultsFees:
 
         assert fees[vault_adr].infra_fee == 2 * FeeTestConstants.SECONDS_PER_SLOT
 
-    @pytest.mark.unit
     def test_fee_elapsed_time_missing_slots_at_start(self, mock_vault_hub_events):
         """Verifies that missing slots between reports don't reduce fee accrual, which
         is based on slot time difference rather than block presence. Ensures vaults are
@@ -377,7 +372,6 @@ class TestGetVaultsFees:
         expected_fee = StakingVaultsService.calc_fee_value(Decimal(total_value), time_elapsed_seconds, Decimal(1), 1)
         assert fees[vault_adr].infra_fee == int(expected_fee)
 
-    @pytest.mark.unit
     def test_fee_elapsed_time_missing_slots_at_end_with_event(self, mock_vault_hub_events):
         """Verifies that missing slots after the last event are still included in fee
         accrual up to the report ref slot. Ensures accurate fee calculation continues
@@ -464,7 +458,6 @@ class TestGetVaultsFees:
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee)
 
-    @pytest.mark.unit
     def test_fee_elapsed_time_missing_slots_in_middle(self, mock_vault_hub_events):
         """Verifies that gaps between events (due to missing slots) are still counted
         in fee calculations based on ref slot timestamps. Ensures correct fee totals
@@ -568,7 +561,6 @@ class TestGetVaultsFees:
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee)
 
-    @pytest.mark.unit
     def test_raises_if_time_elapsed_negative(self):
         """Verifies that a ValueError is raised when current ref slot is before the
         previous ref slot. Ensures negative time intervals are detected early to prevent
@@ -602,7 +594,6 @@ class TestGetVaultsFees:
                 current_frame=FrameNumber(0),
             )
 
-    @pytest.mark.unit
     def test_no_events_skip_block_timestamp_lookup(self, mock_vault_hub_events):
         """Verifies that when no events occur, execution block timestamp fetches are
         skipped. Ensures performance optimization by avoiding expensive RPC calls when

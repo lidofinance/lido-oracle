@@ -6,10 +6,10 @@ from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber
 
 
+@pytest.mark.unit
 class TestGetIpfsReport:
     """Tests for get_ipfs_report method."""
 
-    @pytest.mark.unit
     def test_get_ipfs_report_success(self):
         """Verifies that IPFS reports are correctly fetched and parsed from IPFS using
         a CID. Ensures the report structure is correctly deserialized with tree roots
@@ -37,7 +37,6 @@ class TestGetIpfsReport:
 
         assert result.tree[0] == '0x7ca488c27e66ddc3fb44b8cc14e72181b71d420ed65f5b77d6da1ca329b4f3c1'
 
-    @pytest.mark.unit
     def test_get_ipfs_report_empty_cid_raises(self):
         """Verifies that a ValueError is raised when attempting to fetch an IPFS report
         with an empty CID. Ensures invalid CIDs are rejected before attempting IPFS queries.

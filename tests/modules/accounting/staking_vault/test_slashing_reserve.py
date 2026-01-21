@@ -18,10 +18,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestGetVaultsSlashingReserve:
     """Tests for get_vaults_slashing_reserve method."""
 
-    @pytest.mark.unit
     def test_slashing_reserve_calculation(self):
         """Verifies slashing reserves are correctly calculated for slashed validators
         based on their balance and reserve ratio. Ensures slashed validators contribute
@@ -117,7 +117,6 @@ class TestGetVaultsSlashingReserve:
         assert expected_reserve_2 == 4_160_000_000_000_000_000
         assert result == {vault_address_1: expected_reserve_1, vault_address_2: expected_reserve_2}
 
-    @pytest.mark.unit
     def test_slashing_reserve_boundary_uses_past_state(self):
         """Verifies that when ref_epoch equals withdrawable_epoch - left_shift, the
         calculation uses past validator state. Ensures the slashing window is inclusive
@@ -205,7 +204,6 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    @pytest.mark.unit
     def test_slashing_reserve_before_window_uses_current_balance(self):
         """Verifies that when ref_epoch is before the slashing window, current validator
         balances are used. Ensures historical state queries are avoided when the slashing
@@ -281,7 +279,6 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    @pytest.mark.unit
     def test_slashing_reserve_upper_boundary_uses_past_state(self):
         """Verifies that when ref_epoch equals withdrawable_epoch + right_shift, past
         validator state is still used. Ensures the upper bound is inclusive and reserves
@@ -351,7 +348,6 @@ class TestGetVaultsSlashingReserve:
         )
         assert result == {vault_address: expected_reserve}
 
-    @pytest.mark.unit
     def test_slashing_reserve_after_window_no_reserve(self):
         """Verifies that when ref_epoch is beyond withdrawable_epoch + right_shift, no
         reserves are returned. Ensures slashing reserves are not counted after the

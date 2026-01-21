@@ -1,10 +1,3 @@
-"""
-Unit tests for block timestamp fetching with binary search optimization.
-
-These tests replace the old integration tests by using a deterministic
-synthetic chain and a mocked Web3 interface.
-"""
-
 from unittest.mock import MagicMock
 
 import pytest

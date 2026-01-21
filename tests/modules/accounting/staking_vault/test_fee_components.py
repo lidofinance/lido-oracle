@@ -15,10 +15,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestCalculateVaultFeeComponents:
     """Tests for _calculate_vault_fee_components helper."""
 
-    @pytest.mark.unit
     def test_no_events_uses_liability_shares(self):
         """Verifies that when no events occur, all fee types (infra, reservation, liquidity)
         are calculated using current vault state. Ensures straightforward time-weighted
@@ -74,7 +74,6 @@ class TestCalculateVaultFeeComponents:
         )
         assert liability_shares == vault_info.liability_shares
 
-    @pytest.mark.unit
     def test_with_events_uses_event_helper(self, monkeypatch):
         """Verifies that when events exist, liquidity fee calculation uses the event-based
         helper method while infra and reservation fees use simple calculations. Ensures

@@ -25,10 +25,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestBuildTreeData:
     """Tests for build_tree_data and merkle tree methods."""
 
-    @pytest.mark.unit
     def test_merkle_tree_filename_constant(self):
         """Verifies that MERKLE_TREE_VAULTS_FILENAME remains constant at
         'staking_vaults_merkle_tree.json'. Ensures IPFS publishing uses a stable filename
@@ -36,7 +36,6 @@ class TestBuildTreeData:
         """
         assert MERKLE_TREE_VAULTS_FILENAME == "staking_vaults_merkle_tree.json"
 
-    @pytest.mark.unit
     def test_build_tree_uses_zero_slashing_reserve_when_missing(self):
         """Verifies that when vaults_slashing_reserve lacks an entry for a vault, the
         tree node uses 0 for slashing reserve. Ensures missing reserves default to zero
@@ -53,7 +52,6 @@ class TestBuildTreeData:
 
         assert tree_data[0][-1] == 0
 
-    @pytest.mark.unit
     def test_build_tree_happy_path(self):
         """Verifies tree data is built correctly from vault information, total values,
         fees, and slashing reserves. Ensures tree data structure matches the expected
@@ -90,7 +88,6 @@ class TestBuildTreeData:
             slashing_reserve,
         )
 
-    @pytest.mark.unit
     def test_build_tree_missing_total_value_raises(self):
         """Verifies that a ValueError is raised when a vault is missing a corresponding
         total value entry. Ensures tree construction has all required data and fails
@@ -105,7 +102,6 @@ class TestBuildTreeData:
         with pytest.raises(ValueError, match=f'Vault {vault_address} is not in total_values'):
             StakingVaultsService.build_tree_data(vaults, vaults_total_values, {}, {})
 
-    @pytest.mark.unit
     def test_build_tree_missing_vault_fees_raises(self):
         """Verifies that a ValueError is raised when a vault is missing a corresponding
         fee entry. Ensures all required fee components are present for merkle tree
@@ -124,10 +120,10 @@ class TestBuildTreeData:
             StakingVaultsService.build_tree_data(vaults, vaults_total_values, vaults_fees, {vault_address: 0})
 
 
+@pytest.mark.unit
 class TestTreeEncoder:
     """Tests for tree_encoder static method."""
 
-    @pytest.mark.unit
     def test_encode_bytes(self):
         """Verifies bytes are correctly encoded as hexadecimal strings with '0x' prefix.
         Ensures merkle tree roots and hashes can be serialized to JSON and are compatible
@@ -136,7 +132,6 @@ class TestTreeEncoder:
         result = StakingVaultsService.tree_encoder(b'\x12\x34')
         assert result == '0x1234'
 
-    @pytest.mark.unit
     def test_encode_cid(self):
         """Verifies IPFS Content Identifiers (CIDs) are correctly encoded as strings.
         Ensures CIDs can be serialized in JSON output for IPFS report data.
@@ -145,7 +140,6 @@ class TestTreeEncoder:
         result = StakingVaultsService.tree_encoder(cid)
         assert result == 'cid12345'
 
-    @pytest.mark.unit
     def test_encode_dataclass(self):
         """Verifies dataclass objects (like ReferenceBlockStamp) are correctly encoded
         as dictionaries with field names as keys. Ensures complex objects can be
@@ -172,7 +166,6 @@ class TestTreeEncoder:
             'state_root': 'state_root',
         }
 
-    @pytest.mark.unit
     def test_encode_invalid_type_raises(self):
         """Verifies that a TypeError is raised when attempting to encode unsupported types.
         Ensures type safety by only allowing serializable data structures, preventing
@@ -182,6 +175,7 @@ class TestTreeEncoder:
             StakingVaultsService.tree_encoder(42)
 
 
+@pytest.mark.unit
 class TestDumpedTreeAndPublish:
     """Tests for dump/publish helpers."""
 
@@ -212,7 +206,6 @@ class TestDumpedTreeAndPublish:
 
         return vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve, bs
 
-    @pytest.mark.unit
     def test_get_dumped_tree_contains_expected_fields(self, basic_setup):
         """Verifies the dumped tree structure contains all expected fields (values,
         extraValues, blockHash, etc.). Ensures the dumped format matches the expected
@@ -238,7 +231,6 @@ class TestDumpedTreeAndPublish:
         assert dumped['extraValues'][VaultAddresses.VAULT_0]['prevFee'] == str(fees[VaultAddresses.VAULT_0].prev_fee)
         assert dumped['blockHash'] == bs.block_hash
 
-    @pytest.mark.unit
     def test_get_dumped_tree_formats_values_and_timestamp(self, basic_setup):
         """Verifies that dumped tree values are stringified, timestamp is calculated
         as genesis_time + slot*seconds_per_slot, and prevTreeCID is preserved. Ensures
@@ -275,7 +267,6 @@ class TestDumpedTreeAndPublish:
         assert value_entry["value"][2] == str(fees[VaultAddresses.VAULT_0].total())
         assert "treeIndex" in value_entry
 
-    @pytest.mark.unit
     def test_publish_tree_calls_ipfs_with_ascii_payload(self, basic_setup):
         """Verifies that tree publishing serializes the tree to JSON and publishes it
         to IPFS with ASCII encoding and the correct filename. Ensures IPFS payloads
@@ -307,7 +298,6 @@ class TestDumpedTreeAndPublish:
         assert b'"refSlot"' in args[0]
         assert cid == 'cid123'
 
-    @pytest.mark.unit
     def test_is_tree_root_valid_checks_root(self):
         """Verifies that tree root validation correctly checks if a provided root hash
         matches one of the roots in the report's tree array. Ensures merkle tree integrity

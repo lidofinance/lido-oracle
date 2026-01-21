@@ -18,10 +18,10 @@ from tests.modules.accounting.staking_vault.conftest import (
 )
 
 
+@pytest.mark.unit
 class TestGetVaultsTotalValues:
     """Tests for get_vaults_total_values method."""
 
-    @pytest.mark.unit
     def test_basic_calculation_with_validators_and_pending_deposits(self, staking_vaults_service, default_vaults_map):
         """Verifies total value calculation correctly sums validator balances, execution
         layer balances, and pending deposits. Ensures all value sources are included
@@ -87,7 +87,6 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    @pytest.mark.unit
     def test_pending_deposit_with_wrong_wc_ignored(self, staking_vaults_service, default_vaults_map):
         """Verifies that pending deposits with withdrawal credentials not matching the
         validator's credentials are ignored. Ensures only valid deposits are counted
@@ -123,7 +122,6 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    @pytest.mark.unit
     def test_multiple_pending_deposits_for_same_validator(self, staking_vaults_service, default_vaults_map):
         """Verifies that multiple pending deposits for the same validator are correctly
         summed together. Ensures all pending deposits are accounted for in total value
@@ -171,7 +169,6 @@ class TestGetVaultsTotalValues:
         }
         assert result == expected
 
-    @pytest.mark.unit
     def test_pending_deposit_without_validator_counts_predeposit(
         self, mock_w3_with_validator_statuses, default_vaults_map
     ):
@@ -209,10 +206,10 @@ class TestGetVaultsTotalValues:
         assert result == expected
 
 
+@pytest.mark.unit
 class TestGetVaultsTotalValuesWithValidatorStatuses:
     """Tests for vault total values with various validator stages."""
 
-    @pytest.mark.unit
     def test_predeposited_validator_counts_1_eth(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Verifies that PREDEPOSITED validators count as 1 ETH regardless of their
         actual balance. Ensures predeposited validators are valued consistently before
@@ -243,7 +240,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    @pytest.mark.unit
     def test_activated_validator_counts_full_balance_plus_pending(
         self, mock_w3_with_validator_statuses, default_vaults_map
     ):
@@ -285,7 +281,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    @pytest.mark.unit
     def test_proven_validator_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Verifies that PROVEN validators are not counted in total value calculations.
         Ensures validators that haven't reached PREDEPOSITED or ACTIVATED status don't
@@ -313,7 +308,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
-    @pytest.mark.unit
     def test_predeposited_validator_with_pending_deposit_no_double_count(
         self, mock_w3_with_validator_statuses, default_vaults_map
     ):
@@ -354,7 +348,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
 
-    @pytest.mark.unit
     def test_doppelganger_pubkey_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Verifies that validators with pubkeys matching a different vault's withdrawal
         credentials (doppelgangers) are not counted. Ensures validators are only counted
@@ -384,10 +377,10 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         assert result[VaultAddresses.VAULT_1] == default_vaults_map[VaultAddresses.VAULT_1].aggregated_balance
 
 
+@pytest.mark.unit
 class TestGetVaultsTotalValuesEdgeCases:
     """Additional edge cases for total value calculations."""
 
-    @pytest.mark.unit
     def test_unmatched_pending_deposit_non_predeposited_stage_ignored(
         self,
         mock_w3_with_validator_statuses,
@@ -421,7 +414,6 @@ class TestGetVaultsTotalValuesEdgeCases:
         # No extra 1 ETH should be counted because stage is not PREDEPOSITED.
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
-    @pytest.mark.unit
     def test_far_future_validator_without_status_skipped(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Verifies that far-future validators without Predeposit Guardian (PDG) status
         are skipped in total value calculations. Ensures only validators with confirmed
@@ -450,10 +442,10 @@ class TestGetVaultsTotalValuesEdgeCases:
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
 
 
+@pytest.mark.unit
 class TestGetVaultsTotalValuesDefaults:
     """Tests for default parameters and logging behavior."""
 
-    @pytest.mark.unit
     def test_defaults_and_logging(self, monkeypatch, default_vaults_map):
         """Verifies that get_vaults_total_values uses "latest" as the default block
         identifier for status fetches and logs total value per vault. Ensures default
@@ -486,10 +478,10 @@ class TestGetVaultsTotalValuesDefaults:
             assert "value" in payload
 
 
+@pytest.mark.unit
 class TestCalculateVaultTotalValue:
     """Tests for _calculate_vault_total_value internal logic."""
 
-    @pytest.mark.unit
     def test_mixed_validators_and_unmatched_pending(self):
         """Verifies total value calculation with mixed validator states and unmatched
         pending deposits in one scenario. Ensures all aggregation rules work correctly
@@ -566,7 +558,6 @@ class TestCalculateVaultTotalValue:
 
         assert result == expected
 
-    @pytest.mark.unit
     def test_missing_status_does_not_stop_processing(self):
         """Verifies that when a validator has missing PDG status, only that validator
         is skipped while others continue to be processed. Ensures missing status data
