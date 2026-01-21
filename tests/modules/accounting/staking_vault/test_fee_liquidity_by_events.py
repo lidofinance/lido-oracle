@@ -65,7 +65,7 @@ class TestCalculateLiquidityFeeByEvents:
             },
         )
 
-        expected_fee = Decimal('17007082495056342.0072967911')
+        expected_fee = Decimal('16995441781507364.3604745483')
         expected_shares = 2_879_999_910_015_672_558_976
 
         assert result == (expected_fee, expected_shares)

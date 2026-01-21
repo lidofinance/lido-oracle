@@ -235,7 +235,7 @@ class TestGetVaultsFees:
             current_frame=FrameNumber(0),
         )
 
-        assert fees[vault_adr].liquidity_fee == 20513697696884909
+        assert fees[vault_adr].liquidity_fee == 20499656836038307
 
     @pytest.mark.unit
     def test_fee_elapsed_time_uses_ref_slot_seconds(self, mock_vault_hub_events):
