@@ -42,12 +42,6 @@ class TestIntegrationMainCycleSmoke:
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES", 3)
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY", 0)
 
-        # Mock to avoid flaky "block not found" due to CL/EL sync delay
-        monkeypatch.setattr(
-            "src.modules.submodules.consensus.ConsensusModule.check_contract_configs",
-            lambda self: None
-        )
-
         # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
         if module_name == "csm":
 
