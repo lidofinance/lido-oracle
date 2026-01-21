@@ -5,7 +5,7 @@ from typing import cast
 
 from eth_abi.abi import encode
 from hexbytes import HexBytes
-from web3.exceptions import ContractCustomError
+from web3.exceptions import ContractCustomError, Web3RPCError
 
 from src import variables
 from src.metrics.prometheus.basic import (
@@ -75,11 +75,7 @@ class ConsensusModule(ABC):
                 raise NotImplementedError(f'{var} attribute should be set.')
 
     def check_contract_configs(self):
-        root = self.w3.cc.get_block_root('head').root
-        block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
-
-        config = self.get_chain_config(bs)
+        config = self._get_chain_config_with_retry()
         cc_config = self.w3.cc.get_config_spec()
         genesis_time = self.get_cc_genesis_config().genesis_time
         GENESIS_TIME.set(genesis_time)
@@ -93,6 +89,20 @@ class ConsensusModule(ABC):
             raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
                              f'Contract config: {config}\n'
                              f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
+
+    def _get_chain_config_with_retry(self, max_retries: int = 5, retry_delay: float = 3) -> ChainConfig:
+        for attempt in range(max_retries):
+            try:
+                root = self.w3.cc.get_block_root('head').root
+                block_details = self.w3.cc.get_block_details(root)
+                bs = build_blockstamp(block_details)
+                return self.get_chain_config(bs)
+            except Web3RPCError as e:
+                if 'not found' not in str(e) or attempt >= max_retries - 1:
+                    raise
+                logger.warning({'msg': f'Block not found, retrying ({attempt + 1}/{max_retries})...', 'error': str(e)})
+                sleep(retry_delay)
+        raise RuntimeError('Unreachable')
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
