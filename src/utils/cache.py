@@ -4,7 +4,32 @@ from weakref import WeakKeyDictionary
 
 from src.providers.execution.base_interface import ContractInterface
 
+
 global_cache: WeakKeyDictionary = WeakKeyDictionary()
+
+
+def _is_contract_interface_method(func, instance):
+    """
+    Check if the function is a ContractInterface method.
+    
+    In Python 3.14+, bound methods may not pass self through args,
+    so we need to check both the instance and the function's qualname.
+    """
+    if instance and issubclass(instance.__class__, ContractInterface):
+        return True
+    
+    # Fallback: Check if function qualname suggests it's from ContractInterface
+    qualname = getattr(func, '__qualname__', '')
+    if '.' in qualname:
+        try:
+            # Check if any parent class of the function's owner is ContractInterface
+            module_name = func.__module__
+            if module_name and 'providers.execution.contracts' in module_name:
+                return True
+        except (AttributeError, ImportError):
+            pass
+    
+    return False
 
 
 def global_lru_cache(*args, **kwargs):
@@ -17,7 +42,9 @@ def global_lru_cache(*args, **kwargs):
             # Like 'latest', 'earliest', 'pending', 'safe', 'finalized' or if default ('latest') arg provided
             args_list = signature(func).parameters
 
-            if issubclass(args[0].__class__, ContractInterface) and args_list.get('block_identifier'):
+            instance = args[0] if args else None
+            
+            if _is_contract_interface_method(func, instance) and args_list.get('block_identifier'):
                 block = kwargs.get('block_identifier', None)
                 if block is None:
                     if len(args) == len(args_list):
