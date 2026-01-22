@@ -75,9 +75,8 @@ class SMPerformanceOracle(OracleModule):
         atexit.register(self._on_shutdown)
 
     def refresh_contracts(self):
-        self.report_contract = self.w3.staking_module.oracle
         self.w3.staking_module.reload_contracts()
-        self.report_contract = self.w3.staking_module.oracle  # type: ignore
+        self.report_contract = self.w3.staking_module.oracle
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
@@ -242,7 +241,7 @@ class SMPerformanceOracle(OracleModule):
 
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
         on_pause = self.report_contract.is_paused('latest')
-        CONTRACT_ON_PAUSE.labels("csm").set(on_pause)
+        CONTRACT_ON_PAUSE.labels(self.consumer).set(on_pause)
         return not on_pause
 
     def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
