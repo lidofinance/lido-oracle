@@ -149,6 +149,24 @@ exclude = [
     "*_pb2.py",  # Protobuf generated files
 ]
 
+[tool.ruff.lint]
+extend-select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # complexity
+    "C90",
+]
+
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
