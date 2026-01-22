@@ -5,12 +5,12 @@ Tests the get_block_timestamps function which uses binary search to detect
 missed slots and minimize RPC calls.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_typing import BlockNumber
 
-from src.utils.block import get_block_timestamps
+from src.utils.block import _should_batch, get_block_timestamps
 
 SECONDS_PER_SLOT = 12
 
@@ -1104,3 +1104,118 @@ class TestGetBlockTimestampsVsNaiveApproach:
             assert (
                 result[block_num] == expected_ts
             ), f"Block {block_num}: expected {expected_ts}, got {result[block_num]}"
+
+
+@pytest.mark.unit
+class TestBatchingConfiguration:
+    """Tests for batching configuration and the _should_batch helper."""
+
+    def test_should_batch_helper_function(self):
+        """Test _should_batch with various BLOCK_BATCH_SIZE_LIMIT and count values."""
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+            assert _should_batch(1) is False  # limit=1, count=1
+            assert _should_batch(2) is False  # limit=1, count=2
+            assert _should_batch(10) is False  # limit=1, count=10
+
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
+            assert _should_batch(1) is False  # count=1, no benefit
+            assert _should_batch(2) is True  # count=2, batching enabled
+            assert _should_batch(10) is True  # count=10, batching enabled
+
+    def test_batching_disabled_when_limit_is_one(self, web3, monkeypatch):
+        """When BLOCK_BATCH_SIZE_LIMIT=1, batching should be completely disabled."""
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+            mock_get_block = MagicMock()
+            monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
+
+            # Test with two blocks (endpoints)
+            mock_get_block.side_effect = [
+                {"timestamp": 1000},  # first block
+                {"timestamp": 1012},  # last block
+            ]
+
+            result = get_block_timestamps(web3, {BlockNumber(100), BlockNumber(101)}, SECONDS_PER_SLOT)
+
+            assert result == {BlockNumber(100): 1000, BlockNumber(101): 1012}
+            # Should make 2 sequential calls, not use batching
+            assert mock_get_block.call_count == 2
+
+    def test_batching_disabled_with_multiple_blocks_no_missed_slots(self, web3, monkeypatch):
+        """With BLOCK_BATCH_SIZE_LIMIT=1 and no missed slots, should still calculate correctly."""
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+            mock_get_block = MagicMock()
+            monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
+
+            mock_get_block.side_effect = [
+                {"timestamp": 1000},  # first block (100)
+                {"timestamp": 1048},  # last block (104)
+            ]
+
+            blocks = {BlockNumber(b) for b in [100, 101, 102, 103, 104]}
+            result = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)
+
+            # Timestamps should be calculated correctly
+            expected = {
+                BlockNumber(100): 1000,
+                BlockNumber(101): 1012,
+                BlockNumber(102): 1024,
+                BlockNumber(103): 1036,
+                BlockNumber(104): 1048,
+            }
+            assert result == expected
+            # Only endpoints fetched (no batching)
+            assert mock_get_block.call_count == 2
+
+    def test_batching_disabled_with_missed_slots(self, web3, monkeypatch):
+        """With BLOCK_BATCH_SIZE_LIMIT=1 and missed slots, should use sequential requests."""
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+            mock_get_block = MagicMock()
+            monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
+
+            # Setup: 4 blocks with 1 missed slot
+            # With BLOCK_BATCH_SIZE_LIMIT=1, binary search will be used
+            # Call order: endpoints (100, 103), then midpoint (102), then remaining (101)
+            mock_get_block.side_effect = [
+                {"timestamp": 1000},  # block 100 (endpoint)
+                {"timestamp": 1048},  # block 103 (endpoint)
+                {"timestamp": 1036},  # block 102 (midpoint in binary search)
+                {"timestamp": 1012},  # block 101 (remaining intermediate)
+            ]
+
+            blocks = {BlockNumber(b) for b in [100, 101, 102, 103]}
+            result = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)
+
+            # Should fetch all 4 blocks sequentially (no batching)
+            assert mock_get_block.call_count == 4
+            assert result == {
+                BlockNumber(100): 1000,
+                BlockNumber(101): 1012,
+                BlockNumber(102): 1036,
+                BlockNumber(103): 1048,
+            }
+
+    def test_timestamps_match_regardless_of_batching_config(self, web3, monkeypatch):
+        """Timestamps should be identical with BLOCK_BATCH_SIZE_LIMIT=1 and =10."""
+        blocks = {BlockNumber(b) for b in range(100, 110)}
+        first_ts = 1000
+        last_ts = 1108  # 1000 + 9*12
+
+        def mock_get_block_func(block_num):
+            return {"timestamp": first_ts + (block_num - 100) * SECONDS_PER_SLOT}
+
+        # Test with BLOCK_BATCH_SIZE_LIMIT=1
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+            mock_get_block = MagicMock(side_effect=mock_get_block_func)
+            monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
+            result_no_batch = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)
+
+        # Test with BLOCK_BATCH_SIZE_LIMIT=10
+        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
+            mock_get_block = MagicMock(side_effect=mock_get_block_func)
+            monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
+            result_with_batch = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)
+
+        # Both should return identical timestamps
+        assert result_no_batch == result_with_batch
+        expected = {BlockNumber(100 + i): 1000 + i * 12 for i in range(10)}
+        assert result_no_batch == expected

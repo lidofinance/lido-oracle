@@ -6,11 +6,15 @@ from eth_typing import BlockNumber
 from web3 import Web3
 from web3.exceptions import Web3Exception
 
-# Maximum number of intermediate blocks to batch-fetch at once.
-# When a segment has missed slots and fewer intermediates than this threshold,
-# we batch-fetch them all instead of continuing binary search.
-# Trade-off: higher value = fewer RPC round-trips but more data per call.
-BATCH_FETCH_MAX = 10
+from src.variables import BLOCK_BATCH_SIZE_LIMIT
+
+
+def _should_batch(count: int) -> bool:
+    """
+    Determine if batching should be used for the given number of blocks.
+    Batching is disabled when BLOCK_BATCH_SIZE_LIMIT=1 or count <= 1.
+    """
+    return BLOCK_BATCH_SIZE_LIMIT > 1 and count > 1
 
 
 def get_block_timestamps(
@@ -41,7 +45,7 @@ def get_block_timestamps(
     if len(blocks) == 1:
         return {blocks[0]: _get_ts(w3, blocks[0])}
 
-    # Batch-fetch endpoints, then recursively calculate all timestamps
+    # Fetch endpoints, then recursively calculate all timestamps
     endpoints = _batch_get_ts(w3, [blocks[0], blocks[-1]])
     first_ts = endpoints[blocks[0]]
     last_ts = endpoints[blocks[-1]]
@@ -58,10 +62,14 @@ def _get_ts(w3: Web3, block: BlockNumber) -> int:
 def _batch_get_ts(w3: Web3, blocks: list[BlockNumber]) -> dict[BlockNumber, int]:
     """
     Batch-fetch timestamps for multiple blocks in one RPC call.
-    Falls back to sequential fetching if batch requests aren't supported.
+    Falls back to sequential fetching if batching is disabled or not supported.
     """
     if not blocks:
         return {}
+
+    # If batching is disabled, use sequential requests
+    if not _should_batch(len(blocks)):
+        return {b: _get_ts(w3, b) for b in blocks}
 
     try:
         with w3.batch_requests() as batch:
@@ -96,8 +104,8 @@ def _calculate_timestamps(
 
     # Missed slot(s) detected
     intermediates = blocks[1:-1]
-    if len(intermediates) <= BATCH_FETCH_MAX:
-        # Small segment: batch-fetch all intermediate blocks
+    if len(intermediates) <= BLOCK_BATCH_SIZE_LIMIT:
+        # Small segment: fetch all intermediate blocks
         fetched = _batch_get_ts(w3, intermediates)
         return [first_ts] + [fetched[b] for b in intermediates] + [last_ts]
 
