@@ -300,7 +300,7 @@ class FrameCheckpointProcessor:
             if now - self._last_metrics_refresh < interval_seconds:
                 return
             self._last_metrics_refresh = now
-        self._refresh_db_metrics()
+            self._refresh_db_metrics()
 
     def _refresh_db_metrics(self) -> None:
         db_epochs_count = self.db.epochs_count()
