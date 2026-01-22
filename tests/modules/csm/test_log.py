@@ -1,7 +1,6 @@
 import json
 import pytest
 
-from src.constants import STAKING_MODULE_LOGS_VERSION
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
