@@ -78,6 +78,8 @@ def build_oracle_web3(config: OracleWeb3Config) -> Web3:
         modules['ipfs'] = lambda: ipfs
 
     if config.use_performance_client:
+        if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
+            raise ValueError("PERFORMANCE_COLLECTOR_URI is required")
         performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
         modules['performance'] = lambda: performance
 
