@@ -32,12 +32,20 @@ ADMIN_PASSWORD="${PERFORMANCE_DB_ADMIN_PASSWORD}"
 
 # New user/database settings
 DB_NAME="${PERFORMANCE_DB_NAME:-performance}"
-DB_USER="${PERFORMANCE_DB_USER:-performance}"
-DB_PASSWORD="${PERFORMANCE_DB_PASSWORD:-performance}"
+DB_USER="${PERFORMANCE_DB_USER}"
+DB_PASSWORD="${PERFORMANCE_DB_PASSWORD}"
 
 # Validate required variables
 if [ -z "$ADMIN_PASSWORD" ]; then
     log_error "PERFORMANCE_DB_ADMIN_PASSWORD is required"
+    exit 1
+fi
+if [ -z "$DB_USER" ]; then
+    log_error "PERFORMANCE_DB_USER is required"
+    exit 1
+fi
+if [ -z "$DB_PASSWORD" ]; then
+    log_error "PERFORMANCE_DB_PASSWORD is required"
     exit 1
 fi
 
