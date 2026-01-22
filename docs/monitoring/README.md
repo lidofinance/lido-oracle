@@ -13,6 +13,14 @@ This folder contains example configs to scrape and alert on:
 - `docs/monitoring/alerts.yml` - alert rules for the services above (includes epoch/DB health for Performance Collector and perf-oracles)
 - `docs/monitoring/alertmanager.yml` - routing/receivers skeleton (plug in Slack/OpsGenie/etc.)
 
+## Usage
+
+1. Copy configs to your Prometheus/Alertmanager config directory (or edit in-place).
+2. Update scrape targets in `prometheus.yml` to match your environment.
+3. Start Prometheus with `--config.file=prometheus.yml`.
+4. Start Alertmanager with `--config.file=alertmanager.yml` (and optionally `--config.expand-env`).
+5. Verify targets and alerts in Prometheus UI.
+
 ## Notes
 
 - The targets above match `docker-compose.yml` service DNS names on the default compose network; replace them with your real hostnames/IPs in production.
