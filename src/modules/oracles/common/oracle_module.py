@@ -86,8 +86,6 @@ class BaseModule(DaemonModule, ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
-        except Exception as error:
-            raise error
 
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
