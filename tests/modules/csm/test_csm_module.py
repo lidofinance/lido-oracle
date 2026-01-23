@@ -271,7 +271,7 @@ def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOrac
 
 @pytest.mark.unit
 def test__set_epochs_range_to_collect_skips_post_when_demand_same(
-        module: CSPerformanceOracle, mock_chain_config: NoReturn
+    module: CSPerformanceOracle, mock_chain_config: NoReturn
 ):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
@@ -355,8 +355,7 @@ class CollectDataCase:
 )
 @pytest.mark.unit
 def test__collect_data_handles_range_availability(
-        module: CSPerformanceOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog,
-        case: CollectDataCase
+    module: CSPerformanceOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog, case: CollectDataCase
 ):
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=case.range_available)
@@ -604,15 +603,15 @@ class BuildReportTestParam:
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
-                        1,
-                        100500,
-                        HexBytes(ZERO_HASH),
-                        "",
-                        CID("QmLOG"),
-                        0,
-                        0,
-                        HexBytes(ZERO_HASH),
-                        CID(""),
+                    1,
+                    100500,
+                    HexBytes(ZERO_HASH),
+                    "",
+                    CID("QmLOG"),
+                    0,
+                    0,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="empty_prev_report_and_no_new_distribution",
@@ -645,18 +644,18 @@ class BuildReportTestParam:
                 curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
-                        ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
+                    ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
                 ),
                 expected_func_result=(
-                        1,
-                        100500,
-                        HexBytes("NEW_TREE_ROOT".encode()),
-                        CID("QmNEW_TREE"),
-                        CID("QmLOG"),
-                        6,
-                        1,
-                        HexBytes(ZERO_HASH),
-                        CID(""),
+                    1,
+                    100500,
+                    HexBytes("NEW_TREE_ROOT".encode()),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    6,
+                    1,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="empty_prev_report_and_new_distribution",
@@ -695,19 +694,18 @@ class BuildReportTestParam:
                 curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
-                        ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300,
-                          NodeOperatorId(3): 3},),
+                    ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
                 ),
                 expected_func_result=(
-                        1,
-                        100500,
-                        HexBytes("NEW_TREE_ROOT".encode()),
-                        CID("QmNEW_TREE"),
-                        CID("QmLOG"),
-                        6,
-                        1,
-                        HexBytes(ZERO_HASH),
-                        CID(""),
+                    1,
+                    100500,
+                    HexBytes("NEW_TREE_ROOT".encode()),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    6,
+                    1,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_new_distribution",
@@ -739,15 +737,15 @@ class BuildReportTestParam:
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
-                        1,
-                        100500,
-                        HexBytes("OLD_TREE_ROOT".encode()),
-                        CID("QmOLD_TREE"),
-                        CID("QmLOG"),
-                        0,
-                        0,
-                        HexBytes(ZERO_HASH),
-                        CID(""),
+                    1,
+                    100500,
+                    HexBytes("OLD_TREE_ROOT".encode()),
+                    CID("QmOLD_TREE"),
+                    CID("QmLOG"),
+                    0,
+                    0,
+                    HexBytes(ZERO_HASH),
+                    CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
