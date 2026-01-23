@@ -256,7 +256,7 @@ class ConsensusModule(ABC):
 
         return bs
 
-    def _check_compatability(self, blockstamp: BlockStamp) -> bool:
+    def _check_compatibility(self, blockstamp: BlockStamp) -> bool:
         """
         Check if Oracle can process report on reference blockstamp.
 

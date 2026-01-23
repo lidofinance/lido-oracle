@@ -108,7 +108,7 @@ class SMPerformanceOracle(OracleModule):
             })
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        if not self._check_compatability(last_finalized_blockstamp):
+        if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.set_epochs_range_to_collect(last_finalized_blockstamp)
