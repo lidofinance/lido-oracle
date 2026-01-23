@@ -145,7 +145,7 @@ class SMPerformanceOracle(OracleModule):
         PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
 
         current_demand = self.w3.performance.get_epochs_demand(self.consumer)
-        current_epochs_range = (current_demand.l_epoch, current_demand.r_epoch) if current_demand else None
+        current_epochs_range = (current_demand.from_epoch, current_demand.to_epoch) if current_demand else None
         if current_epochs_range != (l_epoch, r_epoch):
             logger.info({
                 "msg": f"Updating {self.consumer} epochs demand for Performance Collector",

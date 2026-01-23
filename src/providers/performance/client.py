@@ -19,10 +19,10 @@ class PerformanceClient(HTTPProvider):
     API_EPOCHS_DATA = 'epochs'
     API_EPOCHS_DEMAND = 'demands'
 
-    def is_range_available(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
+    def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
         data, _ = self._get(
             self.API_EPOCHS_CHECK,
-            query_params={'from': l_epoch, 'to': r_epoch},
+            query_params={'from': from_epoch, 'to': to_epoch},
         )
         return bool(data)
 
@@ -38,10 +38,10 @@ class PerformanceClient(HTTPProvider):
         )
         return EpochsDemand.model_validate(data) if data else None
 
-    def post_epochs_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+    def post_epochs_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> None:
         self._post(
             self.API_EPOCHS_DEMAND,
-            body_data={'consumer': consumer, 'l_epoch': l_epoch, 'r_epoch': r_epoch},
+            body_data={'consumer': consumer, 'from_epoch': from_epoch, 'to_epoch': to_epoch},
         )
 
     def delete_epochs_demand(self, consumer: str) -> None:

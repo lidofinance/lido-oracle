@@ -20,7 +20,7 @@ from src.modules.sidecars.performance.collector.checkpoint import (
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
-from src.types import BlockStamp, EpochNumber, SlotNumber
+from src.types import BlockStamp, EpochNumber
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.utils.web3converter import ChainConverter
 
@@ -161,7 +161,7 @@ class PerformanceCollector(DaemonModule):
             logger.info({
                 "msg": "Epochs demand", **demand.model_dump()
             })
-            is_range_available = self.db.is_range_available(EpochNumber(demand.l_epoch), EpochNumber(demand.r_epoch))
+            is_range_available = self.db.is_range_available(EpochNumber(demand.from_epoch), EpochNumber(demand.to_epoch))
             if is_range_available:
                 logger.info({
                     "msg": f"Epochs demand for {demand.consumer} is already satisfied",
@@ -170,7 +170,7 @@ class PerformanceCollector(DaemonModule):
                 self.db.delete_demand(demand.consumer)
                 # There is no sense to lower start_epoch because the demand is already satisfied (data is in the DB)
                 continue
-            start_epoch = min(start_epoch, EpochNumber(demand.l_epoch))
+            start_epoch = EpochNumber(min(start_epoch, demand.from_epoch))
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
         if not missing_epochs:

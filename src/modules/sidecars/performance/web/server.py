@@ -2,18 +2,28 @@ from typing import cast
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends, Query, Request
+from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
+from sqlmodel import select
 import gunicorn.app.base
 
-from src.modules.sidecars.performance.common.db import DutiesDB, Duty, EpochsDemand
+from src.modules.sidecars.performance.common.db import DutiesDB, Duty
 from src.modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
+from src.modules.sidecars.performance.web.validation import (
+    ConsumerParam,
+    EpochPath,
+    EpochRangeQuery,
+    EpochsDemandRequest,
+    EpochsDemandResponse,
+    LimitedEpochRangeQuery,
+    parse_epoch_range_query,
+    parse_limited_epoch_range_query,
+)
 from src.variables import (
     PERFORMANCE_WEB_SERVER_API_HOST,
     PERFORMANCE_WEB_SERVER_API_PORT,
     PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
     PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
-    PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE,
     PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
     PERFORMANCE_WEB_SERVER_WORKERS,
     PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
@@ -25,12 +35,6 @@ from src.modules.sidecars.performance.web.metrics import attach_metrics
 from src.types import EpochNumber
 
 logger = logging.getLogger(__name__)
-
-
-class EpochsDemandRequest(BaseModel):
-    consumer: str
-    l_epoch: EpochNumber
-    r_epoch: EpochNumber
 
 
 class HealthCheckResp(BaseModel):
@@ -67,89 +71,67 @@ def get_db() -> DutiesDB:
     return cast(DutiesDB, app.state.db)
 
 
-def validate_epoch_bounds(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-    if l_epoch > r_epoch:
-        raise HTTPException(status_code=400, detail="'l_epoch' must be <= 'r_epoch'")
-
-
-def validate_range_size(l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
-    range_size = int(r_epoch) - int(l_epoch) + 1
-    if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Requested epoch range is too large; maximum allowed size is {PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE} epochs",
-        )
-
-
-def query_epoch_range(
-    from_epoch: EpochNumber = Query(..., alias="from"),
-    to_epoch: EpochNumber = Query(..., alias="to"),
-) -> tuple[EpochNumber, EpochNumber]:
-    validate_epoch_bounds(from_epoch, to_epoch)
-    return from_epoch, to_epoch
-
-
 @app.get("/health", response_model=HealthCheckResp)
-def health():
+def health(db: DutiesDB = Depends(get_db)):
+    try:
+        with db.get_session() as session:
+            session.exec(select(1)).one()
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.error("Healthcheck DB connection failed: %s", error)
+        raise HTTPException(status_code=503, detail="Database connection failed") from error
     return {"status": "ok"}
 
 
 @app.get("/check-epochs", response_model=bool)
 def epochs_check(
-        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-        db: DutiesDB = Depends(get_db),
+    epoch_range: EpochRangeQuery = Depends(parse_epoch_range_query),
+    db: DutiesDB = Depends(get_db),
 ):
-    l_epoch, r_epoch = epoch_range
-    return db.is_range_available(l_epoch, r_epoch)
+    return db.is_range_available(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @app.get("/missing-epochs", response_model=list[EpochNumber])
 def epochs_missing(
-        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-        db: DutiesDB = Depends(get_db),
+    epoch_range: LimitedEpochRangeQuery = Depends(parse_limited_epoch_range_query),
+    db: DutiesDB = Depends(get_db),
 ):
-    l_epoch, r_epoch = epoch_range
-    return db.missing_epochs_in(l_epoch, r_epoch)
+    return db.missing_epochs_in(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @app.get("/epochs", response_model=list[Duty])
 def epochs_data(
-        epoch_range: tuple[EpochNumber, EpochNumber] = Depends(query_epoch_range),
-        db: DutiesDB = Depends(get_db),
+    epoch_range: LimitedEpochRangeQuery = Depends(parse_limited_epoch_range_query),
+    db: DutiesDB = Depends(get_db),
 ):
-    l_epoch, r_epoch = epoch_range
-    validate_range_size(l_epoch, r_epoch)
-    return db.get_epochs_data(l_epoch, r_epoch)
+    return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @app.get("/epochs/{epoch}", response_model=Duty | None)
-def epoch_data(epoch: EpochNumber, db: DutiesDB = Depends(get_db)):
-    return db.get_epoch_data(epoch)
+def epoch_data(epoch_param: EpochPath = Depends(), db: DutiesDB = Depends(get_db)):
+    return db.get_epoch_data(epoch_param.epoch)
 
 
-@app.get("/demands", response_model=list[EpochsDemand])
+@app.get("/demands", response_model=list[EpochsDemandResponse])
 def epochs_demands(db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demands()
 
 
-@app.get("/demands/{consumer}", response_model=EpochsDemand | None)
-def one_epochs_demand(consumer: str, db: DutiesDB = Depends(get_db)):
-    return db.get_epochs_demand(consumer)
+@app.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
+def one_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
+    return db.get_epochs_demand(consumer_param.consumer)
 
 
-@app.post("/demands", response_model=EpochsDemand)
+@app.post("/demands", response_model=EpochsDemandResponse)
 def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DutiesDB = Depends(get_db)):
-    validate_epoch_bounds(demand_to_add.l_epoch, demand_to_add.r_epoch)
-    db.store_demand(demand_to_add.consumer, demand_to_add.l_epoch, demand_to_add.r_epoch)
-    return db.get_epochs_demand(demand_to_add.consumer)
+    return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
-@app.delete("/demands", response_model=EpochsDemand)
-def delete_epochs_demand(consumer: str = Query(...), db: DutiesDB = Depends(get_db)):
-    to_delete = db.get_epochs_demand(consumer)
+@app.delete("/demands", response_model=EpochsDemandResponse)
+def delete_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
+    to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
-        raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer}'")
-    db.delete_demand(consumer)
+        raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")
+    db.delete_demand(consumer_param.consumer)
     return to_delete
 
 

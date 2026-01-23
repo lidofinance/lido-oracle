@@ -27,8 +27,8 @@ class EpochsDemand(SQLModel, table=True):
     __tablename__ = "epochs_demands"
 
     consumer: str = Field(primary_key=True)
-    l_epoch: int
-    r_epoch: int
+    from_epoch: int
+    to_epoch: int
     updated_at: int
 
 
@@ -77,15 +77,20 @@ class DutiesDB:
         session = Session(self.engine)
         return session
 
-    def store_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> EpochsDemand:
+    def store_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> EpochsDemand:
         with self.get_session() as session:
             demand = session.get(EpochsDemand, consumer)
             if demand:
-                demand.l_epoch = l_epoch
-                demand.r_epoch = r_epoch
+                demand.from_epoch = from_epoch
+                demand.to_epoch = to_epoch
                 demand.updated_at = int(time())
             else:
-                demand = EpochsDemand(consumer=consumer, l_epoch=l_epoch, r_epoch=r_epoch, updated_at=int(time()))
+                demand = EpochsDemand(
+                    consumer=consumer,
+                    from_epoch=from_epoch,
+                    to_epoch=to_epoch,
+                    updated_at=int(time()),
+                )
                 session.add(demand)
             session.commit()
             return demand
@@ -150,26 +155,28 @@ class DutiesDB:
             session.exec(delete(Duty).where(col(Duty.epoch) < threshold))
             session.commit()
 
-    def is_range_available(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
-        if int(l_epoch) > int(r_epoch):
+    def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
+        if int(from_epoch) > int(to_epoch):
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(Duty).where((col(Duty.epoch) >= l_epoch), (col(Duty.epoch) <= r_epoch)) # pylint: disable=not-callable
+            stmt = select(func.count()).select_from(Duty).where(  # pylint: disable=not-callable
+                (col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)
+            )
             count = session.exec(stmt).one()
-            return count == (r_epoch - l_epoch + 1)
+            return count == (to_epoch - from_epoch + 1)
 
-    def missing_epochs_in(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> list[EpochNumber]:
-        if l_epoch > r_epoch:
+    def missing_epochs_in(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[EpochNumber]:
+        if from_epoch > to_epoch:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
             present_duties = session.exec(
-                select(Duty.epoch).where((col(Duty.epoch) >= l_epoch), (col(Duty.epoch) <= r_epoch)).order_by(col(Duty.epoch))
+                select(Duty.epoch).where((col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)).order_by(col(Duty.epoch))
             ).all()
             present = {EpochNumber(int(epoch)) for epoch in present_duties}
 
-        return [epoch for epoch in sequence(l_epoch, r_epoch) if epoch not in present]
+        return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
 
     def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
         with self.get_session() as session:
