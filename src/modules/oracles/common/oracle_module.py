@@ -36,6 +36,7 @@ class BaseModule(DaemonModule, ABC):
     """
 
     def __init__(self, w3: Web3):
+        super().__init__()
         self.w3 = w3
 
     def _get_consensus_client(self):

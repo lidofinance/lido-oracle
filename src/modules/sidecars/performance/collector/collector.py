@@ -31,13 +31,12 @@ class PerformanceCollector(DaemonModule):
     """
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
-    _slot_threshold = SlotNumber(0)
-
     # Timestamp of the last epochs demand update
     last_epochs_demand_update: int | None = None
 
     def __init__(self, cc: ConsensusClient):
-        self.cc = cc.cc if hasattr(cc, "cc") else cc
+        super().__init__()
+        self.cc = cc
         self.db = DutiesDB(
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,

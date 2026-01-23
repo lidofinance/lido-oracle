@@ -28,7 +28,8 @@ class DaemonModule(ABC):
     - Timeout management
     """
 
-    _slot_threshold: SlotNumber = SlotNumber(0)
+    def __init__(self) -> None:
+        self._slot_threshold = SlotNumber(0)
 
     def run_as_daemon(self):
         """Starts module in daemon mode with infinite loop"""
