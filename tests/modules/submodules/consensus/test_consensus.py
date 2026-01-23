@@ -260,7 +260,7 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
     consensus.report_contract.get_contract_version = Mock(return_value=contract_version)
     consensus.report_contract.get_consensus_version = Mock(return_value=consensus_version)
 
-    consensus._check_compatability(bs)
+    consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit
@@ -282,7 +282,7 @@ def test_contract_upgrade_before_report_submited(consensus, contract_version, co
     check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
     consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
 
-    assert expected == consensus._check_compatability(bs)
+    assert expected == consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit
@@ -293,7 +293,7 @@ def test_incompatible_contract_version(consensus):
     consensus.report_contract.get_consensus_version = Mock(return_value=3)
 
     with pytest.raises(IncompatibleOracleVersion):
-        consensus._check_compatability(bs)
+        consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit

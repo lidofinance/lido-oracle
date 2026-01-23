@@ -237,30 +237,30 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
     ref_epoch = slot_to_epoch(param.current_ref_slot)
     if isinstance(param.expected_frame, type) and issubclass(param.expected_frame, Exception):
         with pytest.raises(param.expected_frame):
-            module.get_epochs_range_to_process(
+            module._get_epochs_range_to_process(
                 ReferenceBlockStampFactory.build(slot_number=param.current_ref_slot, ref_epoch=ref_epoch)
             )
     else:
         bs = ReferenceBlockStampFactory.build(slot_number=param.current_ref_slot, ref_epoch=ref_epoch)
 
-        l_epoch, r_epoch = module.get_epochs_range_to_process(bs)
+        l_epoch, r_epoch = module._get_epochs_range_to_process(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
 
 
 @pytest.mark.unit
-def test_set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
+def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
     converter.frame_config = Mock(epochs_per_frame=4)
-    module.converter = Mock(return_value=converter)
-    module.get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module._converter = Mock(return_value=converter)
+    module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=False)
     module.w3.performance.get_epochs_demand = Mock(return_value={})
     module.w3.performance.post_epochs_demand = Mock()
 
-    module.set_epochs_range_to_collect(blockstamp)
+    module._set_epochs_range_to_collect(blockstamp)
 
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.state.log_progress.assert_called_once()
@@ -270,20 +270,20 @@ def test_set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracl
 
 
 @pytest.mark.unit
-def test_set_epochs_range_to_collect_skips_post_when_demand_same(
-    module: CSPerformanceOracle, mock_chain_config: NoReturn
+def test__set_epochs_range_to_collect_skips_post_when_demand_same(
+        module: CSPerformanceOracle, mock_chain_config: NoReturn
 ):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
     converter.frame_config = Mock(epochs_per_frame=4)
-    module.converter = Mock(return_value=converter)
-    module.get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module._converter = Mock(return_value=converter)
+    module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
     module.w3.performance.get_epochs_demands = Mock(return_value={"CSPerformanceOracle": (10, 20)})
     module.w3.performance.post_epochs_demand = Mock()
 
-    module.set_epochs_range_to_collect(blockstamp)
+    module._set_epochs_range_to_collect(blockstamp)
 
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.state.log_progress.assert_called_once()
@@ -354,25 +354,26 @@ class CollectDataCase:
     ],
 )
 @pytest.mark.unit
-def test_collect_data_handles_range_availability(
-    module: CSPerformanceOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog, case: CollectDataCase
+def test__collect_data_handles_range_availability(
+        module: CSPerformanceOracle, mock_chain_config: NoReturn, mock_frame_config: NoReturn, caplog,
+        case: CollectDataCase
 ):
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=case.range_available)
-    module.fulfill_state = Mock()
+    module._fulfill_state = Mock()
     state = Mock(frames=case.frames)
     type(state).is_fulfilled = PropertyMock(side_effect=case.is_fulfilled_side_effect)
     module.state = state
 
     with caplog.at_level(logging.DEBUG):
-        result = module.collect_data()
+        result = module._collect_data()
 
     assert result is case.expected_result
     module.w3.performance.is_range_available.assert_called_once_with(*case.expect_range_call)
     if case.expect_fulfill_call:
-        module.fulfill_state.assert_called_once()
+        module._fulfill_state.assert_called_once()
     else:
-        module.fulfill_state.assert_not_called()
+        module._fulfill_state.assert_not_called()
 
     if case.check_no_completed_msg:
         assert "All epochs are already processed. Nothing to collect" not in caplog.messages
@@ -419,7 +420,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     state.log_progress = Mock()
     module.state = state
 
-    module.fulfill_state()
+    module._fulfill_state()
 
     module._receive_last_finalized_slot.assert_called_once()
     module.w3.cc.get_validators.assert_called_once_with("finalized")
@@ -479,7 +480,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
     module.state = state
 
     with pytest.raises(ValueError, match="not active"):
-        module.fulfill_state()
+        module._fulfill_state()
 
     module.w3.performance.get_epoch_data.assert_called_once_with(0)
     state.save_att_duty.assert_not_called()
@@ -489,12 +490,12 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 @pytest.mark.unit
 def test_validate_state_uses_ref_epoch(module: CSPerformanceOracle):
     blockstamp = ReferenceBlockStampFactory.build(ref_epoch=123)
-    module.get_epochs_range_to_process = Mock(return_value=(5, 10))
+    module._get_epochs_range_to_process = Mock(return_value=(5, 10))
     module.state = Mock(validate=Mock())
 
-    module.validate_state(blockstamp)
+    module._validate_state(blockstamp)
 
-    module.get_epochs_range_to_process.assert_called_once_with(blockstamp)
+    module._get_epochs_range_to_process.assert_called_once_with(blockstamp)
     module.state.validate.assert_called_once_with(5, 123)
 
 
@@ -538,7 +539,7 @@ def test_publish_tree_uploads_encoded_tree(module: CSPerformanceOracle):
     module.w3 = Mock()
     module.w3.ipfs.publish = Mock(return_value=CID("QmTree"))
 
-    cid = module.publish_tree(tree)
+    cid = module._publish_tree(tree)
 
     module.w3.ipfs.publish.assert_called_once_with(b"tree")
     assert cid == CID("QmTree")
@@ -553,7 +554,7 @@ def test_publish_log_uploads_encoded_log(module: CSPerformanceOracle, monkeypatc
     module.w3 = Mock()
     module.w3.ipfs.publish = Mock(return_value=CID("QmLog"))
 
-    cid = module.publish_log(logs)
+    cid = module._publish_log(logs)
 
     encode_mock.assert_called_once()
     module.w3.ipfs.publish.assert_called_once_with(b"log")
@@ -603,15 +604,15 @@ class BuildReportTestParam:
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
-                    1,
-                    100500,
-                    HexBytes(ZERO_HASH),
-                    "",
-                    CID("QmLOG"),
-                    0,
-                    0,
-                    HexBytes(ZERO_HASH),
-                    CID(""),
+                        1,
+                        100500,
+                        HexBytes(ZERO_HASH),
+                        "",
+                        CID("QmLOG"),
+                        0,
+                        0,
+                        HexBytes(ZERO_HASH),
+                        CID(""),
                 ),
             ),
             id="empty_prev_report_and_no_new_distribution",
@@ -644,18 +645,18 @@ class BuildReportTestParam:
                 curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
-                    ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
+                        ({NodeOperatorId(0): 1, NodeOperatorId(1): 2, NodeOperatorId(2): 3},),
                 ),
                 expected_func_result=(
-                    1,
-                    100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
-                    CID("QmNEW_TREE"),
-                    CID("QmLOG"),
-                    6,
-                    1,
-                    HexBytes(ZERO_HASH),
-                    CID(""),
+                        1,
+                        100500,
+                        HexBytes("NEW_TREE_ROOT".encode()),
+                        CID("QmNEW_TREE"),
+                        CID("QmLOG"),
+                        6,
+                        1,
+                        HexBytes(ZERO_HASH),
+                        CID(""),
                 ),
             ),
             id="empty_prev_report_and_new_distribution",
@@ -694,18 +695,19 @@ class BuildReportTestParam:
                 curr_strikes_tree_cid="",
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=(
-                    ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300, NodeOperatorId(3): 3},),
+                        ({NodeOperatorId(0): 101, NodeOperatorId(1): 202, NodeOperatorId(2): 300,
+                          NodeOperatorId(3): 3},),
                 ),
                 expected_func_result=(
-                    1,
-                    100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
-                    CID("QmNEW_TREE"),
-                    CID("QmLOG"),
-                    6,
-                    1,
-                    HexBytes(ZERO_HASH),
-                    CID(""),
+                        1,
+                        100500,
+                        HexBytes("NEW_TREE_ROOT".encode()),
+                        CID("QmNEW_TREE"),
+                        CID("QmLOG"),
+                        6,
+                        1,
+                        HexBytes(ZERO_HASH),
+                        CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_new_distribution",
@@ -737,15 +739,15 @@ class BuildReportTestParam:
                 curr_log_cid=CID("QmLOG"),
                 expected_make_rewards_tree_call_args=None,
                 expected_func_result=(
-                    1,
-                    100500,
-                    HexBytes("OLD_TREE_ROOT".encode()),
-                    CID("QmOLD_TREE"),
-                    CID("QmLOG"),
-                    0,
-                    0,
-                    HexBytes(ZERO_HASH),
-                    CID(""),
+                        1,
+                        100500,
+                        HexBytes("OLD_TREE_ROOT".encode()),
+                        CID("QmOLD_TREE"),
+                        CID("QmLOG"),
+                        0,
+                        0,
+                        HexBytes(ZERO_HASH),
+                        CID(""),
                 ),
             ),
             id="non_empty_prev_report_and_no_new_distribution",
@@ -754,33 +756,33 @@ class BuildReportTestParam:
 )
 @pytest.mark.unit
 def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
-    module.validate_state = Mock()
+    module._validate_state = Mock()
     module.report_contract.get_consensus_version = Mock(return_value=1)
-    module.calculate_distribution = Mock(return_value=(param.curr_distribution(), param.last_report))
-    module.make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
-    module.make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
-    module.publish_tree = Mock(
+    module._calculate_distribution = Mock(return_value=(param.curr_distribution(), param.last_report))
+    module._make_rewards_tree = Mock(return_value=Mock(root=param.curr_rewards_tree_root))
+    module._make_strikes_tree = Mock(return_value=Mock(root=param.curr_strikes_tree_root))
+    module._publish_tree = Mock(
         side_effect=[
             param.curr_rewards_tree_cid,
             param.curr_strikes_tree_cid,
         ]
     )
-    module.publish_log = Mock(return_value=param.curr_log_cid)
+    module._publish_log = Mock(return_value=param.curr_log_cid)
 
     blockstamp = Mock(ref_slot=100500)
     report = module.build_report(blockstamp)
 
-    assert module.make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
+    assert module._make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
-    assert module.publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
+    assert module._publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
 
 
 @pytest.mark.unit
 def test_execute_module_not_collected(module: CSPerformanceOracle):
-    module._check_compatability = Mock(return_value=True)
+    module._check_compatibility = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
-    module.set_epochs_range_to_collect = Mock()
-    module.collect_data = Mock(return_value=False)
+    module._set_epochs_range_to_collect = Mock()
+    module._collect_data = Mock(return_value=False)
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),
@@ -790,21 +792,21 @@ def test_execute_module_not_collected(module: CSPerformanceOracle):
 
 @pytest.mark.unit
 def test_execute_module_skips_collecting_if_forward_compatible(module: CSPerformanceOracle):
-    module._check_compatability = Mock(return_value=False)
-    module.collect_data = Mock(return_value=False)
+    module._check_compatibility = Mock(return_value=False)
+    module._collect_data = Mock(return_value=False)
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),
     )
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module.collect_data.assert_not_called()
+    module._collect_data.assert_not_called()
 
 
 @pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
-    module._check_compatability = Mock(return_value=True)
-    module.set_epochs_range_to_collect = Mock()
-    module.collect_data = Mock(return_value=True)
+    module._check_compatibility = Mock(return_value=True)
+    module._set_epochs_range_to_collect = Mock()
+    module._collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
 
     execute_delay = module.execute_module(
@@ -815,11 +817,11 @@ def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
 
 @pytest.mark.unit
 def test_execute_module_processed(module: CSPerformanceOracle):
-    module.set_epochs_range_to_collect = Mock()
-    module.collect_data = Mock(return_value=True)
+    module._set_epochs_range_to_collect = Mock()
+    module._collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
-    module._check_compatability = Mock(return_value=True)
+    module._check_compatibility = Mock(return_value=True)
 
     execute_delay = module.execute_module(
         last_finalized_blockstamp=Mock(slot_number=100500),
@@ -839,13 +841,13 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
         mock_distribution_instance = MockDistribution.return_value
         mock_distribution_instance.calculate.return_value = mock_distribution_result
 
-        module.converter = Mock()
+        module._converter = Mock()
         module.state = Mock()
         module._get_last_report = Mock(return_value=last_report)
 
-        result1, last_report1 = module.calculate_distribution(blockstamp)
+        result1, last_report1 = module._calculate_distribution(blockstamp)
 
-        result2, last_report2 = module.calculate_distribution(blockstamp)
+        result2, last_report2 = module._calculate_distribution(blockstamp)
 
         assert result1 is result2
         assert last_report1 is last_report2
@@ -855,9 +857,9 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
         assert MockDistribution.call_count == 1
         assert mock_distribution_instance.calculate.call_count == 1
 
-        module.calculate_distribution.cache_clear()
+        module._calculate_distribution.cache_clear()
 
-        result3, last_report3 = module.calculate_distribution(blockstamp)
+        result3, last_report3 = module._calculate_distribution(blockstamp)
 
         assert MockDistribution.call_count == 2
         assert result3 is mock_distribution_result
@@ -879,7 +881,7 @@ def test_make_rewards_tree_negative(module: CSPerformanceOracle, param: RewardsT
     module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     with pytest.raises(ValueError):
-        module.make_rewards_tree(param.shares)
+        module._make_rewards_tree(param.shares)
 
 
 @pytest.mark.parametrize(
@@ -928,7 +930,7 @@ def test_make_rewards_tree_negative(module: CSPerformanceOracle, param: RewardsT
 def test_make_rewards_tree(module: CSPerformanceOracle, param: RewardsTreeTestParam):
     module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
-    tree = module.make_rewards_tree(param.shares)
+    tree = module._make_rewards_tree(param.shares)
     assert tree.values == param.expected_tree_values
 
 
@@ -949,7 +951,7 @@ def test_make_strikes_tree_negative(module: CSPerformanceOracle, param: StrikesT
     module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
     with pytest.raises(ValueError):
-        module.make_strikes_tree(param.strikes)
+        module._make_strikes_tree(param.strikes)
 
 
 @pytest.mark.parametrize(
@@ -987,7 +989,7 @@ def test_make_strikes_tree_negative(module: CSPerformanceOracle, param: StrikesT
 def test_make_strikes_tree(module: CSPerformanceOracle, param: StrikesTreeTestParam):
     module.w3.staking_module.module.MAX_OPERATORS_COUNT = UINT64_MAX
 
-    tree = module.make_strikes_tree(param.strikes)
+    tree = module._make_strikes_tree(param.strikes)
     assert tree.values == param.expected_tree_values
 
 
