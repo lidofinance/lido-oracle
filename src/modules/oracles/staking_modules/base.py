@@ -111,13 +111,13 @@ class SMPerformanceOracle(OracleModule):
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self.set_epochs_range_to_collect(last_finalized_blockstamp)
+        self._set_epochs_range_to_collect(last_finalized_blockstamp)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        collected = self.collect_data()
+        collected = self._collect_data()
         if not collected:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -125,10 +125,10 @@ class SMPerformanceOracle(OracleModule):
         return ModuleExecuteDelay.NEXT_SLOT
 
     @duration_meter()
-    def set_epochs_range_to_collect(self, blockstamp: BlockStamp):
-        converter = self.converter(blockstamp)
+    def _set_epochs_range_to_collect(self, blockstamp: BlockStamp):
+        converter = self._converter(blockstamp)
 
-        l_epoch, r_epoch = self.get_epochs_range_to_process(blockstamp)
+        l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self.state.log_progress()
 
@@ -155,7 +155,7 @@ class SMPerformanceOracle(OracleModule):
             self.w3.performance.post_epochs_demand(self.consumer, l_epoch, r_epoch)
 
     @duration_meter()
-    def collect_data(self) -> bool:
+    def _collect_data(self) -> bool:
         logger.info({"msg": "Collecting data for the report from Performance Collector"})
 
         self.state.ensure_initialized()
@@ -177,27 +177,27 @@ class SMPerformanceOracle(OracleModule):
                     "start_epoch": l_epoch,
                     "end_epoch": r_epoch
                 })
-            self.fulfill_state()
+            self._fulfill_state()
 
         return self.state.is_fulfilled
 
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        self.validate_state(blockstamp)
+        self._validate_state(blockstamp)
 
-        distribution, last_report = self.calculate_distribution(blockstamp)
+        distribution, last_report = self._calculate_distribution(blockstamp)
         rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
 
         if distribution.total_rewards:
-            rewards_tree = self.make_rewards_tree(distribution.total_rewards_map)
+            rewards_tree = self._make_rewards_tree(distribution.total_rewards_map)
             rewards_tree_root = rewards_tree.root
-            rewards_cid = self.publish_tree(rewards_tree)
+            rewards_cid = self._publish_tree(rewards_tree)
 
         if distribution.strikes:
-            strikes_tree = self.make_strikes_tree(distribution.strikes)
+            strikes_tree = self._make_strikes_tree(distribution.strikes)
             strikes_tree_root = strikes_tree.root
-            strikes_cid = self.publish_tree(strikes_tree)
+            strikes_cid = self._publish_tree(strikes_tree)
             if strikes_tree_root == last_report.strikes_tree_root:
                 logger.info({"msg": "Strikes tree is the same as the previous one"})
             if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
@@ -206,7 +206,7 @@ class SMPerformanceOracle(OracleModule):
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
 
-        logs_cid = self.publish_log(distribution.logs)
+        logs_cid = self._publish_log(distribution.logs)
 
         return ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
@@ -225,9 +225,9 @@ class SMPerformanceOracle(OracleModule):
         return LastReport.load(self.w3, blockstamp, current_frame)
 
     @lru_cache(maxsize=1)
-    def calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
+    def _calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
         last_report = self._get_last_report(blockstamp)
-        distribution = Distribution(self.w3, self.converter(blockstamp), self.state)
+        distribution = Distribution(self.w3, self._converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
         return result, last_report
 
@@ -244,15 +244,15 @@ class SMPerformanceOracle(OracleModule):
         CONTRACT_ON_PAUSE.labels(self.consumer).set(on_pause)
         return not on_pause
 
-    def validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
+    def _validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
         # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
         # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
-        l_epoch, _ = self.get_epochs_range_to_process(blockstamp)
+        l_epoch, _ = self._get_epochs_range_to_process(blockstamp)
         r_epoch = blockstamp.ref_epoch
 
         self.state.validate(l_epoch, r_epoch)
 
-    def fulfill_state(self):
+    def _fulfill_state(self):
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
@@ -340,7 +340,7 @@ class SMPerformanceOracle(OracleModule):
                 self.state.log_progress()
                 self.state.commit()
 
-    def make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
+    def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
             raise ValueError("No shares to build a tree")
 
@@ -358,26 +358,26 @@ class SMPerformanceOracle(OracleModule):
         logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]) -> StrikesTree:
+    def _make_strikes_tree(self, strikes: dict[StrikesValidator, StrikesList]) -> StrikesTree:
         if not strikes:
             raise ValueError("No strikes to build a tree")
         tree = StrikesTree.new(tuple((no_id, pubkey, strikes) for ((no_id, pubkey), strikes) in strikes.items()))
         logger.info({"msg": "New strikes tree built for the report", "root": repr(tree.root)})
         return tree
 
-    def publish_tree(self, tree: Tree) -> CID:
+    def _publish_tree(self, tree: Tree) -> CID:
         tree_cid = self.w3.ipfs.publish(tree.encode())
         logger.info({"msg": "Tree dump uploaded to IPFS", "cid": repr(tree_cid)})
         return tree_cid
 
-    def publish_log(self, logs: Logs) -> CID:
+    def _publish_log(self, logs: Logs) -> CID:
         log_cid = self.w3.ipfs.publish(logs.encode())
         logger.info({"msg": "Frame(s) log uploaded to IPFS", "cid": repr(log_cid)})
         return log_cid
 
     @lru_cache(maxsize=1)
-    def get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
-        converter = self.converter(blockstamp)
+    def _get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
+        converter = self._converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
@@ -426,5 +426,5 @@ class SMPerformanceOracle(OracleModule):
 
         return l_epoch, r_epoch
 
-    def converter(self, blockstamp: BlockStamp) -> Web3Converter:
+    def _converter(self, blockstamp: BlockStamp) -> Web3Converter:
         return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))

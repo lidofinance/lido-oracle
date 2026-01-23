@@ -41,7 +41,7 @@ class PerformanceCollector(DaemonModule):
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
         )
-        self.last_epochs_demand_update = self.get_epochs_demand_max_updated_at()
+        self.last_epochs_demand_update = self._get_epochs_demand_max_updated_at()
 
     def _get_consensus_client(self):
         """Returns consensus client"""
@@ -92,7 +92,7 @@ class PerformanceCollector(DaemonModule):
 
         self._update_demand_metrics()
 
-        epochs_range_to_process = self.define_epochs_to_process_range(finalized_epoch)
+        epochs_range_to_process = self._define_epochs_to_process_range(finalized_epoch)
         if not epochs_range_to_process:
             return ModuleExecuteDelay.NEXT_SLOT
         start_epoch, end_epoch = epochs_range_to_process
@@ -122,7 +122,7 @@ class PerformanceCollector(DaemonModule):
             # Reset base cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
-            if self.new_epochs_range_demand_appeared():
+            if self._new_epochs_range_demand_appeared():
                 self._update_demand_metrics()
                 logger.info({"msg": "New epochs demand is found during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
@@ -137,7 +137,7 @@ class PerformanceCollector(DaemonModule):
     def _update_demand_metrics(self) -> None:
         PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT.set(self.db.demands_count())
 
-    def define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
+    def _define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
         max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
         if max_available_epoch_to_check < 0:
             logger.info({"msg": "No available epochs to process yet"})
@@ -198,14 +198,14 @@ class PerformanceCollector(DaemonModule):
 
         return start_epoch, end_epoch
 
-    def new_epochs_range_demand_appeared(self) -> bool:
-        max_updated_at = self.get_epochs_demand_max_updated_at()
+    def _new_epochs_range_demand_appeared(self) -> bool:
+        max_updated_at = self._get_epochs_demand_max_updated_at()
         updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
         if updated:
             self.last_epochs_demand_update = max_updated_at
             return True
         return False
 
-    def get_epochs_demand_max_updated_at(self) -> int | None:
+    def _get_epochs_demand_max_updated_at(self) -> int | None:
         max_updated_at = self.db.get_epochs_demands_max_updated_at()
         return int(max_updated_at) if max_updated_at is not None else None
