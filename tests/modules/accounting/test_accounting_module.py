@@ -81,9 +81,9 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.process_report = Mock(return_value=None)
     accounting.process_extra_data = Mock(return_value=None)
     accounting._check_compatibility = Mock(return_value=True)
-    assert (
-        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT
-    ), "execute_module should wait for the next slot"
+    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT, (
+        "execute_module should wait for the next slot"
+    )
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
     accounting.process_report.assert_called_once_with(bs)
     accounting.process_extra_data.assert_called_once_with(bs)

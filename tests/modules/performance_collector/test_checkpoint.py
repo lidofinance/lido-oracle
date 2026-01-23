@@ -16,7 +16,7 @@ from src.modules.sidecars.performance.collector.checkpoint import (
     process_attestations,
 )
 from src.modules.sidecars.performance.common.db import DutiesDB
-from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
+from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
 from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee

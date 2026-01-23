@@ -1,5 +1,5 @@
 from time import time
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
 from sqlalchemy.engine import Engine
@@ -13,7 +13,7 @@ from src.utils.range import sequence
 
 
 class Duty(SQLModel, table=True):
-    __tablename__ = "duties"
+    __tablename__: ClassVar[str] = "duties"
 
     epoch: int = Field(primary_key=True)
     attestations: list[int] = Field(default=None, sa_column=Column(ARRAY(Integer())))
@@ -24,7 +24,7 @@ class Duty(SQLModel, table=True):
 
 
 class EpochsDemand(SQLModel, table=True):
-    __tablename__ = "epochs_demands"
+    __tablename__: ClassVar[str] = "epochs_demands"
 
     consumer: str = Field(primary_key=True)
     from_epoch: int

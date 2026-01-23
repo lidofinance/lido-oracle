@@ -39,7 +39,6 @@ def cm_module(web3_curated_module: Web3):
 
 @pytest.fixture()
 def performance_local_db(testrun_path):
-
     def mock_get_database_url(self):
         db_path = Path(testrun_path) / "test_duties.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -144,9 +143,9 @@ def test_staking_module_module_report(
         )
 
     last_processing_after_report = module.w3.staking_module.oracle.get_last_processing_ref_slot()
-    assert (
-        last_processing_after_report == report_frame.ref_slot
-    ), "Last processing ref slot should equal to initial ref slot"
+    assert last_processing_after_report == report_frame.ref_slot, (
+        "Last processing ref slot should equal to initial ref slot"
+    )
 
     to_distribute_after_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
     assert to_distribute_after_report < to_distribute_before_report, "Shares to distribute should decrease"
