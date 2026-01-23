@@ -46,4 +46,5 @@ def check_sync_committee(web3: Web3, blockstamp):
 
 def check_block_attestations_and_sync(web3: Web3, blockstamp):
     """Check that consensus-client able to provide block attestations"""
-    assert web3.cc.get_block_attestations_and_sync(blockstamp.slot_number), "consensus-client provide no block attestations and sync"
+    result = web3.cc.get_block_attestations_and_sync(blockstamp.slot_number)
+    assert result is not None and len(result) > 0, "consensus-client provide no block attestations and sync"

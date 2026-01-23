@@ -74,7 +74,7 @@ class DutiesDB:
         SQLModel.metadata.create_all(self.engine)
 
     def get_session(self) -> Session:
-        session = Session(self.engine)
+        session = Session(self.engine, expire_on_commit=False)
         return session
 
     def store_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> EpochsDemand:

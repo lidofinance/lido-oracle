@@ -11,7 +11,6 @@ from src.utils.slot import get_blockstamp
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestIpfsReportSmoke:
-
     def test_ipfs_report_valid(self, web3_integration):
         cid = CIDv0("QmYnQ9gCriLj29uWC6DC3yFm6gYXNEAkMoHLjtJun8ASeQ")
         expected_tree_root = "0x82d726a060e4133328fb77dac69cfd84e14bb66fb0fd1b2c99ba058efb2f5a30"
@@ -21,7 +20,7 @@ class TestIpfsReportSmoke:
 
         sv = StakingVaultsService(web3_integration)
 
-        assert True == sv.is_tree_root_valid(expected_tree_root, tree)
+        assert sv.is_tree_root_valid(expected_tree_root, tree)
 
     def test_ipfs_window(self, web3_integration):
         sv = StakingVaultsService(web3_integration)

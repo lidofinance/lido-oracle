@@ -204,7 +204,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
     @pytest.mark.unit
     def test_predeposited_validator_counts_1_eth(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Test PREDEPOSITED validator only counts 1 ETH regardless of balance."""
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99002'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002'
 
         validators = [
             ValidatorFactory.build(
@@ -234,7 +234,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         self, mock_w3_with_validator_statuses, default_vaults_map
     ):
         """Test ACTIVATED validator counts full balance plus pending deposits."""
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99005'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005'
 
         validators = [
             ValidatorFactory.build(
@@ -272,7 +272,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
     @pytest.mark.unit
     def test_proven_validator_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Test PROVEN validator is not counted in total value."""
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99003'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003'
 
         validators = [
             ValidatorFactory.build(
@@ -299,7 +299,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         self, mock_w3_with_validator_statuses, default_vaults_map
     ):
         """Test PREDEPOSITED validator with pending deposits doesn't double count."""
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
 
         validators = [
             ValidatorFactory.build(
@@ -335,7 +335,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
     @pytest.mark.unit
     def test_doppelganger_pubkey_not_counted(self, mock_w3_with_validator_statuses, default_vaults_map):
         """Test doppelganger pubkey (different vault WC) is not counted."""
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
 
         validators = [
             ValidatorFactory.build(

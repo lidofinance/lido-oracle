@@ -10,7 +10,6 @@ from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestLidoSmoke:
-
     @pytest.fixture
     def lido(self, web3_integration):
         lido_locator: LidoLocatorContract = cast(

@@ -1,5 +1,5 @@
-from typing import cast
 from dataclasses import dataclass
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
@@ -14,13 +14,12 @@ from src.modules.oracles.common.exceptions import IncompatibleOracleVersion, Con
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
-
-from tests.factory.blockstamp import ReferenceBlockStampFactory, BlockStampFactory
+from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
+    BlockDetailsResponseFactory,
     ChainConfigFactory,
     FrameConfigFactory,
-    BlockDetailsResponseFactory,
 )
 from tests.factory.member_info import MemberInfoFactory
 
@@ -276,11 +275,12 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
 def test_contract_upgrade_before_report_submited(consensus, contract_version, consensus_version, expected):
     bs = ReferenceBlockStampFactory.build()
 
-    check_latest_contract = lambda tag: contract_version if tag == 'latest' else 3
-    consensus.report_contract.get_contract_version = Mock(side_effect=check_latest_contract)
-
-    check_latest_consensus = lambda tag: consensus_version if tag == 'latest' else 2
-    consensus.report_contract.get_consensus_version = Mock(side_effect=check_latest_consensus)
+    consensus.report_contract.get_contract_version = Mock(
+        side_effect=lambda tag: contract_version if tag == 'latest' else 3
+    )
+    consensus.report_contract.get_consensus_version = Mock(
+        side_effect=lambda tag: consensus_version if tag == 'latest' else 2
+    )
 
     assert expected == consensus._check_compatibility(bs)
 
@@ -355,6 +355,7 @@ class NoContractVersionConsensusImpl(ConsensusImpl):
     CONSENSUS_VERSION = 1
 
 
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "impl",
     [

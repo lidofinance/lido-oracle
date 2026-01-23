@@ -48,6 +48,7 @@ from src.web3py.extensions import (
 )
 from src.web3py.extensions.staking_module import StakingModuleContracts
 
+
 logger = logging.getLogger('fork_tests')
 
 # pylint: disable=logging-fstring-interpolation

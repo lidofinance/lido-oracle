@@ -202,11 +202,11 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
         try:
-            data = json_response["data"]
+            data = json_response["data"]  # type: ignore[index]
             meta = {}
 
             if not stream:
-                del json_response["data"]
+                del json_response["data"]  # type: ignore[attr-defined]
                 meta = json_response
         except (KeyError, TypeError):
             # NOTE: Used by KeysAPIClient and PerformanceClient only.
@@ -429,8 +429,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             data = json_response
             meta = {}
 
-        retval_validator(data, meta, endpoint=endpoint)
-        return data, meta
+        retval_validator(data, meta, endpoint=endpoint)  # type: ignore[arg-type]
+        return data, meta  # type: ignore[return-value]
 
     def get_all_providers(self) -> list[str]:
         return self.hosts

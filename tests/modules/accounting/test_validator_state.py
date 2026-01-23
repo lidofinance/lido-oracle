@@ -17,6 +17,7 @@ from src.web3py.extensions.lido_validators import (
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
+
 TESTING_REF_EPOCH = 100
 
 blockstamp = ReferenceBlockStampFactory.build(

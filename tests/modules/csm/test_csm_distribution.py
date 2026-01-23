@@ -22,11 +22,11 @@ from src.modules.oracles.staking_modules.common.state import DutyAccumulator, St
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
-    StrikesParams,
-    PerformanceCoefficients,
     CurveParams,
     KeyNumberValueInterval,
     KeyNumberValueIntervalList,
+    PerformanceCoefficients,
+    StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId, EpochNumber, ValidatorIndex

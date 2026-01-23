@@ -4,7 +4,6 @@ from unittest.mock import Mock
 import pytest
 from web3.exceptions import ContractCustomError
 
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     GWEI_TO_WEI,
@@ -22,6 +21,7 @@ from src.modules.common.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,
 )
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
 from src.web3py.types import Web3
@@ -65,9 +65,9 @@ def set_consensus(ejector):
 @pytest.mark.unit
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.get_blockstamp_for_report = Mock(return_value=None)
-    assert (
-        ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    ), "execute_module should wait for the next finalized epoch"
+    assert ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
+        "execute_module should wait for the next finalized epoch"
+    )
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)

@@ -100,9 +100,8 @@ Where `<module>` is one of:
 
 Used the following tools:
 
-- [black](https://github.com/psf/black)
-- [pylint](https://github.com/pylint-dev/pylint/)
-- [mypy](https://github.com/python/mypy/)
+- [ruff](https://github.com/astral-sh/ruff) (formatter and linter)
+- [pyright](https://github.com/microsoft/pyright/)
   See the [configuration](pyproject.toml) for details for each linter.
 
 Make sure that your code is formatted correctly and passes all checks:
@@ -114,9 +113,9 @@ make lint
 
 #### Local setup
 ```bash
-poetry run black tests
-poetry run pylint src tests
-poetry run mypy src
+ruff format tests
+ruff check src tests
+pyright src
 ```
 
 ## Tests

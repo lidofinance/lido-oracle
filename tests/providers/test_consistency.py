@@ -1,10 +1,11 @@
 # pylint: disable=protected-access
 import unittest
-import pytest
 from typing import Any
 from unittest.mock import Mock
 
-from src.providers.consistency import ProviderConsistencyModule, NotHealthyProvider, InconsistentProviders
+import pytest
+
+from src.providers.consistency import InconsistentProviders, NotHealthyProvider, ProviderConsistencyModule
 
 
 @pytest.mark.unit

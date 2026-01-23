@@ -585,18 +585,18 @@ class StakingVaultsService:
                 if isinstance(event, VaultFeesUpdatedEvent):
                     liquidity_fee = event.pre_liquidity_fee_bp
                 elif isinstance(event, MintedSharesOnVaultEvent):
-                    liability_shares -= event.amount_of_shares
+                    liability_shares = Shares(liability_shares - event.amount_of_shares)
                 elif isinstance(event, BurnedSharesOnVaultEvent):
-                    liability_shares += event.amount_of_shares
+                    liability_shares = Shares(liability_shares + event.amount_of_shares)
                 elif isinstance(event, VaultRebalancedEvent):
-                    liability_shares += event.shares_burned
+                    liability_shares = Shares(liability_shares + event.shares_burned)
                 elif isinstance(event, BadDebtWrittenOffToBeInternalizedEvent):
-                    liability_shares += event.bad_debt_shares
+                    liability_shares = Shares(liability_shares + event.bad_debt_shares)
                 elif isinstance(event, BadDebtSocializedEvent):
                     if vault_address == event.vault_donor:
-                        liability_shares += event.bad_debt_shares
+                        liability_shares = Shares(liability_shares + event.bad_debt_shares)
                     else:
-                        liability_shares -= event.bad_debt_shares
+                        liability_shares = Shares(liability_shares - event.bad_debt_shares)
 
                 current_block = event.block_number
 
@@ -638,7 +638,7 @@ class StakingVaultsService:
             # If any vault-related event occurred in the same block as the previous IPFS report,
             # it has already been included in that report. To avoid overlapping calculations,
             # we shift the starting point by one block forward.
-            return prev_ipfs_report, ref_block.block_number + 1
+            return prev_ipfs_report, BlockNumber(ref_block.block_number + 1)
 
         ## When we do NOT HAVE prev IPFS report => we have to check two branches: for mainnet and devnet (genesis vaults support)
         ## Mainnet
@@ -649,7 +649,7 @@ class StakingVaultsService:
             ref_block = get_blockstamp(
                 self.w3.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot) + slots_per_frame)
             )
-            return None, ref_block.block_number + 1
+            return None, BlockNumber(ref_block.block_number + 1)
 
         ## Fresh devnet
         ## We DO not have prev IPFS report, and we DO not have prev Oracle report then we take
@@ -751,7 +751,7 @@ class StakingVaultsService:
                 prev_block_number=prev_block_number,
                 current_block=blockstamp.block_number,
                 pre_total_pooled_ether=Wei(pre_total_pooled_ether),
-                pre_total_shares=pre_total_shares,
+                pre_total_shares=Shares(pre_total_shares),
                 core_apr_ratio=core_apr_ratio,
             )
 

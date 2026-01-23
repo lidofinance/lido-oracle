@@ -108,6 +108,7 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
 
 
 @pytest.mark.fork
+@pytest.mark.integration
 @pytest.mark.parametrize(
     'module',
     [

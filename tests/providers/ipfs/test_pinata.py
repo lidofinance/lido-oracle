@@ -2,14 +2,13 @@ import pytest
 import requests
 import responses
 
-from src.providers.ipfs.pinata import Pinata
 from src.providers.ipfs.cid import CID
-from src.providers.ipfs.types import FetchError, UploadError, CIDValidationError
+from src.providers.ipfs.pinata import Pinata
+from src.providers.ipfs.types import CIDValidationError, FetchError, UploadError
 
 
 @pytest.mark.unit
 class TestPinata:
-
     @pytest.fixture
     def pinata_provider(self):
         mock_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"

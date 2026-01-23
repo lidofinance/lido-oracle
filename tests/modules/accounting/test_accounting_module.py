@@ -72,9 +72,9 @@ def frame_config() -> FrameConfig:
 @pytest.mark.unit
 def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.get_blockstamp_for_report = Mock(return_value=None)
-    assert (
-        accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    ), "execute_module should wait for the next finalized epoch"
+    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
+        "execute_module should wait for the next finalized epoch"
+    )
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
 
     accounting.get_blockstamp_for_report = Mock(return_value=bs)
@@ -182,8 +182,9 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
 
     bs = ReferenceBlockStampFactory.build()
 
-    with patch.object(Withdrawal, '__init__', return_value=None), patch.object(
-        Withdrawal, 'get_finalization_batches', return_value=[]
+    with (
+        patch.object(Withdrawal, '__init__', return_value=None),
+        patch.object(Withdrawal, 'get_finalization_batches', return_value=[]),
     ):
         batches, share_rate = accounting._get_finalization_data(bs)
 
@@ -432,9 +433,9 @@ def test_get_shares_to_burn(
 
     out = accounting.get_shares_to_burn(bs)
 
-    assert (
-        out == shares_data.cover_shares + shares_data.non_cover_shares
-    ), "get_shares_to_burn returned unexpected value"
+    assert out == shares_data.cover_shares + shares_data.non_cover_shares, (
+        "get_shares_to_burn returned unexpected value"
+    )
     call_mock.assert_called_once()
 
 

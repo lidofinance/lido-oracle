@@ -5,10 +5,11 @@ from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.common.types import ChainConfig
 from src.services.validator_state import LidoValidatorStateService
-from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId
+from src.types import NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
 from src.utils.validator_state import is_on_exit
-from src.web3py.extensions.lido_validators import LidoValidator, StakingModule, NodeOperator, NodeOperatorLimitMode
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, NodeOperatorLimitMode, StakingModule
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ class ValidatorExitIterator:
 
         def is_validator_exitable(validator: LidoValidator):
             """Returns True if validator is exitable: not on exit and not requested to exit"""
-            return not is_on_exit(validator) and not validator.index in indexes[gid]
+            return not is_on_exit(validator) and validator.index not in indexes[gid]
 
         return is_validator_exitable
 

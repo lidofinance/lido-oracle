@@ -12,7 +12,7 @@ from src.modules.oracles.ejector.data_encode import (
     encode_data,
     sort_validators_to_eject,
 )
-from src.types import StakingModuleId, NodeOperatorId
+from src.types import NodeOperatorId, StakingModuleId
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.no_registry import LidoValidatorFactory
 

@@ -11,6 +11,7 @@ from src import variables
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.common.types import ModuleExecuteDelay
+from src.providers.consensus.client import ConsensusClient
 from src.types import BlockStamp, BlockRoot, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 
@@ -97,7 +98,7 @@ class DaemonModule(ABC):
         """Executes module business logic for given blockstamp"""
 
     @abstractmethod
-    def _get_consensus_client(self):
+    def _get_consensus_client(self) -> ConsensusClient:
         """Returns consensus client for blockchain data access"""
 
     @abstractmethod
