@@ -2,6 +2,7 @@ from time import time
 from typing import Any
 
 from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
+from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 from sqlmodel import SQLModel, Field, Session, create_engine, select, col
 
@@ -42,7 +43,7 @@ class DutiesDB:
         self.engine = self._build_engine(connect_timeout)
         self._setup_database()
 
-    def _build_engine(self, connect_timeout: int | None):
+    def _build_engine(self, connect_timeout: int | None) -> Engine:
         connect_args: dict[str, Any] = {}
         if connect_timeout:
             connect_args["connect_timeout"] = connect_timeout
@@ -69,14 +70,14 @@ class DutiesDB:
         password = variables.PERFORMANCE_DB_PASSWORD
         return f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
-    def _setup_database(self):
+    def _setup_database(self) -> None:
         SQLModel.metadata.create_all(self.engine)
 
     def get_session(self) -> Session:
         session = Session(self.engine)
         return session
 
-    def store_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+    def store_demand(self, consumer: str, l_epoch: EpochNumber, r_epoch: EpochNumber) -> EpochsDemand:
         with self.get_session() as session:
             demand = session.get(EpochsDemand, consumer)
             if demand:
@@ -87,6 +88,7 @@ class DutiesDB:
                 demand = EpochsDemand(consumer=consumer, l_epoch=l_epoch, r_epoch=r_epoch, updated_at=int(time()))
                 session.add(demand)
             session.commit()
+            return demand
 
     def delete_demand(self, consumer: str) -> None:
         with self.get_session() as session:
