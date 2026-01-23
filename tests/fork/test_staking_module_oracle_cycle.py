@@ -118,11 +118,7 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
 )
 @pytest.mark.parametrize(
     'running_finalized_slots',
-    [
-        start_before_initial_epoch,
-        # start_after_initial_epoch,
-        # missed_initial_frame
-    ],
+    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
 def test_staking_module_module_report(
