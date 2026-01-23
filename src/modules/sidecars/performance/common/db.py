@@ -54,9 +54,9 @@ class DutiesDB:
             self._get_database_url(),
             echo=False,
             pool_pre_ping=True,  # Enable connection health checks
-            pool_recycle=3600,  # Recycle connections every hour
-            pool_size=10,
-            max_overflow=20,
+            pool_recycle=variables.PERFORMANCE_DB_POOL_RECYCLE_SECONDS,
+            pool_size=variables.PERFORMANCE_DB_POOL_SIZE,
+            max_overflow=variables.PERFORMANCE_DB_MAX_OVERFLOW,
             connect_args=connect_args,
         )
 
@@ -92,10 +92,8 @@ class DutiesDB:
 
     def delete_demand(self, consumer: str) -> None:
         with self.get_session() as session:
-            demand = session.get(EpochsDemand, consumer)
-            if demand:
-                session.delete(demand)
-                session.commit()
+            session.exec(delete(EpochsDemand).where(col(EpochsDemand.consumer) == consumer))
+            session.commit()
 
     def store_epoch(
         self,
