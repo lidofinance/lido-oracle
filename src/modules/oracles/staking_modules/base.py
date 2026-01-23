@@ -343,18 +343,21 @@ class SMPerformanceOracle(OracleModule):
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
             raise ValueError("No shares to build a tree")
+        _shares = shares.copy()
 
-        # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
-        # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
-        # when the tree has only one leaf.
         stone = NodeOperatorId(self.w3.staking_module.module.MAX_OPERATORS_COUNT)
-        shares[stone] = 0
+
+        if len(_shares) == 1:
+            # XXX: We put a stone here to make sure, that even with only 1 node operator in the tree, it's still possible to
+            # claim rewards. The CSModule contract skips pulling rewards if the proof's length is zero, which is the case
+            # when the tree has only one leaf.
+            _shares[stone] = 0
 
         # XXX: Remove the stone as soon as we have enough leafs to build a suitable tree.
-        if stone in shares and len(shares) > 2:
-            shares.pop(stone)
+        if len(_shares) > 2 and stone in _shares:
+            _shares.pop(stone)
 
-        tree = RewardsTree.new(tuple(shares.items()))
+        tree = RewardsTree.new(tuple(_shares.items()))
         logger.info({"msg": "New rewards tree built for the report", "root": repr(tree.root)})
         return tree
 
