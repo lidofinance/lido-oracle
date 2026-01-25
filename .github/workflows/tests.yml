@@ -83,22 +83,39 @@ jobs:
         run: |
           set -e
           
-          # For pull requests, compare against the base branch
+          # For pull requests, compare against the actual base branch
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_REF="${{ github.event.pull_request.base.sha }}"
+            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+            BASE_REF="origin/${BASE_BRANCH}"
+            echo "PR detected - comparing against base branch: ${BASE_BRANCH}"
+            
+            # Fetch the base branch to ensure we have the latest commits
+            git fetch origin "${BASE_BRANCH}" 2>/dev/null || true
           else
-            # For push events, compare against the previous commit or main
+            # For push events, compare against the previous commit or default branch
             if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
               BASE_REF="HEAD~1"
+              echo "Push to main/master - comparing against: HEAD~1"
             else
-              # For feature branches, compare against main/master
-              git fetch origin main 2>/dev/null && BASE_REF="origin/main" || \
-              git fetch origin master 2>/dev/null && BASE_REF="origin/master" || \
-              BASE_REF="HEAD~1"
+              # For feature branches on push, compare against main/master
+              if git fetch origin main 2>/dev/null; then
+                BASE_REF="origin/main"
+                echo "Push to feature branch - comparing against: origin/main"
+              elif git fetch origin master 2>/dev/null; then
+                BASE_REF="origin/master"
+                echo "Push to feature branch - comparing against: origin/master"
+              else
+                BASE_REF="HEAD~1"
+                echo "Push to feature branch - comparing against: HEAD~1"
+              fi
             fi
           fi
           
+          echo ""
           echo "Comparing against: $BASE_REF"
+          echo "Current HEAD: $(git rev-parse HEAD)"
+          echo "Base commit: $(git rev-parse $BASE_REF 2>/dev/null || echo 'unable to resolve')"
+          echo ""
           
           # Get list of changed Python files
           CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR $BASE_REF...HEAD | grep '\.py$' || true)
@@ -106,7 +123,7 @@ jobs:
           if [ -z "$CHANGED_FILES" ]; then
             echo "No Python files changed, skipping ruff check"
           else
-            echo "Changed Python files:"
+            echo "Changed Python files (${#CHANGED_FILES[@]} files):"
             echo "$CHANGED_FILES"
             echo ""
             echo "Running ruff check on changed files..."
