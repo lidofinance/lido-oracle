@@ -167,6 +167,10 @@ extend-select = [
     "C90",
 ]
 
+# Note: CI is configured to only check changed files in PRs
+# See .github/workflows/tests.yml for implementation
+# Pre-commit hooks will enforce these rules on all staged files
+
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
