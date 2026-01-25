@@ -80,6 +80,8 @@ jobs:
         run: poetry run ruff format --check --diff tests
 
       - name: Lint with ruff check (changed files only)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           
@@ -92,21 +94,34 @@ jobs:
             # Fetch the base branch to ensure we have the latest commits
             git fetch origin "${BASE_BRANCH}" 2>/dev/null || true
           else
-            # For push events, compare against the previous commit or default branch
-            if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            # For push events, try to find the associated PR and its base branch
+            CURRENT_BRANCH="${{ github.ref_name }}"
+            echo "Push event detected on branch: ${CURRENT_BRANCH}"
+            
+            # Try to find PR for this branch using GitHub CLI
+            PR_BASE=$(gh pr view "${CURRENT_BRANCH}" --json baseRefName --jq '.baseRefName' 2>/dev/null || echo "")
+            
+            if [ -n "$PR_BASE" ]; then
+              # Found associated PR, use its base branch
+              BASE_BRANCH="${PR_BASE}"
+              BASE_REF="origin/${BASE_BRANCH}"
+              echo "Found associated PR with base branch: ${BASE_BRANCH}"
+              git fetch origin "${BASE_BRANCH}" 2>/dev/null || true
+            elif [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+              # Push to main/master, compare against previous commit
               BASE_REF="HEAD~1"
               echo "Push to main/master - comparing against: HEAD~1"
             else
-              # For feature branches on push, compare against main/master
+              # No PR found, fall back to main/master
               if git fetch origin main 2>/dev/null; then
                 BASE_REF="origin/main"
-                echo "Push to feature branch - comparing against: origin/main"
+                echo "No PR found - falling back to: origin/main"
               elif git fetch origin master 2>/dev/null; then
                 BASE_REF="origin/master"
-                echo "Push to feature branch - comparing against: origin/master"
+                echo "No PR found - falling back to: origin/master"
               else
                 BASE_REF="HEAD~1"
-                echo "Push to feature branch - comparing against: HEAD~1"
+                echo "No PR found - falling back to: HEAD~1"
               fi
             fi
           fi
@@ -123,7 +138,8 @@ jobs:
           if [ -z "$CHANGED_FILES" ]; then
             echo "No Python files changed, skipping ruff check"
           else
-            echo "Changed Python files (${#CHANGED_FILES[@]} files):"
+            FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | xargs)
+            echo "Changed Python files (${FILE_COUNT} files):"
             echo "$CHANGED_FILES"
             echo ""
             echo "Running ruff check on changed files..."
