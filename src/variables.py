@@ -88,7 +88,7 @@ HTTP_REQUEST_RETRY_COUNT_IPFS: Final = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_I
 IPFS_VALIDATE_CID: Final[bool] = os.getenv('IPFS_VALIDATE_CID', 'True').lower() == 'true'
 
 # - Metrics -
-PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9123))
+PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 # - OpsGenie -
