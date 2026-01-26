@@ -2,7 +2,7 @@ from typing import cast
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, APIRouter
 from pydantic import BaseModel
 from sqlmodel import select
 import gunicorn.app.base
@@ -54,6 +54,7 @@ app = FastAPI(title="Performance Collector API", lifespan=lifespan)
 attach_metrics(app)
 app.add_middleware(RequestTimeoutMiddleware, timeout=PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT)
 
+api_v1 = APIRouter(prefix="/v1")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -82,7 +83,7 @@ def health(db: DutiesDB = Depends(get_db)):
     return {"status": "ok"}
 
 
-@app.get("/check-epochs", response_model=bool)
+@api_v1.get("/check-epochs", response_model=bool)
 def epochs_check(
     epoch_range: EpochRangeQuery = Depends(parse_epoch_range_query),
     db: DutiesDB = Depends(get_db),
@@ -90,7 +91,7 @@ def epochs_check(
     return db.is_range_available(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
-@app.get("/missing-epochs", response_model=list[EpochNumber])
+@api_v1.get("/missing-epochs", response_model=list[EpochNumber])
 def epochs_missing(
     epoch_range: LimitedEpochRangeQuery = Depends(parse_limited_epoch_range_query),
     db: DutiesDB = Depends(get_db),
@@ -98,7 +99,7 @@ def epochs_missing(
     return db.missing_epochs_in(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
-@app.get("/epochs", response_model=list[Duty])
+@api_v1.get("/epochs", response_model=list[Duty])
 def epochs_data(
     epoch_range: LimitedEpochRangeQuery = Depends(parse_limited_epoch_range_query),
     db: DutiesDB = Depends(get_db),
@@ -106,33 +107,36 @@ def epochs_data(
     return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
-@app.get("/epochs/{epoch}", response_model=Duty | None)
+@api_v1.get("/epochs/{epoch}", response_model=Duty | None)
 def epoch_data(epoch_param: EpochPath = Depends(), db: DutiesDB = Depends(get_db)):
     return db.get_epoch_data(epoch_param.epoch)
 
 
-@app.get("/demands", response_model=list[EpochsDemandResponse])
+@api_v1.get("/demands", response_model=list[EpochsDemandResponse])
 def epochs_demands(db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demands()
 
 
-@app.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
+@api_v1.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
 def one_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demand(consumer_param.consumer)
 
 
-@app.post("/demands", response_model=EpochsDemandResponse)
+@api_v1.post("/demands", response_model=EpochsDemandResponse)
 def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DutiesDB = Depends(get_db)):
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
-@app.delete("/demands", response_model=EpochsDemandResponse)
+@api_v1.delete("/demands", response_model=EpochsDemandResponse)
 def delete_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
     to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")
     db.delete_demand(consumer_param.consumer)
     return to_delete
+
+
+app.include_router(api_v1)
 
 
 def serve():

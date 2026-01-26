@@ -16,9 +16,10 @@ class PerformanceClient(HTTPProvider):
     PROVIDER_EXCEPTION = PerformanceClientError
     PROMETHEUS_HISTOGRAM = PERFORMANCE_REQUESTS_DURATION
 
-    API_EPOCHS_CHECK = 'check-epochs'
-    API_EPOCHS_DATA = 'epochs'
-    API_EPOCHS_DEMAND = 'demands'
+    API_PREFIX = 'v1'
+    API_EPOCHS_CHECK = f'{API_PREFIX}/check-epochs'
+    API_EPOCHS_DATA = f'{API_PREFIX}/epochs'
+    API_EPOCHS_DEMAND = f'{API_PREFIX}/demands'
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
         data, _ = self._get(
