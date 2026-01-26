@@ -56,11 +56,19 @@ def global_lru_cache(*args, **kwargs):
                         wrapper_args = wrapper_args[:-1]
                     else:
                         # block_identifier not provided (using default 'latest')
-                        # Bypass cache by calling the original function
+                        # Bypass cache by calling the original function with proper binding
+                        if instance:
+                            # Manually bind self to the wrapped function
+                            bound_method = cached_func.__wrapped__.__get__(instance, type(instance))
+                            return bound_method(*wrapper_args[1:], **wrapper_kwargs)
                         return cached_func.__wrapped__(*wrapper_args, **wrapper_kwargs)
 
                 if block in ['latest', 'earliest', 'pending', 'safe', 'finalized']:
-                    # block_identifier is a relative marker - bypass cache
+                    # block_identifier is a relative marker - bypass cache with proper binding
+                    if instance:
+                        # Manually bind self to the wrapped function
+                        bound_method = cached_func.__wrapped__.__get__(instance, type(instance))
+                        return bound_method(*wrapper_args[1:], **wrapper_kwargs)
                     return cached_func.__wrapped__(*wrapper_args, **wrapper_kwargs)
 
             result = cached_func(*wrapper_args, **wrapper_kwargs)
