@@ -16,11 +16,11 @@ class Duty(SQLModel, table=True):
     __tablename__: ClassVar[str] = "duties"
 
     epoch: int = Field(primary_key=True)
-    attestations: list[int] = Field(default=None, sa_column=Column(ARRAY(Integer())))
-    proposals_vids: list[int] = Field(default=None, sa_column=Column(ARRAY(Integer())))
-    proposals_flags: list[bool] = Field(default=None, sa_column=Column(ARRAY(Boolean())))
-    syncs_vids: list[int] = Field(default=None, sa_column=Column(ARRAY(Integer())))
-    syncs_misses: list[int] = Field(default=None, sa_column=Column(ARRAY(SmallInteger())))
+    attestations: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
+    proposals_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
+    proposals_flags: list[bool] = Field(default_factory=list, sa_column=Column(ARRAY(Boolean()), nullable=False))
+    syncs_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
+    syncs_misses: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(SmallInteger()), nullable=False))
 
 
 class EpochsDemand(SQLModel, table=True):
