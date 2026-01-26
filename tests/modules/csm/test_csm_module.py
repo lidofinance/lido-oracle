@@ -489,6 +489,79 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 
 
 @pytest.mark.unit
+def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    active_all = make_validator(0, activation_epoch=0, exit_epoch=10)
+    active_late = make_validator(1, activation_epoch=1, exit_epoch=10)
+    exit_early = make_validator(2, activation_epoch=0, exit_epoch=1)
+    inactive_all = make_validator(3, activation_epoch=10, exit_epoch=20)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[active_all, active_late, exit_early, inactive_all])
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                attestations=[exit_early.index],
+                proposals_vids=[int(active_all.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(active_all.index)],
+                syncs_misses=[0],
+            ),
+            Duty(
+                epoch=1,
+                attestations=[active_all.index],
+                proposals_vids=[int(active_late.index), int(active_all.index)],
+                proposals_flags=[True, False],
+                syncs_vids=[int(active_all.index), int(active_late.index)],
+                syncs_misses=[1, 0],
+            ),
+            Duty(
+                epoch=2,
+                attestations=[],
+                proposals_vids=[int(active_all.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(active_all.index)],
+                syncs_misses=[1],
+            ),
+        ]
+    )
+    state = Mock()
+    state.frames = [(0, 2)]
+    state.unprocessed_epochs = {0, 1, 2}
+    state.save_att_duty = Mock()
+    state.save_prop_duty = Mock()
+    state.save_sync_duty = Mock()
+    state.add_processed_epoch = Mock()
+    state.log_progress = Mock()
+    module.state = state
+
+    module._fulfill_state()
+
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 2)
+    assert state.save_att_duty.call_args_list == [
+        call(EpochNumber(0), active_all.index, included=True),
+        call(EpochNumber(0), exit_early.index, included=False),
+        call(EpochNumber(1), active_all.index, included=False),
+        call(EpochNumber(1), active_late.index, included=True),
+        call(EpochNumber(2), active_all.index, included=True),
+        call(EpochNumber(2), active_late.index, included=True),
+    ]
+    assert state.save_prop_duty.call_args_list == [
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=True),
+    ]
+    assert state.save_sync_duty.call_args_list == [
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=False),
+    ]
+    state.add_processed_epoch.assert_has_calls([call(EpochNumber(0)), call(EpochNumber(1)), call(EpochNumber(2))])
+
+
+@pytest.mark.unit
 def test_validate_state_uses_ref_epoch(module: CSPerformanceOracle):
     blockstamp = ReferenceBlockStampFactory.build(ref_epoch=123)
     module._get_epochs_range_to_process = Mock(return_value=(5, 10))
