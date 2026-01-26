@@ -18,6 +18,7 @@ cp .env.example .env
 
 3. Run the command `make up` to build the image and start the container. (`make` is likely already installed on your system as a standard build tool on Unix-like environments. If not, you can [download it here](https://www.gnu.org/software/make/).)  
 4. Run `make install-pre-commit` to install pre-commit hooks. The hook will be installed on your host machine, but tests and linting will run inside the container.
+5. To run sidecars stack (Postgres + init-db + performance services), use `make sidecars-up`
 
 You can find the full list of available Make commands [here](https://github.com/lidofinance/lido-oracle/blob/develop/Makefile).
 

@@ -63,6 +63,9 @@ test: up
 run-module: up
 	$(EXEC_CMD) python -m src.main $(ORACLE_MODULE)
 
+sidecars-up:
+	docker compose up -d postgres init-db performance-collector performance-web
+
 install-pre-commit:
 	@echo "Creating pre-commit hook..."
 	@echo '#!/bin/sh' > .git/hooks/pre-commit
