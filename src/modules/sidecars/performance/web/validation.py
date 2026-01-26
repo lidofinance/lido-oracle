@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from fastapi import Query
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from fastapi import Query, Path
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, Field, model_validator, ConfigDict, ValidationError, field_validator
 
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
@@ -10,7 +11,6 @@ from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
 class ConsumerParam(BaseModel):
     consumer: str = Field(..., min_length=1, max_length=255)
 
-    @classmethod
     @field_validator("consumer")
     def consumer_not_blank(cls, value: str) -> str:
         if not value.strip():
@@ -24,7 +24,6 @@ class EpochRangeBase(BaseModel):
     from_epoch: EpochNumber
     to_epoch: EpochNumber
 
-    @classmethod
     @field_validator("from_epoch", "to_epoch", mode="before")
     def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
         if int(value) < 0:
@@ -33,8 +32,9 @@ class EpochRangeBase(BaseModel):
 
     @model_validator(mode="after")
     def validate_epoch_bounds(self):
-        from_label = self.model_fields["from_epoch"].alias or "from_epoch"
-        to_label = self.model_fields["to_epoch"].alias or "to_epoch"
+        model_fields = type(self).model_fields
+        from_label = model_fields["from_epoch"].alias or "from_epoch"
+        to_label = model_fields["to_epoch"].alias or "to_epoch"
         if self.from_epoch > self.to_epoch:
             raise ValueError(f"'{from_label}' must be <= '{to_label}'")
         return self
@@ -59,7 +59,6 @@ class LimitedEpochRangeQuery(EpochRangeQuery):
 class EpochPath(BaseModel):
     epoch: EpochNumber
 
-    @classmethod
     @field_validator("epoch", mode="before")
     def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
         if int(value) < 0:
@@ -80,11 +79,35 @@ def parse_epoch_range_query(
     from_epoch: Annotated[EpochNumber, Query(..., alias="from")],
     to_epoch: Annotated[EpochNumber, Query(..., alias="to")],
 ) -> EpochRangeQuery:
-    return EpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
+    try:
+        return EpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
+    except ValidationError as error:
+        raise RequestValidationError(error.errors()) from error
 
 
 def parse_limited_epoch_range_query(
     from_epoch: Annotated[EpochNumber, Query(..., alias="from")],
     to_epoch: Annotated[EpochNumber, Query(..., alias="to")],
 ) -> LimitedEpochRangeQuery:
-    return LimitedEpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
+    try:
+        return LimitedEpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
+    except ValidationError as error:
+        raise RequestValidationError(error.errors()) from error
+
+
+def parse_consumer_path(
+    consumer: Annotated[str, Path(...)],
+) -> ConsumerParam:
+    try:
+        return ConsumerParam.model_validate({"consumer": consumer})
+    except ValidationError as error:
+        raise RequestValidationError(error.errors()) from error
+
+
+def parse_epoch_path(
+    epoch: Annotated[EpochNumber, Path(...)],
+) -> EpochPath:
+    try:
+        return EpochPath.model_validate({"epoch": epoch})
+    except ValidationError as error:
+        raise RequestValidationError(error.errors()) from error

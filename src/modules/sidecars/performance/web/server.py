@@ -16,6 +16,8 @@ from src.modules.sidecars.performance.web.validation import (
     EpochsDemandRequest,
     EpochsDemandResponse,
     LimitedEpochRangeQuery,
+    parse_consumer_path,
+    parse_epoch_path,
     parse_epoch_range_query,
     parse_limited_epoch_range_query,
 )
@@ -108,7 +110,7 @@ def epochs_data(
 
 
 @api_v1.get("/epochs/{epoch}", response_model=Duty | None)
-def epoch_data(epoch_param: EpochPath = Depends(), db: DutiesDB = Depends(get_db)):
+def epoch_data(epoch_param: EpochPath = Depends(parse_epoch_path), db: DutiesDB = Depends(get_db)):
     return db.get_epoch_data(epoch_param.epoch)
 
 
@@ -118,7 +120,7 @@ def epochs_demands(db: DutiesDB = Depends(get_db)):
 
 
 @api_v1.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
-def one_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
+def one_epochs_demand(consumer_param: ConsumerParam = Depends(parse_consumer_path), db: DutiesDB = Depends(get_db)):
     return db.get_epochs_demand(consumer_param.consumer)
 
 
@@ -127,8 +129,8 @@ def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DutiesDB = Depends
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
-@api_v1.delete("/demands", response_model=EpochsDemandResponse)
-def delete_epochs_demand(consumer_param: ConsumerParam = Depends(), db: DutiesDB = Depends(get_db)):
+@api_v1.delete("/demands/{consumer}", response_model=EpochsDemandResponse)
+def delete_epochs_demand(consumer_param: ConsumerParam = Depends(parse_consumer_path), db: DutiesDB = Depends(get_db)):
     to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")

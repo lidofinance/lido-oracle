@@ -56,6 +56,5 @@ class PerformanceClient(HTTPProvider):
 
     def delete_epochs_demand(self, consumer: str) -> None:
         self._delete(
-            self.API_EPOCHS_DEMAND,
-            query_params={'consumer': consumer},
+            self.API_EPOCHS_DEMAND + f"/{consumer}",
         )
