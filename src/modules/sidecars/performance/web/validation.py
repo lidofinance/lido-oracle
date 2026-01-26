@@ -72,6 +72,7 @@ class EpochsDemandRequest(ConsumerParam, EpochRangeBase):
 
 
 class EpochsDemandResponse(ConsumerParam, EpochRangeBase):
+    updated_at: int
     model_config = ConfigDict(from_attributes=True)
 
 
