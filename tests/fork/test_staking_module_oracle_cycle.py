@@ -147,6 +147,11 @@ def test_staking_module_module_report(
         "Last processing ref slot should equal to initial ref slot"
     )
 
+    # When the test is running after the real report,
+    # but no new shares were distributed on module by Staking Router yet.
+    if to_distribute_before_report == 0:
+        return
+
     to_distribute_after_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
     assert to_distribute_after_report < to_distribute_before_report, "Shares to distribute should decrease"
 
