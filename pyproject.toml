@@ -149,6 +149,28 @@ exclude = [
     "*_pb2.py",  # Protobuf generated files
 ]
 
+[tool.ruff.lint]
+extend-select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # complexity
+    "C90",
+]
+
+# Note: CI is configured to only check changed files in PRs
+# See .github/workflows/tests.yml for implementation
+# Pre-commit hooks will enforce these rules on all staged files
+
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
