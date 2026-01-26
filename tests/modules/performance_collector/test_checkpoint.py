@@ -171,7 +171,11 @@ def mock_get_state_block_roots(consensus_client, missing_slots):
     ],
 )
 def test_checkpoints_processor_get_block_roots(
-    consensus_client, mock_get_state_block_roots, converter: Web3Converter, checkpoint_slot, expected_existing_roots_count
+    consensus_client,
+    mock_get_state_block_roots,
+    converter: Web3Converter,
+    checkpoint_slot,
+    expected_existing_roots_count,
 ):
     db = Mock()
     finalized_blockstamp = Mock(slot_number=SlotNumber(0))
