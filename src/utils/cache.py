@@ -40,6 +40,7 @@ def global_lru_cache(*args, **kwargs):
             return result
 
         def cache_clear():
+            cached_func.cache_clear()
             if func in global_cache:
                 del global_cache[func]
 
