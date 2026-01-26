@@ -133,22 +133,22 @@ def missing_slots():
 
 @pytest.fixture
 def mock_get_state_block_roots(consensus_client, missing_slots):
-    def _get_state_block_roots(state_id: int):
+    def _get_state_block_roots(checkpoint_slot: int):
         roots_count = 8192
         br = [checkpoint_module.ZERO_BLOCK_ROOT] * roots_count
-        for i in range(min(roots_count, state_id), 0, -1):
-            slot = state_id - i
+        for i in range(min(roots_count, checkpoint_slot), 0, -1):
+            slot = checkpoint_slot - i
             index = slot % roots_count
             prev_slot_index = (slot - 1) % roots_count
             br[index] = br[prev_slot_index] if slot in missing_slots else f"0x{slot}"
-        oldest_slot = max(state_id - roots_count, 0)
+        oldest_slot = max(checkpoint_slot - roots_count, 0)
         oldest_slot_index = oldest_slot % roots_count
         br[oldest_slot_index] = f"0x{max(oldest_slot - 1, 0)}" if oldest_slot in missing_slots else f"0x{oldest_slot}"
         return br
 
-    def _get_block_header(state_id: str):
+    def _get_block_header(block_root: str):
         return Mock(
-            data=Mock(header=Mock(message=Mock(slot=int(state_id.split('0x')[1])))),
+            data=Mock(header=Mock(message=Mock(slot=int(block_root.split('0x')[1])))),
         )
 
     consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
@@ -157,7 +157,7 @@ def mock_get_state_block_roots(consensus_client, missing_slots):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "state_id, missing_slots, expected_existing_roots_count",
+    "checkpoint_slot, missing_slots, expected_existing_roots_count",
     [
         pytest.param(5, set(), 5, id="chain before 8192 slots"),
         pytest.param(15, {1, 3}, 13, id="missing slots in chain before 8192 slots"),
@@ -171,17 +171,17 @@ def mock_get_state_block_roots(consensus_client, missing_slots):
     ],
 )
 def test_checkpoints_processor_get_block_roots(
-    consensus_client, mock_get_state_block_roots, converter: Web3Converter, state_id, expected_existing_roots_count
+    consensus_client, mock_get_state_block_roots, converter: Web3Converter, checkpoint_slot, expected_existing_roots_count
 ):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
+        db,
         converter,
-        state,
         finalized_blockstamp,
     )
-    roots = processor._get_block_roots(state_id)
+    roots = processor._get_block_roots(checkpoint_slot)
     assert len([r for r in roots if r is not None]) == expected_existing_roots_count
 
 
@@ -196,11 +196,11 @@ def mock_get_config_spec(consensus_client):
 def test_checkpoints_processor_select_block_roots(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
-        state,
+        db,
         converter,
         finalized_blockstamp,
     )
@@ -217,11 +217,11 @@ def test_checkpoints_processor_select_block_roots(
 def test_checkpoints_processor_select_block_roots_out_of_range(
     consensus_client, mock_get_state_block_roots, mock_get_config_spec, converter: Web3Converter
 ):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
-        state,
+        db,
         converter,
         finalized_blockstamp,
     )
@@ -250,15 +250,15 @@ def mock_get_attestation_committees(consensus_client):
 
 @pytest.mark.unit
 def test_checkpoints_processor_prepare_committees(mock_get_attestation_committees, consensus_client, converter):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
-        state,
+        db,
         converter,
         finalized_blockstamp,
     )
-    raw = consensus_client.get_attestation_committees(0, 0)
+    raw = consensus_client.get_attestation_committees(finalized_blockstamp, 0)
     committees, misses = processor._prepare_attestation_duties(0)
     assert len(committees) == 2048
     for index, (committee_id, validators) in enumerate(committees.items()):
@@ -273,11 +273,11 @@ def test_checkpoints_processor_prepare_committees(mock_get_attestation_committee
 
 @pytest.mark.unit
 def test_checkpoints_processor_process_attestations(mock_get_attestation_committees, consensus_client, converter):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
-        state,
+        db,
         converter,
         finalized_blockstamp,
     )
@@ -302,11 +302,11 @@ def test_checkpoints_processor_process_attestations(mock_get_attestation_committ
 def test_checkpoints_processor_process_attestations_undefined_committee(
     mock_get_attestation_committees, consensus_client, converter
 ):
-    state = ...
-    finalized_blockstamp = ...
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
     processor = FrameCheckpointProcessor(
         consensus_client,
-        state,
+        db,
         converter,
         finalized_blockstamp,
     )
