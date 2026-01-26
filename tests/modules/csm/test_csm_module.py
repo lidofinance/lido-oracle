@@ -386,10 +386,10 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
 
-    module.w3.performance.get_epoch_data = Mock(
-        side_effect=[
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
             Duty(
-                epoch_number=EpochNumber(0),
+                epoch=0,
                 attestations=[validator_a.index],
                 proposals_vids=[int(validator_a.index), int(validator_b.index)],
                 proposals_flags=[True, False],
@@ -397,7 +397,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
                 syncs_misses=[0, 1],
             ),
             Duty(
-                epoch_number=EpochNumber(1),
+                epoch=1,
                 attestations=[],
                 proposals_vids=[int(validator_b.index)],
                 proposals_flags=[True],
@@ -424,7 +424,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     module._receive_last_finalized_slot.assert_called_once()
     module.w3.cc.get_validators.assert_called_once_with("finalized")
 
-    module.w3.performance.get_epoch_data.assert_has_calls([call(0), call(1)])
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
     assert state.save_att_duty.call_args_list == [
         call(EpochNumber(0), validator_a.index, included=False),
         call(EpochNumber(0), validator_b.index, included=True),
@@ -449,7 +449,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
         call(EpochNumber(0)),
         call(EpochNumber(1)),
     ]
-    assert state.log_progress.call_count == 2
+    assert state.log_progress.call_count == 1
 
 
 @pytest.mark.unit
@@ -458,15 +458,17 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
-    module.w3.performance.get_epoch_data = Mock(
-        return_value=Duty(
-            epoch=0,
-            attestations=[inactive_validator.index],
-            proposals_vids=[],
-            proposals_flags=[],
-            syncs_vids=[],
-            syncs_misses=[],
-        )
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                attestations=[inactive_validator.index],
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+        ]
     )
     state = Mock()
     state.frames = [(0, 0)]
@@ -481,7 +483,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
     with pytest.raises(ValueError, match="not active"):
         module._fulfill_state()
 
-    module.w3.performance.get_epoch_data.assert_called_once_with(0)
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
     state.save_att_duty.assert_not_called()
     state.add_processed_epoch.assert_not_called()
 

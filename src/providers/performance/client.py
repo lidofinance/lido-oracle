@@ -3,6 +3,7 @@ from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
 from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
+    data_is_list,
 )
 from src.types import EpochNumber
 
@@ -31,6 +32,14 @@ class PerformanceClient(HTTPProvider):
             self.API_EPOCHS_DATA + f"/{epoch}",
         )
         return Duty.model_validate(data) if data else None
+
+    def get_epochs_data(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> list[Duty]:
+        data, _ = self._get(
+            self.API_EPOCHS_DATA,
+            query_params={'from': l_epoch, 'to': r_epoch},
+            retval_validator=data_is_list,
+        )
+        return [Duty.model_validate(item) for item in data] if data else []
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         data, _ = self._get(

@@ -1,9 +1,11 @@
 import atexit
 import logging
 from time import time
+from itertools import batched
 
 from hexbytes import HexBytes
 
+from src import variables
 from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
@@ -257,11 +259,13 @@ class SMPerformanceOracle(OracleModule):
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
         self.state.ensure_initialized()
+        batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
 
         logger.info({
             "msg": "Starting state fulfillment",
             "total_frames": len(self.state.frames),
-            "total_validators": len(validators)
+            "total_validators": len(validators),
+            "batch_size": batch_size,
         })
 
         for l_epoch, r_epoch in self.state.frames:
@@ -272,73 +276,92 @@ class SMPerformanceOracle(OracleModule):
                 "total_epochs": r_epoch - l_epoch + 1
             })
 
-            for epoch in sequence(l_epoch, r_epoch):
-                if epoch not in self.state.unprocessed_epochs:
-                    logger.debug({"msg": f"Epoch {epoch} is already processed"})
+            for epochs_batch in batched(sequence(l_epoch, r_epoch), batch_size):
+                unprocessed_epochs = self.state.unprocessed_epochs
+                if not any(epoch in unprocessed_epochs for epoch in epochs_batch):
+                    logger.debug({
+                        "msg": "Batch epochs are already processed",
+                        "start_epoch": epochs_batch[0],
+                        "end_epoch": epochs_batch[-1],
+                    })
                     continue
 
                 logger.info({
-                    "msg": "Requesting performance data from collector",
-                    "epoch": epoch
+                    "msg": "Requesting performance data batch from collector",
+                    "start_epoch": epochs_batch[0],
+                    "end_epoch": epochs_batch[-1],
+                    "total_epochs": len(epochs_batch),
                 })
-                epoch_data = self.w3.performance.get_epoch_data(epoch)
-                if epoch_data is None:
-                    raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
+                epochs_data = self.w3.performance.get_epochs_data(epochs_batch[0], epochs_batch[-1])
+                epochs_data_by_epoch = {int(duty.epoch): duty for duty in epochs_data}
 
-                (
-                    misses_raw,
-                    props_vids,
-                    props_flags,
-                    syncs_vids,
-                    syncs_misses,
-                ) = (
-                    [ValidatorIndex(vid) for vid in epoch_data.attestations],
-                    [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
-                    epoch_data.proposals_flags,  # proposed or not status
-                    [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
-                    epoch_data.syncs_misses,  # count of missed blocks in sync duties
-                )
+                for epoch in epochs_batch:
+                    if epoch not in unprocessed_epochs:
+                        logger.debug({"msg": f"Epoch {epoch} is already processed"})
+                        continue
 
-                if len(props_vids) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
-                    raise ValueError(f"Epoch {epoch} data is corrupted: {len(props_vids)=}, {len(props_flags)=}, {len(syncs_vids)=}, {len(syncs_misses)=}")
+                    epoch_data = epochs_data_by_epoch.get(int(epoch))
+                    if epoch_data is None:
+                        raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
-                logger.info({
-                    "msg": "Performance data received",
-                    "epoch": epoch,
-                    "misses_count": len(misses_raw),
-                    "proposals_count": len(props_vids),
-                    "sync_duties_count": len(syncs_vids)
-                })
+                    (
+                        misses_raw,
+                        props_vids,
+                        props_flags,
+                        syncs_vids,
+                        syncs_misses,
+                    ) = (
+                        [ValidatorIndex(vid) for vid in epoch_data.attestations],
+                        [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
+                        epoch_data.proposals_flags,  # proposed or not status
+                        [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
+                        epoch_data.syncs_misses,  # count of missed blocks in sync duties
+                    )
 
-                misses = set(misses_raw)
-                for validator in validators:
-                    missed_att = validator.index in misses
-                    included_att = validator.index not in misses
-                    is_active = is_active_validator(validator, epoch)
-                    if not is_active and missed_att:
-                        raise ValueError(f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active")
-                    self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
+                    if len(props_vids) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
+                        raise ValueError(f"Epoch {epoch} data is corrupted: {len(props_vids)=}, {len(props_flags)=}, {len(syncs_vids)=}, {len(syncs_misses)=}")
 
-                blocks_in_epoch = 0
+                    logger.info({
+                        "msg": "Performance data received",
+                        "epoch": epoch,
+                        "misses_count": len(misses_raw),
+                        "proposals_count": len(props_vids),
+                        "sync_duties_count": len(syncs_vids)
+                    })
 
-                for i, vid in enumerate(props_vids):
-                    proposed = props_flags[i]
-                    self.state.save_prop_duty(EpochNumber(epoch), ValidatorIndex(vid), included=bool(proposed))
-                    blocks_in_epoch += proposed
+                    misses = set(misses_raw)
+                    for validator in validators:
+                        missed_att = validator.index in misses
+                        included_att = validator.index not in misses
+                        is_active = is_active_validator(validator, epoch)
+                        if not is_active:
+                            if missed_att:
+                                raise ValueError(f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active")
+                            continue
+                        self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
 
-                if blocks_in_epoch:
-                    for i, vid in enumerate(syncs_vids):
-                        vid = ValidatorIndex(vid)
-                        s_misses = syncs_misses[i]
-                        s_fulfilled = max(0, blocks_in_epoch - s_misses)
-                        for _ in range(s_fulfilled):
-                            self.state.save_sync_duty(EpochNumber(epoch), vid, included=True)
-                        for _ in range(s_misses):
-                            self.state.save_sync_duty(EpochNumber(epoch), vid, included=False)
+                    blocks_in_epoch = 0
 
-                self.state.add_processed_epoch(EpochNumber(epoch))
-                self.state.log_progress()
+                    for i, vid in enumerate(props_vids):
+                        proposed = props_flags[i]
+                        self.state.save_prop_duty(EpochNumber(epoch), ValidatorIndex(vid), included=bool(proposed))
+                        blocks_in_epoch += proposed
+
+                    if blocks_in_epoch:
+                        for i, vid in enumerate(syncs_vids):
+                            vid = ValidatorIndex(vid)
+                            s_misses = syncs_misses[i]
+                            s_fulfilled = max(0, blocks_in_epoch - s_misses)
+                            for _ in range(s_fulfilled):
+                                self.state.save_sync_duty(EpochNumber(epoch), vid, included=True)
+                            for _ in range(s_misses):
+                                self.state.save_sync_duty(EpochNumber(epoch), vid, included=False)
+
+                    self.state.add_processed_epoch(EpochNumber(epoch))
+                    unprocessed_epochs.discard(epoch)
+                # No need to commit the state on every epoch, it's enough to commit it once per batch.
                 self.state.commit()
+                self.state.log_progress()
 
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
