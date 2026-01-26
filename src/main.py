@@ -18,13 +18,13 @@ def main(module: OracleModule):
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
         from src.modules.checks import entrypoint as check_entrypoint
-        return sys.exit(check_entrypoint.run())
+        return check_entrypoint.run()
 
     if module is OracleModule.PERFORMANCE_WEB_SERVER:
         errors = variables.check_perf_web_server_required_variables()
         variables.raise_from_errors(errors)
         from src.modules.sidecars.performance.web import entrypoint as web_entrypoint
-        return sys.exit(web_entrypoint.run())
+        return web_entrypoint.run()
 
     if module is OracleModule.PERFORMANCE_COLLECTOR:
         errors = variables.check_perf_collector_required_variables()
@@ -61,4 +61,4 @@ if __name__ == '__main__':
         logger.error({'msg': msg})
         raise ValueError(msg)
 
-    main(OracleModule(module_name_arg))
+    raise SystemExit(main(OracleModule(module_name_arg)))
