@@ -36,32 +36,34 @@ def global_lru_cache(*args, **kwargs):
     def caching_decorator(func):
         cached_func = functools.lru_cache(*args, **kwargs)(func)
 
-        def wrapper(*args, **kwargs):
+        @functools.wraps(func)
+        def wrapper(*wrapper_args, **wrapper_kwargs):
             # if lru_cache used for caching ContractInterface method
             # Do not cache any requests with relative blocks
             # Like 'latest', 'earliest', 'pending', 'safe', 'finalized' or if default ('latest') arg provided
             args_list = signature(func).parameters
 
-            instance = args[0] if args else None
+            instance = wrapper_args[0] if wrapper_args else None
             
             if _is_contract_interface_method(func, instance) and args_list.get('block_identifier'):
-                block = kwargs.get('block_identifier', None)
+                block = wrapper_kwargs.get('block_identifier', None)
                 if block is None:
-                    if len(args) == len(args_list):
+                    if len(wrapper_args) == len(args_list):
                         # block_identifier provided via kwargs and args
-                        block = args[-1]
+                        block = wrapper_args[-1]
                         # Move to kwarg
-                        kwargs['block_identifier'] = block
-                        args = args[:-1]
+                        wrapper_kwargs['block_identifier'] = block
+                        wrapper_args = wrapper_args[:-1]
                     else:
-                        # block_identifier not provided
-                        return func(*args, **kwargs)
+                        # block_identifier not provided (using default 'latest')
+                        # Bypass cache by calling the original function
+                        return cached_func.__wrapped__(*wrapper_args, **wrapper_kwargs)
 
                 if block in ['latest', 'earliest', 'pending', 'safe', 'finalized']:
-                    # block_identifier one of related markers
-                    return func(*args, **kwargs)
+                    # block_identifier is a relative marker - bypass cache
+                    return cached_func.__wrapped__(*wrapper_args, **wrapper_kwargs)
 
-            result = cached_func(*args, **kwargs)
+            result = cached_func(*wrapper_args, **wrapper_kwargs)
             global_cache[func] = cached_func
             return result
 
@@ -70,8 +72,8 @@ def global_lru_cache(*args, **kwargs):
             if func in global_cache:
                 del global_cache[func]
 
-        wrapper.cache_clear = cache_clear
-        wrapper.cache_info = cached_func.cache_info
+        wrapper.cache_clear = cache_clear  # type: ignore[attr-defined]
+        wrapper.cache_info = cached_func.cache_info  # type: ignore[attr-defined]
         return wrapper
 
     return caching_decorator

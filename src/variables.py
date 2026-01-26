@@ -7,6 +7,7 @@ from eth_account import Account
 from src.types import OracleModule
 from src.utils.env import from_file_or_env
 
+
 # - Providers-
 EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
@@ -87,7 +88,7 @@ HTTP_REQUEST_RETRY_COUNT_IPFS: Final = int(os.getenv('HTTP_REQUEST_RETRY_COUNT_I
 IPFS_VALIDATE_CID: Final[bool] = os.getenv('IPFS_VALIDATE_CID', 'True').lower() == 'true'
 
 # - Metrics -
-PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
+PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9123))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 # - OpsGenie -
