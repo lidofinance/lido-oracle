@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from json import JSONDecoder, JSONEncoder
-from typing import Iterable
 
 import pytest
 from hexbytes import HexBytes

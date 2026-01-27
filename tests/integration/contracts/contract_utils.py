@@ -1,8 +1,9 @@
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import fields, is_dataclass
 from types import UnionType
-from typing import Any, Callable, Type, get_origin, get_type_hints
+from typing import Any, get_origin, get_type_hints
 
 from eth_typing import Address, ChecksumAddress
 
@@ -37,7 +38,7 @@ def check_contract(
     assert len(functions_spec) == len(log_with_call)
 
 
-def check_is_instance_of(type_: Type) -> Callable[[FuncArgs], None]:
+def check_is_instance_of(type_: type) -> Callable[[FuncArgs], None]:
     if type_ is Address or type_ is ChecksumAddress:
         return lambda resp: check_is_address(resp) and check_value_type(resp, type_)
 

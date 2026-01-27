@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import RootModel
@@ -36,12 +36,8 @@ def get_serialized_bytearray(value: Sequence[bool], bits_count: int, extra_byte:
     @see https://github.com/ethereum/py-ssz/blob/main/ssz/utils.py#L223
     """
 
-    if extra_byte:
-        # Serialize Bitlist
-        as_bytearray = bytearray(bits_count // 8 + 1)
-    else:
-        # Serialize Bitvector
-        as_bytearray = bytearray((bits_count + 7) // 8)
+    # Serialize Bitlist if extra_byte, otherwise Bitvector
+    as_bytearray = bytearray(bits_count // 8 + 1) if extra_byte else bytearray((bits_count + 7) // 8)
 
     for i in range(bits_count):
         as_bytearray[i // 8] |= value[i] << (i % 8)

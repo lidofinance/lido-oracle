@@ -14,7 +14,7 @@ from tests.fork.utils.lock import LockedDir
 
 @pytest.fixture()
 def hash_consensus_bin():
-    with open('tests/fork/contracts/csm/HashConsensus_bin', 'r') as f:
+    with open('tests/fork/contracts/csm/HashConsensus_bin') as f:
         yield f.read()
 
 
