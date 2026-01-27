@@ -898,7 +898,7 @@ class TestLastReport:
         )
 
         with pytest.raises(ValueError, match="tree root"):
-            last_report.strikes
+            _ = last_report.strikes
 
         web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid, FrameNumber(0))
 
