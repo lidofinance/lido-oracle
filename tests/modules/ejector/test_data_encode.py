@@ -238,7 +238,7 @@ def _slice_bytes(data: bytes, *segs: int) -> Iterable[bytes]:
 @pytest.mark.parametrize(
     "validators_to_eject",
     [
-        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10))],
+        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10), strict=True)],
         [
             [(1, 0), LidoValidatorFactory.build(index=13)],
             [(0, 1), LidoValidatorFactory.build(index=12)],

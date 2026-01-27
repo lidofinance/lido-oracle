@@ -358,10 +358,12 @@ def test_collect_data_fulfilled_state(
     module.get_epochs_range_to_process = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
-    with caplog.at_level(logging.DEBUG):
-        with patch('src.modules.csm.csm.FrameCheckpointProcessor.exec', return_value=None):
-            collected = module.collect_data(blockstamp=Mock(slot_number=640))
-            assert collected is True
+    with caplog.at_level(logging.DEBUG), patch(
+        'src.modules.csm.csm.FrameCheckpointProcessor.exec',
+        return_value=None,
+    ):
+        collected = module.collect_data(blockstamp=Mock(slot_number=640))
+        assert collected is True
 
     # assert that it is not early return from function
     msg = list(filter(lambda log: "All epochs are already processed. Nothing to collect" in log, caplog.messages))
@@ -836,7 +838,7 @@ class TestLastReport:
         )
 
         with pytest.raises(ValueError, match="tree root"):
-            last_report.rewards
+            _ = last_report.rewards
 
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
