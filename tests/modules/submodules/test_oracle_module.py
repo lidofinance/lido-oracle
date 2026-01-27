@@ -171,7 +171,7 @@ def test_init_basic_metrics__all_labels__metrics_exist():
         assert TRANSACTIONS_COUNT.labels(status=status.value) is not None
     for result in CycleResult:
         assert CYCLE_COUNT.labels(result=result.value) is not None
-        assert LAST_CYCLE_TIMESTAMP.labels(result=result.value) is not None
+    assert LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value)._value.get() > 0
 
 
 @pytest.mark.unit

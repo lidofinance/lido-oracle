@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 
 from prometheus_client import Counter, Gauge, Histogram, Info
@@ -121,4 +122,4 @@ def init_basic_metrics() -> None:
         TRANSACTIONS_COUNT.labels(status=status.value)
     for result in CycleResult:
         CYCLE_COUNT.labels(result=result.value)
-        LAST_CYCLE_TIMESTAMP.labels(result=result.value)
+    LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value).set(time.time())
