@@ -61,7 +61,8 @@ def test_lido_module_report(module, set_oracle_members, running_finalized_slots,
     current_consensus_version = module.report_contract.get_consensus_version()
     if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
         pytest.skip(
-            f"Consensus version {current_consensus_version} does not match expected {module.COMPATIBLE_CONSENSUS_VERSION}"
+            f"Consensus version {current_consensus_version} does not match expected "
+            f"{module.COMPATIBLE_CONSENSUS_VERSION}"
         )
 
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
