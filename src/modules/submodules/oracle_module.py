@@ -78,6 +78,7 @@ class BaseModule(ABC):
                     'msg': 'Skipping the report. Waiting for new finalized slot.',
                     'slot_threshold': self._slot_threshold,
                 })
+                cycle_error = False
                 return
 
             self.refresh_contracts_if_address_change()
@@ -116,10 +117,10 @@ class BaseModule(ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
-
-        cycle_result = CycleResult.ERROR if cycle_error else CycleResult.SUCCESS
-        CYCLE_COUNT.labels(result=cycle_result.value).inc()
-        LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
+        finally:
+            cycle_result = CycleResult.ERROR if cycle_error else CycleResult.SUCCESS
+            CYCLE_COUNT.labels(result=cycle_result.value).inc()
+            LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
     @staticmethod
     def _reset_cycle_timeout():
