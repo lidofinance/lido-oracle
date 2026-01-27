@@ -358,9 +358,12 @@ def test_collect_data_fulfilled_state(
     module.get_epochs_range_to_process = Mock(return_value=(0, 100))
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
-    with caplog.at_level(logging.DEBUG), patch(
-        'src.modules.csm.csm.FrameCheckpointProcessor.exec',
-        return_value=None,
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch(
+            'src.modules.csm.csm.FrameCheckpointProcessor.exec',
+            return_value=None,
+        ),
     ):
         collected = module.collect_data(blockstamp=Mock(slot_number=640))
         assert collected is True

@@ -37,9 +37,7 @@ def get_serialized_bytearray(value: Sequence[bool], bits_count: int, extra_byte:
     """
 
     # Serialize Bitlist if extra_byte, otherwise Bitvector
-    as_bytearray = (
-        bytearray(bits_count // 8 + 1) if extra_byte else bytearray((bits_count + 7) // 8)
-    )
+    as_bytearray = bytearray(bits_count // 8 + 1) if extra_byte else bytearray((bits_count + 7) // 8)
 
     for i in range(bits_count):
         as_bytearray[i // 8] |= value[i] << (i % 8)
