@@ -33,7 +33,7 @@ class Web3DataclassFactory(Generic[T], BaseFactory[T]):
         :returns: A list of field MetaData instances.
 
         """
-        fields_meta: list["FieldMeta"] = []
+        fields_meta: list[FieldMeta] = []
 
         model_type_hints = get_type_hints(cls.__model__, include_extras=True)
 

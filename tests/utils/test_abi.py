@@ -30,6 +30,6 @@ def test_named_tuple_to_dataclass():
 
 
 def test_camel_to_snake():
-    assert 'camel_case' == camel_to_snake('CamelCase')
-    assert 'get_http_response_code' == camel_to_snake('getHTTPResponseCode')
-    assert 'http_response_code_xyz' == camel_to_snake('HTTPResponseCodeXYZ')
+    assert camel_to_snake('CamelCase') == 'camel_case'
+    assert camel_to_snake('getHTTPResponseCode') == 'get_http_response_code'
+    assert camel_to_snake('HTTPResponseCodeXYZ') == 'http_response_code_xyz'

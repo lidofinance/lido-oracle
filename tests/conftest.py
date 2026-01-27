@@ -1,6 +1,7 @@
 import os
 import socket
-from typing import Final, Generator
+from collections.abc import Generator
+from typing import Final
 from unittest.mock import Mock, patch
 
 import pytest

@@ -9,7 +9,7 @@ from tests.fork.conftest import first_slot_of_epoch
 
 @pytest.fixture()
 def hash_consensus_bin():
-    with open('tests/fork/contracts/lido/HashConsensus_bin', 'r') as f:
+    with open('tests/fork/contracts/lido/HashConsensus_bin') as f:
         yield f.read()
 
 

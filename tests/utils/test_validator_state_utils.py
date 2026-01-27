@@ -353,7 +353,7 @@ class TestCalculateTotalEffectiveBalance:
 @pytest.mark.unit
 def test_compute_activation_exit_epoch():
     ref_epoch = EpochNumber(3455)
-    assert 3460 == compute_activation_exit_epoch(ref_epoch)
+    assert compute_activation_exit_epoch(ref_epoch) == 3460
 
 
 @pytest.mark.unit

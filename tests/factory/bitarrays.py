@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import RootModel

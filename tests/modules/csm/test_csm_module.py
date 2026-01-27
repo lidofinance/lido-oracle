@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Literal, NoReturn, Type
+from typing import Literal, NoReturn
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
@@ -73,7 +73,7 @@ class FrameTestParam:
     last_processing_ref_slot: int
     current_ref_slot: int
     finalized_slot: int
-    expected_frame: tuple[int, int] | Type[ValueError]
+    expected_frame: tuple[int, int] | type[ValueError]
 
 
 @pytest.mark.parametrize(
@@ -330,9 +330,8 @@ def test_collect_data_outdated_checkpoint(
     module.get_epochs_range_to_process = Mock(side_effect=[(0, 100), (50, 150)])
     module.get_blockstamp_for_report = Mock(return_value=Mock(ref_epoch=100))
 
-    with caplog.at_level(logging.DEBUG):
-        with pytest.raises(ValueError):
-            module.collect_data(blockstamp=Mock(slot_number=640))
+    with caplog.at_level(logging.DEBUG), pytest.raises(ValueError):
+        module.collect_data(blockstamp=Mock(slot_number=640))
 
     msg = list(
         filter(
@@ -447,7 +446,7 @@ class BuildReportTestParam:
                         logs=[Mock()],
                     )
                 ),
-                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
                 curr_rewards_tree_cid=CID("QmNEW_TREE"),
                 curr_strikes_tree_root=HexBytes(ZERO_HASH),
                 curr_strikes_tree_cid="",
@@ -458,7 +457,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
+                    HexBytes(b"NEW_TREE_ROOT"),
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
@@ -472,7 +471,7 @@ class BuildReportTestParam:
         pytest.param(
             BuildReportTestParam(
                 last_report=Mock(
-                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
                     rewards_tree_cid=CID("QmOLD_TREE"),
                     rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                     strikes_tree_root=HexBytes(ZERO_HASH),
@@ -497,7 +496,7 @@ class BuildReportTestParam:
                         logs=[Mock()],
                     )
                 ),
-                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
                 curr_rewards_tree_cid=CID("QmNEW_TREE"),
                 curr_strikes_tree_root=HexBytes(ZERO_HASH),
                 curr_strikes_tree_cid="",
@@ -508,7 +507,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
+                    HexBytes(b"NEW_TREE_ROOT"),
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
@@ -522,7 +521,7 @@ class BuildReportTestParam:
         pytest.param(
             BuildReportTestParam(
                 last_report=Mock(
-                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
                     rewards_tree_cid=CID("QmOLD_TREE"),
                     rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                     strikes_tree_root=HexBytes(ZERO_HASH),
@@ -548,7 +547,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("OLD_TREE_ROOT".encode()),
+                    HexBytes(b"OLD_TREE_ROOT"),
                     CID("QmOLD_TREE"),
                     CID("QmLOG"),
                     0,
@@ -636,7 +635,7 @@ def test_execute_module_processed(module: CSOracle):
 @dataclass(frozen=True)
 class RewardsTreeTestParam:
     shares: dict[NodeOperatorId, int]
-    expected_tree_values: list | Type[ValueError]
+    expected_tree_values: list | type[ValueError]
 
 
 @pytest.mark.unit
@@ -706,7 +705,7 @@ def test_make_rewards_tree(module: CSOracle, param: RewardsTreeTestParam):
 @dataclass(frozen=True)
 class StrikesTreeTestParam:
     strikes: dict[tuple[NodeOperatorId, HexBytes], StrikesList]
-    expected_tree_values: list | Type[ValueError]
+    expected_tree_values: list | type[ValueError]
 
 
 @pytest.mark.parametrize(
@@ -830,7 +829,7 @@ class TestLastReport:
             w3=web3,
             blockstamp=Mock(),
             current_frame=FrameNumber(0),
-            rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            rewards_tree_root=HexBytes(b"DOES NOT MATCH"),
             strikes_tree_root=Mock(),
             rewards_tree_cid=CID("QmRT"),
             strikes_tree_cid=Mock(),
@@ -888,7 +887,7 @@ class TestLastReport:
             blockstamp=Mock(),
             current_frame=FrameNumber(0),
             rewards_tree_root=Mock(),
-            strikes_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            strikes_tree_root=HexBytes(b"DOES NOT MATCH"),
             rewards_tree_cid=Mock(),
             strikes_tree_cid=CID("QmRT"),
         )
