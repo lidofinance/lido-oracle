@@ -9,17 +9,17 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
+from src.metrics.prometheus.basic import (
+    CYCLE_COUNT,
+    LAST_CYCLE_TIMESTAMP,
+    TRANSACTIONS_COUNT,
+    CycleResult,
+    Status,
+    init_basic_metrics,
+)
 from src.modules.submodules.exceptions import (
     IncompatibleOracleVersion,
     IsNotMemberException,
-)
-from src.metrics.prometheus.basic import (
-    CYCLE_COUNT,
-    CycleResult,
-    LAST_CYCLE_TIMESTAMP,
-    TRANSACTIONS_COUNT,
-    Status,
-    init_basic_metrics,
 )
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.providers.http_provider import NotOkResponse

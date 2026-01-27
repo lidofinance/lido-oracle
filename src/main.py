@@ -1,5 +1,7 @@
 import sys
-from typing import Iterator, cast
+from collections.abc import Iterator
+from decimal import getcontext
+from typing import cast
 
 from packaging.version import Version
 from prometheus_client import start_http_server
@@ -20,9 +22,9 @@ from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
+    IPFS,
     ConsensusClientModule,
     FallbackProviderModule,
-    IPFS,
     KeysAPIClientModule,
     LazyCSM,
     LidoContracts,
@@ -30,7 +32,7 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from decimal import getcontext
+
 
 getcontext().prec = PRECISION_E27
 
