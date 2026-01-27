@@ -9,7 +9,7 @@ from src import constants, variables
 from src.constants import PRECISION_E27
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO, init_basic_metrics
 from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
@@ -93,6 +93,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
+    init_basic_metrics()
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:

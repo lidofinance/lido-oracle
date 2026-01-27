@@ -11,6 +11,11 @@ class Status(Enum):
     FAILURE = 'failure'
 
 
+class CycleResult(Enum):
+    SUCCESS = 'success'
+    ERROR = 'error'
+
+
 BUILD_INFO = Info(
     'build',
     'Build info',
@@ -88,3 +93,32 @@ TRANSACTIONS_COUNT = Counter(
     ['status'],
     namespace=PROMETHEUS_PREFIX,
 )
+
+CYCLE_COUNT = Counter(
+    'cycle_count',
+    'Total count of oracle cycles',
+    ['result'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+LAST_CYCLE_TIMESTAMP = Gauge(
+    'last_cycle_timestamp',
+    'Unix timestamp of the last completed oracle cycle',
+    ['result'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+
+def init_basic_metrics() -> None:
+    """
+    Initialize metrics with all expected label combinations.
+
+    This ensures metrics exist with value 0 even before first use,
+    preventing issues with Prometheus queries like increase() returning
+    nothing (instead of 0) after service restarts.
+    """
+    for status in Status:
+        TRANSACTIONS_COUNT.labels(status=status.value)
+    for result in CycleResult:
+        CYCLE_COUNT.labels(result=result.value)
+        LAST_CYCLE_TIMESTAMP.labels(result=result.value)

@@ -11,7 +11,7 @@ from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
 
 from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.basic import CYCLE_COUNT, CycleResult, LAST_CYCLE_TIMESTAMP, ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
@@ -68,6 +68,7 @@ class BaseModule(ABC):
         and execute the module's business logic.
         """
         # pylint: disable=too-many-branches
+        cycle_error = True
         try:
             blockstamp = self._receive_last_finalized_slot()
 
@@ -81,6 +82,7 @@ class BaseModule(ABC):
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
+            cycle_error = False
         except IsNotMemberException as error:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise error
@@ -114,6 +116,10 @@ class BaseModule(ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+
+        cycle_result = CycleResult.ERROR if cycle_error else CycleResult.SUCCESS
+        CYCLE_COUNT.labels(result=cycle_result.value).inc()
+        LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
     @staticmethod
     def _reset_cycle_timeout():
