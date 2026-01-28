@@ -29,7 +29,9 @@ class DaemonModule(ABC):
     - Timeout management
     """
 
-    def __init__(self) -> None:
+    def __init__(self, cc: ConsensusClient, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._cc = cc
         self._slot_threshold = SlotNumber(0)
 
     def run_as_daemon(self):
@@ -76,9 +78,8 @@ class DaemonModule(ABC):
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         """Gets last finalized BlockStamp"""
-        cc = self._get_consensus_client()
-        block_root = BlockRoot(cc.get_block_root('finalized').root)
-        block_details = cc.get_block_details(block_root)
+        block_root = BlockRoot(self.cc.get_block_root('finalized').root)
+        block_details = self.cc.get_block_details(block_root)
         bs = build_blockstamp(block_details)
         logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
         ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
@@ -97,9 +98,10 @@ class DaemonModule(ABC):
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         """Executes module business logic for given blockstamp"""
 
-    @abstractmethod
-    def _get_consensus_client(self) -> ConsensusClient:
-        """Returns consensus client for blockchain data access"""
+    @property
+    def cc(self) -> ConsensusClient:
+        """Consensus client for blockchain data access"""
+        return self._cc
 
     @abstractmethod
     def exception_handler(self) -> ContextManager[None]:

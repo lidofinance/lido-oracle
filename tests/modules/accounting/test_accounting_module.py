@@ -20,12 +20,12 @@ from src.modules.oracles.accounting.types import (
     VaultsMap,
     VaultTreeNode,
 )
-from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
     CurrentFrame,
     FrameConfig,
+    ModuleExecuteDelay,
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.staking_vaults import StakingVaultsService

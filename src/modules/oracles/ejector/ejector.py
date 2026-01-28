@@ -19,7 +19,7 @@ from src.modules.oracles.ejector.data_encode import encode_data
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
-from src.modules.oracles.common.types import OracleModule
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.consensus.types import Validator, BeaconStateView
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract

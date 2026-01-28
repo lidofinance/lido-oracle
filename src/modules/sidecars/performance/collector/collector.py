@@ -35,17 +35,12 @@ class PerformanceCollector(DaemonModule):
     last_epochs_demand_update: int | None = None
 
     def __init__(self, cc: ConsensusClient):
-        super().__init__()
-        self.cc = cc
+        super().__init__(cc=cc)
         self.db = DutiesDB(
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
         )
         self.last_epochs_demand_update = self._get_epochs_demand_max_updated_at()
-
-    def _get_consensus_client(self):
-        """Returns consensus client"""
-        return self.cc
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:

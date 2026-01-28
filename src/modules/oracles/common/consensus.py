@@ -66,7 +66,8 @@ class ConsensusModule(ABC, Generic[W3]):
     COMPATIBLE_CONTRACT_VERSION: int
     COMPATIBLE_CONSENSUS_VERSION: int
 
-    def __init__(self, w3: W3):
+    def __init__(self, w3: W3, **kwargs):
+        super().__init__(**kwargs)
         self.w3 = w3
 
         if getattr(self, "report_contract", None) is None:

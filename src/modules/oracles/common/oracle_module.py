@@ -9,10 +9,11 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
 
 from src.modules.common.daemon_module import DaemonModule
-from src.modules.common.types import ModuleExecuteDelay
+from src.modules.oracles.common.consensus import ConsensusModule
 from src.modules.oracles.common.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
+from src.providers.consensus.client import ConsensusClient
 from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-class BaseModule(DaemonModule, ABC, Generic[W3]):
+class OracleModule(DaemonModule, ConsensusModule[W3], ABC, Generic[W3]):
     """
     Base skeleton for Oracle modules.
 
@@ -38,11 +39,11 @@ class BaseModule(DaemonModule, ABC, Generic[W3]):
     """
 
     def __init__(self, w3: W3):
-        super().__init__()
-        self.w3 = w3
+        super().__init__(w3=w3, cc=w3.cc)
 
-    def _get_consensus_client(self):
-        """Returns consensus client from w3"""
+    @property
+    def cc(self) -> ConsensusClient:
+        """Consensus client from w3"""
         return self.w3.cc
 
     def run_cycle(self, last_finalized_blockstamp: BlockStamp):
@@ -89,15 +90,6 @@ class BaseModule(DaemonModule, ABC, Generic[W3]):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
-
-    @abstractmethod
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        """
-        Implement module business logic here.
-        Return
-            ModuleExecuteDelay.NEXT_FINALIZED_EPOCH - to sleep until new finalized epoch
-            ModuleExecuteDelay.NEXT_SLOT - to sleep for a slot
-        """
 
     @abstractmethod
     def refresh_contracts(self):

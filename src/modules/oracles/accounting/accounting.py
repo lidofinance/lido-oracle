@@ -38,7 +38,7 @@ from src.modules.oracles.accounting.types import (
 from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
-from src.modules.oracles.common.types import OracleModule
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService

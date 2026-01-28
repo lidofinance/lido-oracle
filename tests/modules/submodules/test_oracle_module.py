@@ -13,7 +13,8 @@ from src.modules.oracles.common.exceptions import (
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.modules.oracles.common.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.common.types import ModuleExecuteDelay
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
@@ -22,12 +23,30 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
 
-class SimpleOracle(BaseModule):
+class SimpleOracle(OracleModule):
     call_count: int = 0
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 1
+
+    def __init__(self, w3):
+        self.report_contract = MagicMock()
+        super().__init__(w3)
 
     def execute_module(self, blockstamp):
         self.call_count += 1
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+
+    def build_report(self, blockstamp):
+        return ()
+
+    def is_contract_reportable(self, blockstamp):
+        return True
+
+    def is_main_data_submitted(self, blockstamp):
+        return False
+
+    def is_reporting_allowed(self, blockstamp):
+        return True
 
     def refresh_contracts(self):
         pass
@@ -119,7 +138,7 @@ def test_run_as_daemon(oracle):
     ],
     ids=lambda param: f"{type(param).__name__}",
 )
-def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
+def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
@@ -141,7 +160,7 @@ def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
     ],
     ids=lambda param: f"{type(param).__name__}",
 )
-def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exception):
+def test_run_cycle_fails_on_critical_exceptions(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),

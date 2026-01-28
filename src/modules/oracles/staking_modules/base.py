@@ -21,7 +21,7 @@ from src.modules.oracles.staking_modules.common.log import Logs
 from src.modules.oracles.staking_modules.common.state import State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
-from src.modules.oracles.common.types import OracleModule
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData

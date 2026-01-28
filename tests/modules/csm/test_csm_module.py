@@ -17,8 +17,7 @@ from src.modules.oracles.staking_modules.common.state import State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.modules.sidecars.performance.common.db import Duty
-from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
-from src.modules.common.types import ZERO_HASH, CurrentFrame
+from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID

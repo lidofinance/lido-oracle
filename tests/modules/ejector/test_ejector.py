@@ -16,7 +16,7 @@ from src.constants import (
 from src.modules.oracles.ejector import ejector as ejector_module
 from src.modules.oracles.ejector.ejector import Ejector, logger as ejector_logger
 from src.modules.oracles.ejector.types import EjectorProcessingState
-from src.modules.oracles.common.oracle_module import ModuleExecuteDelay
+from src.modules.common.types import ModuleExecuteDelay
 from src.modules.common.types import ChainConfig, CurrentFrame
 from src.providers.consensus.types import (
     BeaconStateView,

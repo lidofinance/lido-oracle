@@ -7,7 +7,7 @@ import pytest
 
 from src import variables
 from src.main import main
-from src.types import OracleModule
+from src.types import OracleModuleName
 
 
 @pytest.mark.mainnet
@@ -24,13 +24,13 @@ class TestIntegrationMainCycleSmoke:
     @pytest.mark.parametrize(
         "module_name",
         [
-            "accounting",
-            "ejector",
-            "csm",
+            OracleModuleName.ACCOUNTING,
+            OracleModuleName.EJECTOR,
+            OracleModuleName.CSM,
         ],
     )
     def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(
-        self, monkeypatch, caplog, module_name: OracleModule
+        self, monkeypatch, caplog, module_name: OracleModuleName
     ):
         monkeypatch.setattr(variables, 'DAEMON', False)
         monkeypatch.setattr(variables, 'CYCLE_SLEEP_IN_SECONDS', 0)
@@ -38,7 +38,7 @@ class TestIntegrationMainCycleSmoke:
         monkeypatch.setattr("src.web3py.extensions.staking_module.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY", 0)
 
         # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
-        if module_name == "csm":
+        if module_name is OracleModuleName.CSM:
 
             def mock_collect_data(self):
                 return True

@@ -2,7 +2,7 @@ from src import variables
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.providers.consensus.client import ConsensusClient
 from src.runtime import log_startup, start_observability
-from src.types import OracleModule
+from src.types import OracleModuleName
 
 
 def _build_consensus_client() -> ConsensusClient:
@@ -15,7 +15,7 @@ def _build_consensus_client() -> ConsensusClient:
 
 
 def run() -> None:
-    log_startup(OracleModule.PERFORMANCE_COLLECTOR)
+    log_startup(OracleModuleName.PERFORMANCE_COLLECTOR)
     start_observability()
 
     collector = PerformanceCollector(_build_consensus_client())

@@ -4,7 +4,7 @@ from typing import Final
 
 from eth_account import Account
 
-from src.types import OracleModule
+from src.types import OracleModuleName
 from src.utils.env import from_file_or_env
 
 # - Providers-
@@ -144,12 +144,12 @@ VAULT_PAGINATION_LIMIT: Final = int(os.getenv("VAULT_PAGINATION_LIMIT", 100))
 VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STATUSES_BATCH_SIZE", 100))
 
 
-def check_all_required_variables(module: OracleModule):
+def check_all_required_variables(module: OracleModuleName):
     errors = check_uri_required_variables()
-    if module is not OracleModule.CSM and module is not OracleModule.CM and not LIDO_LOCATOR_ADDRESS:
+    if module is not OracleModuleName.CSM and module is not OracleModuleName.CM and not LIDO_LOCATOR_ADDRESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
 
-    if module is OracleModule.CSM or module is OracleModule.CM:
+    if module is OracleModuleName.CSM or module is OracleModuleName.CM:
         if not STAKING_MODULE_ADDRESS:
             errors.append('STAKING_MODULE_ADDRESS')
 

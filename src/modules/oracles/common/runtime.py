@@ -5,7 +5,7 @@ from web3_multi_provider.metrics import init_metrics
 
 from src import constants, variables
 from src.metrics.logging import logging
-from src.modules.oracles.common.types import OracleModule
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts

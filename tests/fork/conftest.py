@@ -19,7 +19,7 @@ from web3_multi_provider import MultiProvider
 
 from src import variables
 from src.modules.oracles.common.consensus import ConsensusModule
-from src.modules.oracles.common.oracle_module import BaseModule
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.common.types import FrameConfig
 from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.consensus.client import ConsensusClient, LiteralState
@@ -449,7 +449,7 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
 
 
 @pytest.fixture()
-def module(request) -> BaseModule | ConsensusModule:
+def module(request) -> OracleModule | ConsensusModule:
     module = request.getfixturevalue(request.param.__name__)
     yield module
 
