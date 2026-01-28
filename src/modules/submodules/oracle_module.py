@@ -73,7 +73,7 @@ class BaseModule(ABC):
         Main cycle logic: fetch the last finalized slot, refresh contracts if necessary,
         and execute the module's business logic.
         """
-        cycle_error = True
+        cycle_result = CycleResult.ERROR
         try:
             blockstamp = self._receive_last_finalized_slot()
 
@@ -83,12 +83,12 @@ class BaseModule(ABC):
                     'msg': 'Skipping the report. Waiting for new finalized slot.',
                     'slot_threshold': self._slot_threshold,
                 })
-                cycle_error = False
+                cycle_result = CycleResult.SUCCESS
                 return
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
-            cycle_error = False
+            cycle_result = CycleResult.SUCCESS
         except IsNotMemberException as error:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise error
@@ -123,7 +123,6 @@ class BaseModule(ABC):
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
         finally:
-            cycle_result = CycleResult.ERROR if cycle_error else CycleResult.SUCCESS
             CYCLE_COUNT.labels(result=cycle_result.value).inc()
             LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
