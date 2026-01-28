@@ -4,6 +4,7 @@ from enum import Enum
 from prometheus_client import Counter, Gauge, Histogram, Info
 from prometheus_client.utils import INF
 
+from src import variables
 from src.variables import PROMETHEUS_PREFIX
 
 
@@ -110,16 +111,23 @@ LAST_CYCLE_TIMESTAMP = Gauge(
 )
 
 
-def init_basic_metrics() -> None:
+def init_basic_metrics(w3) -> None:
     """
-    Initialize metrics with all expected label combinations.
+    Initialize metrics with their current values.
 
-    This ensures metrics exist with value 0 even before first use,
-    preventing issues with Prometheus queries like increase() returning
-    nothing (instead of 0) after service restarts.
+    Ensures Gauge metrics (LAST_CYCLE_TIMESTAMP, ACCOUNT_BALANCE) are populated
+    with actual values at startup, making them immediately available for monitoring.
+    Counter metrics are initialized with label combinations for consistency.
     """
     for status in Status:
         TRANSACTIONS_COUNT.labels(status=status.value)
+
     for result in CycleResult:
         CYCLE_COUNT.labels(result=result.value)
+
     LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value).set(time.time())
+
+    if variables.ACCOUNT:
+        ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(
+            w3.eth.get_balance(variables.ACCOUNT.address)
+        )

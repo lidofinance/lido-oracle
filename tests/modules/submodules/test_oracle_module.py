@@ -10,6 +10,7 @@ from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
 from src.metrics.prometheus.basic import (
+    ACCOUNT_BALANCE,
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
     TRANSACTIONS_COUNT,
@@ -164,14 +165,16 @@ def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exceptio
 
 
 @pytest.mark.unit
-def test_init_basic_metrics__all_labels__metrics_exist():
-    init_basic_metrics()
+def test_init_basic_metrics__all_labels__metrics_exist(web3):
+    with patch.object(variables, 'ACCOUNT', Mock(address='0x0000000000000000000000000000000000000001')):
+        init_basic_metrics(web3)
 
-    for status in Status:
-        assert TRANSACTIONS_COUNT.labels(status=status.value) is not None
-    for result in CycleResult:
-        assert CYCLE_COUNT.labels(result=result.value) is not None
-    assert LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value)._value.get() > 0
+        for status in Status:
+            assert TRANSACTIONS_COUNT.labels(status=status.value) is not None
+        for result in CycleResult:
+            assert CYCLE_COUNT.labels(result=result.value) is not None
+        assert LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value)._value.get() > 0
+        assert ACCOUNT_BALANCE.labels(address='0x0000000000000000000000000000000000000001')._value.get() >= 0
 
 
 @pytest.mark.unit

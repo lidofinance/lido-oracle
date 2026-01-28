@@ -95,7 +95,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
-    init_basic_metrics()
+    init_basic_metrics(web3)
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:
