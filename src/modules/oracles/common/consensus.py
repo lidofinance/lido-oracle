@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import cast
+from typing import cast, Generic, TypeVar
 
 from eth_abi.abi import encode
 from hexbytes import HexBytes
@@ -40,15 +40,17 @@ from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.types import Web3
+from src.web3py.types import Web3, Web3Base
 
 logger = logging.getLogger(__name__)
 
 # Initial epoch is in the future. Revert signature: '0xcd0883ea'
 InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
 
+W3 = TypeVar("W3", bound=Web3Base)
 
-class ConsensusModule(ABC):
+
+class ConsensusModule(ABC, Generic[W3]):
     """
     Module that works with Hash Consensus Contract.
 
@@ -64,7 +66,7 @@ class ConsensusModule(ABC):
     COMPATIBLE_CONTRACT_VERSION: int
     COMPATIBLE_CONSENSUS_VERSION: int
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: W3):
         self.w3 = w3
 
         if getattr(self, "report_contract", None) is None:

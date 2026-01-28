@@ -11,14 +11,14 @@ from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import BlockStamp, FrameNumber
 from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
-from src.web3py.types import Web3
+from src.web3py.types import Web3StakingModule
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class LastReport:
-    w3: Web3
+    w3: Web3StakingModule
     blockstamp: BlockStamp
     current_frame: FrameNumber
 
@@ -28,7 +28,7 @@ class LastReport:
     strikes_tree_cid: CID | None
 
     @classmethod
-    def load(cls, w3: Web3, blockstamp: BlockStamp, current_frame: FrameNumber) -> Self:
+    def load(cls, w3: Web3StakingModule, blockstamp: BlockStamp, current_frame: FrameNumber) -> Self:
         rewards_tree_root = w3.staking_module.get_rewards_tree_root(blockstamp)
         rewards_tree_cid = w3.staking_module.get_rewards_tree_cid(blockstamp)
 

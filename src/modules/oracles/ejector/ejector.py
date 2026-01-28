@@ -42,7 +42,7 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
-class Ejector(OracleModule):
+class Ejector(OracleModule[Web3]):
     """
     Module that ejects lido validators depends on total value of unfinalized withdrawal requests.
 

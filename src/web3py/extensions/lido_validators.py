@@ -3,12 +3,12 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress, HexStr
+from eth_typing import ChecksumAddress
 from web3.module import Module
 
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
+from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import Nested, FromResponse
 
@@ -176,49 +176,6 @@ class LidoValidatorsProvider(Module):
                     'msg': f'Got global node operator id: {global_no_id}, '
                            f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
                 })
-
-        return no_validators
-
-    @lru_cache(maxsize=1)
-    def get_used_module_validators_by_node_operators(
-        self,
-        module_address: StakingModuleAddress,
-        blockstamp: BlockStamp,
-    ) -> ValidatorsByNodeOperator:
-        """
-        Get module validators by querying the KeysAPI for the module keys.
-
-        Args:
-            module_address (StakingModuleAddress): The address of the staking module.
-            blockstamp (BlockStamp): The block timestamp for querying validators.
-
-        Returns:
-            ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
-        """
-
-        kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
-        module_id = StakingModuleId(kapi['module']['id'])
-
-
-        # Make sure even empty NO will be presented in dict
-        no_validators: ValidatorsByNodeOperator = {
-            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
-        }
-
-        # Map validators to their corresponding node operators
-        validators = self.w3.cc.get_validators(blockstamp)
-        keys = {k.key: k for k in kapi['keys']}
-        for validator in validators:
-            lido_key = keys.get(HexStr(validator.validator.pubkey))
-            if not lido_key:
-                continue
-            global_id = (module_id, lido_key.operatorIndex)
-            no_validators[global_id].append(
-                LidoValidator(
-                    lido_id=lido_key,
-                    **asdict(validator),
-                )
-            )
 
         return no_validators
 

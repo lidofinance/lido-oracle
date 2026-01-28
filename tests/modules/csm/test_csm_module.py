@@ -24,7 +24,7 @@ from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.utils.types import hex_str_to_bytes
-from src.web3py.types import Web3
+from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
@@ -1069,7 +1069,7 @@ def test_make_strikes_tree(module: CSPerformanceOracle, param: StrikesTreeTestPa
 
 class TestLastReport:
     @pytest.mark.unit
-    def test_load(self, web3: Web3):
+    def test_load(self, web3: Web3StakingModule):
         blockstamp = Mock()
 
         web3.staking_module.get_rewards_tree_root = Mock(return_value=HexBytes(b"42"))
@@ -1090,7 +1090,7 @@ class TestLastReport:
         assert last_report.strikes_tree_cid == CID("QmST")
 
     @pytest.mark.unit
-    def test_get_rewards_empty(self, web3: Web3):
+    def test_get_rewards_empty(self, web3: Web3StakingModule):
         web3.ipfs = Mock(fetch=Mock())
 
         last_report = LastReport(
@@ -1107,7 +1107,7 @@ class TestLastReport:
         web3.ipfs.fetch.assert_not_called()
 
     @pytest.mark.unit
-    def test_get_rewards_okay(self, web3: Web3, rewards_tree: RewardsTree):
+    def test_get_rewards_okay(self, web3: Web3StakingModule, rewards_tree: RewardsTree):
         encoded_tree = rewards_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
@@ -1127,7 +1127,7 @@ class TestLastReport:
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
-    def test_get_rewards_unexpected_root(self, web3: Web3, rewards_tree: RewardsTree):
+    def test_get_rewards_unexpected_root(self, web3: Web3StakingModule, rewards_tree: RewardsTree):
         encoded_tree = rewards_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
@@ -1147,7 +1147,7 @@ class TestLastReport:
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
-    def test_get_strikes_empty(self, web3: Web3):
+    def test_get_strikes_empty(self, web3: Web3StakingModule):
         web3.ipfs = Mock(fetch=Mock())
 
         last_report = LastReport(
@@ -1164,7 +1164,7 @@ class TestLastReport:
         web3.ipfs.fetch.assert_not_called()
 
     @pytest.mark.unit
-    def test_get_strikes_okay(self, web3: Web3, strikes_tree: StrikesTree):
+    def test_get_strikes_okay(self, web3: Web3StakingModule, strikes_tree: StrikesTree):
         encoded_tree = strikes_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 
@@ -1184,7 +1184,7 @@ class TestLastReport:
         web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid, FrameNumber(0))
 
     @pytest.mark.unit
-    def test_get_strikes_unexpected_root(self, web3: Web3, strikes_tree: StrikesTree):
+    def test_get_strikes_unexpected_root(self, web3: Web3StakingModule, strikes_tree: StrikesTree):
         encoded_tree = strikes_tree.encode()
         web3.ipfs = Mock(fetch=Mock(return_value=encoded_tree))
 

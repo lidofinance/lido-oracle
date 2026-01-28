@@ -10,7 +10,7 @@ from src.types import BlockRoot, EpochNumber, SlotNumber
 from src.utils.api import opsgenie_api
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
-from src.modules.oracles.common.runtime import OracleWeb3Config, build_oracle_web3
+from src.modules.oracles.common.runtime import build_staking_module_web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
@@ -60,13 +60,7 @@ def web3_cs_module():
     if not module_address:
         pytest.skip("CS_MODULE_ADDRESS is not set")
     with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
-        web3 = build_oracle_web3(OracleWeb3Config(
-            use_lido_contracts=False,
-            use_staking_module_contracts=True,
-            use_ipfs=False,
-            use_performance_client=False,
-        ))
-        _ = web3.staking_module
+        web3 = build_staking_module_web3()
         return web3
 
 
@@ -77,13 +71,7 @@ def web3_curated_module():
     if not module_address:
         pytest.skip("CURATED_MODULE_ADDRESS is not set")
     with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
-        web3 = build_oracle_web3(OracleWeb3Config(
-            use_lido_contracts=False,
-            use_staking_module_contracts=True,
-            use_ipfs=False,
-            use_performance_client=False,
-        ))
-        _ = web3.staking_module
+        web3 = build_staking_module_web3()
         return web3
 
 

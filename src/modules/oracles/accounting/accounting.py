@@ -63,7 +63,7 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
-class Accounting(OracleModule):
+class Accounting(OracleModule[Web3]):
     """
     Accounting module updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
 

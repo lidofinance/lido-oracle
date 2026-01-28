@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import Iterator, cast, Any
+from typing import Iterator, cast, Any, TypeVar
 
 from packaging.version import Version
 from web3_multi_provider.metrics import init_metrics
@@ -21,23 +20,16 @@ from src.web3py.extensions import (
 )
 from src.web3py.extensions.staking_module import StakingModuleContracts
 from src.web3py.extensions.performance import PerformanceClientModule
-from src.web3py.types import Web3
+from src.web3py.types import Web3, Web3Base, Web3StakingModule
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class OracleWeb3Config:
-    use_ipfs: bool = False
-    use_performance_client: bool = False
-    use_staking_module_contracts: bool = False
-    use_lido_contracts: bool = True
-    use_lido_validators: bool = True
+W3 = TypeVar("W3", bound=Web3Base)
 
 
-def build_oracle_web3(config: OracleWeb3Config) -> Web3:
+def _build_web3_base(web3_cls: type[W3]) -> W3:
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = Web3(FallbackProviderModule(
+    web3 = web3_cls(FallbackProviderModule(
         variables.EXECUTION_CLIENT_URI,
         request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
         cache_allowed_requests=True,
@@ -64,25 +56,41 @@ def build_oracle_web3(config: OracleWeb3Config) -> Web3:
         'kac': lambda: kac,
     }
 
-    if config.use_lido_contracts:
-        modules['lido_contracts'] = LidoContracts
+    web3.attach_modules(modules)
 
-    if config.use_lido_validators:
-        modules['lido_validators'] = LidoValidatorsProvider
+    return web3
 
-    if config.use_staking_module_contracts:
-        modules['staking_module'] = StakingModuleContracts
 
-    if config.use_ipfs:
-        ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
-        modules['ipfs'] = lambda: ipfs
+def build_oracle_web3() -> Web3:
+    web3 = _build_web3_base(Web3)
 
-    if config.use_performance_client:
-        if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
-            raise ValueError("PERFORMANCE_COLLECTOR_URI is required")
-        performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
-        modules['performance'] = lambda: performance
+    ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
+    modules: dict[str, Any] = {
+        'lido_contracts': LidoContracts,
+        'lido_validators': LidoValidatorsProvider,
+        'ipfs': lambda: ipfs,
+    }
+    web3.attach_modules(modules)
 
+    logger.info({'msg': 'Initialize prometheus metrics.'})
+    init_metrics()
+
+    return web3
+
+
+def build_staking_module_web3() -> Web3StakingModule:
+    web3 = _build_web3_base(Web3StakingModule)
+
+    if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
+        raise ValueError("PERFORMANCE_COLLECTOR_URI is required")
+
+    performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
+    ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
+    modules: dict[str, Any] = {
+        'staking_module': StakingModuleContracts,
+        'performance': lambda: performance,
+        'ipfs': lambda: ipfs,
+    }
     web3.attach_modules(modules)
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
@@ -100,7 +108,7 @@ def run_oracle_module(module: OracleModule):
         module.cycle_handler()
 
 
-def check_providers_chain_ids(web3: Web3, cc: ConsensusClientModule, kac: KeysAPIClientModule):
+def check_providers_chain_ids(web3: Web3Base, cc: ConsensusClientModule, kac: KeysAPIClientModule):
     keys_api_chain_id = kac.check_providers_consistency()
     consensus_chain_id = cc.check_providers_consistency()
     execution_chain_id = cast(FallbackProviderModule, web3.provider).check_providers_consistency()

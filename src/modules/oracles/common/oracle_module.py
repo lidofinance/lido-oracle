@@ -2,7 +2,7 @@ import logging
 import traceback
 from abc import abstractmethod, ABC
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, Generic, TypeVar
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -17,15 +17,17 @@ from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedExceptio
 from src.utils.cache import clear_global_cache
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.types import Web3
+from src.web3py.types import Web3Base
 from web3_multi_provider import NoActiveProviderError
 
 from src.types import BlockStamp
 
 logger = logging.getLogger(__name__)
 
+W3 = TypeVar("W3", bound=Web3Base)
 
-class BaseModule(DaemonModule, ABC):
+
+class BaseModule(DaemonModule, ABC, Generic[W3]):
     """
     Base skeleton for Oracle modules.
 
@@ -35,7 +37,7 @@ class BaseModule(DaemonModule, ABC):
     - Check Module didn't stick inside cycle forever.
     """
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: W3):
         super().__init__()
         self.w3 = w3
 

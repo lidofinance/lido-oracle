@@ -1,8 +1,6 @@
 from web3 import Web3 as _Web3
 
-from src.providers.performance.client import PerformanceClient
 from src.web3py.extensions import (
-    StakingModuleContracts,
     ConsensusClientModule,
     KeysAPIClientModule,
     LidoContracts,
@@ -10,14 +8,23 @@ from src.web3py.extensions import (
     TransactionUtils,
     IPFS,
 )
+from src.providers.performance.client import PerformanceClient
+from src.web3py.extensions import StakingModuleContracts
 
 
-class Web3(_Web3):
-    lido_contracts: LidoContracts
-    lido_validators: LidoValidatorsProvider
+class Web3Base(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
-    staking_module: StakingModuleContracts
+
+
+class Web3(Web3Base):
+    lido_contracts: LidoContracts
+    lido_validators: LidoValidatorsProvider
     ipfs: IPFS
+
+
+class Web3StakingModule(Web3Base):
+    staking_module: StakingModuleContracts
     performance: PerformanceClient
+    ipfs: IPFS

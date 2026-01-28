@@ -2,7 +2,7 @@ import logging
 import math
 from collections import defaultdict
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EFFECTIVE_BALANCE_INCREMENT
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
@@ -18,11 +18,14 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
 )
 from src.providers.execution.exceptions import InconsistentData
+from eth_typing import HexStr
+
 from src.types import (
     EpochNumber,
     NodeOperatorId,
     ReferenceBlockStamp,
     StakingModuleAddress,
+    StakingModuleId,
     ValidatorIndex,
 )
 from src.utils.slot import get_reference_blockstamp
@@ -31,7 +34,7 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator,
     ValidatorsByNodeOperator,
 )
-from src.web3py.types import Web3
+from src.web3py.types import Web3StakingModule
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +56,11 @@ class DistributionResult:
 
 
 class Distribution:
-    w3: Web3
+    w3: Web3StakingModule
     converter: Web3Converter
     state: State
 
-    def __init__(self, w3: Web3, converter: Web3Converter, state: State):
+    def __init__(self, w3: Web3StakingModule, converter: Web3Converter, state: State):
         self.w3 = w3
         self.converter = converter
         self.state = state
@@ -128,10 +131,30 @@ class Distribution:
         )
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> ValidatorsByNodeOperator:
-        return self.w3.lido_validators.get_used_module_validators_by_node_operators(
-            StakingModuleAddress(self.w3.staking_module.module.address),
-            blockstamp,
-        )
+        module_address = StakingModuleAddress(self.w3.staking_module.module.address)
+        kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
+        module_id = StakingModuleId(kapi['module']['id'])
+
+        # Make sure even empty NO will be presented in dict
+        no_validators: ValidatorsByNodeOperator = {
+            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
+        }
+
+        validators = self.w3.cc.get_validators(blockstamp)
+        keys = {k.key: k for k in kapi['keys']}
+        for validator in validators:
+            lido_key = keys.get(HexStr(validator.validator.pubkey))
+            if not lido_key:
+                continue
+            global_id = (module_id, lido_key.operatorIndex)
+            no_validators[global_id].append(
+                LidoValidator(
+                    lido_id=lido_key,
+                    **asdict(validator),
+                )
+            )
+
+        return no_validators
 
     def _calculate_distribution_in_frame(
         self,

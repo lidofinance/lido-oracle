@@ -29,6 +29,7 @@ from src.providers.ipfs import CID
 from src.types import (
     BlockStamp,
     EpochNumber,
+    NodeOperatorId,
     ReferenceBlockStamp,
     SlotNumber,
     ValidatorIndex,
@@ -37,8 +38,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.range import sequence
 from src.utils.validator_state import is_active_validator
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import NodeOperatorId
-from src.web3py.types import Web3
+from src.web3py.types import Web3StakingModule
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class SMPerformanceOracleError(Exception):
     """Unrecoverable error in staking module performance oracle"""
 
 
-class SMPerformanceOracle(OracleModule):
+class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     """
     Staking Module performance oracle collects performance of staking module node operators and creates a Merkle tree
     of the resulting distribution of shares among the operators. The root of the tree is then submitted to the
@@ -65,7 +65,7 @@ class SMPerformanceOracle(OracleModule):
     report_contract: CSFeeOracleContract
     state: State
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3StakingModule):
         if self.COMPATIBLE_CONTRACT_VERSION == 0:
             raise ValueError("CONTRACT_VERSION is not defined")
         if self.COMPATIBLE_CONSENSUS_VERSION == 0:

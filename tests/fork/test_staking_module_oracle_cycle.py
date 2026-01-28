@@ -15,7 +15,7 @@ from src.modules.common.types import FrameConfig
 from src.modules.sidecars.performance.common.db import Duty
 from src.modules.sidecars.performance.web.server import app
 from src.utils.range import sequence
-from src.web3py.types import Web3
+from src.web3py.types import Web3Base, Web3StakingModule
 from tests.fork.conftest import first_slot_of_epoch
 
 # pylint: disable=protected-access
@@ -28,12 +28,12 @@ def hash_consensus_bin():
 
 
 @pytest.fixture()
-def csm_module(web3_cs_module: Web3):
+def csm_module(web3_cs_module: Web3StakingModule):
     yield CSPerformanceOracle(web3_cs_module)
 
 
 @pytest.fixture()
-def cm_module(web3_curated_module: Web3):
+def cm_module(web3_curated_module: Web3StakingModule):
     yield CMPerformanceOracle(web3_curated_module)
 
 
@@ -68,7 +68,7 @@ def performance_local_db(testrun_path):
 
 
 @pytest.fixture()
-def performance_collector(performance_local_db, web3: Web3, frame_config: FrameConfig):
+def performance_collector(performance_local_db, web3: Web3Base, frame_config: FrameConfig):
     yield PerformanceCollector(web3.cc)
 
 
