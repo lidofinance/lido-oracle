@@ -19,6 +19,29 @@ class TestIntegrationMainCycleSmoke:
         logger.setLevel(logging.DEBUG)
         logger.addHandler(queue_handler)
 
+        variables.DAEMON = False
+        variables.CYCLE_SLEEP_IN_SECONDS = 0
+
+        if module_name is OracleModuleName.CSM:
+            variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]
+
+            from src.web3py.extensions.staking_module import StakingModuleContracts
+
+            StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES = 3
+            StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY = 0
+
+            from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+
+            CSPerformanceOracle._collect_data = lambda self: True
+            CSPerformanceOracle._on_shutdown = lambda self: None
+
+            from src.providers.performance.client import PerformanceClient
+
+            PerformanceClient.is_range_available = lambda *args, **kwargs: True
+            PerformanceClient.get_epochs_demand = lambda *args, **kwargs: None
+            PerformanceClient.post_epochs_demand = lambda *args, **kwargs: None
+            PerformanceClient.delete_epochs_demand = lambda *args, **kwargs: None
+
         main(module_name)
 
     @pytest.mark.parametrize(
@@ -27,27 +50,11 @@ class TestIntegrationMainCycleSmoke:
             OracleModuleName.ACCOUNTING,
             OracleModuleName.EJECTOR,
             OracleModuleName.CSM,
+            # TODO: Enable when CM module is on mainnet
+            # OracleModuleName.CM
         ],
     )
-    def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(
-        self, monkeypatch, caplog, module_name: OracleModuleName
-    ):
-        monkeypatch.setattr(variables, 'DAEMON', False)
-        monkeypatch.setattr(variables, 'CYCLE_SLEEP_IN_SECONDS', 0)
-        monkeypatch.setattr("src.web3py.extensions.staking_module.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES", 3)
-        monkeypatch.setattr("src.web3py.extensions.staking_module.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY", 0)
-
-        # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
-        if module_name is OracleModuleName.CSM:
-
-            def mock_collect_data(self):
-                return True
-
-            monkeypatch.setattr(
-                "src.modules.oracles.staking_modules.community_staking.csm.CSPerformanceOracle._collect_data",
-                mock_collect_data,
-            )
-
+    def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(self, caplog, module_name: OracleModuleName):
         manager = multiprocessing.Manager()
         log_queue = manager.Queue()
         listener = logging.handlers.QueueListener(log_queue, caplog.handler)
