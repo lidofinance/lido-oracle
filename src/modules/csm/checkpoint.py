@@ -9,20 +9,20 @@ from typing import Iterable, Sequence
 from hexbytes import HexBytes
 
 from src import variables
-from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-from src.metrics.prometheus.csm import CSM_UNPROCESSED_EPOCHS_COUNT, CSM_MIN_UNPROCESSED_EPOCH
+from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT
+from src.metrics.prometheus.csm import CSM_MIN_UNPROCESSED_EPOCH, CSM_UNPROCESSED_EPOCHS_COUNT
 from src.modules.csm.state import State
 from src.modules.submodules.types import ZERO_HASH
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import SyncCommittee, SyncAggregate
-from src.utils.blockstamp import build_blockstamp
-from src.providers.consensus.types import BlockAttestation
+from src.providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
 from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
+from src.utils.blockstamp import build_blockstamp
 from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import Web3Converter
+
 
 ZERO_BLOCK_ROOT = HexBytes(ZERO_HASH).to_0x_hex()
 

@@ -36,7 +36,6 @@ class TestIntegrationMainCycleSmoke:
         monkeypatch.setattr(variables, 'CYCLE_SLEEP_IN_SECONDS', 0)
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES", 3)
         monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY", 0)
-
         # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
         if module_name == "csm":
 
@@ -45,12 +44,13 @@ class TestIntegrationMainCycleSmoke:
 
             monkeypatch.setattr("src.modules.csm.csm.CSOracle.collect_data", mock_collect_data)
 
-        manager = multiprocessing.Manager()
+        ctx = multiprocessing.get_context('fork')
+        manager = ctx.Manager()
         log_queue = manager.Queue()
         listener = logging.handlers.QueueListener(log_queue, caplog.handler)
         listener.start()
 
-        with ProcessPoolExecutor(max_workers=1) as executor:
+        with ProcessPoolExecutor(max_workers=1, mp_context=ctx) as executor:
             future = executor.submit(self.run_main_with_logging, module_name, log_queue)
             future.result()
 

@@ -13,6 +13,7 @@ from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import IPFSError, IPFSProvider
 from src.types import FrameNumber
 
+
 logger = logging.getLogger(__name__)
 
 
