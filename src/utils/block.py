@@ -4,10 +4,11 @@ from typing import Any
 
 from eth_typing import BlockNumber
 from web3 import Web3
-from web3.exceptions import Web3Exception
 
+from src.metrics.logging import logging
 from src.variables import BLOCK_BATCH_SIZE_LIMIT
 
+logger = logging.getLogger(__name__)
 
 def _should_batch(count: int) -> bool:
     """
@@ -77,7 +78,11 @@ def _batch_get_ts(w3: Web3, blocks: list[BlockNumber]) -> dict[BlockNumber, int]
                 batch.add(w3.eth.get_block(b))
             results: list[Any] = batch.execute()
         return {b: int(r["timestamp"]) for b, r in zip(blocks, results, strict=True)}
-    except (Web3Exception, AttributeError, TypeError, KeyError):
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning({
+            'msg': 'Batch request for block timestamps failed, falling back to sequential requests.',
+            'error': str(e),
+        })
         return {b: _get_ts(w3, b) for b in blocks}
 
 
