@@ -47,7 +47,8 @@ poetry-lock: up
 
 lint: up
 	$(EXEC_CMD) ruff format tests
-	$(EXEC_CMD) ruff check src tests
+	$(EXEC_CMD) ruff check --fix tests
+	$(EXEC_CMD) ruff check src
 	$(EXEC_CMD) pyright src
 
 isort: up

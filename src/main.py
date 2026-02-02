@@ -1,5 +1,7 @@
 import sys
-from typing import Iterator, cast
+from collections.abc import Iterator
+from decimal import getcontext
+from typing import cast
 
 from packaging.version import Version
 from prometheus_client import start_http_server
@@ -9,7 +11,7 @@ from src import constants, variables
 from src.constants import PRECISION_E27
 from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
-from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
+from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO, init_basic_metrics
 from src.modules.accounting.accounting import Accounting
 from src.modules.checks.checks_module import ChecksModule
 from src.modules.csm.csm import CSOracle
@@ -20,9 +22,9 @@ from src.utils.build import get_build_info
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
+    IPFS,
     ConsensusClientModule,
     FallbackProviderModule,
-    IPFS,
     KeysAPIClientModule,
     LazyCSM,
     LidoContracts,
@@ -30,7 +32,7 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
-from decimal import getcontext
+
 
 getcontext().prec = PRECISION_E27
 
@@ -93,6 +95,7 @@ def main(module_name: OracleModule):
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
+    init_basic_metrics(web3)
 
     instance: Accounting | Ejector | CSOracle
     if module_name == OracleModule.ACCOUNTING:

@@ -234,29 +234,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ### Alerts
 
-A few basic alerts, which can be configured in the [Prometheus Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/).
-
-```yaml
-groups:
-  - name: oracle-alerts
-    rules:
-      - alert: AccountBalance
-        expr: lido_oracle_account_balance / 10^18 < 1
-        for: 10m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Dangerously low account balance"
-          description: "Account balance is less than 1 ETH. Address: {.labels.address}: {.value} ETH"
-      - alert: OutdatedData
-        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-        for: 1h
-        labels:
-          severity: critical
-        annotations:
-          summary: "Outdated Consensus Layer HEAD slot"
-          description: "Processed by Oracle HEAD slot {.value} too old"
-```
+Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager configuration examples.
 
 ### Metrics
 

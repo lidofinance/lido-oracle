@@ -2,29 +2,35 @@ import logging
 import signal
 import time
 import traceback
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from dataclasses import asdict
 from enum import Enum
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from timeout_decorator import timeout, TimeoutError as DecoratorTimeoutError
+from timeout_decorator import TimeoutError as DecoratorTimeoutError, timeout
 from web3.exceptions import Web3Exception
-
-from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
-from src.modules.submodules.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
-from src.providers.http_provider import NotOkResponse
-from src.providers.ipfs import IPFSError
-from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
-from src.utils.cache import clear_global_cache
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
-from src.utils.blockstamp import build_blockstamp
-from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.types import Web3
 from web3_multi_provider import NoActiveProviderError
 
 from src import variables
-from src.types import SlotNumber, BlockStamp, BlockRoot
+from src.metrics.healthcheck_server import pulse
+from src.metrics.prometheus.basic import (
+    CYCLE_COUNT,
+    LAST_CYCLE_TIMESTAMP,
+    ORACLE_BLOCK_NUMBER,
+    ORACLE_SLOT_NUMBER,
+    CycleResult,
+)
+from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion, IsNotMemberException
+from src.providers.http_provider import NotOkResponse
+from src.providers.ipfs import IPFSError
+from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
+from src.types import BlockRoot, BlockStamp, SlotNumber
+from src.utils.blockstamp import build_blockstamp
+from src.utils.cache import clear_global_cache
+from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +68,12 @@ class BaseModule(ABC):
         self._sleep_cycle()
 
     @timeout(variables.MAX_CYCLE_LIFETIME_IN_SECONDS)
-    def _cycle(self):
+    def _cycle(self):  # noqa: C901
         """
         Main cycle logic: fetch the last finalized slot, refresh contracts if necessary,
         and execute the module's business logic.
         """
-        # pylint: disable=too-many-branches
+        cycle_result = CycleResult.ERROR
         try:
             blockstamp = self._receive_last_finalized_slot()
 
@@ -77,10 +83,12 @@ class BaseModule(ABC):
                     'msg': 'Skipping the report. Waiting for new finalized slot.',
                     'slot_threshold': self._slot_threshold,
                 })
+                cycle_result = CycleResult.SUCCESS
                 return
 
             self.refresh_contracts_if_address_change()
             self.run_cycle(blockstamp)
+            cycle_result = CycleResult.SUCCESS
         except IsNotMemberException as error:
             logger.error({'msg': 'Provided account is not part of Oracle`s committee.'})
             raise error
@@ -114,6 +122,9 @@ class BaseModule(ABC):
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
+        finally:
+            CYCLE_COUNT.labels(result=cycle_result.value).inc()
+            LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
     @staticmethod
     def _reset_cycle_timeout():
