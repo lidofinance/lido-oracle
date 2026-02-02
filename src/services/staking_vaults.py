@@ -822,7 +822,7 @@ class StakingVaultsService:
         # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.
         events, connected_vaults_set = self._get_vault_events_for_fees(
             vault_hub=vault_hub,
-            # Do not incude events from last block of last frame
+            # Do not include events from last block of last frame
             from_block=prev_report_blockstamp.block_number + 1,
             to_block=blockstamp.block_number,
         )

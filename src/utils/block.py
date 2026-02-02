@@ -29,7 +29,7 @@ def get_block_timestamps(
       1) Batch-fetch first and last block timestamps.
       2) If timestamps match expected difference (no missed slots), calculate
          all intermediate timestamps arithmetically.
-      3) If segment is small (<= BATCH_FETCH_MAX intermediates), batch-fetch all.
+      3) If segment is small (<= BLOCK_BATCH_SIZE_LIMIT intermediates), batch-fetch all.
       4) Otherwise, binary search: fetch median and recurse on both halves.
 
     Performance:
