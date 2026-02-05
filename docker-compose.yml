@@ -65,6 +65,7 @@ services:
 
   performance-collector:
     build: .
+    restart: unless-stopped
     container_name: staking-module-oracle-performance-collector
     command: ["-m", "src.main", "performance_collector"]
     depends_on:
@@ -83,6 +84,7 @@ services:
 
   performance-web:
     build: .
+    restart: unless-stopped
     container_name: staking-module-oracle-performance-web
     command: ["-m", "src.main", "performance_web_server"]
     depends_on:
@@ -110,7 +112,7 @@ services:
       performance-web:
         condition: service_healthy
     environment:
-      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS:-}
+      STAKING_MODULE_ADDRESS: ${CS_MODULE_ADDRESS:-}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
       KEYS_API_URI: ${KEYS_API_URI:-}
@@ -139,44 +141,44 @@ services:
       <<: *healthcheck-defaults
       test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
-#  cm-oracle:
-#    build: .
-#    container_name: cm-oracle
-#    command: ["-m", "src.main", "cm"]
-#    depends_on:
-#      performance-collector:
-#        condition: service_healthy
-#      performance-web:
-#        condition: service_healthy
-#    environment:
-#      STAKING_MODULE_ADDRESS: ${STAKING_MODULE_ADDRESS}
-#      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI}
-#      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI}
-#      KEYS_API_URI: ${KEYS_API_URI}
-#      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
-#      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST}
-#      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN}
-#      PINATA_JWT: ${PINATA_JWT}
-#      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL}
-#      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN}
-#      STORACHA_AUTH_SECRET: ${STORACHA_AUTH_SECRET}
-#      STORACHA_AUTHORIZATION: ${STORACHA_AUTHORIZATION}
-#      STORACHA_SPACE_DID: ${STORACHA_SPACE_DID}
-#      KUBO_HOST: ${KUBO_HOST}
-#      KUBO_RPC_PORT: ${KUBO_RPC_PORT}
-#      KUBO_GATEWAY_PORT: ${KUBO_GATEWAY_PORT}
-#      HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS}
-#      HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS}
-#      IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID}
-#      PROMETHEUS_PORT: 9000
-#      HEALTHCHECK_SERVER_PORT: 9010
-#    ports:
-#      - "${CSM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
-#      - "${CSM_ORACLE_HEALTH_PORT:-9012}:9010"
-#    restart: unless-stopped
-#    healthcheck:
-#      <<: *healthcheck-defaults
-#      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+  cm-oracle:
+    build: .
+    container_name: cm-oracle
+    command: ["-m", "src.main", "cm"]
+    depends_on:
+      performance-collector:
+        condition: service_healthy
+      performance-web:
+        condition: service_healthy
+    environment:
+      STAKING_MODULE_ADDRESS: ${CURATED_MODULE_ADDRESS:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      STORACHA_AUTH_SECRET: ${STORACHA_AUTH_SECRET:-}
+      STORACHA_AUTHORIZATION: ${STORACHA_AUTHORIZATION:-}
+      STORACHA_SPACE_DID: ${STORACHA_SPACE_DID:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
+      KUBO_GATEWAY_PORT: ${KUBO_GATEWAY_PORT:-8080}
+      HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
+      HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
+      IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${CSM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
+      - "${CSM_ORACLE_HEALTH_PORT:-9012}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
 volumes:
   postgres-data:
