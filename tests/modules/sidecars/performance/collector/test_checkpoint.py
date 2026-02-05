@@ -189,6 +189,27 @@ def test_checkpoints_processor_get_block_roots(
     assert len([r for r in roots if r is not None]) == expected_existing_roots_count
 
 
+@pytest.mark.unit
+def test_checkpoints_processor_get_block_roots_pivot_zero_root(consensus_client, converter: Web3Converter):
+    def _get_state_block_roots(_checkpoint_slot: int):
+        return [checkpoint_module.ZERO_BLOCK_ROOT] * 8192
+
+    consensus_client.get_state_block_roots = Mock(side_effect=_get_state_block_roots)
+    consensus_client.get_block_header = Mock(side_effect=AssertionError("should not be called"))
+
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
+    processor = FrameCheckpointProcessor(
+        consensus_client,
+        db,
+        converter,
+        finalized_blockstamp,
+    )
+    roots = processor._get_block_roots(1)
+    assert all(r is None for r in roots)
+    consensus_client.get_block_header.assert_not_called()
+
+
 @pytest.fixture
 def mock_get_config_spec(consensus_client):
     bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())
