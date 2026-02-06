@@ -29,10 +29,10 @@ BlockHash = NewType('BlockHash', HexStr)
 
 class Gwei(int):
     def __add__(self, other: int) -> "Gwei":
-        return Gwei(self + other)
+        return Gwei(int(self) + int(other))
 
     def __sub__(self, other: int) -> "Gwei":
-        return Gwei(self - other)
+        return Gwei(int(self) - int(other))
 
 ValidatorIndex = NewType('ValidatorIndex', int)
 CommitteeIndex = NewType('CommitteeIndex', int)

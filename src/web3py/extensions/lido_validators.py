@@ -63,10 +63,11 @@ class StakingModule(FromResponse):
     max_deposits_per_block: int
     # the minimum distance between deposits in blocks
     min_deposit_block_distance: int
+
     # WC Type
-    withdrawal_credentials_type: int
+    withdrawal_credentials_type: int = 0
     # Allocation type
-    allocation_type: AllocationType
+    allocation_type: AllocationType = AllocationType.STATIC
 
     def __hash__(self):
         return hash(self.id)
