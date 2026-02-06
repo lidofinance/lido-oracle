@@ -153,12 +153,16 @@ def build_slot_roots(
     present_slots: set[SlotNumber],
 ) -> list[tuple[SlotNumber, BlockRoot | None]]:
     return [
-        (SlotNumber(slot), cast(BlockRoot, f"0x{slot}")) if SlotNumber(slot) in present_slots else (SlotNumber(slot), None)
+        (SlotNumber(slot), cast(BlockRoot, f"0x{slot}"))
+        if SlotNumber(slot) in present_slots
+        else (SlotNumber(slot), None)
         for slot in range(int(first_slot), int(first_slot) + slots_per_epoch)
     ]
 
 
-def build_empty_epoch_slot_roots(first_slot: SlotNumber, slots_per_epoch: int) -> list[tuple[SlotNumber, BlockRoot | None]]:
+def build_empty_epoch_slot_roots(
+    first_slot: SlotNumber, slots_per_epoch: int
+) -> list[tuple[SlotNumber, BlockRoot | None]]:
     return build_slot_roots(first_slot, slots_per_epoch, set())
 
 
@@ -222,7 +226,9 @@ class TestFrameCheckpointsIterator:
             ),
         ],
     )
-    def test_checkpoints_iterator_given_checkpoints(self, converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints):
+    def test_checkpoints_iterator_given_checkpoints(
+        self, converter, l_epoch, r_epoch, finalized_epoch, expected_checkpoints
+    ):
         iterator = FrameCheckpointsIterator(converter, l_epoch, r_epoch, finalized_epoch)
         assert list(iter(iterator)) == expected_checkpoints
 
@@ -291,7 +297,9 @@ class TestBlockRoots:
 
 
 class TestAttestations:
-    def test_checkpoints_processor_prepare_committees(self, mock_get_attestation_committees, processor: FrameCheckpointProcessor):
+    def test_checkpoints_processor_prepare_committees(
+        self, mock_get_attestation_committees, processor: FrameCheckpointProcessor
+    ):
         raw = processor.cc.get_attestation_committees(processor.finalized_blockstamp, 0)
         committees, misses = processor._prepare_attestation_duties(0)
 
@@ -305,7 +313,9 @@ class TestAttestations:
             assert all(isinstance(v, int) for v in validators)
         assert len(misses) == 65536
 
-    def test_checkpoints_processor_process_attestations(self, mock_get_attestation_committees, processor: FrameCheckpointProcessor):
+    def test_checkpoints_processor_process_attestations(
+        self, mock_get_attestation_committees, processor: FrameCheckpointProcessor
+    ):
         attestation = cast(BlockAttestation, BlockAttestationFactory.build())
         attestation.data.slot = 0
         attestation.data.index = 0
@@ -393,8 +403,7 @@ class TestCheckDuties:
 
         _, kwargs = processor.db.store_epoch.call_args
         proposals_by_slot = {
-            slot: duty
-            for slot, duty in zip(expected_propose_duties, kwargs["proposals"], strict=True)
+            slot: duty for slot, duty in zip(expected_propose_duties, kwargs["proposals"], strict=True)
         }
         assert proposals_by_slot[duty_epoch_first_slot].is_proposed
         assert proposals_by_slot[SlotNumber(int(duty_epoch_first_slot) + 1)].is_proposed
@@ -410,7 +419,9 @@ class TestCheckDuties:
         next_epoch_roots = build_slot_roots(next_epoch_first_slot, slots_per_epoch, {next_epoch_first_slot})
 
         processor._prepare_attestation_duties = Mock(return_value=({}, set()))
-        processor._prepare_propose_duties = Mock(return_value=build_epoch_propose_duties(duty_epoch_first_slot, slots_per_epoch))
+        processor._prepare_propose_duties = Mock(
+            return_value=build_epoch_propose_duties(duty_epoch_first_slot, slots_per_epoch)
+        )
         processor._prepare_sync_committee_duties = Mock(
             return_value=[SyncDuty(validator_index=i, missed_count=0) for i in range(0, 8)]
         )
@@ -579,7 +590,9 @@ class TestProposeDuties:
         }
         assert duties == expected_duties
 
-    def test_prepare_propose_duties__state_roots_missing__uses_cl_fallback_root(self, processor: FrameCheckpointProcessor):
+    def test_prepare_propose_duties__state_roots_missing__uses_cl_fallback_root(
+        self, processor: FrameCheckpointProcessor
+    ):
         epoch = EpochNumber(10)
         checkpoint_slot = processor.converter.get_epoch_first_slot(EpochNumber(epoch + 2))
         checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
