@@ -55,12 +55,13 @@ class TestIntegrationMainCycleSmoke:
         ],
     )
     def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(self, caplog, module_name: OracleModuleName):
-        manager = multiprocessing.Manager()
+        ctx = multiprocessing.get_context('fork')
+        manager = ctx.Manager()
         log_queue = manager.Queue()
         listener = logging.handlers.QueueListener(log_queue, caplog.handler)
         listener.start()
 
-        with ProcessPoolExecutor(max_workers=1) as executor:
+        with ProcessPoolExecutor(max_workers=1, mp_context=ctx) as executor:
             future = executor.submit(self.run_main_with_logging, module_name, log_queue)
             future.result()
 

@@ -1,6 +1,7 @@
 import os
 import socket
-from typing import Final, Generator
+from collections.abc import Generator
+from typing import Final
 from unittest.mock import Mock, patch
 
 import pytest
@@ -60,7 +61,8 @@ def check_test_marks_compatibility(request):
 
     elif has_integration_mod and not has_integration:
         pytest.fail(
-            f'Test can not be run with {INTEGRATION_TESTS_MODIFICATORS_MARKERS} markers without @pytest.mark.integration.'
+            f'Test can not be run with '
+            f'{INTEGRATION_TESTS_MODIFICATORS_MARKERS} markers without @pytest.mark.integration.'
         )
 
 

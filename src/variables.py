@@ -7,6 +7,7 @@ from eth_account import Account
 from src.types import OracleModuleName
 from src.utils.env import from_file_or_env
 
+
 # - Providers-
 EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
 CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')

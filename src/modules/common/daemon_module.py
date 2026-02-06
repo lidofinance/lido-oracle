@@ -9,7 +9,13 @@ from timeout_decorator import timeout
 
 from src import variables
 from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
+from src.metrics.prometheus.basic import (
+    CYCLE_COUNT,
+    LAST_CYCLE_TIMESTAMP,
+    ORACLE_BLOCK_NUMBER,
+    ORACLE_SLOT_NUMBER,
+    CycleResult,
+)
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
 from src.types import BlockStamp, BlockRoot, SlotNumber
@@ -51,17 +57,24 @@ class DaemonModule(ABC):
         """
         Main cycle logic: gets last finalized slot and executes module business logic
         """
-        with self.exception_handler():
-            blockstamp = self._receive_last_finalized_slot()
+        cycle_result = CycleResult.ERROR
+        try:
+            with self.exception_handler():
+                blockstamp = self._receive_last_finalized_slot()
 
-            if blockstamp.slot_number <= self._slot_threshold:
-                logger.info({
-                    'msg': 'Skipping the report. Waiting for new finalized slot.',
-                    'slot_threshold': self._slot_threshold,
-                })
-                return
+                if blockstamp.slot_number <= self._slot_threshold:
+                    logger.info({
+                        'msg': 'Skipping the report. Waiting for new finalized slot.',
+                        'slot_threshold': self._slot_threshold,
+                    })
+                    cycle_result = CycleResult.SUCCESS
+                    return
 
-            self.run_cycle(blockstamp)
+                self.run_cycle(blockstamp)
+                cycle_result = CycleResult.SUCCESS
+        finally:
+            CYCLE_COUNT.labels(result=cycle_result.value).inc()
+            LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
     @staticmethod
     def _reset_cycle_timeout():

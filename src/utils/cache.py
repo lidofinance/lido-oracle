@@ -4,6 +4,7 @@ from weakref import WeakKeyDictionary
 
 from src.providers.execution.base_interface import ContractInterface
 
+
 global_cache: WeakKeyDictionary = WeakKeyDictionary()
 
 

@@ -18,7 +18,7 @@ authors = [
 license = "GPL 3.0"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.14"
 prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
 pytest = "^9.0.2"
@@ -27,6 +27,7 @@ more-itertools = "^10.1.0"
 web3 = "^7.8.0"
 web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
 json-stream = "^2.3.2"
+json-stream-rs-tokenizer = {version = "^0.5.0", python = ">=3.14,<3.15"}  # Python 3.14 support
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
@@ -122,7 +123,7 @@ disable = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 typeCheckingMode = "basic"
 stubPath = "stubs"
 exclude = [
@@ -140,7 +141,7 @@ ignore = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py314"
 
 # Exclude directories and protobuf generated files
 exclude = [
@@ -155,6 +156,28 @@ exclude = [
     "dist",
     "*_pb2.py",  # Protobuf generated files
 ]
+
+[tool.ruff.lint]
+extend-select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # complexity
+    "C90",
+]
+
+# Note: CI is configured to only check changed files in PRs
+# See .github/workflows/tests.yml for implementation
+# Pre-commit hooks will enforce these rules on all staged files
 
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true

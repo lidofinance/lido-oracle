@@ -5,6 +5,7 @@ from web3_multi_provider.metrics import init_metrics
 
 from src import constants, variables
 from src.metrics.logging import logging
+from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.utils.exception import IncompatibleException
@@ -74,6 +75,7 @@ def build_oracle_web3() -> Web3:
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
+    init_basic_metrics(web3)
 
     return web3
 
@@ -95,6 +97,7 @@ def build_staking_module_web3() -> Web3StakingModule:
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
+    init_basic_metrics(web3)
 
     return web3
 

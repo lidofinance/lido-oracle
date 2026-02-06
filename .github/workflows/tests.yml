@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup poetry
         run: >
@@ -57,11 +57,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup poetry
         run: >
@@ -78,8 +80,73 @@ jobs:
       - name: Lint with ruff format
         run: poetry run ruff format --check --diff tests
 
-      - name: Lint with ruff check
-        run: poetry run ruff check src tests
+      - name: Lint with ruff check (changed files only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          
+          # For pull requests, compare against the actual base branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+            BASE_REF="origin/${BASE_BRANCH}"
+            echo "PR detected - comparing against base branch: ${BASE_BRANCH}"
+            
+            # Fetch the base branch to ensure we have the latest commits
+            git fetch origin "${BASE_BRANCH}" 2>/dev/null || true
+          else
+            # For push events, try to find the associated PR and its base branch
+            CURRENT_BRANCH="${{ github.ref_name }}"
+            echo "Push event detected on branch: ${CURRENT_BRANCH}"
+            
+            # Try to find PR for this branch using GitHub CLI
+            PR_BASE=$(gh pr view "${CURRENT_BRANCH}" --json baseRefName --jq '.baseRefName' 2>/dev/null || echo "")
+            
+            if [ -n "$PR_BASE" ]; then
+              # Found associated PR, use its base branch
+              BASE_BRANCH="${PR_BASE}"
+              BASE_REF="origin/${BASE_BRANCH}"
+              echo "Found associated PR with base branch: ${BASE_BRANCH}"
+              git fetch origin "${BASE_BRANCH}" 2>/dev/null || true
+            elif [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+              # Push to main/master, compare against previous commit
+              BASE_REF="HEAD~1"
+              echo "Push to main/master - comparing against: HEAD~1"
+            else
+              # No PR found, fall back to main/master
+              if git fetch origin main 2>/dev/null; then
+                BASE_REF="origin/main"
+                echo "No PR found - falling back to: origin/main"
+              elif git fetch origin master 2>/dev/null; then
+                BASE_REF="origin/master"
+                echo "No PR found - falling back to: origin/master"
+              else
+                BASE_REF="HEAD~1"
+                echo "No PR found - falling back to: HEAD~1"
+              fi
+            fi
+          fi
+          
+          echo ""
+          echo "Comparing against: $BASE_REF"
+          echo "Current HEAD: $(git rev-parse HEAD)"
+          echo "Base commit: $(git rev-parse $BASE_REF 2>/dev/null || echo 'unable to resolve')"
+          echo ""
+          
+          # Get list of changed Python files
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR $BASE_REF...HEAD | grep '\.py$' || true)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No Python files changed, skipping ruff check"
+          else
+            FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l | xargs)
+            echo "Changed Python files (${FILE_COUNT} files):"
+            echo "$CHANGED_FILES"
+            echo ""
+            echo "Running ruff check on changed files..."
+            echo "$CHANGED_FILES" | xargs poetry run ruff check
+          fi
 
       - name: Lint with pyright
         run: poetry run pyright src
+

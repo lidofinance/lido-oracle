@@ -1,5 +1,5 @@
 from dataclasses import MISSING, fields, is_dataclass
-from typing import Any, Generic, TypeGuard, TypeVar, get_type_hints
+from typing import Any, TypeGuard, get_type_hints
 
 from eth_typing import HexAddress, HexStr
 from eth_utils import to_checksum_address
@@ -8,10 +8,7 @@ from polyfactory import BaseFactory
 from polyfactory.field_meta import FieldMeta, Null
 
 
-T = TypeVar("T")
-
-
-class Web3DataclassFactory(Generic[T], BaseFactory[T]):
+class Web3DataclassFactory[T](BaseFactory[T]):
     """Dataclass base factory"""
 
     __is_base_factory__ = True
@@ -33,7 +30,7 @@ class Web3DataclassFactory(Generic[T], BaseFactory[T]):
         :returns: A list of field MetaData instances.
 
         """
-        fields_meta: list["FieldMeta"] = []
+        fields_meta: list[FieldMeta] = []
 
         model_type_hints = get_type_hints(cls.__model__, include_extras=True)
 
