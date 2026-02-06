@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 import src.modules.sidecars.performance.collector.checkpoint as checkpoint_module
-from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT
 from src.modules.sidecars.performance.collector.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
@@ -435,6 +435,54 @@ def test_check_duties_processes_epoch_with_no_attestations(frame_checkpoint_proc
 
 
 @pytest.mark.unit
+def test_check_duties_processes_epoch_with_all_missing_block_roots(frame_checkpoint_processor):
+    slots_per_epoch = frame_checkpoint_processor.converter.chain_config.slots_per_epoch
+    duty_epoch = EpochNumber(10)
+    duty_epoch_first_slot = SlotNumber(int(duty_epoch) * slots_per_epoch)
+    checkpoint_slot = SlotNumber(int(duty_epoch_first_slot) + 2 * slots_per_epoch)
+    checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
+    duty_epoch_roots = [
+        (SlotNumber(slot), None)
+        for slot in range(int(duty_epoch_first_slot), int(duty_epoch_first_slot) + slots_per_epoch)
+    ]
+    next_epoch_roots = [
+        (SlotNumber(slot), None)
+        for slot in range(
+            int(duty_epoch_first_slot) + slots_per_epoch,
+            int(duty_epoch_first_slot) + 2 * slots_per_epoch,
+        )
+    ]
+
+    expected_att_misses = {1, 2, 3}
+    expected_sync_duties = [SyncDuty(validator_index=1, missed_count=0), SyncDuty(validator_index=2, missed_count=0)]
+    expected_propose_duties = {
+        SlotNumber(slot): ProposalDuty(validator_index=slot, is_proposed=False)
+        for slot in range(int(duty_epoch_first_slot), int(duty_epoch_first_slot) + slots_per_epoch)
+    }
+    frame_checkpoint_processor._prepare_attestation_duties = Mock(return_value=({}, expected_att_misses.copy()))
+    frame_checkpoint_processor._prepare_propose_duties = Mock(return_value=expected_propose_duties.copy())
+    frame_checkpoint_processor._prepare_sync_committee_duties = Mock(return_value=expected_sync_duties.copy())
+    frame_checkpoint_processor.cc.get_block_attestations_and_sync = Mock()
+    frame_checkpoint_processor.db.has_epoch = lambda: False
+    frame_checkpoint_processor.db.min_epoch = lambda: EpochNumber(8)
+    frame_checkpoint_processor.db.max_epoch = lambda: EpochNumber(9)
+    frame_checkpoint_processor.db.epochs_count = lambda: 2
+
+    frame_checkpoint_processor._check_duties(
+        checkpoint_block_roots, checkpoint_slot, duty_epoch, duty_epoch_roots, next_epoch_roots
+    )
+
+    frame_checkpoint_processor.cc.get_block_attestations_and_sync.assert_not_called()
+    frame_checkpoint_processor.db.store_epoch.assert_called_once()
+    args, kwargs = frame_checkpoint_processor.db.store_epoch.call_args
+    assert args[0] == duty_epoch
+    assert kwargs["att_misses"] == expected_att_misses
+    assert kwargs["syncs"] == expected_sync_duties
+    assert len(kwargs["proposals"]) == slots_per_epoch
+    assert all(not duty.is_proposed for duty in kwargs["proposals"])
+
+
+@pytest.mark.unit
 def test_prepare_sync_committee_returns_duties_for_valid_sync_committee(frame_checkpoint_processor):
     epoch = EpochNumber(10)
     sync_committee = Mock(spec=SyncCommittee)
@@ -532,6 +580,47 @@ def test_prepare_propose_duties(frame_checkpoint_processor):
     expected_duties = {
         SlotNumber(101): ProposalDuty(validator_index=1, is_proposed=False),
         SlotNumber(102): ProposalDuty(validator_index=2, is_proposed=False),
+    }
+    assert duties == expected_duties
+
+
+@pytest.mark.unit
+def test_prepare_propose_duties_uses_cl_root_when_state_roots_missing(consensus_client, converter: Web3Converter):
+    db = Mock()
+    finalized_blockstamp = Mock(slot_number=SlotNumber(0))
+    processor = FrameCheckpointProcessor(
+        consensus_client,
+        db,
+        converter,
+        finalized_blockstamp,
+    )
+
+    epoch = EpochNumber(10)
+    checkpoint_slot = converter.get_epoch_first_slot(EpochNumber(epoch + 2))
+    checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
+    dependent_slot = converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+    assert dependent_slot == SlotNumber(int(converter.get_epoch_first_slot(epoch) - 1))
+    fallback_root = cast(BlockRoot, "0x" + "11" * 32)
+
+    prev_slot_response = Mock()
+    prev_slot_response.message.slot = dependent_slot
+    consensus_client.get_block_root = Mock(return_value=Mock(root=fallback_root))
+
+    proposer_duty = Mock(slot=converter.get_epoch_first_slot(epoch), validator_index=1)
+    consensus_client.get_proposer_duties = Mock(return_value=[proposer_duty])
+    get_prev_non_missed_slot_mock = Mock(return_value=prev_slot_response)
+
+    with patch(
+        "src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot",
+        get_prev_non_missed_slot_mock,
+    ):
+        duties = processor._prepare_propose_duties(epoch, checkpoint_block_roots, checkpoint_slot)
+
+    get_prev_non_missed_slot_mock.assert_called_once()
+    consensus_client.get_block_root.assert_called_once_with(dependent_slot)
+    consensus_client.get_proposer_duties.assert_called_once_with(epoch, fallback_root)
+    expected_duties = {
+        converter.get_epoch_first_slot(epoch): ProposalDuty(validator_index=1, is_proposed=False),
     }
     assert duties == expected_duties
 
