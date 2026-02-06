@@ -102,11 +102,13 @@ class AccountingProcessingState:
 
 @dataclass
 class OracleReportLimits:
-    exit_balance_per_day_limit_in_gwei: Gwei
+    exited_validators_per_day_limit: int
     appeared_validators_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
-    exit_balance_per_report_limit_in_gwei: Gwei
+    # TODO replace
+    # exit_balance_per_report_limit_in_gwei: Gwei
+    max_validator_exit_requests_per_report: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int
@@ -114,6 +116,11 @@ class OracleReportLimits:
     initial_slashing_amount_p_wei: int | None = None
     inactivity_penalties_amount_p_wei: int | None = None
     cl_balance_oracles_error_upper_bp_limit: int | None = None
+
+    # TODO Remove
+    @property
+    def exit_balance_per_report_limit_in_gwei(self):
+        return self.max_validator_exit_requests_per_report * 32 * 10**9
 
 
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]

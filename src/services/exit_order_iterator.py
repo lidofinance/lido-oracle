@@ -8,7 +8,6 @@ from eth_typing import HexStr
 from src.constants import TOTAL_BASIS_POINTS
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.submodules.types import ChainConfig, FrameConfig
-from src.providers.execution.contracts.staking_module import StakingModuleContract
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import ReferenceBlockStamp, NodeOperatorGlobalIndex, StakingModuleId, Gwei
@@ -17,7 +16,7 @@ from src.web3py.extensions.lido_validators import (
     LidoValidator,
     StakingModule,
     NodeOperator,
-    NodeOperatorLimitMode, AllocationType,
+    NodeOperatorLimitMode,
 )
 from src.web3py.types import Web3
 
@@ -136,22 +135,23 @@ class ValidatorExitIterator:
                     self.module_stats[node_operator.staking_module.id],
                 )
 
-            sm = self.module_stats[staking_module].staking_module
-            if sm.allocation_type == AllocationType.DYNAMIC:
-                sm_contract = cast(
-                    StakingModuleContract,
-                    self.w3.eth.contract(
-                        address=sm.staking_module_address,
-                        ContractFactoryClass=StakingModuleContract,
-                        decode_tuples=True,
-                    ),
-                )
-
-                sm_no_id_list = [no.id for no in node_operators]
-
-                weights = sm_contract.get_node_operator_weight(sm_no_id_list, self.blockstamp.block_hash)
-                for index, no_id in enumerate(sm_no_id_list):
-                    self.node_operators_stats[(sm.id, no_id)].weight = weights[index]
+            # sm = self.module_stats[staking_module].staking_module
+            #
+            # if sm.allocation_type == AllocationType.DYNAMIC:
+            #     sm_contract = cast(
+            #         StakingModuleContract,
+            #         self.w3.eth.contract(
+            #             address=sm.staking_module_address,
+            #             ContractFactoryClass=StakingModuleContract,
+            #             decode_tuples=True,
+            #         ),
+            #     )
+            #
+            #     sm_no_id_list = [no.id for no in node_operators]
+            #
+            #     weights = sm_contract.get_node_operator_weight(sm_no_id_list, self.blockstamp.block_hash)
+            #     for index, no_id in enumerate(sm_no_id_list):
+            #         self.node_operators_stats[(sm.id, no_id)].weight = weights[index]
 
     def _prepare_validator_stats(self):
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -211,7 +211,7 @@ class ValidatorExitIterator:
         validator_pubkeys: list[HexStr] = [v.validator.pubkey for v in self.w3.cc.get_validators(self.blockstamp)]
         staking_modules = {
             sm.staking_module_address: sm.id
-            for sm in self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp)
+            for sm in self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp.block_hash)
         }
 
         for deposit in pending_deposits:
@@ -337,7 +337,7 @@ class ValidatorExitIterator:
             return -2
 
         max_share_rate = node_operator.module_stats.staking_module.priority_exit_share_threshold / TOTAL_BASIS_POINTS
-        max_module_predictable_balance = int(max_share_rate * self.total_lido_predictable_balance)
+        max_module_predictable_balance = int(max_share_rate * float(self.total_lido_predictable_balance))
 
         if node_operator.module_stats.predictable_balance > max_module_predictable_balance:
             return node_operator.module_stats.predictable_balance - max_module_predictable_balance
