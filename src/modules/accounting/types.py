@@ -15,6 +15,7 @@ from src.types import (
     ELVaultBalance,
     FinalizationBatches,
     Gwei,
+    OperatorsBalances,
     OperatorsValidatorCount,
     SlotNumber,
     StakingModuleId,
@@ -131,7 +132,7 @@ class OracleReportLimits:
         return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
 
 
-type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
+type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits, OperatorsBalances]
 
 
 @dataclass
@@ -252,7 +253,6 @@ class VaultInfo(Nested, FromResponse):
     pending_disconnect: bool
 
 
-
 @dataclass(frozen=True)
 class VaultFee:
     infra_fee: int
@@ -367,8 +367,9 @@ class StakingVaultIpfsReport:
                     fee=int(entry["value"][fee_index]),
                     liability_shares=int(entry["value"][liability_shares_index]),
                     max_liability_shares=int(entry["value"][max_liability_shares_index]),
-                slashing_reserve=int(entry["value"][slashing_reserve_index]),
-            ))
+                    slashing_reserve=int(entry["value"][slashing_reserve_index]),
+                )
+            )
 
         extra_values = {}
         for vault_addr, val in data.get("extraValues", {}).items():
@@ -423,6 +424,7 @@ class PendingBalances:
     @property
     def max(self) -> Gwei:
         return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
+
 
 class ValidatorStage(Enum):
     NONE = 0

@@ -36,6 +36,7 @@ WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
+type OperatorsBalances = dict[NodeOperatorGlobalIndex, tuple[int, int]]
 
 
 @dataclass(frozen=True)
