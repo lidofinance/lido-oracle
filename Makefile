@@ -55,6 +55,9 @@ lint: up
 test: up
 	$(EXEC_CMD) pytest $(ORACLE_TEST_PATH)
 
+unit-test: up
+	$(EXEC_CMD) pytest -m unit $(ORACLE_TEST_PATH)
+
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
 run-module: up
