@@ -512,8 +512,10 @@ def test_modules_balances_invariant(accounting, ref_bs, genesis_config):
 
 def _mock_get_staking_module_type(type_map):
     """Return a mock that maps module_address -> StakingModuleType."""
+
     def _get_type(module_address, _block_identifier='latest'):
         return type_map[module_address]
+
     return _get_type
 
 
@@ -534,10 +536,12 @@ def test_operator_balances_includes_allowed_module_types(accounting, ref_bs):
 
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module1, module2])
     accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
-        side_effect=_mock_get_staking_module_type({
-            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
-            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
-        })
+        side_effect=_mock_get_staking_module_type(
+            {
+                MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+                MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
+            }
+        )
     )
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
@@ -568,10 +572,12 @@ def test_operator_balances_excludes_unsupported_module_types(accounting, ref_bs)
 
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_v1, module_v2])
     accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
-        side_effect=_mock_get_staking_module_type({
-            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
-            MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
-        })
+        side_effect=_mock_get_staking_module_type(
+            {
+                MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
+                MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+            }
+        )
     )
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator_v1, validator_v2])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
@@ -602,10 +608,12 @@ def test_operator_balances_excludes_csm_module(accounting, ref_bs):
 
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_csm, module_curated])
     accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
-        side_effect=_mock_get_staking_module_type({
-            MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
-            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
-        })
+        side_effect=_mock_get_staking_module_type(
+            {
+                MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+                MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
+            }
+        )
     )
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator_csm, validator_curated])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
@@ -635,10 +643,12 @@ def test_operator_balances_all_modules_excluded(accounting, ref_bs):
 
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module1, module2])
     accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
-        side_effect=_mock_get_staking_module_type({
-            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
-            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
-        })
+        side_effect=_mock_get_staking_module_type(
+            {
+                MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
+                MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+            }
+        )
     )
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
@@ -664,10 +674,12 @@ def test_operator_balances_pending_filtered_by_module_type(accounting, ref_bs, g
 
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_csm, module_v2])
     accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
-        side_effect=_mock_get_staking_module_type({
-            MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
-            MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
-        })
+        side_effect=_mock_get_staking_module_type(
+            {
+                MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+                MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+            }
+        )
     )
     accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[valid_deposit])
