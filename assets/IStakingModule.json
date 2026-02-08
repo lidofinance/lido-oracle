@@ -1,0 +1,476 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IStakingModule",
+  "sourceName": "contracts/common/interfaces/IStakingModule.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "nonce",
+          "type": "uint256"
+        }
+      ],
+      "name": "NonceChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "pubkey",
+          "type": "bytes"
+        }
+      ],
+      "name": "SigningKeyAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "pubkey",
+          "type": "bytes"
+        }
+      ],
+      "name": "SigningKeyRemoved",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_nodeOperatorIds",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_vettedSigningKeysCounts",
+          "type": "bytes"
+        }
+      ],
+      "name": "decreaseVettedSigningKeysCount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        }
+      ],
+      "name": "exitDeadlineThreshold",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getActiveNodeOperatorsCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_offset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_limit",
+          "type": "uint256"
+        }
+      ],
+      "name": "getNodeOperatorIds",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "nodeOperatorIds",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getNodeOperatorIsActive",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getNodeOperatorSummary",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "targetLimitMode",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "targetValidatorsCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stuckValidatorsCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "refundedValidatorsCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stuckPenaltyEndTimestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalExitedValidators",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalDepositedValidators",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "depositableValidatorsCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getNodeOperatorsCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getNonce",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getStakingModuleSummary",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalExitedValidators",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalDepositedValidators",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "depositableValidatorsCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getType",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_proofSlotTimestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_publicKey",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_eligibleToExitInSec",
+          "type": "uint256"
+        }
+      ],
+      "name": "isValidatorExitDelayPenaltyApplicable",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_depositsCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_depositCalldata",
+          "type": "bytes"
+        }
+      ],
+      "name": "obtainDepositData",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "publicKeys",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "signatures",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "onExitedAndStuckValidatorsCountsUpdated",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_totalShares",
+          "type": "uint256"
+        }
+      ],
+      "name": "onRewardsMinted",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_publicKey",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_withdrawalRequestPaidFee",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_exitType",
+          "type": "uint256"
+        }
+      ],
+      "name": "onValidatorExitTriggered",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "onWithdrawalCredentialsChanged",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_proofSlotTimestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_publicKey",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_eligibleToExitInSec",
+          "type": "uint256"
+        }
+      ],
+      "name": "reportValidatorExitDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_exitedValidatorsCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "unsafeUpdateValidatorsCount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "_nodeOperatorIds",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "_exitedValidatorsCounts",
+          "type": "bytes"
+        }
+      ],
+      "name": "updateExitedValidatorsCount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_nodeOperatorId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_targetLimitMode",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_targetLimit",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateTargetValidatorsLimits",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

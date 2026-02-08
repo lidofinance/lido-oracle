@@ -11,7 +11,7 @@ from py_ecc.bls import G2ProofOfPossession as BLS
 
 from src.modules.accounting.accounting import Accounting, logger as accounting_logger
 from src.providers.consensus.types import PendingDeposit
-from src.types import Gwei, SlotNumber
+from src.types import Gwei, SlotNumber, StakingModuleType
 from src.utils.deposit_signature import DepositMessage, compute_domain, compute_signing_root
 from src.constants import DOMAIN_DEPOSIT_TYPE
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -390,6 +390,7 @@ def test_pending_balance_excludes_invalid(accounting, ref_bs, genesis_config):
 
 MODULE_ADDRESS_1 = '0x1111111111111111111111111111111111111111'
 MODULE_ADDRESS_2 = '0x2222222222222222222222222222222222222222'
+MODULE_ADDRESS_3 = '0x3333333333333333333333333333333333333333'
 
 
 def _make_staking_module(module_id, address):
@@ -504,3 +505,177 @@ def test_modules_balances_invariant(accounting, ref_bs, genesis_config):
     # Invariant: sum of module pending balances == clPendingBalance
     assert sum(pending_balances) == cl_pending
     assert cl_pending == Gwei(32_000_000_000 + 64_000_000_000)
+
+
+# --- Tests for _get_operator_balances module type filtering ---
+
+
+def _mock_get_staking_module_type(type_map):
+    """Return a mock that maps module_address -> StakingModuleType."""
+    def _get_type(module_address, _block_identifier='latest'):
+        return type_map[module_address]
+    return _get_type
+
+
+@pytest.mark.unit
+def test_operator_balances_includes_allowed_module_types(accounting, ref_bs):
+    """Modules with CURATED_ONCHAIN_V2_TYPE and COMMUNITY_ONCHAIN_V1_TYPE are included."""
+    module1 = _make_staking_module(1, MODULE_ADDRESS_1)
+    module2 = _make_staking_module(2, MODULE_ADDRESS_2)
+
+    validator1 = LidoValidatorFactory.build(
+        balance=Gwei(32_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
+    )
+    validator2 = LidoValidatorFactory.build(
+        balance=Gwei(31_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
+    )
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module1, module2])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({
+            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
+        })
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[])
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    assert (1, 0) in result
+    assert (2, 0) in result
+    assert result[(1, 0)] == (32_000_000_000, 0)
+    assert result[(2, 0)] == (31_000_000_000, 0)
+
+
+@pytest.mark.unit
+def test_operator_balances_excludes_unsupported_module_types(accounting, ref_bs):
+    """Modules with CURATED_ONCHAIN_V1_TYPE are excluded from operator balances."""
+    module_v1 = _make_staking_module(1, MODULE_ADDRESS_1)
+    module_v2 = _make_staking_module(2, MODULE_ADDRESS_2)
+
+    validator_v1 = LidoValidatorFactory.build(
+        balance=Gwei(32_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
+    )
+    validator_v2 = LidoValidatorFactory.build(
+        balance=Gwei(31_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
+    )
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_v1, module_v2])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({
+            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
+            MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+        })
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator_v1, validator_v2])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[])
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    # Module 1 (curated-onchain-v1) excluded, module 2 (curated-onchain-v2) included
+    assert (1, 0) not in result
+    assert (2, 0) in result
+    assert result[(2, 0)] == (31_000_000_000, 0)
+
+
+@pytest.mark.unit
+def test_operator_balances_excludes_csm_module(accounting, ref_bs):
+    """CSM module (community-staking-module) is excluded from operator balances."""
+    module_csm = _make_staking_module(1, MODULE_ADDRESS_1)
+    module_curated = _make_staking_module(2, MODULE_ADDRESS_2)
+
+    validator_csm = LidoValidatorFactory.build(
+        balance=Gwei(32_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
+    )
+    validator_curated = LidoValidatorFactory.build(
+        balance=Gwei(31_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
+    )
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_csm, module_curated])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({
+            MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE,
+        })
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator_csm, validator_curated])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[])
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    # CSM module excluded, community-onchain-v1 included
+    assert (1, 0) not in result
+    assert (2, 0) in result
+
+
+@pytest.mark.unit
+def test_operator_balances_all_modules_excluded(accounting, ref_bs):
+    """If all modules have unsupported types, result is empty."""
+    module1 = _make_staking_module(1, MODULE_ADDRESS_1)
+    module2 = _make_staking_module(2, MODULE_ADDRESS_2)
+
+    validator1 = LidoValidatorFactory.build(
+        balance=Gwei(32_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
+    )
+    validator2 = LidoValidatorFactory.build(
+        balance=Gwei(31_000_000_000),
+        lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
+    )
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module1, module2])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({
+            MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V1_TYPE,
+            MODULE_ADDRESS_2: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+        })
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[])
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    assert result == {}
+
+
+@pytest.mark.unit
+def test_operator_balances_pending_filtered_by_module_type(accounting, ref_bs, genesis_config):
+    """Pending balances for excluded module types are not included."""
+    module_csm = _make_staking_module(1, MODULE_ADDRESS_1)
+    module_v2 = _make_staking_module(2, MODULE_ADDRESS_2)
+
+    privkey, pubkey = _make_bls_keypair()
+    pubkey_hex = '0x' + pubkey.hex()
+    valid_deposit = _make_pending_deposit(privkey, pubkey, LIDO_WC, 32_000_000_000)
+
+    # Key belongs to excluded CSM module
+    lido_key_csm = _make_lido_key(pubkey_hex, MODULE_ADDRESS_1, operator_index=0)
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module_csm, module_v2])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({
+            MODULE_ADDRESS_1: StakingModuleType.COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+            MODULE_ADDRESS_2: StakingModuleType.CURATED_ONCHAIN_V2_TYPE,
+        })
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[valid_deposit])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[lido_key_csm])
+    accounting.w3.lido_contracts.lido.get_withdrawal_credentials = Mock(return_value=LIDO_WC)
+    accounting.get_cc_genesis_config = Mock(return_value=genesis_config)
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    # Pending deposit key belongs to CSM module (excluded), so result is empty
+    assert result == {}

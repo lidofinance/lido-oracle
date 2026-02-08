@@ -53,6 +53,7 @@ from src.types import (
     OperatorsBalances,
     ReferenceBlockStamp,
     StakingModuleId,
+    StakingModuleType,
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
@@ -440,13 +441,19 @@ class Accounting(BaseModule, ConsensusModule):
         Returns:
             dict mapping (module_id, operator_id) to (validator_balance_gwei, pending_balance_gwei)
         """
+        OPERATOR_BALANCE_MODULE_TYPES = {StakingModuleType.CURATED_ONCHAIN_V2_TYPE, StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE}
+
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
 
-        # Build module address to module ID mapping
-        module_address_to_id: dict[str, StakingModuleId] = {
-            module.staking_module_address: module.id for module in staking_modules
-        }
+        # Build module address to module ID mapping, filtering by module type
+        module_address_to_id: dict[str, StakingModuleId] = {}
+        for module in staking_modules:
+            module_type = self.w3.lido_contracts.staking_router.get_staking_module_type(
+                module.staking_module_address, blockstamp.block_hash
+            )
+            if module_type in OPERATOR_BALANCE_MODULE_TYPES:
+                module_address_to_id[module.staking_module_address] = module.id
 
         # Sum active balances per operator
         operator_active: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
