@@ -810,7 +810,8 @@ class StakingVaultsService:
         else:
             # Fresh devnet: no previous Oracle report, use initial epoch
             # To align with the accounting contract (_get_slots_elapsed_from_last_report)
-            prev_ref_slot = SlotNumber(frame_config.initial_epoch * chain_config.slots_per_epoch - 1)
+            initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
+            prev_ref_slot = SlotNumber(initial_ref_slot - 1) if initial_ref_slot > 0 else SlotNumber(0)
 
         slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
         prev_report_blockstamp = get_blockstamp(

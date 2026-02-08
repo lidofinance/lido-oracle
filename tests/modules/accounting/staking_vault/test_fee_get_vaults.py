@@ -111,6 +111,48 @@ class TestGetVaultsFees:
 
         assert fees[vault_adr].prev_fee == 0
 
+    def test_initial_epoch_zero_uses_non_negative_prev_ref_slot(self, service):
+        # Setup
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
+        blockstamp = self.make_blockstamp(block=10, slot=100)
+
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = 0
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
+        service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
+        service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
+
+        with patch("src.services.staking_vaults.get_blockstamp", return_value=MagicMock(block_number=0)) as get_bs_mock:
+            # Act
+            service.get_vaults_fees(
+                blockstamp=blockstamp,
+                vaults={vault_adr: vault},
+                vaults_total_values={},
+                latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
+                core_apr_ratio=Decimal("0"),
+                pre_total_pooled_ether=Wei(0),
+                pre_total_shares=0,
+                frame_config=FrameConfig(initial_epoch=0, epochs_per_frame=1, fast_lane_length_slots=0),
+                chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+                current_frame=FrameNumber(0),
+            )
+
+        # Assert
+        assert get_bs_mock.call_args.kwargs["slot"] == SlotNumber(0)
+        service._calculate_vault_fee_components.assert_called_once_with(
+            vault_address=vault_adr,
+            vault_info=vault,
+            vault_total_value=0,
+            vault_events=[],
+            report_interval_seconds=100 * 12,
+            prev_ref_slot_timestamp=0,
+            current_ref_slot_timestamp=100 * 12,
+            core_apr_ratio=Decimal(0),
+            pre_total_pooled_ether=0,
+            pre_total_shares=0,
+            block_timestamps={},
+        )
+
     def test_raises_if_liability_shares_mismatch(self, service, vault_hub_mock):
         # Setup
         vault_adr = VaultAddresses.VAULT_0
