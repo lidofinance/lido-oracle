@@ -526,13 +526,11 @@ def test_operator_balances_includes_allowed_module_types(accounting, ref_bs):
     module2 = _make_staking_module(2, MODULE_ADDRESS_2)
 
     validator1 = LidoValidatorFactory.build(
-        balance=Gwei(32_500_000_000),
-        validator=ValidatorStateFactory.build(effective_balance=Gwei(32_000_000_000)),
+        balance=Gwei(32_000_000_000),
         lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
     )
     validator2 = LidoValidatorFactory.build(
-        balance=Gwei(31_500_000_000),
-        validator=ValidatorStateFactory.build(effective_balance=Gwei(31_000_000_000)),
+        balance=Gwei(31_000_000_000),
         lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
     )
 
@@ -564,13 +562,11 @@ def test_operator_balances_excludes_unsupported_module_types(accounting, ref_bs)
     module_v2 = _make_staking_module(2, MODULE_ADDRESS_2)
 
     validator_v1 = LidoValidatorFactory.build(
-        balance=Gwei(32_500_000_000),
-        validator=ValidatorStateFactory.build(effective_balance=Gwei(32_000_000_000)),
+        balance=Gwei(32_000_000_000),
         lido_id=_make_lido_key('0x' + b'\x01'.hex().zfill(96), MODULE_ADDRESS_1, operator_index=0),
     )
     validator_v2 = LidoValidatorFactory.build(
-        balance=Gwei(31_500_000_000),
-        validator=ValidatorStateFactory.build(effective_balance=Gwei(31_000_000_000)),
+        balance=Gwei(31_000_000_000),
         lido_id=_make_lido_key('0x' + b'\x02'.hex().zfill(96), MODULE_ADDRESS_2, operator_index=0),
     )
 
