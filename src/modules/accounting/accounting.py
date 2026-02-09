@@ -455,13 +455,13 @@ class Accounting(BaseModule, ConsensusModule):
             if module_type in OPERATOR_BALANCE_MODULE_TYPES:
                 module_address_to_id[module.staking_module_address] = module.id
 
-        # Sum active balances per operator
-        operator_active: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        # Sum effective balances per operator
+        operator_effective: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
         for validator in lido_validators:
             module_address = validator.lido_id.moduleAddress
             if module_id := module_address_to_id.get(module_address):
                 key: NodeOperatorGlobalIndex = (module_id, validator.lido_id.operatorIndex)
-                operator_active[key] = Gwei(operator_active[key] + validator.balance)
+                operator_effective[key] = Gwei(operator_effective[key] + validator.validator.effective_balance)
 
         # Sum pending balances per operator from the shared validated source
         operator_pending: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
@@ -479,9 +479,9 @@ class Accounting(BaseModule, ConsensusModule):
                 operator_pending[operator_key] = Gwei(operator_pending[operator_key] + valid_balance)
 
         # Merge into result
-        all_keys = set(operator_active.keys()) | set(operator_pending.keys())
+        all_keys = set(operator_effective.keys()) | set(operator_pending.keys())
         result: OperatorsBalances = {
-            k: (operator_active.get(k, 0), operator_pending.get(k, 0)) for k in sorted(all_keys)
+            k: (operator_effective.get(k, 0), operator_pending.get(k, 0)) for k in sorted(all_keys)
         }
 
         logger.info(
