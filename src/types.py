@@ -13,6 +13,13 @@ class OracleModule(StrEnum):
     CSM = 'csm'
 
 
+class StakingModuleType(StrEnum):
+    CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1'
+    COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1'
+    COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE = 'community-staking-module'
+    CURATED_ONCHAIN_V2_TYPE = 'curated-onchain-v2'
+
+
 EpochNumber = NewType('EpochNumber', int)
 FrameNumber = NewType('FrameNumber', int)
 StateRoot = NewType('StateRoot', HexStr)
@@ -36,6 +43,7 @@ WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
+type OperatorsBalances = dict[NodeOperatorGlobalIndex, tuple[int, int]]
 
 
 @dataclass(frozen=True)

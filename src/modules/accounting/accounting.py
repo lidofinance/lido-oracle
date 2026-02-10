@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from enum import Enum
 from time import sleep
 
 from hexbytes import HexBytes
@@ -38,7 +39,7 @@ from src.modules.submodules.consensus import (
 )
 from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
 from src.modules.submodules.types import ZERO_HASH
-from src.providers.consensus.types import PendingDeposit
+
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
@@ -49,8 +50,10 @@ from src.types import (
     FinalizationBatches,
     Gwei,
     NodeOperatorGlobalIndex,
+    OperatorsBalances,
     ReferenceBlockStamp,
     StakingModuleId,
+    StakingModuleType,
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
@@ -247,111 +250,68 @@ class Accounting(BaseModule, ConsensusModule):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info({
-            'msg': 'Calculate Lido validators state balance (in Gwei)',
-            'value': lido_validators_state_balance,
-        })
+        total_lido_balance = lido_validators_state_balance = sum(
+            (validator.balance for validator in lido_validators), Gwei(0)
+        )
+        logger.info(
+            {
+                'msg': 'Calculate Lido validators state balance (in Gwei)',
+                'value': lido_validators_state_balance,
+            }
+        )
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
     @lru_cache(maxsize=1)
-    def _calculate_pending_deposits_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
+    def _get_validated_pending_balances_by_pubkey(self, blockstamp: ReferenceBlockStamp) -> dict[str, Gwei]:
         """
-        Calculate total pending deposits balance for Lido validators that are not yet active.
+        Sum pending deposit amounts per pubkey with frontrun protection.
 
-        Algorithm (based on pending_deposits_integration_report.md):
-        1. Get all pending deposits from consensus layer
-        2. Get all active Lido validators
-        3. Get Lido withdrawal credentials
-        4. For each pending deposit pubkey:
-           - Skip if validator with this pubkey already exists
-           - Validate deposits with BLS signature verification and withdrawal credentials matching
-           - Sum up valid deposits
+        Supports top-up deposits for existing Lido validators (MaxEB consolidation)
+        without BLS verification — they are trusted because the validator is already active.
+
+        For new pubkeys, validates BLS signatures to protect against frontrun attacks:
+        an attacker can deposit with a valid BLS but wrong WC before the legitimate deposit,
+        so the first valid-BLS deposit determines the pubkey's fate — if its WC is not Lido,
+        the pubkey is banned and all its deposits (past and future) are ignored.
         """
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
 
         if not pending_deposits:
             logger.info({'msg': 'No pending deposits found'})
-            return Gwei(0)
+            return {}
 
-        # Get Lido withdrawal credentials
         lido_wc = self.w3.lido_contracts.lido.get_withdrawal_credentials(blockstamp.block_hash)
-
-        # Get all active Lido validators
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
-        lido_validator_pubkeys = set(validator.validator.pubkey for validator in lido_validators)
+        lido_validator_pubkeys = set(v.validator.pubkey for v in lido_validators)
 
-        # Group deposits by pubkey
-        deposits_by_pubkey = defaultdict(list)
-        for deposit in pending_deposits:
-            deposits_by_pubkey[deposit.pubkey].append(deposit)
-
-        total_pending_balance = Gwei(0)
-        validated_pubkeys_count = 0
-
-        # Process each pubkey's deposits
-        for pubkey, deposits in deposits_by_pubkey.items():
-            # Skip if validator already exists
-            if pubkey in lido_validator_pubkeys:
-                continue
-
-            # Validate and sum deposits for this pubkey
-            valid_balance = self._get_valid_lido_deposits_value(
-                lido_withdrawal_credentials=lido_wc,
-                pubkey_deposits=deposits,
-            )
-
-            if valid_balance > 0:
-                total_pending_balance = Gwei(total_pending_balance + valid_balance)
-                validated_pubkeys_count += 1
-
-        logger.info({
-            'msg': 'Calculate pending deposits balance (in Gwei)',
-            'value': total_pending_balance,
-            'total_deposits': len(pending_deposits),
-            'new_validators_with_deposits': validated_pubkeys_count,
-        })
-
-        return total_pending_balance
-
-    def _get_valid_lido_deposits_value(
-        self,
-        lido_withdrawal_credentials: str,
-        pubkey_deposits: list[PendingDeposit],
-    ) -> Gwei:
-        """
-        Validates pending deposits for a single pubkey according to pending_deposits_integration_report.md.
-
-        CRITICAL LOGIC from original _get_valid_deposits_value():
-        - Once a valid deposit is found (BLS signature + WC check), all subsequent deposits are accepted WITHOUT checks
-        - This protects against front-run attacks (attacker can't create valid BLS signature without private key)
-        - Uses "all-or-nothing" logic: if first valid deposit has wrong WC → return 0
-
-        Algorithm:
-        1. For each deposit in order:
-           a. If already found valid deposit → accept without checks (front-run protection)
-           b. Otherwise check BLS signature
-           c. If valid → check withdrawal_credentials match
-           d. If WC mismatch on first valid → return 0 (all-or-nothing)
-           e. If WC match → mark as valid_found and continue
-        """
-        if not pubkey_deposits:
-            return Gwei(0)
-
-        valid_deposits_value = Gwei(0)
-        valid_found = False
         genesis_config = self.get_cc_genesis_config()
         genesis_fork_version = genesis_config.genesis_fork_version
         genesis_validators_root = genesis_config.genesis_validators_root
 
-        for deposit in pubkey_deposits:
-            # CRITICAL: If already found valid deposit - accept ALL subsequent ones WITHOUT checks
-            if valid_found:
-                valid_deposits_value = Gwei(valid_deposits_value + deposit.amount)
+        class PubkeyStatus(Enum):
+            ELIGIBLE = "eligible"  # WC = Lido, count all deposits
+            BANNED = "banned"      # frontrun with wrong WC, skip all deposits
+
+        pubkey_status: dict[str, PubkeyStatus] = {}
+        balances: dict[str, int] = defaultdict(int)
+
+        for deposit in pending_deposits:
+            pubkey = deposit.pubkey
+
+            # Already seen pubkey — follow its status
+            if pubkey in pubkey_status:
+                if pubkey_status[pubkey] is PubkeyStatus.ELIGIBLE:
+                    balances[pubkey] += deposit.amount
                 continue
 
-            # Check BLS signature
+            # Existing Lido validator — trusted, no BLS check needed (covers MaxEB top-ups)
+            if pubkey in lido_validator_pubkeys:
+                pubkey_status[pubkey] = PubkeyStatus.ELIGIBLE
+                balances[pubkey] += deposit.amount
+                continue
+
+            # New pubkey — validate BLS signature
             is_valid = is_valid_deposit_signature(
                 pubkey=hex_str_to_bytes(deposit.pubkey),
                 withdrawal_credentials=hex_str_to_bytes(deposit.withdrawal_credentials),
@@ -362,28 +322,48 @@ class Accounting(BaseModule, ConsensusModule):
             )
 
             if not is_valid:
-                logger.warning({
-                    'msg': f'Invalid deposit signature for deposit: {deposit.signature}.',
-                })
+                # Invalid BLS — skip this deposit, don't set status (next deposit will be re-checked)
+                logger.warning({'msg': f'Invalid deposit signature for deposit: {deposit.signature}.'})
                 continue
 
-            # Check withdrawal_credentials match
-            if deposit.withdrawal_credentials != lido_withdrawal_credentials:
-                logger.warning({
-                    'msg': (
-                        f"Mismatch deposit withdrawal_credentials {deposit.withdrawal_credentials} "
-                        f"to Lido protocol withdrawal_credentials {lido_withdrawal_credentials}. "
-                        f"Skipping any further pending deposits count."
-                    )
-                })
-                # CRITICAL: If first VALID deposit has wrong WC → return 0 (all-or-nothing)
-                return Gwei(0)
+            if deposit.withdrawal_credentials != lido_wc:
+                # Valid BLS but wrong WC — ban pubkey, all future deposits for it will be skipped
+                pubkey_status[pubkey] = PubkeyStatus.BANNED
+                logger.warning(
+                    {
+                        'msg': (
+                            f"Mismatch deposit withdrawal_credentials {deposit.withdrawal_credentials} "
+                            f"to Lido protocol withdrawal_credentials {lido_wc}. "
+                            f"Banning pubkey from further pending deposits count."
+                        )
+                    }
+                )
+                continue
 
-            # Found valid deposit - mark and include
-            valid_found = True
-            valid_deposits_value = Gwei(valid_deposits_value + deposit.amount)
+            # Valid BLS + correct WC — mark Eligible, count this and all future deposits
+            pubkey_status[pubkey] = PubkeyStatus.ELIGIBLE
+            balances[pubkey] += deposit.amount
 
-        return valid_deposits_value
+        result = {pubkey: Gwei(balance) for pubkey, balance in balances.items() if balance > 0}
+
+        logger.info(
+            {
+                'msg': 'Calculate validated pending deposits by pubkey',
+                'total_deposits': len(pending_deposits),
+                'validated_pubkeys_count': len(result),
+                'total_balance': sum(result.values(), Gwei(0)),
+            }
+        )
+
+        return result
+
+    @lru_cache(maxsize=1)
+    def _calculate_pending_deposits_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
+        """Calculate total pending deposits balance for Lido validators that are not yet active."""
+        validated = self._get_validated_pending_balances_by_pubkey(blockstamp)
+        total = sum(validated.values(), Gwei(0))
+        logger.info({'msg': 'Calculate pending deposits balance (in Gwei)', 'value': total})
+        return Gwei(total)
 
     @lru_cache(maxsize=1)
     def _get_modules_balances(
@@ -401,8 +381,7 @@ class Accounting(BaseModule, ConsensusModule):
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
 
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        pending_balances_by_pubkey = self.staking_vaults.get_total_pending_amount_by_pubkey(pending_deposits)
+        validated_pending = self._get_validated_pending_balances_by_pubkey(blockstamp)
 
         # Build module address to module ID mapping
         module_address_to_id: dict[str, StakingModuleId] = {}
@@ -417,25 +396,18 @@ class Accounting(BaseModule, ConsensusModule):
         for validator in lido_validators:
             module_address = validator.lido_id.moduleAddress
             if module_id := module_address_to_id.get(module_address):
-                module_active_balances[module_id] = Gwei(
-                    module_active_balances[module_id] + validator.balance
-                )
+                module_active_balances[module_id] = Gwei(module_active_balances[module_id] + validator.balance)
 
-        # Sum pending balances from pending deposits
-        lido_validator_pubkeys = set(validator.validator.pubkey for validator in lido_validators)
+        # Sum pending balances from validated pending deposits
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
 
         # Build pubkey to module address mapping
         pubkey_to_module_address = {key.key: key.moduleAddress for key in lido_keys}
 
-        for pubkey, pb in pending_balances_by_pubkey.items():
-            # Only count pending deposits for validators that don't exist yet
-            if pubkey not in lido_validator_pubkeys:
-                if module_address := pubkey_to_module_address.get(pubkey):
-                    if module_id := module_address_to_id.get(module_address):
-                        module_pending_balances[module_id] = Gwei(
-                            module_pending_balances[module_id] + pb
-                        )
+        for pubkey, pb in validated_pending.items():
+            if module_address := pubkey_to_module_address.get(pubkey):
+                if module_id := module_address_to_id.get(module_address):
+                    module_pending_balances[module_id] = Gwei(module_pending_balances[module_id] + pb)
 
         # Prepare result lists (only modules with any balance)
         module_ids: list[StakingModuleId] = []
@@ -449,17 +421,81 @@ class Accounting(BaseModule, ConsensusModule):
             active_balances.append(module_active_balances[module_id])
             pending_balances.append(module_pending_balances[module_id])
 
-        logger.info({
-            'msg': 'Calculate balances by staking modules',
-            'modules_count': len(module_ids),
-            'module_ids': module_ids,
-            'active_balances': active_balances,
-            'pending_balances': pending_balances,
-        })
+        logger.info(
+            {
+                'msg': 'Calculate balances by staking modules',
+                'modules_count': len(module_ids),
+                'module_ids': module_ids,
+                'active_balances': active_balances,
+                'pending_balances': pending_balances,
+            }
+        )
 
         return module_ids, active_balances, pending_balances
 
-    def _get_finalization_data(self, blockstamp: ReferenceBlockStamp) -> tuple[FinalizationBatches, FinalizationShareRate]:
+    @lru_cache(maxsize=1)
+    def _get_operator_balances(self, blockstamp: ReferenceBlockStamp) -> OperatorsBalances:
+        """
+        Calculate active validator balance and pending deposit balance per node operator.
+
+        Returns:
+            dict mapping (module_id, operator_id) to (validator_balance_gwei, pending_balance_gwei)
+        """
+        OPERATOR_BALANCE_MODULE_TYPES = {StakingModuleType.CURATED_ONCHAIN_V2_TYPE, StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE}
+
+        lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
+        staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
+
+        # Build module address to module ID mapping, filtering by module type
+        module_address_to_id: dict[str, StakingModuleId] = {}
+        for module in staking_modules:
+            module_type = self.w3.lido_contracts.staking_router.get_staking_module_type(
+                module.staking_module_address, blockstamp.block_hash
+            )
+            if module_type in OPERATOR_BALANCE_MODULE_TYPES:
+                module_address_to_id[module.staking_module_address] = module.id
+
+        # Sum active balances per operator
+        operator_active: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        for validator in lido_validators:
+            module_address = validator.lido_id.moduleAddress
+            if module_id := module_address_to_id.get(module_address):
+                key: NodeOperatorGlobalIndex = (module_id, validator.lido_id.operatorIndex)
+                operator_active[key] = Gwei(operator_active[key] + validator.balance)
+
+        # Sum pending balances per operator from the shared validated source
+        operator_pending: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        validated_pending = self._get_validated_pending_balances_by_pubkey(blockstamp)
+        lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
+
+        # Build pubkey to (module_id, operator_index) mapping
+        pubkey_to_operator: dict[str, NodeOperatorGlobalIndex] = {}
+        for lido_key in lido_keys:
+            if module_id := module_address_to_id.get(lido_key.moduleAddress):
+                pubkey_to_operator[lido_key.key] = (module_id, lido_key.operatorIndex)
+
+        for pubkey, valid_balance in validated_pending.items():
+            if operator_key := pubkey_to_operator.get(pubkey):
+                operator_pending[operator_key] = Gwei(operator_pending[operator_key] + valid_balance)
+
+        # Merge into result
+        all_keys = set(operator_active.keys()) | set(operator_pending.keys())
+        result: OperatorsBalances = {
+            k: (operator_active.get(k, 0), operator_pending.get(k, 0)) for k in sorted(all_keys)
+        }
+
+        logger.info(
+            {
+                'msg': 'Calculate operator balances',
+                'operators_count': len(result),
+            }
+        )
+
+        return result
+
+    def _get_finalization_data(
+        self, blockstamp: ReferenceBlockStamp
+    ) -> tuple[FinalizationBatches, FinalizationShareRate]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
@@ -562,12 +598,13 @@ class Accounting(BaseModule, ConsensusModule):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl, operator_balances = self._get_generic_extra_data(blockstamp)
 
         return ExtraDataService.collect(
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
+            operator_balances=operator_balances,
         )
 
     @lru_cache(maxsize=1)
@@ -575,7 +612,8 @@ class Accounting(BaseModule, ConsensusModule):
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
-        return exited_validators, orl
+        operator_balances = self._get_operator_balances(blockstamp)
+        return exited_validators, orl, operator_balances
 
     # fetches validators_count, cl_balance, withdrawal_balance, el_vault_balance, shares_to_burn
     def _calculate_rebase_report(self, blockstamp: ReferenceBlockStamp) -> RebaseReport:
@@ -636,7 +674,7 @@ class Accounting(BaseModule, ConsensusModule):
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
-            block_identifier=blockstamp.block_hash
+            block_identifier=blockstamp.block_hash,
         )
 
         core_apr_ratio = calculate_gross_core_apr(
@@ -687,11 +725,12 @@ class Accounting(BaseModule, ConsensusModule):
         return merkle_tree.root, str(tree_cid)
 
     def _calculate_extra_data_report(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
-        exited_validators, orl = self._get_generic_extra_data(blockstamp)
+        exited_validators, orl, operator_balances = self._get_generic_extra_data(blockstamp)
         return ExtraDataService.collect(
             exited_validators,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
+            operator_balances=operator_balances,
         )
 
     @staticmethod
@@ -713,11 +752,11 @@ class Accounting(BaseModule, ConsensusModule):
         report_vaults_part: VaultsReport,
         extra_data: ExtraData,
     ) -> ReportData:
-        _, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = (
-            report_rebase_part
-        )
+        _, cl_balance, withdrawal_vault_balance, el_rewards_vault_balance, shares_requested_to_burn = report_rebase_part
         staking_module_ids_list, exit_validators_count_list = report_modules_part
-        module_ids_with_updated_balance, active_balances_by_module, pending_balances_by_module = report_modules_balance_part
+        module_ids_with_updated_balance, active_balances_by_module, pending_balances_by_module = (
+            report_modules_balance_part
+        )
         is_bunker, finalization_batches, finalization_share_rate = report_wq_part
         tree_root, tree_cid = report_vaults_part
 

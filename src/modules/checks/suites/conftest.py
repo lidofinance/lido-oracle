@@ -124,7 +124,7 @@ def pytest_configure(config):
 def pytest_report_teststatus(report, config):
     if report.when == "setup":
         if report.skipped:
-            reason = report.longrepr[-1]
+            reason = report.longrepr[-1] if isinstance(report.longrepr, tuple) else str(report.longrepr)
             return "skipped", reason, "Skipped"
     if report.when == "call":
         if report.passed:
@@ -132,7 +132,7 @@ def pytest_report_teststatus(report, config):
         if report.failed:
             return "failed", "❌ Failed", "❌ Failed"
         if report.skipped:
-            reason = report.longrepr[-1]
+            reason = report.longrepr[-1] if isinstance(report.longrepr, tuple) else str(report.longrepr)
             return "skipped", reason, "Skipped"
     return None
 

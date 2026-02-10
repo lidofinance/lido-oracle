@@ -6,10 +6,15 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import BlockIdentifier
 
+from eth_typing import ChecksumAddress
+
 from src.providers.execution.base_interface import ContractInterface
+from src.types import StakingModuleType
 from src.utils.dataclass import list_of_dataclasses
 from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
 from src.variables import EL_REQUESTS_BATCH_SIZE
+
+STAKING_MODULE_ABI = ContractInterface.load_abi('./assets/IStakingModule.json')['abi']
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +80,17 @@ class StakingRouterContract(ContractInterface):
             'to': self.address,
         })
         return response
+
+    def get_staking_module_type(self, module_address: ChecksumAddress, block_identifier: BlockIdentifier = 'latest') -> StakingModuleType:
+        contract = self.w3.eth.contract(address=module_address, abi=STAKING_MODULE_ABI)
+        response: bytes = contract.functions.getType().call(block_identifier=block_identifier)
+        type_str = response.rstrip(b'\x00').decode('utf-8')
+        logger.info({
+            'msg': f'Call `getType()` on {module_address}.',
+            'value': type_str,
+            'block_identifier': repr(block_identifier),
+        })
+        return StakingModuleType(type_str)
 
     def get_staking_fee_aggregate_distribution(self, block_identifier: BlockIdentifier = 'latest') -> StakingFeeAggregateDistribution:
         """
