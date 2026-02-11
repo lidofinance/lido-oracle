@@ -436,17 +436,16 @@ class Accounting(BaseModule, ConsensusModule):
     @lru_cache(maxsize=1)
     def _get_operator_balances(self, blockstamp: ReferenceBlockStamp) -> OperatorsBalances:
         """
-        Calculate active validator balance and pending deposit balance per node operator.
+        Calculate total balance (validator balance + pending deposits) per node operator.
 
         Returns:
-            dict mapping (module_id, operator_id) to (validator_balance_gwei, pending_balance_gwei)
+            dict mapping (module_id, operator_id) to total_balance_gwei
         """
         OPERATOR_BALANCE_MODULE_TYPES = {StakingModuleType.CURATED_ONCHAIN_V2_TYPE, StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE}
 
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
 
-        # Build module address to module ID mapping, filtering by module type
         module_address_to_id: dict[str, StakingModuleId] = {}
         for module in staking_modules:
             module_type = self.w3.lido_contracts.staking_router.get_staking_module_type(
@@ -455,16 +454,13 @@ class Accounting(BaseModule, ConsensusModule):
             if module_type in OPERATOR_BALANCE_MODULE_TYPES:
                 module_address_to_id[module.staking_module_address] = module.id
 
-        # Sum active balances per operator
-        operator_active: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        operator_balances: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
         for validator in lido_validators:
             module_address = validator.lido_id.moduleAddress
             if module_id := module_address_to_id.get(module_address):
                 key: NodeOperatorGlobalIndex = (module_id, validator.lido_id.operatorIndex)
-                operator_active[key] = Gwei(operator_active[key] + validator.balance)
+                operator_balances[key] = Gwei(operator_balances[key] + validator.balance)
 
-        # Sum pending balances per operator from the shared validated source
-        operator_pending: dict[NodeOperatorGlobalIndex, Gwei] = defaultdict(lambda: Gwei(0))
         validated_pending = self._get_validated_pending_balances_by_pubkey(blockstamp)
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
 
@@ -476,13 +472,9 @@ class Accounting(BaseModule, ConsensusModule):
 
         for pubkey, valid_balance in validated_pending.items():
             if operator_key := pubkey_to_operator.get(pubkey):
-                operator_pending[operator_key] = Gwei(operator_pending[operator_key] + valid_balance)
+                operator_balances[operator_key] = Gwei(operator_balances[operator_key] + valid_balance)
 
-        # Merge into result
-        all_keys = set(operator_active.keys()) | set(operator_pending.keys())
-        result: OperatorsBalances = {
-            k: (operator_active.get(k, 0), operator_pending.get(k, 0)) for k in sorted(all_keys)
-        }
+        result: OperatorsBalances = {k: operator_balances[k] for k in sorted(operator_balances.keys())}
 
         logger.info(
             {
