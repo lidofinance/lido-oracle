@@ -103,6 +103,13 @@ CACHE_PATH: Final = Path(os.getenv("CACHE_PATH", "."))
 VAULT_PAGINATION_LIMIT: Final = int(os.getenv("VAULT_PAGINATION_LIMIT", 100))
 VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STATUSES_BATCH_SIZE", 100))
 
+# Maximum number of blocks to batch-fetch in a single RPC call.
+# When a segment has missed slots and fewer blocks than this threshold,
+# we batch-fetch them all instead of continuing binary search.
+# Set to 1 to disable batching completely (use sequential requests).
+# Trade-off: higher value = fewer RPC round-trips but more data per call.
+BLOCK_BATCH_SIZE_LIMIT: Final = int(os.getenv("BLOCK_BATCH_SIZE_LIMIT", 10))
+
 def check_all_required_variables(module: OracleModule):
     errors = check_uri_required_variables()
     if not LIDO_LOCATOR_ADDRESS:
@@ -164,6 +171,7 @@ PUBLIC_ENV_VARS = {
         'CACHE_PATH': CACHE_PATH,
         'VAULT_PAGINATION_LIMIT': VAULT_PAGINATION_LIMIT,
         'VAULT_VALIDATOR_STATUSES_BATCH_SIZE': VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
+        'BLOCK_BATCH_SIZE_LIMIT': BLOCK_BATCH_SIZE_LIMIT,
     }.items()
 }
 

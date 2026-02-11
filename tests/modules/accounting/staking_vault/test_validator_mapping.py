@@ -1,7 +1,3 @@
-"""
-Tests for grouping validators by vault.
-"""
-
 import pytest
 
 from src.services.staking_vaults import StakingVaultsService
@@ -13,13 +9,16 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+# =============================================================================
+# Tests
+# =============================================================================
 
+
+@pytest.mark.unit
 class TestGetValidatorsByVault:
-    """Tests for _get_validators_by_vault static method."""
 
-    @pytest.mark.unit
     def test_single_validator(self, default_vaults_map):
-        """Test grouping a single validator to its vault."""
+        # Setup
         validators = [
             ValidatorFactory.build_active(
                 withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -30,15 +29,16 @@ class TestGetValidatorsByVault:
             ),
         ]
 
+        # Act
         result = StakingVaultsService._get_validators_by_vault(validators, default_vaults_map)
 
+        # Assert
         assert len(result) == 1
         assert VaultAddresses.VAULT_0 in result
         assert len(result[VaultAddresses.VAULT_0]) == 1
 
-    @pytest.mark.unit
     def test_multiple_validators_different_vaults(self, default_vaults_map):
-        """Test grouping validators to different vaults."""
+        # Setup
         validators = [
             ValidatorFactory.build_active(
                 withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -63,8 +63,10 @@ class TestGetValidatorsByVault:
             ),
         ]
 
+        # Act
         result = StakingVaultsService._get_validators_by_vault(validators, default_vaults_map)
 
+        # Assert
         assert len(result) == 3
         assert VaultAddresses.VAULT_0 in result
         assert VaultAddresses.VAULT_1 in result
@@ -73,9 +75,8 @@ class TestGetValidatorsByVault:
         assert len(result[VaultAddresses.VAULT_1]) == 1
         assert len(result[VaultAddresses.VAULT_2]) == 1
 
-    @pytest.mark.unit
     def test_multiple_validators_same_vault(self, default_vaults_map):
-        """Test grouping multiple validators to the same vault."""
+        # Setup
         validators = [
             ValidatorFactory.build_active(
                 withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -84,15 +85,16 @@ class TestGetValidatorsByVault:
             for _ in range(3)
         ]
 
+        # Act
         result = StakingVaultsService._get_validators_by_vault(validators, default_vaults_map)
 
+        # Assert
         assert len(result) == 1
         assert VaultAddresses.VAULT_0 in result
         assert len(result[VaultAddresses.VAULT_0]) == 3
 
-    @pytest.mark.unit
     def test_unknown_withdrawal_credentials_excluded(self, default_vaults_map):
-        """Test validators with withdrawal credentials not matching a vault are excluded."""
+        # Setup
         unknown_wc = '0x0200000000000000000000000000000000000000000000000000000000000000'
         validators = [
             ValidatorFactory.build_active(
@@ -105,21 +107,20 @@ class TestGetValidatorsByVault:
             ),
         ]
 
+        # Act
         result = StakingVaultsService._get_validators_by_vault(validators, default_vaults_map)
 
+        # Assert
         assert len(result) == 1
         assert VaultAddresses.VAULT_0 in result
         assert all(validators[1] not in vault_validators for vault_validators in result.values())
 
-    @pytest.mark.unit
     def test_empty_validators(self, default_vaults_map):
-        """Test with an empty validators list."""
         result = StakingVaultsService._get_validators_by_vault([], default_vaults_map)
         assert result == {}
 
-    @pytest.mark.unit
     def test_empty_vaults_map(self):
-        """Test with an empty vaults map."""
+        # Setup
         validators = [
             ValidatorFactory.build_active(
                 withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -127,5 +128,8 @@ class TestGetValidatorsByVault:
             ),
         ]
 
+        # Act
         result = StakingVaultsService._get_validators_by_vault(validators, {})
+
+        # Assert
         assert result == {}

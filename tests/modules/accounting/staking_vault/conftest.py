@@ -5,7 +5,6 @@ This module provides reusable test data builders and pytest fixtures
 for testing the StakingVaultsService.
 """
 
-from collections import defaultdict
 from decimal import Decimal
 from typing import Any
 from unittest.mock import MagicMock
@@ -14,7 +13,6 @@ import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from faker import Faker
 from hexbytes import HexBytes
-from polyfactory import Use
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
@@ -31,7 +29,6 @@ from src.modules.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
-    StakingVaultIpfsReport,
     ValidatorStage,
     ValidatorStatus,
     VaultFee,
@@ -84,6 +81,7 @@ class FeeTestConstants:
     PRE_TOTAL_POOLED_ETHER = Wei(9165134090291140983725643)
     CORE_APR_RATIO = Decimal('0.03316002451606887481973829228')
     LIABILITY_SHARES = 2880 * 10**18
+    SECONDS_PER_SLOT = 12
     RESERVE_RATIO_BP = 2000
     INFRA_FEE_BP = 100
     LIQUIDITY_FEE_BP = 650
@@ -440,27 +438,6 @@ class ExtraValueFactory(Web3DataclassFactory[ExtraValue]):
     reservation_fee = '0'
 
 
-class StakingVaultIpfsReportFactory(Web3DataclassFactory[StakingVaultIpfsReport]):
-    """Factory for StakingVaultIpfsReport."""
-
-    format = 'v1'
-    leaf_encoding = ['encoding1']
-    tree = ['node1']
-    block_number = BlockNumber(0)
-    block_hash = MagicMock()
-    ref_slot = MagicMock()
-    timestamp = MagicMock()
-    prev_tree_cid = MagicMock()
-
-    @classmethod
-    def build(cls, **kwargs: Any) -> StakingVaultIpfsReport:
-        if 'values' not in kwargs:
-            kwargs['values'] = []
-        if 'extra_values' not in kwargs:
-            kwargs['extra_values'] = {}
-        return super().build(**kwargs)
-
-
 class OnChainIpfsVaultReportDataFactory(Web3DataclassFactory[OnChainIpfsVaultReportData]):
     """Factory for OnChainIpfsVaultReportData."""
 
@@ -473,24 +450,6 @@ class OnChainIpfsVaultReportDataFactory(Web3DataclassFactory[OnChainIpfsVaultRep
 # =============================================================================
 # Pytest Fixtures
 # =============================================================================
-
-
-@pytest.fixture
-def vault_addresses() -> VaultAddresses:
-    """Provide access to pre-defined vault addresses."""
-    return VaultAddresses()
-
-
-@pytest.fixture
-def withdrawal_credentials() -> WithdrawalCredentials:
-    """Provide access to pre-defined withdrawal credentials."""
-    return WithdrawalCredentials()
-
-
-@pytest.fixture
-def test_pubkeys() -> TestPubkeys:
-    """Provide access to pre-defined validator pubkeys."""
-    return TestPubkeys()
 
 
 @pytest.fixture
@@ -524,86 +483,3 @@ def default_vaults_map() -> dict[ChecksumAddress, VaultInfo]:
             in_out_delta=Wei(1_000_000_000_000_000_000),
         ),
     }
-
-
-@pytest.fixture
-def mock_w3():
-    """Create a basic mocked Web3 instance."""
-    return MagicMock()
-
-
-@pytest.fixture
-def staking_vaults_service(mock_w3) -> StakingVaultsService:
-    """Create a StakingVaultsService with mocked Web3."""
-    return StakingVaultsService(mock_w3)
-
-
-@pytest.fixture
-def mock_w3_with_validator_statuses():
-    """Factory fixture to create Web3 mock with validator status responses."""
-
-    def _create(validator_statuses: dict[str, ValidatorStatus] | None = None):
-        if validator_statuses is None:
-            validator_statuses = {}
-
-        def get_validator_statuses(pubkeys, *args, **kwargs):
-            return {k: v for k, v in validator_statuses.items() if k in pubkeys}
-
-        w3_mock = MagicMock()
-        lazy_oracle_mock = MagicMock()
-        lazy_oracle_mock.get_validator_statuses.side_effect = get_validator_statuses
-        w3_mock.lido_contracts.lazy_oracle = lazy_oracle_mock
-        return w3_mock
-
-    return _create
-
-
-@pytest.fixture
-def mock_vault_hub_events():
-    """Factory fixture to create vault hub mock with event responses."""
-
-    def _create(
-        fee_updated_events=None,
-        minted_events=None,
-        burned_events=None,
-        rebalanced_events=None,
-        bad_debt_socialized_events=None,
-        written_off_events=None,
-        connected_events=None,
-    ):
-        vault_hub_mock = MagicMock()
-        vault_hub_mock.get_vault_fee_updated_events = MagicMock(return_value=fee_updated_events or [])
-        vault_hub_mock.get_minted_events = MagicMock(return_value=minted_events or [])
-        vault_hub_mock.get_burned_events = MagicMock(return_value=burned_events or [])
-        vault_hub_mock.get_vault_rebalanced_events = MagicMock(return_value=rebalanced_events or [])
-        vault_hub_mock.get_bad_debt_socialized_events = MagicMock(return_value=bad_debt_socialized_events or [])
-        vault_hub_mock.get_bad_debt_written_off_to_be_internalized_events = MagicMock(
-            return_value=written_off_events or []
-        )
-        vault_hub_mock.get_vault_connected_events = MagicMock(return_value=connected_events or [])
-        return vault_hub_mock
-
-    return _create
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
-def create_events_dict(events_list) -> defaultdict[str, list]:
-    """Convert a list of events to a dictionary keyed by vault address."""
-    events = defaultdict(list)
-    for event in events_list:
-        vault = getattr(event, 'vault', None) or getattr(event, 'vault_donor', None)
-        if vault:
-            events[vault].append(event)
-        # Handle BadDebtSocializedEvent which has both donor and acceptor
-        if hasattr(event, 'vault_acceptor'):
-            events[event.vault_acceptor].append(event)
-    return events
-
-
-def gwei_to_wei(gwei: Gwei) -> Wei:
-    """Convert Gwei to Wei."""
-    return Wei(int(gwei) * 10**9)
