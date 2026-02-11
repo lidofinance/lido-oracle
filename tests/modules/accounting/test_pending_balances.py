@@ -551,8 +551,8 @@ def test_operator_balances_includes_allowed_module_types(accounting, ref_bs):
 
     assert (1, 0) in result
     assert (2, 0) in result
-    assert result[(1, 0)] == (32_000_000_000, 0)
-    assert result[(2, 0)] == (31_000_000_000, 0)
+    assert result[(1, 0)] == 32_000_000_000
+    assert result[(2, 0)] == 31_000_000_000
 
 
 @pytest.mark.unit
@@ -588,7 +588,7 @@ def test_operator_balances_excludes_unsupported_module_types(accounting, ref_bs)
     # Module 1 (curated-onchain-v1) excluded, module 2 (curated-onchain-v2) included
     assert (1, 0) not in result
     assert (2, 0) in result
-    assert result[(2, 0)] == (31_000_000_000, 0)
+    assert result[(2, 0)] == 31_000_000_000
 
 
 @pytest.mark.unit
@@ -691,3 +691,38 @@ def test_operator_balances_pending_filtered_by_module_type(accounting, ref_bs, g
 
     # Pending deposit key belongs to CSM module (excluded), so result is empty
     assert result == {}
+
+
+@pytest.mark.unit
+def test_operator_balances_sums_validator_and_pending(accounting, ref_bs, genesis_config):
+    """Operator balance is the sum of validator CL balance and pending deposits."""
+    module = _make_staking_module(1, MODULE_ADDRESS_1)
+
+    privkey, pubkey = _make_bls_keypair()
+    pubkey_hex = '0x' + pubkey.hex()
+
+    validator = LidoValidatorFactory.build(
+        balance=Gwei(32_000_000_000),
+        validator=ValidatorStateFactory.build(pubkey=pubkey_hex[2:]),
+        lido_id=_make_lido_key(pubkey_hex, MODULE_ADDRESS_1, operator_index=0),
+    )
+
+    # Top-up pending deposit for the same existing validator (no BLS check needed)
+    pending_deposit = _make_pending_deposit(privkey, pubkey, LIDO_WC, 1_000_000_000)
+
+    lido_key = _make_lido_key(pubkey_hex, MODULE_ADDRESS_1, operator_index=0)
+
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module])
+    accounting.w3.lido_contracts.staking_router.get_staking_module_type = Mock(
+        side_effect=_mock_get_staking_module_type({MODULE_ADDRESS_1: StakingModuleType.CURATED_ONCHAIN_V2_TYPE})
+    )
+    accounting.w3.lido_validators.get_lido_validators = Mock(return_value=[validator])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[pending_deposit])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=[lido_key])
+    accounting.w3.lido_contracts.lido.get_withdrawal_credentials = Mock(return_value=LIDO_WC)
+    accounting.get_cc_genesis_config = Mock(return_value=genesis_config)
+
+    result = accounting._get_operator_balances(ref_bs)
+
+    assert (1, 0) in result
+    assert result[(1, 0)] == 32_000_000_000 + 1_000_000_000

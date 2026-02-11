@@ -19,12 +19,13 @@ class ExitedValidatorsPayload:
 
 @dataclass
 class OperatorBalancesPayload:
-    """Payload for EXTRA_DATA_TYPE_OPERATOR_BALANCES (type 3)."""
+    """Payload for EXTRA_DATA_TYPE_OPERATOR_BALANCES (type 3).
+    balances_gwei is the sum of validator balances + pending deposits per operator.
+    """
 
     module_id: int
     node_operator_ids: Sequence[int]
-    validator_balances_gwei: Sequence[int]
-    pending_balances_gwei: Sequence[int]
+    balances_gwei: Sequence[int]
 
 
 class ExtraDataService:
@@ -40,8 +41,8 @@ class ExtraDataService:
     | moduleId | nodeOpsCount | nodeOperatorIds   | exitedValidatorsCounts |
 
     EXTRA_DATA_TYPE_OPERATOR_BALANCES (3) itemPayload format:
-    | 3 bytes  |   8 bytes    |  N * 8 bytes      |  N * 16 bytes       |  N * 16 bytes   |
-    | moduleId | nodeOpsCount | nodeOperatorIds   | validatorBalances   | pendingBalances |
+    | 3 bytes  |   8 bytes    |  N * 8 bytes    |  N * 16 bytes                       |
+    | moduleId | nodeOpsCount | nodeOperatorIds | balances (validator CL + pending)    |
 
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
@@ -53,7 +54,7 @@ class ExtraDataService:
         exited_validators: dict[NodeOperatorGlobalIndex, int],
         max_items_count_per_tx: int,
         max_no_in_payload_count: int,
-        operator_balances: dict[NodeOperatorGlobalIndex, tuple[int, int]],
+        operator_balances: dict[NodeOperatorGlobalIndex, int],
     ) -> ExtraData:
         exited_payloads = cls.build_exited_validators_payloads(exited_validators, max_no_in_payload_count)
         balance_payloads = cls.build_operator_balances_payloads(operator_balances, max_no_in_payload_count)
@@ -109,13 +110,13 @@ class ExtraDataService:
     @classmethod
     def build_operator_balances_payloads(
         cls,
-        balances: dict[NodeOperatorGlobalIndex, tuple[int, int]],
+        balances: dict[NodeOperatorGlobalIndex, int],
         max_no_in_payload_count: int,
     ) -> list[OperatorBalancesPayload]:
         """Build payloads for EXTRA_DATA_TYPE_OPERATOR_BALANCES.
 
         Args:
-            balances: Dict mapping (module_id, operator_id) to (validator_balance_gwei, pending_balance_gwei)
+            balances: Dict mapping (module_id, operator_id) to total_balance_gwei
             max_no_in_payload_count: Max operators per payload item
         """
         operator_balances = sorted(balances.items(), key=lambda x: x[0])
@@ -125,20 +126,17 @@ class ExtraDataService:
         for module_id, operators_by_module in groupby(operator_balances, key=lambda x: x[0][0]):
             for nos_in_batch in batched(list(operators_by_module), max_no_in_payload_count):
                 operator_ids = []
-                validator_balances = []
-                pending_balances = []
+                op_balances = []
 
-                for (_, no_id), (validator_balance, pending_balance) in nos_in_batch:
+                for (_, no_id), balance in nos_in_batch:
                     operator_ids.append(no_id)
-                    validator_balances.append(validator_balance)
-                    pending_balances.append(pending_balance)
+                    op_balances.append(balance)
 
                 payloads.append(
                     OperatorBalancesPayload(
                         module_id=module_id,
                         node_operator_ids=operator_ids,
-                        validator_balances_gwei=validator_balances,
-                        pending_balances_gwei=pending_balances,
+                        balances_gwei=op_balances,
                     )
                 )
 
@@ -180,11 +178,8 @@ class ExtraDataService:
                 elif item_type == ItemType.EXTRA_DATA_TYPE_OPERATOR_BALANCES:
                     payload = cast(OperatorBalancesPayload, payload)
                     tx_body += b''.join(
-                        balance.to_bytes(ExtraDataLengths.VALIDATOR_BALANCE)
-                        for balance in payload.validator_balances_gwei
-                    )
-                    tx_body += b''.join(
-                        balance.to_bytes(ExtraDataLengths.PENDING_BALANCE) for balance in payload.pending_balances_gwei
+                        balance.to_bytes(ExtraDataLengths.OPERATOR_BALANCE)
+                        for balance in payload.balances_gwei
                     )
 
                 index += 1

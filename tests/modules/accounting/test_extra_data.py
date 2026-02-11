@@ -125,11 +125,11 @@ def test_add_hashes_to_transactions():
 @pytest.mark.unit
 def test_build_operator_balances_payloads():
     balances = {
-        (1, 1): (100, 10),
-        (1, 2): (200, 20),
-        (1, 3): (300, 30),
-        (2, 1): (400, 40),
-        (2, 2): (500, 50),
+        (1, 1): 110,
+        (1, 2): 220,
+        (1, 3): 330,
+        (2, 1): 440,
+        (2, 2): 550,
     }
 
     result = ExtraDataService.build_operator_balances_payloads(balances, 2)
@@ -138,18 +138,15 @@ def test_build_operator_balances_payloads():
 
     assert result[0].module_id == 1
     assert result[0].node_operator_ids == [1, 2]
-    assert result[0].validator_balances_gwei == [100, 200]
-    assert result[0].pending_balances_gwei == [10, 20]
+    assert result[0].balances_gwei == [110, 220]
 
     assert result[1].module_id == 1
     assert result[1].node_operator_ids == [3]
-    assert result[1].validator_balances_gwei == [300]
-    assert result[1].pending_balances_gwei == [30]
+    assert result[1].balances_gwei == [330]
 
     assert result[2].module_id == 2
     assert result[2].node_operator_ids == [1, 2]
-    assert result[2].validator_balances_gwei == [400, 500]
-    assert result[2].pending_balances_gwei == [40, 50]
+    assert result[2].balances_gwei == [440, 550]
 
     assert not ExtraDataService.build_operator_balances_payloads({}, 2)
 
@@ -160,8 +157,7 @@ def test_build_extra_transactions_data_with_operator_balances():
         OperatorBalancesPayload(
             module_id=1,
             node_operator_ids=[1, 2],
-            validator_balances_gwei=[100, 200],
-            pending_balances_gwei=[10, 20],
+            balances_gwei=[110, 220],
         ),
     ]
 
@@ -172,7 +168,8 @@ def test_build_extra_transactions_data_with_operator_balances():
     )
 
     assert items_count == 1
-    assert len(txs[0]) == 96
+    # 3 (index) + 2 (type) + 3 (module) + 8 (ops_count) + 2*8 (op_ids) + 2*16 (balances) = 64
+    assert len(txs[0]) == 64
 
 
 @pytest.mark.unit
@@ -181,7 +178,7 @@ def test_collect_with_operator_balances():
         exited_validators={(1, 1): 5},
         max_items_count_per_tx=10,
         max_no_in_payload_count=10,
-        operator_balances={(2, 1): (1000, 100)},
+        operator_balances={(2, 1): 1100},
     )
 
     assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
@@ -195,8 +192,8 @@ def test_collect_only_operator_balances():
         max_items_count_per_tx=10,
         max_no_in_payload_count=10,
         operator_balances={
-            (1, 0): (32_000_000_000, 0),
-            (1, 1): (31_500_000_000, 1_000_000_000),
+            (1, 0): 32_000_000_000,
+            (1, 1): 32_500_000_000,
         },
     )
 
@@ -210,7 +207,7 @@ def test_collect_operator_balances_ordering():
         exited_validators={(1, 0): 5, (2, 0): 3},
         max_items_count_per_tx=100,
         max_no_in_payload_count=100,
-        operator_balances={(1, 0): (32_000_000_000, 0), (2, 0): (33_000_000_000, 500_000_000)},
+        operator_balances={(1, 0): 32_000_000_000, (2, 0): 33_500_000_000},
     )
 
     assert extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
@@ -232,9 +229,9 @@ def test_collect_operator_balances_batching():
         max_items_count_per_tx=100,
         max_no_in_payload_count=2,
         operator_balances={
-            (1, 0): (100, 10),
-            (1, 1): (200, 20),
-            (1, 2): (300, 30),
+            (1, 0): 110,
+            (1, 1): 220,
+            (1, 2): 330,
         },
     )
 
