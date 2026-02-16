@@ -3,6 +3,7 @@ from web3 import Web3 as _Web3
 from src.web3py.extensions import (
     CSM,
     ConsensusClientModule,
+    DelegationModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
@@ -18,4 +19,5 @@ class Web3(_Web3):
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
     csm: CSM
+    delegation: DelegationModule
     ipfs: IPFS

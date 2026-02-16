@@ -1,6 +1,7 @@
 from src.web3py.extensions.consensus import ConsensusClientModule
 from src.web3py.extensions.contracts import LidoContracts
 from src.web3py.extensions.csm import CSM, LazyCSM
+from src.web3py.extensions.delegation import DelegationModule
 from src.web3py.extensions.fallback import FallbackProviderModule
 from src.web3py.extensions.ipfs import IPFS
 from src.web3py.extensions.keys_api import KeysAPIClientModule
@@ -17,5 +18,6 @@ __all__ = [
     "FallbackProviderModule",
     "CSM",
     "LazyCSM",
+    "DelegationModule",
     "IPFS",
 ]

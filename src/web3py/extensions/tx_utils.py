@@ -2,7 +2,6 @@ import logging
 
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
-from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
@@ -11,6 +10,7 @@ from web3.types import BlockData, TxParams, TxReceipt, Wei
 from src import constants, variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
+from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,9 @@ class TransactionUtils(Module):
         if not account:
             logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
             return None
+
+        if self.w3.delegation.is_enabled():
+            transaction = self.w3.delegation.wrap_call_for_delegation(transaction)
 
         params = self._get_transaction_params(transaction, account)
 
@@ -147,3 +150,4 @@ class TransactionUtils(Module):
             TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
 
         return tx_receipt
+

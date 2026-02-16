@@ -31,6 +31,7 @@ from src.web3py.extensions import (
     LidoValidatorsProvider,
     TransactionUtils,
 )
+from src.web3py.extensions.delegation import DelegationModule
 from src.web3py.types import Web3
 
 
@@ -83,15 +84,21 @@ def main(module_name: OracleModule):
 
     check_providers_chain_ids(web3, cc, kac)
 
-    web3.attach_modules({
+    logger.info({'msg': 'Initialize delegation module.'})
+    delegation_module = DelegationModule(web3, variables.DELEGATION_CONTRACT_ADDRESS)
+
+    modules_dict = {
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'transaction': TransactionUtils,
         'csm': LazyCSM,
+        'delegation': lambda: delegation_module,  # type: ignore[dict-item]
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
-    })
+    }
+
+    web3.attach_modules(modules_dict)
 
     logger.info({'msg': 'Initialize prometheus metrics.'})
     init_metrics()
