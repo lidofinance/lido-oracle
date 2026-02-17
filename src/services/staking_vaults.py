@@ -803,39 +803,38 @@ class StakingVaultsService:
             current_frame=current_frame,
         )
 
-        # Get the last processing ref slot
-        last_processing_ref_slot: SlotNumber = accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
-        if last_processing_ref_slot:
-            prev_ref_slot = SlotNumber(int(last_processing_ref_slot))
-        else:
-            # Fresh devnet: no previous Oracle report, derive a starting ref slot
-            # This approximates the accounting contract's _get_slots_elapsed_from_last_report
-            initial_ref_slot = frame_config.initial_epoch * chain_config.slots_per_epoch
-            prev_ref_slot = SlotNumber(initial_ref_slot - 1) if initial_ref_slot > 0 else SlotNumber(0)
+        # Calculate from block param
+        from_ref_slot: SlotNumber = accounting_oracle.get_last_processing_ref_slot(blockstamp.block_hash)
 
-        slots_per_frame = frame_config.epochs_per_frame * chain_config.slots_per_epoch
-        prev_report_blockstamp = get_blockstamp(
+        # If this is first report
+        if not from_ref_slot:
+            # Time range should include all events from FrameIndex 0 upto current ref slot
+            # Calculate FrameIndex 0 ref slot
+            potential_prev_ref_slot = (frame_config.initial_epoch - frame_config.epochs_per_frame) * chain_config.slots_per_epoch - 1
+            from_ref_slot = SlotNumber(max(potential_prev_ref_slot, 0))
+
+        prev_report_block_number = get_blockstamp(
             cc=self.w3.cc,
-            slot=prev_ref_slot,
-            last_finalized_slot_number=SlotNumber(int(prev_ref_slot) + slots_per_frame),
-        )
+            slot=from_ref_slot,
+            last_finalized_slot_number=blockstamp.slot_number,
+        ).block_number
 
         # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.
         events, connected_vaults_set = self._get_vault_events_for_fees(
             vault_hub=vault_hub,
             # Do not include events from last block of last frame
-            from_block=prev_report_blockstamp.block_number + 1,
+            from_block=prev_report_block_number + 1,
             to_block=blockstamp.block_number,
         )
 
         # Missed CL slots produce no EL blocks, so elapsed time must be derived from ref slots.
         current_ref_slot_timestamp = self._get_report_timestamp(blockstamp.ref_slot, chain_config)
-        prev_ref_slot_timestamp = self._get_report_timestamp(prev_ref_slot, chain_config)
+        prev_ref_slot_timestamp = self._get_report_timestamp(from_ref_slot, chain_config)
         report_interval_seconds = current_ref_slot_timestamp - prev_ref_slot_timestamp
         if report_interval_seconds < 0:
             raise ValueError(
                 "Negative report interval."
-                f" {current_ref_slot_timestamp=} {prev_ref_slot_timestamp=} {blockstamp.ref_slot=} {prev_ref_slot=}"
+                f" {current_ref_slot_timestamp=} {prev_ref_slot_timestamp=} {blockstamp.ref_slot=} {from_ref_slot=}"
             )
 
         prev_fee_map, prev_liability_shares_map = self._build_prev_report_maps(prev_ipfs_report)
