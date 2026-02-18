@@ -18,8 +18,9 @@ from src.metrics.prometheus.basic import (
 )
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
-from src.types import BlockStamp, BlockRoot, SlotNumber
+from src.types import BlockRoot, BlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,10 @@ class DaemonModule(ABC):
         pulse()
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
             self._slot_threshold = last_finalized_blockstamp.slot_number
+
+    def shutdown(self) -> None:
+        """Hook called when the module is shutting down."""
+        return None
 
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:

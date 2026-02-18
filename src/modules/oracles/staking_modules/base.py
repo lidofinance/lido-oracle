@@ -1,7 +1,6 @@
-import atexit
 import logging
-from time import time
 from itertools import batched
+from time import time
 
 from hexbytes import HexBytes
 
@@ -15,14 +14,14 @@ from src.metrics.prometheus.performance_oracle import (
     PERFORMANCE_ORACLE_TARGET_R_EPOCH,
     PERFORMANCE_ORACLE_WAITING_FOR_DATA,
 )
+from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
 from src.modules.oracles.staking_modules.common.state import State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -39,6 +38,7 @@ from src.utils.range import sequence
 from src.utils.validator_state import is_active_validator
 from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3StakingModule
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         self.report_contract = w3.staking_module.oracle
         self.state = State.load(self.consumer)
         super().__init__(w3)
-        atexit.register(self._on_shutdown)
 
     def refresh_contracts(self):
         self.w3.staking_module.reload_contracts()
@@ -84,7 +83,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
 
-    def _on_shutdown(self):
+    def shutdown(self) -> None:
         performance_client = getattr(self.w3, "performance", None)
         if performance_client is None:
             logger.debug({

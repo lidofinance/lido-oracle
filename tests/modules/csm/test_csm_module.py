@@ -7,17 +7,17 @@ from unittest.mock import Mock, PropertyMock, call, patch
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX, STAKING_MODULE_LOGS_VERSION
+from src.constants import STAKING_MODULE_LOGS_VERSION, UINT64_MAX
+from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
 from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
-from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
-from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.distribution import Distribution
+from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
 from src.modules.oracles.staking_modules.common.state import State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
+from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 from src.modules.sidecars.performance.common.db import Duty
-from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -41,6 +41,16 @@ def module(web3):
 @pytest.mark.unit
 def test_init(module: CSPerformanceOracle):
     assert module
+
+
+@pytest.mark.unit
+def test_shutdown_calls_cleanup(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.get_epochs_demand = Mock(return_value=Mock())
+    module.w3.performance.delete_epochs_demand = Mock()
+    module.shutdown()
+    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
+    module.w3.performance.delete_epochs_demand.assert_called_once_with("CSPerformanceOracle")
 
 
 # Static functions you were dreaming of for so long.

@@ -33,7 +33,7 @@ class TestIntegrationMainCycleSmoke:
             from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 
             CSPerformanceOracle._collect_data = lambda self: True
-            CSPerformanceOracle._on_shutdown = lambda self: None
+            CSPerformanceOracle.shutdown = lambda self: None
 
             from src.providers.performance.client import PerformanceClient
 

@@ -1,4 +1,5 @@
-from typing import Iterator, cast, Any, TypeVar
+from collections.abc import Iterator
+from typing import Any, TypeVar, cast
 
 from packaging.version import Version
 from web3_multi_provider.metrics import init_metrics
@@ -6,22 +7,24 @@ from web3_multi_provider.metrics import init_metrics
 from src import constants, variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
+from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
+    IPFS,
     ConsensusClientModule,
     FallbackProviderModule,
-    IPFS,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
-from src.web3py.extensions.staking_module import StakingModuleContracts
 from src.web3py.extensions.performance import PerformanceClientModule
+from src.web3py.extensions.staking_module import StakingModuleContracts
 from src.web3py.types import Web3, Web3Base, Web3StakingModule
+
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +107,16 @@ def build_staking_module_web3() -> Web3StakingModule:
 
 def run_oracle_module(module: OracleModule):
     module.check_contract_configs()
-
-    if variables.DAEMON:
-        module.run_as_daemon()
-    else:
-        module.cycle_handler()
+    try:
+        # Docker sends SIGTERM on `docker stop`; convert it to SystemExit so `finally`
+        # runs module.shutdown() and cleanup is not skipped.
+        with graceful_shutdown_signal_handlers():
+            if variables.DAEMON:
+                module.run_as_daemon()
+            else:
+                module.cycle_handler()
+    finally:
+        module.shutdown()
 
 
 def check_providers_chain_ids(web3: Web3Base, cc: ConsensusClientModule, kac: KeysAPIClientModule):
