@@ -1,7 +1,7 @@
 # Usage:
 #   Local development:    docker compose up -d
 #   External PostgreSQL:  PERFORMANCE_DB_HOST=your-host docker compose up -d performance-collector performance-web
-#   Run init-db only:     docker compose up init-db
+#   Run init-db only:     docker compose --profile init up init-db
 
 x-healthcheck-defaults: &healthcheck-defaults
   interval: 30s
@@ -47,6 +47,7 @@ services:
   init-db:
     image: postgres:15
     container_name: staking-module-oracle-init-db
+    profiles: ["init"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,8 +70,11 @@ services:
     container_name: staking-module-oracle-performance-collector
     command: ["-m", "src.main", "performance_collector"]
     depends_on:
+      postgres:
+        condition: service_healthy
       init-db:
         condition: service_completed_successfully
+        required: false
     environment:
       <<: *performance-db-env
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
@@ -88,8 +92,11 @@ services:
     container_name: staking-module-oracle-performance-web
     command: ["-m", "src.main", "performance_web_server"]
     depends_on:
+      postgres:
+        condition: service_healthy
       init-db:
         condition: service_completed_successfully
+        required: false
     environment:
       <<: *performance-db-env
     ports:
