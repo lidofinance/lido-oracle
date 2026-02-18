@@ -441,7 +441,8 @@ class Accounting(BaseModule, ConsensusModule):
         Returns:
             dict mapping (module_id, operator_id) to total_balance_gwei
         """
-        OPERATOR_BALANCE_MODULE_TYPES = {StakingModuleType.CURATED_ONCHAIN_V2_TYPE, StakingModuleType.COMMUNITY_ONCHAIN_V1_TYPE}
+        # TODO: include COMMUNITY_ONCHAIN_V1_TYPE (CSM) on devnet2
+        OPERATOR_BALANCE_MODULE_TYPES = {StakingModuleType.CURATED_ONCHAIN_V2_TYPE}
 
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         staking_modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
