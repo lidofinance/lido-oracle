@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "7.0.0"
+version = "7.1.0"
 description = "Oracle daemon for Lido decentralized staking service. Collects and reports consensus layer states (the number of visible validators and their summarized balances) to the Lido dApp contracts running on execution layer."
 authors = [
     "Dmitry Chernukhin",
@@ -16,9 +16,10 @@ authors = [
     "Yuri Tkachenko",
 ]
 license = "GPL 3.0"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.14"
+python = ">=3.14,<3.15"
 prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
 pytest = "^9.0.2"
@@ -51,10 +52,11 @@ hypothesis = "^6.68.2"
 ruff = "^0.14.0"
 pyright = "^1.1.390"
 responses = "^0.25.7"
-eth-tester = "^0.13.0b1"
+eth-tester = {version = "^0.13.0b1", extras = ["py-evm"]}
 pre-commit = "3.8"
 ipython = "^9.0"
 conventional-pre-commit = "^4.0.0"
+mutmut = "^2.5.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -183,3 +185,9 @@ skip-magic-trailing-comma = false
 # Equivalent to isort's profile = "black" and combine_as_imports = true
 combine-as-imports = true
 lines-after-imports = 2
+
+[tool.mutmut]
+paths_to_mutate = "src/"
+backup = false
+runner = "pytest -x -m unit -q"
+tests_dir = "tests/"

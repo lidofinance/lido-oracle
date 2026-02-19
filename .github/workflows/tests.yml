@@ -24,7 +24,7 @@ jobs:
           echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
         env:
           POETRY_HOME: "/opt/poetry"
-          POETRY_VERSION: 1.3.2
+          POETRY_VERSION: 2.3.2
 
       - name: Install dependencies
         run: |
@@ -148,4 +148,3 @@ jobs:
 
       - name: Lint with pyright
         run: poetry run pyright src
-

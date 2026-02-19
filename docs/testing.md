@@ -201,3 +201,52 @@ For integration tests:
 | `TESTNET_KAPI_URI`             | Keys API URI (for testnet tests)                         | Yes*     |
 
 *Required only when running corresponding integration tests.
+
+## Mutation Testing
+
+Mutation testing is used to evaluate the quality of the test suite by introducing small changes (mutations) to the source code and verifying that tests catch these changes.
+
+### Running Mutation Tests
+
+Run mutation tests on specific files or directories:
+
+```bash
+# Run on a specific mutation target and specific test files
+poetry run mutmut run \
+    --paths-to-mutate=src/services/staking_vaults.py \
+    --runner="pytest -x -m unit -q tests/modules/accounting/staking_vault"
+```
+
+### Viewing Results
+
+```bash
+# View summary of results
+poetry run mutmut results
+
+# View details of a specific mutant
+poetry run mutmut show <id>
+
+# Generate HTML report (opens in browser)
+poetry run mutmut html
+```
+
+### Understanding Results
+
+- **🎉 Killed**: Test suite caught the mutation (good!)
+- **🙁 Survived**: Mutation wasn't caught (test gap identified)
+- **⏰ Timeout**: Tests took too long (possible infinite loop)
+- **🤔 Suspicious**: Tests took longer than expected
+
+**Mutation Score** = (Killed Mutants / Total Mutants) × 100%
+
+A mutation score above 75% indicates good test coverage. Surviving mutants often reveal:
+- Missing boundary condition tests
+- Inadequate assertion checks
+- Untested edge cases
+
+### Configuration
+
+Mutation testing is configured in `pyproject.toml` under `[tool.mutmut]`:
+- Tests are run with `-m unit` flag (unit tests only for speed)
+- Tests stop on first failure (`-x` flag) for faster feedback
+- Results cached in `.mutmut-cache` file
