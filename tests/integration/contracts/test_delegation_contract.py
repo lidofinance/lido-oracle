@@ -4,7 +4,6 @@ import pytest
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestDelegationContract:
-
     def test_get_admin__real_contract__returns_valid_address(self, delegation_contract, caplog):
         admin_address = delegation_contract.get_admin()
 

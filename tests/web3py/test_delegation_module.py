@@ -1,7 +1,6 @@
 import pytest
 
 from src import variables
-from src.web3py.extensions.delegation import DelegationModule, DelegationNotConfiguredError, DelegateMismatchError
 
 
 @pytest.mark.testnet
@@ -21,7 +20,9 @@ class TestDelegationModule:
         assert delegation_module.is_enabled()
         assert any('Delegation contract validation passed' in message for message in caplog.messages)
 
-    def test_wrap_call_for_delegation__real_contract__builds_execute_call(self, web3_integration, delegation_contract, caplog):
+    def test_wrap_call_for_delegation__real_contract__builds_execute_call(
+        self, web3_integration, delegation_contract, caplog
+    ):
         delegation_module = web3_integration.delegation
         mock_target_call = delegation_contract.functions.admin()
 
@@ -45,8 +46,9 @@ class TestDelegationModule:
 
     def test_delegation_module_disabled__no_address__initialization_succeeds(self, caplog, monkeypatch):
         from web3 import Web3
-        from src.web3py.extensions import FallbackProviderModule, DelegationModule
+
         from src.web3py.contract_tweak import tweak_w3_contracts
+        from src.web3py.extensions import DelegationModule, FallbackProviderModule
 
         monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '')
 
@@ -58,21 +60,27 @@ class TestDelegationModule:
             )
         )
         tweak_w3_contracts(w3_no_delegation)
-        w3_no_delegation.attach_modules({
-            'delegation': lambda: DelegationModule(w3_no_delegation, variables.DELEGATION_CONTRACT_ADDRESS),
-        })
+        w3_no_delegation.attach_modules(
+            {
+                'delegation': lambda: DelegationModule(w3_no_delegation, variables.DELEGATION_CONTRACT_ADDRESS),
+            }
+        )
 
         delegation_module = w3_no_delegation.delegation
 
         assert delegation_module.is_enabled() is False
         assert delegation_module.delegation_address == ''
         assert delegation_module.delegation_contract is None
-        assert any('DelegationModule initialized without contract - delegation disabled' in message for message in caplog.messages)
+        assert any(
+            'DelegationModule initialized without contract - delegation disabled' in message
+            for message in caplog.messages
+        )
 
     def test_wrap_call_for_delegation__no_contract__raises_error(self, delegation_contract, monkeypatch):
         from web3 import Web3
-        from src.web3py.extensions import FallbackProviderModule, DelegationModule
+
         from src.web3py.contract_tweak import tweak_w3_contracts
+        from src.web3py.extensions import DelegationModule, FallbackProviderModule
 
         monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '')
 
@@ -84,9 +92,11 @@ class TestDelegationModule:
             )
         )
         tweak_w3_contracts(w3_no_delegation)
-        w3_no_delegation.attach_modules({
-            'delegation': lambda: DelegationModule(w3_no_delegation, variables.DELEGATION_CONTRACT_ADDRESS),
-        })
+        w3_no_delegation.attach_modules(
+            {
+                'delegation': lambda: DelegationModule(w3_no_delegation, variables.DELEGATION_CONTRACT_ADDRESS),
+            }
+        )
 
         delegation_module = w3_no_delegation.delegation
         mock_target_call = delegation_contract.functions.admin()
