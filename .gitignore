@@ -122,6 +122,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# mutation testing
+.mutmut-cache
+
 # mypy
 .mypy_cache/
 .dmypy.json

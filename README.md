@@ -262,6 +262,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False               | `http://localhost:8080`        |
 | `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 100                                                                                                        | False               | `100`                          |
 | `VAULT_VALIDATOR_STATUSES_BATCH_SIZE`                  | The limit for getting validators statuses in one request. Default 100                                                                                                    | False               | `100`                          |
+| `BLOCK_BATCH_SIZE_LIMIT`                               | Maximum number of blocks to batch-fetch in a single RPC call. Set to 1 to disable batching and use sequential requests. Trade-off: higher value = fewer round-trips      | False               | `10`                           |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb

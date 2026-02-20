@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.9.0
 FROM python:3.14-slim AS base
 
-ARG POETRY_VERSION=1.3.2
+ARG POETRY_VERSION=2.3.2
 ARG SOURCE_DATE_EPOCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [7.1.0 VaultOS](https://github.com/lidofinance/lido-oracle/releases/tag/7.1.0) - 2026-02
+
+### Fixed
+- APR calculation is now based on seconds elapsed, not blocks elapsed
+- Support for fresh devnets
+
 ## [7.0.0 VaultOS](https://github.com/lidofinance/lido-oracle/releases/tag/7.0.0) - 2025-12
 
 ### Vaults integration into AO
