@@ -213,6 +213,11 @@ def test_get_slots_elapsed_from_initialize(accounting: Accounting):
     prev_slot = (2 - 1) * 32 - 1  # 31
     assert slots_elapsed == bs.ref_slot - prev_slot
 
+    accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=4))
+
+    slots_elapsed = accounting._get_slots_elapsed_from_last_report(bs)
+    assert slots_elapsed == bs.ref_slot
+
 
 @pytest.mark.unit
 def test_get_slots_elapsed_from_last_report(accounting: Accounting):
