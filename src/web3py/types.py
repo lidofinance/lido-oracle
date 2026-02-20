@@ -6,6 +6,7 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
     TransactionUtils,
     IPFS,
 )
@@ -19,3 +20,4 @@ class Web3(_Web3):
     kac: KeysAPIClientModule
     csm: CSM
     ipfs: IPFS
+    telemetry_data_bus: TelemetryDataBus

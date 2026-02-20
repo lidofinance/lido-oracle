@@ -21,6 +21,7 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
     TransactionUtils,
 )
 from src.web3py.types import Web3
@@ -165,6 +166,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             'cc': lambda: Mock(spec=ConsensusClientModule),
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
+            'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
         }
     )
 

@@ -29,6 +29,7 @@ from src.web3py.extensions import (
     LazyCSM,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
     TransactionUtils,
 )
 from src.web3py.types import Web3
@@ -83,6 +84,9 @@ def main(module_name: OracleModule):
 
     check_providers_chain_ids(web3, cc, kac)
 
+    logger.info({'msg': 'Initialize DataBus telemetry module.'})
+    telemetry_data_bus = TelemetryDataBus(variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name.value)
+
     web3.attach_modules({
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
@@ -91,6 +95,7 @@ def main(module_name: OracleModule):
         'cc': lambda: cc,  # type: ignore[dict-item]
         'kac': lambda: kac,  # type: ignore[dict-item]
         'ipfs': lambda: ipfs,  # type: ignore[dict-item]
+        'telemetry_data_bus': lambda: telemetry_data_bus,  # type: ignore[dict-item]
     })
 
     logger.info({'msg': 'Initialize prometheus metrics.'})

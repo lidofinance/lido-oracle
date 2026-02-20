@@ -5,6 +5,7 @@ from src.web3py.extensions.fallback import FallbackProviderModule
 from src.web3py.extensions.ipfs import IPFS
 from src.web3py.extensions.keys_api import KeysAPIClientModule
 from src.web3py.extensions.lido_validators import LidoValidatorsProvider
+from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
 from src.web3py.extensions.tx_utils import TransactionUtils
 
 
@@ -18,4 +19,5 @@ __all__ = [
     "CSM",
     "LazyCSM",
     "IPFS",
+    "TelemetryDataBus",
 ]

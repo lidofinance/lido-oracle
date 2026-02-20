@@ -111,6 +111,10 @@ VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STAT
 # Trade-off: higher value = fewer RPC round-trips but more data per call.
 BLOCK_BATCH_SIZE_LIMIT: Final = int(os.getenv("BLOCK_BATCH_SIZE_LIMIT", 10))
 
+# - DataBus telemetry -
+TELEMETRY_DATA_BUS_RPC: Final = os.getenv('TELEMETRY_DATA_BUS_RPC', '')
+DATA_BUS_ADDRESS: Final = os.getenv('DATA_BUS_ADDRESS', '')
+
 def check_all_required_variables(module: OracleModule):
     errors = check_uri_required_variables()
     if not LIDO_LOCATOR_ADDRESS:
@@ -173,6 +177,8 @@ PUBLIC_ENV_VARS = {
         'VAULT_PAGINATION_LIMIT': VAULT_PAGINATION_LIMIT,
         'VAULT_VALIDATOR_STATUSES_BATCH_SIZE': VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         'BLOCK_BATCH_SIZE_LIMIT': BLOCK_BATCH_SIZE_LIMIT,
+        'TELEMETRY_DATA_BUS_RPC': TELEMETRY_DATA_BUS_RPC,
+        'DATA_BUS_ADDRESS': DATA_BUS_ADDRESS,
     }.items()
 }
 

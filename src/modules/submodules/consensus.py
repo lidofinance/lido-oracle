@@ -303,6 +303,9 @@ class ConsensusModule(ABC):
 
         report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
+
+        self._send_telemetry(report_data, report_hash)
+
         # We need to check whether report has unexpected data before sending.
         # otherwise we have to check it manually.
         if not self.is_reporting_allowed(blockstamp):
@@ -312,6 +315,12 @@ class ConsensusModule(ABC):
         self._process_report_hash(blockstamp, report_hash)
         # Even if report hash transaction was failed we have to check if we can report data for current frame
         self._process_report_data(blockstamp, report_data, report_hash)
+
+    def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
+        try:
+            self.w3.telemetry_data_bus.send_telemetry(report_data, report_hash)
+        except Exception:
+            logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
 
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()
