@@ -16,6 +16,7 @@ from src.metrics.prometheus.accounting import (
     VAULTS_TOTAL_VALUE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.oracles.accounting.third_phase.types import ExtraData, FormatList
 from src.modules.oracles.accounting.types import (
@@ -39,7 +40,6 @@ from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
@@ -59,6 +59,7 @@ from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.extensions.lido_validators import StakingModule
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 

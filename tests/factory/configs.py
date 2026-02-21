@@ -1,5 +1,5 @@
-from src.modules.oracles.accounting.types import OracleReportLimits
 from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.types import OracleReportLimits
 from src.providers.consensus.types import (
     AttestationData,
     BeaconSpecResponse,

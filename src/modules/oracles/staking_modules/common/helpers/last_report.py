@@ -1,17 +1,18 @@
 import logging
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Self, Iterable
+from typing import Iterable, Self
 
 from hexbytes import HexBytes
 
-from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.common.types import ZERO_HASH
+from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
+from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import BlockStamp, FrameNumber
-from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
 from src.web3py.types import Web3StakingModule
+
 
 logger = logging.getLogger(__name__)
 

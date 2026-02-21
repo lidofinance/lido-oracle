@@ -7,9 +7,9 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src import variables
+from src.modules.common.types import ZERO_HASH, ChainConfig, FrameConfig
 from src.modules.oracles.accounting.types import ReportData
-from src.modules.common.types import ChainConfig, FrameConfig, ZERO_HASH
-from src.types import SlotNumber, Gwei, StakingModuleId
+from src.types import Gwei, SlotNumber, StakingModuleId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 

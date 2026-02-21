@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import cast, Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 from eth_abi.abi import encode
 from hexbytes import HexBytes
@@ -20,11 +20,6 @@ from src.metrics.prometheus.business import (
     ORACLE_MEMBER_INFO,
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
 )
-from src.modules.oracles.common.exceptions import (
-    ContractVersionMismatch,
-    IncompatibleOracleVersion,
-    IsNotMemberException,
-)
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
@@ -32,6 +27,11 @@ from src.modules.common.types import (
     CurrentFrame,
     FrameConfig,
     MemberInfo,
+)
+from src.modules.oracles.common.exceptions import (
+    ContractVersionMismatch,
+    IncompatibleOracleVersion,
+    IsNotMemberException,
 )
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
@@ -41,6 +41,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3, Web3Base
+
 
 logger = logging.getLogger(__name__)
 

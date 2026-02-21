@@ -6,6 +6,7 @@ from src import variables
 from src.metrics.prometheus.basic import BUILD_INFO
 from src.utils.build import get_build_info
 
+
 # To avoid auto-scraping metrics from `src/metrics/prometheus` and any other possible places.
 CUSTOM_REGISTRY = CollectorRegistry()
 CUSTOM_REGISTRY.register(BUILD_INFO)

@@ -8,6 +8,7 @@ from src.constants import UINT64_MAX
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

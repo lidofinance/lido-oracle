@@ -1,16 +1,17 @@
-import pytest
 import os
 from unittest.mock import patch
+
+import pytest
 from _pytest._io import TerminalWriter
 from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
+from src.modules.oracles.common.runtime import build_staking_module_web3
 from src.types import BlockRoot, EpochNumber, SlotNumber
 from src.utils.api import opsgenie_api
 from src.utils.blockstamp import build_blockstamp
 from src.utils.slot import get_reference_blockstamp
-from src.modules.oracles.common.runtime import build_staking_module_web3
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
@@ -21,6 +22,7 @@ from src.web3py.extensions import (
     TransactionUtils,
 )
 from src.web3py.types import Web3
+
 
 TITLE_PROPERTY_NAME = "test_title"
 

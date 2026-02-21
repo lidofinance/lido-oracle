@@ -6,6 +6,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.utils.build import get_build_info
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -3,6 +3,7 @@ import pytest
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber
 
+
 # =============================================================================
 # Tests
 # =============================================================================

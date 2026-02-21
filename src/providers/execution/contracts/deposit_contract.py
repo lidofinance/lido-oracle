@@ -4,6 +4,7 @@ from eth_typing import BlockIdentifier
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

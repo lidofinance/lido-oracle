@@ -6,8 +6,8 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
 )
-from src.modules.oracles.common.consensus import FrameConfig
 from src.modules.common.types import ChainConfig
+from src.modules.oracles.common.consensus import FrameConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex

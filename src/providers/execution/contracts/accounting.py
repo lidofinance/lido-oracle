@@ -8,6 +8,7 @@ from src.modules.oracles.accounting.types import (
 )
 from src.providers.execution.base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

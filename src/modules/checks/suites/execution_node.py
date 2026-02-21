@@ -4,6 +4,7 @@ import pytest
 from src.providers.execution.contracts.deposit_contract import DepositContract
 from src.utils.events import get_events_in_range
 
+
 get_deposit_count_abi = {
     "inputs": [],
     "name": "get_deposit_count",

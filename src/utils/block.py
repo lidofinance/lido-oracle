@@ -8,6 +8,7 @@ from web3 import Web3
 from src.metrics.logging import logging
 from src.variables import BLOCK_BATCH_SIZE_LIMIT
 
+
 logger = logging.getLogger(__name__)
 
 def _should_batch(count: int) -> bool:

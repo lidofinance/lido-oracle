@@ -1,5 +1,5 @@
-import re
 import math
+import re
 from collections import defaultdict
 from unittest.mock import Mock
 
@@ -8,17 +8,17 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import (
-    TOTAL_BASIS_POINTS,
-    MIN_ACTIVATION_BALANCE,
     EFFECTIVE_BALANCE_INCREMENT,
+    MIN_ACTIVATION_BALANCE,
+    TOTAL_BASIS_POINTS,
 )
 from src.modules.oracles.staking_modules.common.distribution import (
     Distribution,
     ValidatorDuties,
     ValidatorDutiesOutcome,
 )
-from src.modules.oracles.staking_modules.common.log import FramePerfLog, ValidatorFrameSummary, OperatorFrameSummary
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State, NetworkDuties, Frame
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
@@ -29,7 +29,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
-from src.types import NodeOperatorId, EpochNumber, ValidatorIndex
+from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory

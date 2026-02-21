@@ -4,10 +4,10 @@ from typing import Any, ClassVar
 from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
-from sqlmodel import SQLModel, Field, Session, create_engine, select, col
+from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
 from src import variables
-from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty, AttDutyMisses
+from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
 from src.types import EpochNumber
 from src.utils.range import sequence
 

@@ -4,10 +4,11 @@ from dataclasses import dataclass
 
 from web3.types import BlockIdentifier
 
-from src.constants import TOTAL_BASIS_POINTS, ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT
+from src.constants import ATTESTATIONS_WEIGHT, BLOCKS_WEIGHT, SYNC_WEIGHT, TOTAL_BASIS_POINTS
 from src.modules.oracles.staking_modules.common.state import ValidatorDuties
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.cache import global_lru_cache as lru_cache
+
 
 logger = logging.getLogger(__name__)
 

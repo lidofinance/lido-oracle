@@ -1,6 +1,8 @@
 from packaging.version import Version
 
 from src.types import Gwei
+
+
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2**64 - 1
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1

@@ -9,6 +9,7 @@ from src import variables
 from src.providers.execution.exceptions import InconsistentEvents
 from src.types import ReferenceBlockStamp
 
+
 logger = logging.getLogger(__name__)
 
 

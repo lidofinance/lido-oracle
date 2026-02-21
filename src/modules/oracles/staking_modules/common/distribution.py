@@ -4,9 +4,11 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 
-from src.constants import MIN_ACTIVATION_BALANCE, MAX_EFFECTIVE_BALANCE_ELECTRA, EFFECTIVE_BALANCE_INCREMENT
+from eth_typing import HexStr
+
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
-from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, Logs
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs, OperatorFrameSummary
 from src.modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
 from src.modules.oracles.staking_modules.common.types import (
     ParticipationShares,
@@ -18,8 +20,6 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
 )
 from src.providers.execution.exceptions import InconsistentData
-from eth_typing import HexStr
-
 from src.types import (
     EpochNumber,
     NodeOperatorId,
@@ -35,6 +35,7 @@ from src.web3py.extensions.lido_validators import (
     ValidatorsByNodeOperator,
 )
 from src.web3py.types import Web3StakingModule
+
 
 logger = logging.getLogger(__name__)
 

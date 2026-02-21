@@ -8,6 +8,7 @@ import requests
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
 
+
 logger = logging.getLogger(__name__)
 
 

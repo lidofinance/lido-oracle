@@ -8,8 +8,9 @@ from src.types import OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.validator_state import is_exited_validator, is_on_exit
-from src.web3py.extensions.lido_validators import (LidoValidator, NodeOperatorGlobalIndex)
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 

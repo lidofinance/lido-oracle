@@ -7,6 +7,7 @@ from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, SlotNumber
 from src.utils.slot import get_blockstamp
 
+
 # =============================================================================
 # Tests
 # =============================================================================

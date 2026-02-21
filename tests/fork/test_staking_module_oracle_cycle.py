@@ -1,22 +1,22 @@
+from pathlib import Path
 from threading import Thread
+from unittest.mock import patch
 
 import pytest
 import uvicorn
-
-from unittest.mock import patch
-from pathlib import Path
-from sqlmodel import create_engine
 from sqlalchemy import JSON
+from sqlmodel import create_engine
 
+from src.modules.common.types import FrameConfig
 from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
-from src.modules.common.types import FrameConfig
 from src.modules.sidecars.performance.common.db import Duty
 from src.modules.sidecars.performance.web.server import app
 from src.utils.range import sequence
 from src.web3py.types import Web3Base, Web3StakingModule
 from tests.fork.conftest import first_slot_of_epoch
+
 
 # pylint: disable=protected-access
 

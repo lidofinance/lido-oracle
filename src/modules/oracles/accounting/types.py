@@ -22,6 +22,7 @@ from src.types import (
 )
 from src.utils.dataclass import FromResponse, Nested
 
+
 BunkerMode = NewType('BunkerMode', bool)
 ValidatorsCount = NewType('ValidatorsCount', int)
 ValidatorsBalance = NewType('ValidatorsBalance', Gwei)

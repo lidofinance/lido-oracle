@@ -1,34 +1,34 @@
 import logging
+import time
 from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-import time
 from typing import Iterable, Sequence
 
 from hexbytes import HexBytes
 
 from src import variables
-from src.constants import SLOTS_PER_HISTORICAL_ROOT, EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SYNC_COMMITTEE_SIZE
+from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
 from src.metrics.prometheus.performance_collector import (
     PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT,
     PERFORMANCE_COLLECTOR_DB_MAX_EPOCH,
     PERFORMANCE_COLLECTOR_DB_MIN_EPOCH,
 )
-from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty, AttDutyMisses
-from src.modules.sidecars.performance.common.db import DutiesDB
 from src.modules.common.types import ZERO_HASH
+from src.modules.sidecars.performance.common.db import DutiesDB
+from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import SyncCommittee, SyncAggregate
-from src.utils.blockstamp import build_blockstamp
-from src.providers.consensus.types import BlockAttestation
+from src.providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
 from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
+from src.utils.blockstamp import build_blockstamp
 from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
 from src.utils.types import hex_str_to_bytes
 from src.utils.web3converter import ChainConverter
+
 
 ZERO_BLOCK_ROOT = HexBytes(ZERO_HASH).to_0x_hex()
 

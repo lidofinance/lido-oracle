@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from itertools import groupby, batched
+from itertools import batched, groupby
 from typing import Sequence
 
-from src.modules.oracles.accounting.third_phase.types import ExtraData, ItemType, ExtraDataLengths, FormatList
 from src.modules.common.types import ZERO_HASH
+from src.modules.oracles.accounting.third_phase.types import ExtraData, ExtraDataLengths, FormatList, ItemType
 from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 

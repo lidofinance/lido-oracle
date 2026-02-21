@@ -30,6 +30,7 @@ from src.providers.execution.contracts.withdrawal_queue_nft import (
 from src.types import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
+
 logger = logging.getLogger(__name__)
 
 

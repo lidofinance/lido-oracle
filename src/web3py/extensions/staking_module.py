@@ -18,6 +18,7 @@ from src.providers.execution.contracts.cs_strikes import CSStrikesContract
 from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
 from src.types import BlockStamp, NodeOperatorId, SlotNumber
 
+
 logger = logging.getLogger(__name__)
 
 

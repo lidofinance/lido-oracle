@@ -1,11 +1,12 @@
 import logging
 
-from web3.types import Wei, BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
 from src.modules.oracles.accounting.types import BeaconStat
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
+
 
 logger = logging.getLogger(__name__)
 

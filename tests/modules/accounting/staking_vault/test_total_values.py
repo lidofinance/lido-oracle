@@ -2,8 +2,8 @@ from unittest.mock import ANY, MagicMock, call
 
 import pytest
 
-from src.modules.oracles.accounting.types import ValidatorStage
 from src.constants import MIN_DEPOSIT_AMOUNT
+from src.modules.oracles.accounting.types import ValidatorStage
 from src.services.staking_vaults import StakingVaultsService
 from src.types import Gwei, SlotNumber
 from src.utils.units import gwei_to_wei
@@ -16,6 +16,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     WithdrawalCredentials,
 )
+
 
 # =============================================================================
 # Helper Functions

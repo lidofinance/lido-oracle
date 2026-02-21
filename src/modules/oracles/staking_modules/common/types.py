@@ -7,6 +7,7 @@ from hexbytes import HexBytes
 from src.providers.ipfs import CID
 from src.types import NodeOperatorId, SlotNumber
 
+
 logger = logging.getLogger(__name__)
 
 type StrikesValidator = tuple[NodeOperatorId, HexBytes]

@@ -6,6 +6,7 @@ from src.constants import PRECISION_E27
 from src.metrics.logging import logging
 from src.types import OracleModuleName
 
+
 logger = logging.getLogger(__name__)
 
 getcontext().prec = PRECISION_E27

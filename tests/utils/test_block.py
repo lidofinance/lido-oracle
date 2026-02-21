@@ -12,6 +12,7 @@ from eth_typing import BlockNumber
 
 from src.utils.block import _should_batch, get_block_timestamps
 
+
 SECONDS_PER_SLOT = 12
 
 

@@ -3,8 +3,7 @@ from typing import Any, List, Optional, Union
 from _typeshed import Incomplete
 from eth_typing import URI as URI
 from web3.providers import JSONBaseProvider
-from web3.types import RPCEndpoint as RPCEndpoint
-from web3.types import RPCResponse as RPCResponse
+from web3.types import RPCEndpoint as RPCEndpoint, RPCResponse as RPCResponse
 
 logger: Incomplete
 

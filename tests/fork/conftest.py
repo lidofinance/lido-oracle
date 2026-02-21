@@ -18,9 +18,9 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
+from src.modules.common.types import FrameConfig
 from src.modules.oracles.common.consensus import ConsensusModule
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.common.types import FrameConfig
 from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
@@ -39,12 +39,12 @@ from src.variables import (
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
+    FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
-    TransactionUtils,
     PerformanceClientModule,
-    FallbackProviderModule,
+    TransactionUtils,
 )
 from src.web3py.extensions.staking_module import StakingModuleContracts
 

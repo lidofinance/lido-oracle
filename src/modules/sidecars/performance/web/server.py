@@ -1,13 +1,14 @@
-from typing import cast
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
+from typing import cast
 
-from fastapi import FastAPI, HTTPException, Depends, Request, APIRouter
+import gunicorn.app.base
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import select
-import gunicorn.app.base
 
 from src.modules.sidecars.performance.common.db import DutiesDB, Duty
+from src.modules.sidecars.performance.web.metrics import attach_metrics
 from src.modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
 from src.modules.sidecars.performance.web.validation import (
     ConsumerParam,
@@ -21,20 +22,20 @@ from src.modules.sidecars.performance.web.validation import (
     parse_epoch_range_query,
     parse_limited_epoch_range_query,
 )
+from src.types import EpochNumber
 from src.variables import (
     PERFORMANCE_WEB_SERVER_API_HOST,
     PERFORMANCE_WEB_SERVER_API_PORT,
     PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
     PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
-    PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
-    PERFORMANCE_WEB_SERVER_WORKERS,
-    PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
-    PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
-    PERFORMANCE_WEB_SERVER_TIMEOUT,
     PERFORMANCE_WEB_SERVER_KEEPALIVE,
+    PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
+    PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
+    PERFORMANCE_WEB_SERVER_WORKERS,
 )
-from src.modules.sidecars.performance.web.metrics import attach_metrics
-from src.types import EpochNumber
+
 
 logger = logging.getLogger(__name__)
 

@@ -15,13 +15,13 @@ from src.metrics.prometheus.ejector import (
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
+from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
+from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
+from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.ejector.data_encode import encode_data
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
-from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
-from src.providers.consensus.types import Validator, BeaconStateView
+from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import ValidatorExitIterator
 from src.services.prediction import RewardsPredictionService
@@ -38,6 +38,7 @@ from src.utils.validator_state import (
 )
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 

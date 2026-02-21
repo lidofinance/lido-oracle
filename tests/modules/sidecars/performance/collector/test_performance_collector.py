@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.modules.sidecars.performance.common.db import DutiesDB, EpochsDemand

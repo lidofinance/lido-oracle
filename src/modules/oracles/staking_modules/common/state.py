@@ -13,6 +13,7 @@ from src.constants import STAKING_MODULE_STATE_VERSION
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
+
 logger = logging.getLogger(__name__)
 
 

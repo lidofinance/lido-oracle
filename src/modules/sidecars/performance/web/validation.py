@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from fastapi import Query, Path
+from fastapi import Path, Query
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, model_validator, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE

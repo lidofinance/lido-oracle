@@ -8,6 +8,13 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
+from src.modules.common.types import (
+    ZERO_HASH,
+    ChainConfig,
+    CurrentFrame,
+    FrameConfig,
+    ModuleExecuteDelay,
+)
 from src.modules.oracles.accounting import accounting as accounting_module
 from src.modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
 from src.modules.oracles.accounting.third_phase.types import FormatList
@@ -20,13 +27,6 @@ from src.modules.oracles.accounting.types import (
     VaultsData,
     VaultsMap,
     VaultTreeNode,
-)
-from src.modules.common.types import (
-    ZERO_HASH,
-    ChainConfig,
-    CurrentFrame,
-    FrameConfig,
-    ModuleExecuteDelay,
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.staking_vaults import StakingVaultsService

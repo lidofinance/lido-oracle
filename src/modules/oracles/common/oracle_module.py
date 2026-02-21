@@ -1,27 +1,31 @@
 import logging
 import traceback
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Iterator, Generic, TypeVar
+from typing import Generic, Iterator, TypeVar
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
+from web3_multi_provider import NoActiveProviderError
 
 from src.modules.common.daemon_module import DaemonModule
 from src.modules.oracles.common.consensus import ConsensusModule
-from src.modules.oracles.common.exceptions import IsNotMemberException, IncompatibleOracleVersion, ContractVersionMismatch
+from src.modules.oracles.common.exceptions import (
+    ContractVersionMismatch,
+    IncompatibleOracleVersion,
+    IsNotMemberException,
+)
+from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
-from src.providers.consensus.client import ConsensusClient
 from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
-from src.utils.cache import clear_global_cache
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
-from src.utils.slot import NoSlotsAvailable, SlotNotFinalized, InconsistentData
-from src.web3py.types import Web3Base
-from web3_multi_provider import NoActiveProviderError
-
 from src.types import BlockStamp
+from src.utils.cache import clear_global_cache
+from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.types import Web3Base
+
 
 logger = logging.getLogger(__name__)
 

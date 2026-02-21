@@ -11,6 +11,7 @@ from src.utils.jwt import validate_jwt
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
 
+
 logger = logging.getLogger(__name__)
 
 

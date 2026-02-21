@@ -9,6 +9,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

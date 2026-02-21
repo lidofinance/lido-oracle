@@ -3,6 +3,7 @@ from enum import Enum
 
 from src.types import SlotNumber
 
+
 # Constants
 ZERO_HASH = bytes([0] * 32)
 

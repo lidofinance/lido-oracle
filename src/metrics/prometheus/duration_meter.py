@@ -5,6 +5,7 @@ from typing import Callable
 
 from src.metrics.prometheus.basic import FUNCTIONS_DURATION, Status
 
+
 logger = logging.getLogger(__name__)
 
 

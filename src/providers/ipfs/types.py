@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 
 import multiformats
 
-from src.utils.car import CARConverter
 from src import variables
+from src.utils.car import CARConverter
+
 from .cid import CID, CIDv0
 
 

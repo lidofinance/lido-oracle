@@ -2,9 +2,9 @@ from web3.module import Module
 
 from src.providers.performance.client import PerformanceClient
 from src.variables import (
-    HTTP_REQUEST_TIMEOUT_PERFORMANCE,
     HTTP_REQUEST_RETRY_COUNT_PERFORMANCE,
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_PERFORMANCE,
+    HTTP_REQUEST_TIMEOUT_PERFORMANCE,
 )
 
 

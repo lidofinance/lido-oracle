@@ -14,6 +14,7 @@ from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
 
+
 logger = logging.getLogger(__name__)
 
 

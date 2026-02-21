@@ -14,6 +14,7 @@ from src.modules.oracles.accounting.events import (
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.events import get_events_in_range
 
+
 logger = logging.getLogger(__name__)
 
 

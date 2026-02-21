@@ -12,10 +12,10 @@ from src.metrics.prometheus.performance_collector import (
     PERFORMANCE_COLLECTOR_ERRORS_TOTAL,
 )
 from src.modules.common.daemon_module import DaemonModule
-from src.modules.common.types import ModuleExecuteDelay, ChainConfig
+from src.modules.common.types import ChainConfig, ModuleExecuteDelay
 from src.modules.sidecars.performance.collector.checkpoint import (
-    FrameCheckpointsIterator,
     FrameCheckpointProcessor,
+    FrameCheckpointsIterator,
 )
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.providers.consensus.client import ConsensusClient
@@ -23,6 +23,7 @@ from src.providers.http_provider import NotOkResponse
 from src.types import BlockStamp, EpochNumber
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.utils.web3converter import ChainConverter
+
 
 logger = logging.getLogger(__name__)
 

@@ -7,6 +7,7 @@ from multiformats import CID, multihash, varint
 
 from .schemes import unixfs_pb2
 
+
 BytesLike = Union[bytes, bytearray, memoryview]
 Block = Tuple[CID, BytesLike]
 

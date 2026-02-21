@@ -1,10 +1,11 @@
-from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.oracles.accounting.types import BatchState
-from src.modules.common.types import ChainConfig, FrameConfig
-from src.services.withdrawal import Withdrawal
 from unittest.mock import Mock
 
 import pytest
+
+from src.constants import SHARE_RATE_PRECISION_E27
+from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.types import BatchState
+from src.services.withdrawal import Withdrawal
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
 

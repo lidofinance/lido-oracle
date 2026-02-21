@@ -2,6 +2,7 @@ from src.metrics.logging import logging
 from src.modules.sidecars.performance.web.server import serve
 from src.variables import PERFORMANCE_WEB_SERVER_API_PORT
 
+
 logger = logging.getLogger(__name__)
 
 
