@@ -7,6 +7,7 @@ from web3.types import BlockIdentifier
 
 from src.web3py.contract_tweak import Contract
 
+
 logger = logging.getLogger(__name__)
 
 

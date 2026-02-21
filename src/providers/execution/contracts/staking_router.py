@@ -1,15 +1,15 @@
 import logging
 
-from src.modules.accounting.types import StakingFeeAggregateDistribution
-from src.utils.abi import named_tuple_to_dataclass
-from src.utils.cache import global_lru_cache as lru_cache
-
 from web3.types import BlockIdentifier
 
+from src.modules.oracles.accounting.types import StakingFeeAggregateDistribution
 from src.providers.execution.base_interface import ContractInterface
+from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
-from src.web3py.extensions.lido_validators import StakingModule, NodeOperator
 from src.variables import EL_REQUESTS_BATCH_SIZE
+from src.web3py.extensions.lido_validators import NodeOperator, StakingModule
+
 
 logger = logging.getLogger(__name__)
 

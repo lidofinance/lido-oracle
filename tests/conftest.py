@@ -10,11 +10,10 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
-from src.main import ipfs_providers
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    CSM,
     IPFS,
     ConsensusClientModule,
     FallbackProviderModule,
@@ -97,7 +96,7 @@ def configure_mainnet_tests(request, monkeypatch):
             )
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
     yield
 
@@ -118,7 +117,7 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
+        monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
     yield
 
@@ -131,7 +130,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
     tweak_w3_contracts(w3)
 
     monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', DUMMY_ADDRESS)
-    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', DUMMY_ADDRESS)
+    monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', DUMMY_ADDRESS)
 
     def create_contract_mock(*args, **kwargs):
         """
@@ -159,7 +158,6 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             # Mocked on the contract level, see create_contract_mock
             'lido_contracts': LidoContracts,
             'transaction': TransactionUtils,
-            'csm': CSM,
             'lido_validators': LidoValidatorsProvider,
             # Modules relying on network level highly - mocked fully
             'cc': lambda: Mock(spec=ConsensusClientModule),

@@ -2,6 +2,7 @@ from prometheus_client import Gauge
 
 from src.variables import PROMETHEUS_PREFIX
 
+
 ACCOUNTING_IS_BUNKER = Gauge(
     "accounting_is_bunker",
     "Is bunker mode enabled",

@@ -5,7 +5,7 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService

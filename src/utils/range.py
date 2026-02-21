@@ -1,5 +1,6 @@
 from typing import Iterable, TypeVar, cast
 
+
 T = TypeVar("T", bound=int)
 
 

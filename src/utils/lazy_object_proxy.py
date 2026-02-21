@@ -1,5 +1,6 @@
 import operator
-from typing import Callable, TypeVar, Any, Generic
+from typing import Any, Callable, Generic, TypeVar
+
 
 WrappedType = TypeVar('WrappedType')
 

@@ -3,7 +3,7 @@ from typing import Iterable
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -30,10 +30,7 @@ class SafeBorder(Web3Converter):
     2. Negative rebase border
     3. Associated slashing border
     """
-    chain_config: ChainConfig
-    frame_config: FrameConfig
     blockstamp: ReferenceBlockStamp
-    converter: Web3Converter
 
     def __init__(
         self,
@@ -48,10 +45,7 @@ class SafeBorder(Web3Converter):
         self.lido_contracts = w3.lido_contracts
 
         self.blockstamp = blockstamp
-        self.chain_config = chain_config
-        self.frame_config = frame_config
 
-        self.converter = Web3Converter(chain_config, frame_config)
         self._retrieve_constants()
 
     def _retrieve_constants(self):

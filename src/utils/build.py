@@ -1,5 +1,6 @@
 import json
 
+
 UNKNOWN_BUILD_INFO = {"version": "unknown", "branch": "unknown", "commit": "unknown"}
 
 

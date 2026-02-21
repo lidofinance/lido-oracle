@@ -16,7 +16,7 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.accounting.events import (
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -25,7 +25,7 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,

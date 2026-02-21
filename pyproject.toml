@@ -34,6 +34,12 @@ multiformats = "^0.3.1"
 protobuf="^6.31.1"
 dag-cbor="^0.3.3"
 ipld-dag-pb = "^0.0.1"
+fastapi = "^0.121.3"
+uvicorn = "^0.38.0"
+gunicorn = "^21.2.0"
+sqlmodel = "^0.0.27"
+psycopg2-binary = "^2.9.11"
+prometheus-fastapi-instrumentator = "^7.1.0"
 
 [tool.poetry.group.dev.dependencies]
 faker = "^37.3.0"
@@ -56,6 +62,7 @@ eth-tester = {version = "^0.13.0b1", extras = ["py-evm"]}
 pre-commit = "3.8"
 ipython = "^9.0"
 conventional-pre-commit = "^4.0.0"
+types-gunicorn = "^23.0.0.20251031"
 mutmut = "^2.5.1"
 
 [build-system]

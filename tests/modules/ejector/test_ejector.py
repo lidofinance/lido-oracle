@@ -13,11 +13,10 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.modules.ejector import ejector as ejector_module
-from src.modules.ejector.ejector import Ejector, logger as ejector_logger
-from src.modules.ejector.types import EjectorProcessingState
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import ChainConfig, CurrentFrame
+from src.modules.common.types import ChainConfig, CurrentFrame, ModuleExecuteDelay
+from src.modules.oracles.ejector import ejector as ejector_module
+from src.modules.oracles.ejector.ejector import Ejector, logger as ejector_logger
+from src.modules.oracles.ejector.types import EjectorProcessingState
 from src.providers.consensus.types import (
     BeaconStateView,
 )
@@ -72,7 +71,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
-    ejector._check_compatability = Mock(return_value=True)
+    ejector._check_compatibility = Mock(return_value=True)
     assert ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT, (
         "execute_module should wait for the next slot"
     )

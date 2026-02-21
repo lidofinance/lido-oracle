@@ -3,11 +3,12 @@
 import random
 import string
 import time
-from typing import Callable, Any
+from typing import Any, Callable
 
-from src.main import ipfs_providers
-from src.providers.ipfs import Pinata, Storacha, LidoIPFS
+from src.modules.oracles.common.runtime import ipfs_providers
+from src.providers.ipfs import LidoIPFS, Pinata, Storacha
 from src.utils.car.converter import DEFAULT_CHUNK_SIZE
+
 
 REQUIRED_PROVIDERS = (Pinata, Storacha, LidoIPFS)
 

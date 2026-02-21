@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import logging
-from typing import Mapping, Iterator, Iterable, Any
+from typing import Any, Iterable, Iterator, Mapping
 
 
 def convert_bytes_to_hex(data: Any) -> Any:

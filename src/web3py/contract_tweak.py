@@ -5,8 +5,8 @@ from eth_abi.exceptions import DecodingError
 from eth_typing import (
     ABI,
     ABIFunction,
+    ChecksumAddress,
 )
-from eth_typing import ChecksumAddress
 from eth_utils.abi import (
     get_abi_output_types,
 )
@@ -19,14 +19,13 @@ from web3._utils.abi import (
 from web3._utils.contracts import prepare_transaction
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 from web3.contract import Contract as _Contract
-from web3.contract.contract import ContractFunction as _ContractFunction
-from web3.contract.contract import ContractFunctions as _ContractFunctions
+from web3.contract.contract import ContractFunction as _ContractFunction, ContractFunctions as _ContractFunctions
 from web3.contract.utils import ACCEPTABLE_EMPTY_STRINGS
 from web3.exceptions import BadFunctionCallOutput
 from web3.types import (
+    ABIElementIdentifier,
     BlockIdentifier,
     StateOverride,
-    ABIElementIdentifier,
     TxParams,
 )
 from web3.utils import get_abi_element

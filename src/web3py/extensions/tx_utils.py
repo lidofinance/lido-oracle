@@ -12,6 +12,7 @@ from src import constants, variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 
+
 logger = logging.getLogger(__name__)
 
 

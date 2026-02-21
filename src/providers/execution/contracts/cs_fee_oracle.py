@@ -6,6 +6,7 @@ from web3.types import BlockIdentifier
 
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 
+
 logger = logging.getLogger(__name__)
 
 

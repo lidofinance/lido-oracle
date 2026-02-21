@@ -1,8 +1,8 @@
 import functools
-
-import requests
 import logging
 from enum import Enum
+
+import requests
 
 from src import variables
 

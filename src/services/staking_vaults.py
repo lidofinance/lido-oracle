@@ -15,7 +15,8 @@ from src.constants import (
     SECONDS_IN_YEAR,
     TOTAL_BASIS_POINTS,
 )
-from src.modules.accounting.events import (
+from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -25,7 +26,7 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -42,7 +43,6 @@ from src.modules.accounting.types import (
     VaultToValidators,
     VaultTreeNode,
 )
-from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -54,6 +54,7 @@ from src.utils.slot import get_blockstamp
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 
