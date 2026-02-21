@@ -42,6 +42,8 @@ DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
+MAX_BLOCK_GAS_LIMIT = 16_000_000
+
 # Lido contracts constants
 # We assume that the Lido deposit amount is currently 32 ETH (MIN_ACTIVATION_BALANCE).
 # If Lido decides to support 0x2 withdrawal credentials in the future, this variable
@@ -58,7 +60,6 @@ SYNC_WEIGHT = 2
 
 # Local constants
 GWEI_TO_WEI = 10**9
-MAX_BLOCK_GAS_LIMIT = 30_000_000
 UINT64_MAX = 2**64 - 1
 UINT256_MAX = 2**256 - 1
 
@@ -66,7 +67,4 @@ ALLOWED_KAPI_VERSION = Version('1.5.0')
 STAKING_MODULE_STATE_VERSION = 1
 STAKING_MODULE_LOGS_VERSION = 1
 
-GENESIS_VALIDATORS_ROOT = bytes([0] * 32)  # all zeros for deposits
-
-SECONDS_IN_YEAR = 31_557_600 # int(365.25 * 24 * 60 * 60)
-SLOTS_PER_YEAR = 2_628_000
+SECONDS_IN_YEAR = int(365.25 * 24 * 60 * 60)
