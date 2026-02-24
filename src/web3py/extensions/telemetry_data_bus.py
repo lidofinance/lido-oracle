@@ -8,10 +8,11 @@ from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
 from web3.module import Module
 
-from src import variables, constants
+from src import constants, variables
 from src.providers.execution.contracts.data_bus import DataBusContract
 from src.utils.transaction import build_transaction_params, sign_and_send_transaction
 from src.utils.version import get_oracle_version
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,6 @@ EVENT_ID = Web3.keccak(text="OracleReport")
 
 
 class TelemetryDataBus(Module):
-
     class MainnetForbiddenError(Exception):
         pass
 
@@ -42,10 +42,13 @@ class TelemetryDataBus(Module):
         self._data_bus_w3 = self._create_web3(data_bus_rpc)
         address = Web3.to_checksum_address(data_bus_address)
         self._validate(address)
-        self._contract = cast(DataBusContract, self._data_bus_w3.eth.contract(
-            address=address,
-            ContractFactoryClass=DataBusContract,
-        ))
+        self._contract = cast(
+            DataBusContract,
+            self._data_bus_w3.eth.contract(
+                address=address,
+                ContractFactoryClass=DataBusContract,
+            ),
+        )
 
     @staticmethod
     def _create_web3(rpc_url: str) -> Web3:
@@ -59,13 +62,17 @@ class TelemetryDataBus(Module):
         session.mount("https://", adapter)
         session.mount("http://", adapter)
 
-        return Web3(Web3.HTTPProvider(
-            rpc_url,
-            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-            session=session,
-        ))
+        return Web3(
+            Web3.HTTPProvider(
+                rpc_url,
+                request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+                session=session,
+            )
+        )
 
     def _validate(self, address: str) -> None:
+        assert self._data_bus_w3 is not None
+
         chain_id = self._data_bus_w3.eth.chain_id
         if chain_id == constants.MAINNET_CHAIN_ID:
             raise self.MainnetForbiddenError(
@@ -73,23 +80,26 @@ class TelemetryDataBus(Module):
                 "to prevent draining the report wallet."
             )
 
-        code = self._data_bus_w3.eth.get_code(address)
+        code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
             raise self.ContractNotDeployedError(
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
     def send_telemetry(self, report_data: tuple, report_hash: bytes) -> None:
-        if self._contract is None:
+        if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
 
-        payload = json.dumps({
-            'version': get_oracle_version(),
-            'module': self._module_name,
-            'report_hash': '0x' + report_hash.hex(),
-            'report': list(report_data),
-        }, default=str).encode('utf-8')
+        payload = json.dumps(
+            {
+                'version': get_oracle_version(),
+                'module': self._module_name,
+                'report_hash': '0x' + report_hash.hex(),
+                'report': list(report_data),
+            },
+            default=str,
+        ).encode('utf-8')
 
         tx = self._contract.send_message(EVENT_ID, payload)
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)

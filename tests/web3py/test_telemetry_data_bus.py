@@ -5,6 +5,7 @@ import pytest
 from src.constants import MAINNET_CHAIN_ID
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
 
+
 DUMMY_RPC = 'http://localhost:8545'
 DUMMY_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678'
 
