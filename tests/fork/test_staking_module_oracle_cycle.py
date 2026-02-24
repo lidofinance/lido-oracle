@@ -1,9 +1,12 @@
+import logging
+import time
 from pathlib import Path
 from threading import Thread
 from unittest.mock import patch
 
 import pytest
 import uvicorn
+from faker import Faker
 from sqlalchemy import JSON
 from sqlmodel import create_engine
 
@@ -19,6 +22,8 @@ from tests.fork.conftest import first_slot_of_epoch
 
 
 # pylint: disable=protected-access
+
+CONTRACTS_UPDATE_LOG = "Oracle waits for contacts to be updated."
 
 
 @pytest.fixture()
@@ -49,6 +54,7 @@ def performance_local_db(testrun_path):
             self._get_database_url(),
             echo=False,
             pool_pre_ping=True,
+            connect_args={"check_same_thread": False},
         )
 
     def mock_init(self, *args, **kwargs):
@@ -75,11 +81,25 @@ def performance_collector(performance_local_db, web3: Web3Base, frame_config: Fr
 
 
 @pytest.fixture()
-def performance_web_server(performance_local_db):
-    Thread(
-        target=uvicorn.run, args=(app,), kwargs={'host': '127.0.0.1', 'port': 9020, 'log_level': 'error'}, daemon=True
-    ).start()
+def performance_web_server_port():
+    return Faker().random_int(min=10000, max=20000)
+
+
+@pytest.fixture()
+def performance_web_server(performance_local_db, performance_web_server_port):
+    config = uvicorn.Config(app, host='127.0.0.1', port=performance_web_server_port, log_level='error')
+    server = uvicorn.Server(config)
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.05)
+
     yield
+    server.should_exit = True
+    thread.join(timeout=5)
 
 
 @pytest.fixture
@@ -124,8 +144,17 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
     indirect=True,
 )
 def test_staking_module_module_report(
-    performance_web_server, performance_collector, module, set_oracle_members, running_finalized_slots, account_from
+    performance_web_server,
+    performance_collector,
+    module,
+    set_oracle_members,
+    running_finalized_slots,
+    account_from,
+    caplog,
 ):
+    caplog.set_level(logging.INFO, logger="src.modules.oracles.common.consensus")
+    caplog.clear()
+
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
@@ -140,6 +169,8 @@ def test_staking_module_module_report(
             # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
+                if any(CONTRACTS_UPDATE_LOG in record.getMessage() for record in caplog.records):
+                    pytest.skip("Skip: oracle contracts are not updated on network yet")
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
