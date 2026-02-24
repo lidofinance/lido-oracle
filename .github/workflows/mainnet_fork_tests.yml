@@ -21,6 +21,8 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    env:
+      FORGE_REV: v1.5.1
     steps:
       - uses: actions/checkout@v3
 
@@ -35,6 +37,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_REV }}
 
       - name: Install node
         uses: actions/setup-node@v4
