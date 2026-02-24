@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_VIRTUALENVS_IN_PROJECT=false \
     POETRY_NO_INTERACTION=1 \
+    POETRY_INSTALLER_PARALLEL=false \
     VENV_PATH="/opt/venv" \
     # Building reproducible .so files by enforcing consistent CFLAGS across builds
     CFLAGS="-g0 -O2 -ffile-prefix-map=/src=."
