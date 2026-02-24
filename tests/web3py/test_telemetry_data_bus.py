@@ -1,7 +1,12 @@
+from unittest.mock import Mock, patch
+
 import pytest
 
-from src import variables
+from src.constants import MAINNET_CHAIN_ID
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
+
+DUMMY_RPC = 'http://localhost:8545'
+DUMMY_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678'
 
 
 @pytest.mark.unit
@@ -9,31 +14,69 @@ class TestTelemetryDataBus:
     def _create_module(self, web3, data_bus_rpc: str = '', data_bus_address: str = '', module_name: str = 'accounting'):
         return TelemetryDataBus(data_bus_rpc, data_bus_address, module_name, web3)
 
+    def _mock_data_bus_w3(self, chain_id: int = 17000, code: bytes = b'') -> Mock:
+        mock_w3 = Mock()
+        mock_w3.eth.chain_id = chain_id
+        mock_w3.eth.get_code.return_value = code
+        return mock_w3
+
     def test___init____not_configured__logs_skipping(self, web3, caplog):
         self._create_module(web3)
 
         assert 'DataBus telemetry is not configured. Skipping initialization.' in caplog.text
 
     def test___init____missing_rpc__logs_skipping(self, web3, caplog):
-        self._create_module(web3, data_bus_address='0x1234567890abcdef1234567890abcdef12345678')
+        self._create_module(web3, data_bus_address=DUMMY_ADDRESS)
 
         assert 'DataBus telemetry is not configured. Skipping initialization.' in caplog.text
 
     def test___init____missing_address__logs_skipping(self, web3, caplog):
-        self._create_module(web3, data_bus_rpc='http://localhost:8545')
+        self._create_module(web3, data_bus_rpc=DUMMY_RPC)
 
         assert 'DataBus telemetry is not configured. Skipping initialization.' in caplog.text
 
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test___init____mainnet_chain_id__raises_mainnet_forbidden(self, mock_create_web3, web3):
+        mock_create_web3.return_value = self._mock_data_bus_w3(chain_id=MAINNET_CHAIN_ID)
+
+        with pytest.raises(TelemetryDataBus.MainnetForbiddenError):
+            self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test___init____no_code_at_address__raises_contract_not_deployed(self, mock_create_web3, web3):
+        mock_create_web3.return_value = self._mock_data_bus_w3(chain_id=17000, code=b'')
+
+        with pytest.raises(TelemetryDataBus.ContractNotDeployedError, match="No contract deployed"):
+            self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+
+    @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
+    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    @patch.object(TelemetryDataBus, '_validate')
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test_send_telemetry__configured__sends_transaction(
+        self, mock_create_web3, mock_validate, mock_build_params, mock_sign_and_send, web3, caplog
+    ):
+        mock_data_bus_w3 = Mock()
+        mock_create_web3.return_value = mock_data_bus_w3
+        mock_contract = Mock()
+        mock_data_bus_w3.eth.contract.return_value = mock_contract
+        mock_tx = Mock()
+        mock_contract.send_message.return_value = mock_tx
+        mock_sign_and_send.return_value = b'\xab' * 32
+
+        module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+        report_data = (1, 2, 3)
+        report_hash = b'\x00' * 32
+
+        module.send_telemetry(report_data, report_hash)
+
+        mock_contract.send_message.assert_called_once()
+        mock_build_params.assert_called_once()
+        mock_sign_and_send.assert_called_once()
+        assert 'DataBus telemetry sent.' in caplog.text
+
     def test_send_telemetry__not_configured__logs_skipping(self, web3, caplog):
         module = self._create_module(web3)
-
-        module.send_telemetry((1, 2, 3), b'\x00' * 32)
-
-        assert 'DataBus telemetry is not configured. Skipping send.' in caplog.text
-
-    def test_send_telemetry__no_account__logs_skipping(self, web3, monkeypatch, caplog):
-        module = self._create_module(web3)
-        monkeypatch.setattr(variables, 'ACCOUNT', None)
 
         module.send_telemetry((1, 2, 3), b'\x00' * 32)
 

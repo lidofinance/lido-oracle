@@ -74,7 +74,7 @@ class TelemetryDataBus(Module):
             )
 
         code = self._data_bus_w3.eth.get_code(address)
-        if code in (b"", b"0x"):
+        if not code:
             raise self.ContractNotDeployedError(
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
@@ -82,10 +82,6 @@ class TelemetryDataBus(Module):
     def send_telemetry(self, report_data: tuple, report_hash: bytes) -> None:
         if self._contract is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
-            return
-
-        if not variables.ACCOUNT:
-            logger.warning({'msg': 'No account configured. Skipping DataBus telemetry.'})
             return
 
         payload = json.dumps({
