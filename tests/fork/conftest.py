@@ -261,6 +261,17 @@ def anvil_port():
 
 @pytest.fixture()
 def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvil_port: int):
+    fork_rpc_url = variables.EXECUTION_CLIENT_URI[0]
+    fork_block_number = int(blockstamp_for_forking.block_number)
+    smoke_web3 = Web3(MultiProvider([fork_rpc_url], request_kwargs={'timeout': 30}))
+
+    assert smoke_web3.is_connected(), f"TESTRUN EL smoke check failed: cannot connect to {fork_rpc_url}"
+    try:
+        block_number = smoke_web3.eth.get_block(fork_block_number)['number']
+    except Exception as error:
+        raise AssertionError(f"TESTRUN EL smoke check failed: {error}") from error
+    assert int(block_number) == fork_block_number, "TESTRUN EL smoke check failed: unexpected block number"
+
     cli_params = [
         'anvil',
         '--port',
@@ -269,9 +280,9 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
         f'{testrun_path}/localhost.json',
         '--auto-impersonate',
         '-f',
-        variables.EXECUTION_CLIENT_URI[0],
+        fork_rpc_url,
         '--fork-block-number',
-        str(blockstamp_for_forking.block_number),
+        str(fork_block_number),
     ]
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
