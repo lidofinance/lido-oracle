@@ -1,4 +1,3 @@
-import logging
 import time
 from pathlib import Path
 from threading import Thread
@@ -8,6 +7,7 @@ import pytest
 import uvicorn
 from faker import Faker
 from sqlalchemy import JSON
+from sqlalchemy.pool import StaticPool
 from sqlmodel import create_engine
 
 from src.modules.common.types import FrameConfig
@@ -22,8 +22,6 @@ from tests.fork.conftest import first_slot_of_epoch
 
 
 # pylint: disable=protected-access
-
-CONTRACTS_UPDATE_LOG = "Oracle waits for contacts to be updated."
 
 
 @pytest.fixture()
@@ -44,9 +42,11 @@ def cm_module(web3_curated_module: Web3StakingModule):
 
 @pytest.fixture()
 def performance_local_db(testrun_path):
+    db_path = Path(testrun_path) / "test_duties.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path.touch(mode=0o600, exist_ok=True)
+
     def mock_get_database_url(self):
-        db_path = Path(testrun_path) / "test_duties.db"
-        db_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{db_path}"
 
     def mock_build_engine(self, connect_timeout):
@@ -54,7 +54,8 @@ def performance_local_db(testrun_path):
             self._get_database_url(),
             echo=False,
             pool_pre_ping=True,
-            connect_args={"check_same_thread": False},
+            connect_args={"check_same_thread": False, "timeout": 30},
+            poolclass=StaticPool,
         )
 
     def mock_init(self, *args, **kwargs):
@@ -150,10 +151,19 @@ def test_staking_module_module_report(
     set_oracle_members,
     running_finalized_slots,
     account_from,
-    caplog,
 ):
-    caplog.set_level(logging.INFO, logger="src.modules.oracles.common.consensus")
-    caplog.clear()
+    current_contract_version = module.report_contract.get_contract_version()
+    if current_contract_version != module.COMPATIBLE_CONTRACT_VERSION:
+        pytest.skip(
+            f"Contract version {current_contract_version} does not match expected {module.COMPATIBLE_CONTRACT_VERSION}"
+        )
+
+    current_consensus_version = module.report_contract.get_consensus_version()
+    if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
+        pytest.skip(
+            f"Consensus version {current_consensus_version} does not match expected "
+            f"{module.COMPATIBLE_CONSENSUS_VERSION}"
+        )
 
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
@@ -169,8 +179,6 @@ def test_staking_module_module_report(
             # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
-                if any(CONTRACTS_UPDATE_LOG in record.getMessage() for record in caplog.records):
-                    pytest.skip("Skip: oracle contracts are not updated on network yet")
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
