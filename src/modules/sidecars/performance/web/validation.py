@@ -51,7 +51,8 @@ class LimitedEpochRangeQuery(EpochRangeQuery):
         range_size = int(self.to_epoch) - int(self.from_epoch) + 1
         if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
             raise ValueError(
-                f"Requested epoch range is too large; maximum allowed size is {PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE} epochs"
+                "Requested epoch range is too large; maximum allowed size is "
+                f"{PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE} epochs"
             )
         return self
 

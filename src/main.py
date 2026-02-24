@@ -19,18 +19,21 @@ def main(module: OracleModuleName):
         errors = variables.check_uri_required_variables()
         variables.raise_from_errors(errors)
         from src.modules.checks import entrypoint as check_entrypoint
+
         return check_entrypoint.run()
 
     if module is OracleModuleName.PERFORMANCE_WEB_SERVER:
         errors = variables.check_perf_web_server_required_variables()
         variables.raise_from_errors(errors)
         from src.modules.sidecars.performance.web import entrypoint as web_entrypoint
+
         return web_entrypoint.run()
 
     if module is OracleModuleName.PERFORMANCE_COLLECTOR:
         errors = variables.check_perf_collector_required_variables()
         variables.raise_from_errors(errors)
         from src.modules.sidecars.performance.collector import entrypoint as collector_entrypoint
+
         return collector_entrypoint.run()
 
     errors = variables.check_all_required_variables(module)
@@ -38,18 +41,22 @@ def main(module: OracleModuleName):
 
     if module is OracleModuleName.ACCOUNTING:
         from src.modules.oracles.accounting import entrypoint as accounting_entrypoint
+
         return accounting_entrypoint.run()
 
     if module is OracleModuleName.EJECTOR:
         from src.modules.oracles.ejector import entrypoint as ejector_entrypoint
+
         return ejector_entrypoint.run()
 
     if module is OracleModuleName.CSM:
         from src.modules.oracles.staking_modules.community_staking import entrypoint as csm_entrypoint
+
         return csm_entrypoint.run()
 
     if module is OracleModuleName.CM:
         from src.modules.oracles.staking_modules.curated import entrypoint as cm_entrypoint
+
         return cm_entrypoint.run()
 
     raise ValueError(f'Unknown module {module}')

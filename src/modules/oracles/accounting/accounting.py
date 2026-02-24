@@ -66,12 +66,14 @@ logger = logging.getLogger(__name__)
 
 class Accounting(OracleModule[Web3]):
     """
-    Accounting module updates the protocol TVL, distributes node-operator rewards, and processes user withdrawal requests.
+    Accounting module updates the protocol TVL, distributes node-operator rewards,
+    and processes user withdrawal requests.
 
     Report goes in tree phases:
         - Send report hash
         - Send report data (with extra data hash inside)
-            Contains information about lido state, withdrawal requests to finalize and exited validators count by module.
+            Contains information about lido state, withdrawal requests to finalize,
+            and exited validators count by module.
         - Send extra data
             Contains exited validator's updates count by each node operator.
     """
@@ -246,11 +248,15 @@ class Accounting(OracleModule[Web3]):
         lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
         logger.info({'msg': 'Calculate Lido validators count', 'value': len(lido_validators)})
 
-        total_lido_balance = lido_validators_state_balance = sum((validator.balance for validator in lido_validators), Gwei(0))
-        logger.info({
-            'msg': 'Calculate Lido validators state balance (in Gwei)',
-            'value': lido_validators_state_balance,
-        })
+        total_lido_balance = lido_validators_state_balance = sum(
+            (validator.balance for validator in lido_validators), Gwei(0)
+        )
+        logger.info(
+            {
+                'msg': 'Calculate Lido validators state balance (in Gwei)',
+                'value': lido_validators_state_balance,
+            }
+        )
 
         return ValidatorsCount(len(lido_validators)), ValidatorsBalance(Gwei(total_lido_balance))
 
@@ -437,7 +443,7 @@ class Accounting(OracleModule[Web3]):
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
-            block_identifier=blockstamp.block_hash
+            block_identifier=blockstamp.block_hash,
         )
 
         core_apr_ratio = calculate_gross_core_apr(

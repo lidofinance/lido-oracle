@@ -29,12 +29,15 @@ class ValidatorFrameSummary:
 class OperatorFrameSummary:
     distributed_rewards: RewardsShares = 0
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
-    validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(default_factory=lambda: defaultdict(ValidatorFrameSummary))
+    validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(
+        default_factory=lambda: defaultdict(ValidatorFrameSummary)
+    )
 
 
 @dataclass
 class FramePerfLog:
     """A log of performance assessed per operator in the given frame"""
+
     blockstamp: ReferenceBlockStamp
     frame: tuple[EpochNumber, EpochNumber]
     distributable: RewardsShares = 0

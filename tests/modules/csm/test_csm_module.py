@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Literal, NoReturn, Type
+from typing import Literal, NoReturn
 from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
@@ -105,7 +105,7 @@ class FrameTestParam:
     last_processing_ref_slot: int
     current_ref_slot: int
     finalized_slot: int
-    expected_frame: tuple[int, int] | Type[Exception]
+    expected_frame: tuple[int, int] | type[Exception]
 
 
 @pytest.mark.parametrize(
@@ -722,7 +722,7 @@ class BuildReportTestParam:
                         logs=Logs(frames=[Mock()]),
                     )
                 ),
-                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
                 curr_rewards_tree_cid=CID("QmNEW_TREE"),
                 curr_strikes_tree_root=HexBytes(ZERO_HASH),
                 curr_strikes_tree_cid="",
@@ -733,7 +733,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
+                    HexBytes(b"NEW_TREE_ROOT"),
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
@@ -747,7 +747,7 @@ class BuildReportTestParam:
         pytest.param(
             BuildReportTestParam(
                 last_report=Mock(
-                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
                     rewards_tree_cid=CID("QmOLD_TREE"),
                     rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                     strikes_tree_root=HexBytes(ZERO_HASH),
@@ -772,7 +772,7 @@ class BuildReportTestParam:
                         logs=Logs(frames=[Mock()]),
                     )
                 ),
-                curr_rewards_tree_root=HexBytes("NEW_TREE_ROOT".encode()),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
                 curr_rewards_tree_cid=CID("QmNEW_TREE"),
                 curr_strikes_tree_root=HexBytes(ZERO_HASH),
                 curr_strikes_tree_cid="",
@@ -783,7 +783,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("NEW_TREE_ROOT".encode()),
+                    HexBytes(b"NEW_TREE_ROOT"),
                     CID("QmNEW_TREE"),
                     CID("QmLOG"),
                     6,
@@ -797,7 +797,7 @@ class BuildReportTestParam:
         pytest.param(
             BuildReportTestParam(
                 last_report=Mock(
-                    rewards_tree_root=HexBytes("OLD_TREE_ROOT".encode()),
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
                     rewards_tree_cid=CID("QmOLD_TREE"),
                     rewards=[(NodeOperatorId(0), 100), (NodeOperatorId(1), 200), (NodeOperatorId(2), 300)],
                     strikes_tree_root=HexBytes(ZERO_HASH),
@@ -823,7 +823,7 @@ class BuildReportTestParam:
                 expected_func_result=(
                     1,
                     100500,
-                    HexBytes("OLD_TREE_ROOT".encode()),
+                    HexBytes(b"OLD_TREE_ROOT"),
                     CID("QmOLD_TREE"),
                     CID("QmLOG"),
                     0,
@@ -950,7 +950,7 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
 @dataclass(frozen=True)
 class RewardsTreeTestParam:
     shares: dict[NodeOperatorId, int]
-    expected_tree_values: list | Type[ValueError]
+    expected_tree_values: list | type[ValueError]
 
 
 @pytest.mark.unit
@@ -1020,7 +1020,7 @@ def test_make_rewards_tree(module: CSPerformanceOracle, param: RewardsTreeTestPa
 @dataclass(frozen=True)
 class StrikesTreeTestParam:
     strikes: dict[tuple[NodeOperatorId, HexBytes], StrikesList]
-    expected_tree_values: list | Type[ValueError]
+    expected_tree_values: list | type[ValueError]
 
 
 @pytest.mark.parametrize(
@@ -1144,14 +1144,14 @@ class TestLastReport:
             w3=web3,
             blockstamp=Mock(),
             current_frame=FrameNumber(0),
-            rewards_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            rewards_tree_root=HexBytes(b"DOES NOT MATCH"),
             strikes_tree_root=Mock(),
             rewards_tree_cid=CID("QmRT"),
             strikes_tree_cid=Mock(),
         )
 
         with pytest.raises(ValueError, match="tree root"):
-            last_report.rewards
+            _ = last_report.rewards
 
         web3.ipfs.fetch.assert_called_once_with(last_report.rewards_tree_cid, FrameNumber(0))
 
@@ -1202,13 +1202,13 @@ class TestLastReport:
             blockstamp=Mock(),
             current_frame=FrameNumber(0),
             rewards_tree_root=Mock(),
-            strikes_tree_root=HexBytes("DOES NOT MATCH".encode()),
+            strikes_tree_root=HexBytes(b"DOES NOT MATCH"),
             rewards_tree_cid=Mock(),
             strikes_tree_cid=CID("QmRT"),
         )
 
         with pytest.raises(ValueError, match="tree root"):
-            last_report.strikes
+            _ = last_report.strikes
 
         web3.ipfs.fetch.assert_called_once_with(last_report.strikes_tree_cid, FrameNumber(0))
 

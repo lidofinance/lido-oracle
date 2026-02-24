@@ -1,6 +1,6 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import batched, groupby
-from typing import Sequence
 
 from src.modules.common.types import ZERO_HASH
 from src.modules.oracles.accounting.third_phase.types import ExtraData, ExtraDataLengths, FormatList, ItemType
@@ -30,6 +30,7 @@ class ExtraDataService:
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
     """
+
     @classmethod
     def collect(
         cls,
@@ -64,11 +65,11 @@ class ExtraDataService:
         payloads = []
 
         for module_id, operators_by_module in groupby(operator_validators, key=lambda x: x[0][0]):
-            for nos_in_batch in batched(list(operators_by_module), max_no_in_payload_count):
+            for nos_in_batch in batched(list(operators_by_module), max_no_in_payload_count, strict=False):
                 operator_ids = []
                 vals_count = []
 
-                for ((_, no_id), validators_count) in nos_in_batch:
+                for (_, no_id), validators_count in nos_in_batch:
                     operator_ids.append(no_id)
                     vals_count.append(validators_count)
 
@@ -95,7 +96,7 @@ class ExtraDataService:
         index = 0
         result = []
 
-        for payload_batch in batched(all_payloads, max_items_count_per_tx):
+        for payload_batch in batched(all_payloads, max_items_count_per_tx, strict=False):
             tx_body = b''
             for item_type, payload in payload_batch:
                 tx_body += index.to_bytes(ExtraDataLengths.ITEM_INDEX)
@@ -103,13 +104,9 @@ class ExtraDataService:
                 tx_body += payload.module_id.to_bytes(ExtraDataLengths.MODULE_ID)
                 tx_body += len(payload.node_operator_ids).to_bytes(ExtraDataLengths.NODE_OPS_COUNT)
                 tx_body += b''.join(
-                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID)
-                    for no_id in payload.node_operator_ids
+                    no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID) for no_id in payload.node_operator_ids
                 )
-                tx_body += b''.join(
-                    count.to_bytes(ExtraDataLengths.EXITED_VALS_COUNT)
-                    for count in payload.vals_counts
-                )
+                tx_body += b''.join(count.to_bytes(ExtraDataLengths.EXITED_VALS_COUNT) for count in payload.vals_counts)
 
                 index += 1
 

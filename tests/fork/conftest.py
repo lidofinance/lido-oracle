@@ -374,7 +374,7 @@ def running_finalized_slots(request):
 
 
 @pytest.fixture()
-def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):
+def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):  # noqa: C901
     _, current = running_finalized_slots
 
     class PatchedConsensusClient(ConsensusClient):

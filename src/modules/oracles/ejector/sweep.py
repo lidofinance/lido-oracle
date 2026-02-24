@@ -1,7 +1,6 @@
 import math
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
 
 from src.constants import (
     FAR_FUTURE_EPOCH,
@@ -100,12 +99,12 @@ def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_
     return withdrawals_number
 
 
-def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
+def get_pending_partial_withdrawals(state: BeaconStateView) -> list[Withdrawal]:
     """
     This method returns withdrawals that can be performed from `state.pending_partial_withdrawals`
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     """
-    withdrawals: List[Withdrawal] = []
+    withdrawals: list[Withdrawal] = []
 
     for withdrawal in state.pending_partial_withdrawals:
         # if withdrawal.withdrawable_epoch > epoch or len(withdrawals) == MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP:
@@ -130,7 +129,9 @@ def get_pending_partial_withdrawals(state: BeaconStateView) -> List[Withdrawal]:
     return withdrawals
 
 
-def get_validators_withdrawals(state: BeaconStateView, partial_withdrawals: List[Withdrawal], slots_per_epoch: int) -> List[Withdrawal]:
+def get_validators_withdrawals(
+    state: BeaconStateView, partial_withdrawals: list[Withdrawal], slots_per_epoch: int
+) -> list[Withdrawal]:
     """
     This method returns fully and partial withdrawals that can be performed for validators
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals

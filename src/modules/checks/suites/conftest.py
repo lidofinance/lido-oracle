@@ -84,7 +84,10 @@ def web3_curated_module():
         pytest.param(
             6300,
             id="Blockstamp CSM frame ago",
-            marks=pytest.mark.skipif(os.getenv("CS_MODULE_ADDRESS") is None and os.getenv("CURATED_MODULE_ADDRESS") is None, reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set"),
+            marks=pytest.mark.skipif(
+                os.getenv("CS_MODULE_ADDRESS") is None and os.getenv("CURATED_MODULE_ADDRESS") is None,
+                reason="Neither CS_MODULE_ADDRESS nor CURATED_MODULE_ADDRESS is set",
+            ),
         ),
     ]
 )
@@ -154,9 +157,8 @@ def pytest_report_teststatus(report, config):
             return str(longrepr)
         return "Skipped"
 
-    if report.when == "setup":
-        if report.skipped:
-            return "skipped", _skip_reason(), "Skipped"
+    if report.when == "setup" and report.skipped:
+        return "skipped", _skip_reason(), "Skipped"
     if report.when == "call":
         if report.passed:
             return "passed", "✅ Checked", "✅ Checked"
@@ -190,13 +192,15 @@ def pytest_runtest_logreport(report) -> None:
         if report.failed:
             check_name = report.nodeid
             reason = str(report.longrepr) if report.longrepr else 'Unknown failure reason'
-            opsgenie_api.send_opsgenie_alert({
-                'message': f'Oracle check: {check_name}',
-                'description': f'Reason: {reason}',
-                'priority': opsgenie_api.AlertPriority.MINOR.value,
-                'tags': ['oracle_checks', 'oracle'],
-                'details': {'alertname': 'OracleDailyChecks'},
-            })
+            opsgenie_api.send_opsgenie_alert(
+                {
+                    'message': f'Oracle check: {check_name}',
+                    'description': f'Reason: {reason}',
+                    'priority': opsgenie_api.AlertPriority.MINOR.value,
+                    'tags': ['oracle_checks', 'oracle'],
+                    'details': {'alertname': 'OracleDailyChecks'},
+                }
+            )
 
     if report.when == 'teardown':
         print()

@@ -10,7 +10,6 @@ from src.variables import (
 
 class PerformanceClientModule(PerformanceClient, Module):
     def __init__(self, hosts: list[str]):
-
         super(PerformanceClient, self).__init__(
             hosts,
             HTTP_REQUEST_TIMEOUT_PERFORMANCE,

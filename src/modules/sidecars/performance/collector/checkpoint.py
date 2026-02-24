@@ -1,11 +1,12 @@
 import logging
 import time
 from collections import UserDict
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from itertools import batched
 from threading import Lock
-from typing import Iterable, Sequence
+from typing import cast
 
 from hexbytes import HexBytes
 
@@ -82,12 +83,16 @@ class FrameCheckpointsIterator:
         )
 
         if self.l_epoch > self.max_available_epoch_to_check:
-            raise ValueError(f"Left border epoch is greater than max available epoch to check: {l_epoch=} > {self.max_available_epoch_to_check=}")
+            raise ValueError(
+                "Left border epoch is greater than max available epoch to check: "
+                f"{l_epoch=} > {self.max_available_epoch_to_check=}"
+            )
 
     def __iter__(self):
         for checkpoint_epochs in batched(
             sequence(self.l_epoch, self.max_available_epoch_to_check),
             self.MAX_CHECKPOINT_STEP,
+            strict=False,
         ):
             checkpoint_slot = self.converter.get_epoch_first_slot(
                 EpochNumber(max(checkpoint_epochs) + self.CHECKPOINT_SLOT_DELAY_EPOCHS)
@@ -99,7 +104,6 @@ class FrameCheckpointsIterator:
 
 
 class SyncCommitteesCache(UserDict):
-
     max_size = max(2, variables.PERFORMANCE_COLLECTOR_MAX_CONCURRENCY)
 
     def __setitem__(self, sync_committee_period: int, value: SyncCommittee):
@@ -145,11 +149,13 @@ class FrameCheckpointProcessor:
             logger.info({"msg": "Nothing to process in the checkpoint"})
             return 0
 
-        logger.info({
-            'msg': 'Starting epochs batch processing',
-            'unprocessed_epochs_count': len(unprocessed_epochs),
-            'checkpoint_slot': checkpoint.slot
-        })
+        logger.info(
+            {
+                'msg': 'Starting epochs batch processing',
+                'unprocessed_epochs_count': len(unprocessed_epochs),
+                'checkpoint_slot': checkpoint.slot,
+            }
+        )
 
         block_roots = self._get_block_roots(checkpoint.slot)
         duty_epochs_roots = {
@@ -158,11 +164,13 @@ class FrameCheckpointProcessor:
         }
         self._process(block_roots, checkpoint.slot, unprocessed_epochs, duty_epochs_roots)
 
-        logger.info({
-            'msg': 'All epochs processing completed',
-            'processed_epochs': len(unprocessed_epochs),
-            'checkpoint_slot': checkpoint.slot
-        })
+        logger.info(
+            {
+                'msg': 'All epochs processing completed',
+                'processed_epochs': len(unprocessed_epochs),
+                'checkpoint_slot': checkpoint.slot,
+            }
+        )
 
         return len(unprocessed_epochs)
 
@@ -184,18 +192,21 @@ class FrameCheckpointProcessor:
         calculated_pivot_slot = max(checkpoint_slot - SLOTS_PER_HISTORICAL_ROOT, 0)
         is_pivot_missing = br[pivot_index] is None
         if not is_pivot_missing:
-            slot_by_pivot_block_root = self.cc.get_block_header(br[pivot_index]).data.header.message.slot
+            pivot_block_root = cast(BlockRoot, br[pivot_index])
+            slot_by_pivot_block_root = self.cc.get_block_header(pivot_block_root).data.header.message.slot
             is_pivot_missing = slot_by_pivot_block_root != calculated_pivot_slot
         if is_pivot_missing:
             br[pivot_index] = None
 
-        logger.info({
-            'msg': 'Block roots analysis',
-            'total_roots': len(br),
-            'missing_roots_count': br.count(None),
-            'pivot_index': pivot_index,
-            'is_pivot_missing': is_pivot_missing
-        })
+        logger.info(
+            {
+                'msg': 'Block roots analysis',
+                'total_roots': len(br),
+                'missing_roots_count': br.count(None),
+                'pivot_index': pivot_index,
+                'is_pivot_missing': is_pivot_missing,
+            }
+        )
 
         return br
 
@@ -349,18 +360,22 @@ class FrameCheckpointProcessor:
     def _get_sync_committee(self, epoch: EpochNumber) -> SyncCommittee:
         sync_committee_period = epoch // EPOCHS_PER_SYNC_COMMITTEE_PERIOD
         if cached_sync_committee := SYNC_COMMITTEES_CACHE.get(sync_committee_period):
-            logger.debug({
-                'msg': 'Sync committee cache hit',
-                'period': sync_committee_period,
-                'cache_size': len(SYNC_COMMITTEES_CACHE)
-            })
+            logger.debug(
+                {
+                    'msg': 'Sync committee cache hit',
+                    'period': sync_committee_period,
+                    'cache_size': len(SYNC_COMMITTEES_CACHE),
+                }
+            )
             return cached_sync_committee
 
-        logger.debug({
-            'msg': 'Sync committee cache miss',
-            'period': sync_committee_period,
-            'cache_size': len(SYNC_COMMITTEES_CACHE)
-        })
+        logger.debug(
+            {
+                'msg': 'Sync committee cache miss',
+                'period': sync_committee_period,
+                'cache_size': len(SYNC_COMMITTEES_CACHE),
+            }
+        )
 
         from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
@@ -414,18 +429,12 @@ class FrameCheckpointProcessor:
             ).message.slot
             dependent_root = self.cc.get_block_root(dependent_non_missed_slot).root
             logger.debug(
-                {
-                    "msg": f"Got dependent root from CL for epoch {epoch}. "
-                    f"{dependent_non_missed_slot=} {dependent_root=}"
-                }
+                {"msg": f"Got dependent root from CL for epoch {epoch}. {dependent_non_missed_slot=} {dependent_root=}"}
             )
         return dependent_root
 
 
-def process_sync(
-    sync_aggregate: SyncAggregate,
-    sync_duties: list[SyncDuty]
-) -> list[SyncDuty]:
+def process_sync(sync_aggregate: SyncAggregate, sync_duties: list[SyncDuty]) -> list[SyncDuty]:
     # Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#syncaggregate
     sync_bits = hex_bitvector_to_list(sync_aggregate.sync_committee_bits)
     # No need to process set bits because they mean that validator has participated successfully.

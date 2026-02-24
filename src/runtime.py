@@ -12,14 +12,16 @@ logger = logging.getLogger(__name__)
 
 def log_startup(module_name: str) -> None:
     build_info = get_build_info()
-    logger.info({
-        'msg': 'Oracle startup.',
-        'variables': {
-            **build_info,
-            'module': module_name,
-            **variables.PUBLIC_ENV_VARS,
-        },
-    })
+    logger.info(
+        {
+            'msg': 'Oracle startup.',
+            'variables': {
+                **build_info,
+                'module': module_name,
+                **variables.PUBLIC_ENV_VARS,
+            },
+        }
+    )
     ENV_VARIABLES_INFO.info(variables.PUBLIC_ENV_VARS)
     BUILD_INFO.info(build_info)
 

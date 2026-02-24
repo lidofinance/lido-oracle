@@ -1,5 +1,5 @@
 import signal
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from types import FrameType
 
@@ -7,6 +7,9 @@ from src.metrics.logging import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+type SignalHandler = Callable[[int, FrameType | None], object] | int | None
 
 
 def _shutdown_signal_handler(signum: int, _frame: FrameType | None) -> None:
@@ -21,7 +24,7 @@ def _shutdown_signal_handler(signum: int, _frame: FrameType | None) -> None:
 
 @contextmanager
 def graceful_shutdown_signal_handlers() -> Iterator[None]:
-    previous_handlers: dict[signal.Signals, signal.Handlers] = {}
+    previous_handlers: dict[signal.Signals, SignalHandler] = {}
 
     for stop_signal in (signal.SIGINT, signal.SIGTERM):
         try:

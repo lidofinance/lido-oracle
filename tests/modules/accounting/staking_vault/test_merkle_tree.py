@@ -1,6 +1,5 @@
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr

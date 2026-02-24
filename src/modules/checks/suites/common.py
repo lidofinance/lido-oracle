@@ -1,4 +1,5 @@
 """Common checks"""
+
 import pytest
 
 from src.modules.oracles.accounting.accounting import Accounting

@@ -160,8 +160,12 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(Duty).where(  # pylint: disable=not-callable
-                (col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)
+            stmt = (
+                select(func.count())
+                .select_from(Duty)
+                .where(  # pylint: disable=not-callable
+                    (col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)
+                )
             )
             count = session.exec(stmt).one()
             return count == (to_epoch - from_epoch + 1)
@@ -172,7 +176,9 @@ class DutiesDB:
 
         with self.get_session() as session:
             present_duties = session.exec(
-                select(Duty.epoch).where((col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)).order_by(col(Duty.epoch))
+                select(Duty.epoch)
+                .where((col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch))
+                .order_by(col(Duty.epoch))
             ).all()
             present = {EpochNumber(int(epoch)) for epoch in present_duties}
 

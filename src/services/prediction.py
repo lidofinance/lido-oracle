@@ -20,6 +20,7 @@ class RewardsPredictionService:
     **Note** Withdraw amount in Oracle report is limited, so prediction shows not actual Lido rewards, but medium.
     amount of ETH that were withdrawn in Oracle reports.
     """
+
     def __init__(self, w3: Web3):
         self.w3 = w3
 
@@ -29,7 +30,9 @@ class RewardsPredictionService:
         blockstamp: ReferenceBlockStamp,
         chain_configs: ChainConfig,
     ) -> Wei:
-        prediction_duration_in_slots = self.w3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots(blockstamp.block_hash)
+        prediction_duration_in_slots = self.w3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots(
+            blockstamp.block_hash
+        )
 
         token_rebase_events = get_events_in_past(
             self.w3.lido_contracts.lido.events.TokenRebased,  # type: ignore[arg-type]
@@ -63,7 +66,12 @@ class RewardsPredictionService:
         total_rewards = 0
         time_spent = 0
         for event in events:
-            total_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['preCLBalance'] + event['executionLayerRewardsWithdrawn']
+            total_rewards += (
+                event['postCLBalance']
+                + event['withdrawalsWithdrawn']
+                - event['preCLBalance']
+                + event['executionLayerRewardsWithdrawn']
+            )
             time_spent += event['timeElapsed']
 
         return max(
@@ -91,10 +99,12 @@ class RewardsPredictionService:
             if not event_1:
                 raise InconsistentEvents(f'Events are inconsistent: no events from type 1 with {tx_hash=}.')
 
-            result_event_data.append({
-                **event_1['args'],
-                **event_2['args'],
-            })
+            result_event_data.append(
+                {
+                    **event_1['args'],
+                    **event_2['args'],
+                }
+            )
 
         if event_type_1_dict:
             raise InconsistentEvents('Events are inconsistent: unexpected events_type_1 amount.')

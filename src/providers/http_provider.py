@@ -1,7 +1,8 @@
 import logging
 from abc import ABC
+from collections.abc import Callable, Sequence
 from http import HTTPStatus
-from typing import Any, Callable, NoReturn, Protocol, Sequence
+from typing import Any, NoReturn, Protocol
 from urllib.parse import urljoin, urlparse
 
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
@@ -190,11 +191,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
             try:
-                if stream:
-                    # There's no guarantee the JSON is valid at this point.
-                    json_response = json_stream_requests.load(response)
-                else:
-                    json_response = response.json()
+                # There's no guarantee streamed JSON is valid at this point.
+                json_response = json_stream_requests.load(response) if stream else response.json()
             except JSONDecodeError as error:
                 response_fail_msg = (
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'

@@ -50,7 +50,6 @@ class KeyNumberValueInterval:
 
 
 class KeyNumberValueIntervalList(UserList[KeyNumberValueInterval]):
-
     def get_for(self, key_number: int) -> float:
         if key_number < 1:
             raise ValueError("Key number should be greater than 1 or equal")

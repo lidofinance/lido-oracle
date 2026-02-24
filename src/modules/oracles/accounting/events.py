@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Union
+from typing import Any, Self
 
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
@@ -17,7 +17,7 @@ class EventBase:
     block_number: BlockNumber
 
     @classmethod
-    def _extract_common(cls, log: EventData) -> Dict[str, Any]:
+    def _extract_common(cls, log: EventData) -> dict[str, Any]:
         """Extract fields common to all events."""
         return {
             "event": log["event"],
@@ -37,7 +37,7 @@ class MintedSharesOnVaultEvent(EventBase):
     locked_amount: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "MintedSharesOnVaultEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -53,7 +53,7 @@ class BurnedSharesOnVaultEvent(EventBase):
     amount_of_shares: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "BurnedSharesOnVaultEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -73,7 +73,7 @@ class VaultFeesUpdatedEvent(EventBase):
     reservation_fee_bp: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "VaultFeesUpdatedEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -94,7 +94,7 @@ class VaultRebalancedEvent(EventBase):
     ether_withdrawn: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "VaultRebalancedEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -111,7 +111,7 @@ class BadDebtSocializedEvent(EventBase):
     bad_debt_shares: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "BadDebtSocializedEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault_donor=args["vaultDonor"],
@@ -132,7 +132,7 @@ class VaultConnectedEvent(EventBase):
     reservation_fee_bp: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "VaultConnectedEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -152,7 +152,7 @@ class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
     bad_debt_shares: int
 
     @classmethod
-    def from_log(cls, log: EventData) -> "BadDebtWrittenOffToBeInternalizedEvent":
+    def from_log(cls, log: EventData) -> Self:
         args = log["args"]
         return cls(
             vault=args["vault"],
@@ -161,12 +161,12 @@ class BadDebtWrittenOffToBeInternalizedEvent(EventBase):
         )
 
 
-VaultEventType = Union[
-    MintedSharesOnVaultEvent,
-    BurnedSharesOnVaultEvent,
-    VaultFeesUpdatedEvent,
-    VaultRebalancedEvent,
-    BadDebtSocializedEvent,
-    BadDebtWrittenOffToBeInternalizedEvent,
-    VaultConnectedEvent,
-]
+VaultEventType = (
+    MintedSharesOnVaultEvent
+    | BurnedSharesOnVaultEvent
+    | VaultFeesUpdatedEvent
+    | VaultRebalancedEvent
+    | BadDebtSocializedEvent
+    | BadDebtWrittenOffToBeInternalizedEvent
+    | VaultConnectedEvent
+)

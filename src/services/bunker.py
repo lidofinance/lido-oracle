@@ -32,7 +32,8 @@ class BunkerService:
       - High midterm slashing penalty
       - Abnormal CL rebase
 
-    Its purpose is to maintain socialization of all problems in Lido validators pool and to prevent sophisticated attacks.
+    Its purpose is to maintain socialization of all problems in Lido validators
+    pool and to prevent sophisticated attacks.
     To achieve this, "bunker mode" limits an operations in Lido protocol (withdrawal requests finalization)
 
     For more info about bunker mode see:
@@ -99,7 +100,9 @@ class BunkerService:
 
         return False
 
-    def get_cl_rebase_for_current_report(self, blockstamp: BlockStamp, simulated_cl_rebase: ReportSimulationResults) -> Gwei:
+    def get_cl_rebase_for_current_report(
+        self, blockstamp: BlockStamp, simulated_cl_rebase: ReportSimulationResults
+    ) -> Gwei:
         """
         Get simulated Cl rebase and subtract total supply before report
         """

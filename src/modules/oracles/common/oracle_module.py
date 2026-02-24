@@ -1,8 +1,9 @@
 import logging
 import traceback
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Generic, Iterator, TypeVar
+from typing import TypeVar
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-class OracleModule(DaemonModule, ConsensusModule[W3], ABC, Generic[W3]):
+class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
     """
     Base skeleton for Oracle modules.
 
@@ -56,7 +57,7 @@ class OracleModule(DaemonModule, ConsensusModule[W3], ABC, Generic[W3]):
         super().run_cycle(last_finalized_blockstamp)
 
     @contextmanager
-    def exception_handler(self) -> Iterator[None]:
+    def exception_handler(self) -> Iterator[None]:  # noqa: C901
         # pylint: disable=too-many-branches
         """Context manager for handling Oracle module cycle exceptions"""
         try:
@@ -68,10 +69,12 @@ class OracleModule(DaemonModule, ConsensusModule[W3], ABC, Generic[W3]):
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise error
         except ContractVersionMismatch as error:
-            logger.error({
-                'msg': 'The oracle can\'t submit a report, because the contract\'s consensus version has changed.',
-                'error': str(error),
-            })
+            logger.error(
+                {
+                    'msg': 'The oracle can\'t submit a report, because the contract\'s consensus version has changed.',
+                    'error': str(error),
+                }
+            )
         except DecoratorTimeoutError as error:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(error)})
         except NoActiveProviderError as error:

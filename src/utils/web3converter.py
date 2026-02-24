@@ -35,6 +35,7 @@ class Web3Converter(ChainConverter):
 
     Frame is the distance between two oracle reports.
     """
+
     frame_config: FrameConfig
 
     def __init__(self, chain_config: ChainConfig, frame_config: FrameConfig):
@@ -50,7 +51,8 @@ class Web3Converter(ChainConverter):
 
     def get_frame_first_slot(self, frame: FrameNumber) -> SlotNumber:
         return SlotNumber(
-            (self.frame_config.initial_epoch + frame * self.frame_config.epochs_per_frame) * self.chain_config.slots_per_epoch
+            (self.frame_config.initial_epoch + frame * self.frame_config.epochs_per_frame)
+            * self.chain_config.slots_per_epoch
         )
 
     def get_epoch_by_timestamp(self, timestamp: int) -> EpochNumber:

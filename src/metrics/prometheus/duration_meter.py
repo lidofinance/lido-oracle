@@ -1,7 +1,7 @@
 import logging
+from collections.abc import Callable
 from functools import wraps
 from time import perf_counter
-from typing import Callable
 
 from src.metrics.prometheus.basic import FUNCTIONS_DURATION, Status
 
@@ -28,8 +28,7 @@ def duration_meter[T]():
                     logger.debug(
                         {
                             "msg": f"Task '{full_name}' finished",
-                            "duration (sec)": stop
-                            - t._start,  # pylint: disable=protected-access
+                            "duration (sec)": stop - t._start,  # pylint: disable=protected-access
                         }
                     )
 

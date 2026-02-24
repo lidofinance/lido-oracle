@@ -1,7 +1,8 @@
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Sequence
 from json import JSONDecodeError, JSONDecoder, JSONEncoder
-from typing import Any, ClassVar, Iterable, Self, Sequence
+from typing import Any, ClassVar, Self
 
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree

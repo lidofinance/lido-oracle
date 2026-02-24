@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Generic, TypeVar, cast
+from typing import TypeVar, cast
 
 from eth_abi.abi import encode
 from hexbytes import HexBytes
@@ -51,7 +51,7 @@ InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="Initia
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-class ConsensusModule(ABC, Generic[W3]):
+class ConsensusModule[W3: Web3Base](ABC):
     """
     Module that works with Hash Consensus Contract.
 
@@ -62,6 +62,7 @@ class ConsensusModule(ABC, Generic[W3]):
 
     report_contract should contain getConsensusContract method.
     """
+
     report_contract: BaseOracleContract
 
     COMPATIBLE_CONTRACT_VERSION: int
@@ -94,18 +95,23 @@ class ConsensusModule(ABC, Generic[W3]):
                 config.slots_per_epoch != cc_config.SLOTS_PER_EPOCH,
             )
         ):
-            raise ValueError('Contract chain config is not compatible with Beacon chain.\n'
-                             f'Contract config: {config}\n'
-                             f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}')
+            raise ValueError(
+                'Contract chain config is not compatible with Beacon chain.\n'
+                f'Contract config: {config}\n'
+                f'Beacon chain config: {genesis_time=}, {cc_config.SECONDS_PER_SLOT=}, {cc_config.SLOTS_PER_EPOCH=}'
+            )
 
     # ----- Web3 data requests -----
     @lru_cache(maxsize=1)
     def _get_consensus_contract(self, blockstamp: BlockStamp) -> HashConsensusContract:
-        return cast(HashConsensusContract, self.w3.eth.contract(
-            address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
-            ContractFactoryClass=HashConsensusContract,
-            decode_tuples=True,
-        ))
+        return cast(
+            HashConsensusContract,
+            self.w3.eth.contract(
+                address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
+                ContractFactoryClass=HashConsensusContract,
+                decode_tuples=True,
+            ),
+        )
 
     def _get_consensus_contract_members(self, blockstamp: BlockStamp):
         consensus_contract = self._get_consensus_contract(blockstamp)
@@ -178,7 +184,8 @@ class ConsensusModule(ABC, Generic[W3]):
                     current_frame_consensus_report,
                     # Whether the provided address is a member of the oracle committee.
                     is_member,
-                    # Whether the oracle committee member is in the fast line members subset of the current reporting frame.
+                    # Whether the oracle committee member is in the fast line members
+                    # subset of the current reporting frame.
                     is_fast_lane,
                     # Whether the oracle committee member is allowed to submit a report at the moment of the call.
                     _,  # can_report
@@ -197,7 +204,7 @@ class ConsensusModule(ABC, Generic[W3]):
             is_submit_member = self.report_contract.has_role(
                 self.report_contract.submit_data_role(blockstamp.block_hash),
                 variables.ACCOUNT.address,
-                blockstamp.block_hash
+                blockstamp.block_hash,
             )
 
             if not is_member and not is_submit_member:
@@ -269,7 +276,10 @@ class ConsensusModule(ABC, Generic[W3]):
         contract_version = self.report_contract.get_contract_version(blockstamp.block_hash)
         consensus_version = self.report_contract.get_consensus_version(blockstamp.block_hash)
 
-        compatibility = contract_version <= self.COMPATIBLE_CONTRACT_VERSION and consensus_version <= self.COMPATIBLE_CONSENSUS_VERSION
+        compatibility = (
+            contract_version <= self.COMPATIBLE_CONTRACT_VERSION
+            and consensus_version <= self.COMPATIBLE_CONSENSUS_VERSION
+        )
 
         if not compatibility:
             raise IncompatibleOracleVersion(
@@ -288,15 +298,20 @@ class ConsensusModule(ABC, Generic[W3]):
                 f'The Contract or Consensus versions differ between the latest and {blockstamp.block_hash}, '
                 'further processing report can lead to unexpected behavior.'
             )
-        ready_to_report = contract_version == self.COMPATIBLE_CONTRACT_VERSION and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
+        ready_to_report = (
+            contract_version == self.COMPATIBLE_CONTRACT_VERSION
+            and consensus_version == self.COMPATIBLE_CONSENSUS_VERSION
+        )
         if not ready_to_report:
-            logger.info({
-                'msg': 'Oracle waits for contacts to be updated.',
-                'expected_contract_version': self.COMPATIBLE_CONTRACT_VERSION,
-                'expected_consensus_version': self.COMPATIBLE_CONSENSUS_VERSION,
-                'actual_contract_version': contract_version_latest,
-                'actual_consensus_version': consensus_version_latest,
-            })
+            logger.info(
+                {
+                    'msg': 'Oracle waits for contacts to be updated.',
+                    'expected_contract_version': self.COMPATIBLE_CONTRACT_VERSION,
+                    'expected_consensus_version': self.COMPATIBLE_CONSENSUS_VERSION,
+                    'actual_contract_version': contract_version_latest,
+                    'actual_consensus_version': consensus_version_latest,
+                }
+            )
         return ready_to_report
 
     # ----- Working with report -----
@@ -331,8 +346,12 @@ class ConsensusModule(ABC, Generic[W3]):
         if not member_info.is_fast_lane:
             # Check if current slot is newer than (member slot + slots_delay)
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
-                logger.info({'msg': f'Member is not in fast lane, so report will be postponed '
-                                    f'for [{member_info.fast_lane_length_slot}] slots.'})
+                logger.info(
+                    {
+                        'msg': f'Member is not in fast lane, so report will be postponed '
+                        f'for [{member_info.fast_lane_length_slot}] slots.'
+                    }
+                )
                 return None
 
             if HexBytes(member_info.current_frame_consensus_report) == report_hash:
@@ -351,11 +370,13 @@ class ConsensusModule(ABC, Generic[W3]):
 
         if HexBytes(member_info.current_frame_consensus_report) != report_hash:
             msg = 'Oracle`s hash differs from consensus report hash.'
-            logger.error({
-                'msg': msg,
-                'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
-                'report_hash': report_hash.hex(),
-            })
+            logger.error(
+                {
+                    'msg': msg,
+                    'consensus_report_hash': HexBytes(member_info.current_frame_consensus_report).hex(),
+                    'report_hash': report_hash.hex(),
+                }
+            )
             return
 
         if self.is_main_data_submitted(latest_blockstamp):
@@ -488,11 +509,7 @@ class ConsensusModule(ABC, Generic[W3]):
     def get_frame_number_by_slot(self, blockstamp: ReferenceBlockStamp) -> FrameNumber:
         converter = self._get_web3_converter(blockstamp)
         frame_number = converter.get_frame_by_slot(SlotNumber(blockstamp.ref_slot + 1))
-        logger.info({
-            "msg": "Get current frame from blockstamp",
-            "frame": frame_number,
-            "slot": blockstamp.ref_slot
-        })
+        logger.info({"msg": "Get current frame from blockstamp", "frame": frame_number, "slot": blockstamp.ref_slot})
         return FrameNumber(frame_number)
 
     @abstractmethod

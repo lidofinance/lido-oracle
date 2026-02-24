@@ -1,5 +1,5 @@
 import logging
-from typing import Iterator
+from collections.abc import Iterator
 
 from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent

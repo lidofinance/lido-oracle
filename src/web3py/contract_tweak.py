@@ -1,5 +1,6 @@
 import itertools
-from typing import Any, Callable, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from eth_abi.exceptions import DecodingError
 from eth_typing import (
@@ -32,9 +33,9 @@ from web3.utils import get_abi_element
 
 
 def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-many-positional-arguments
-    w3: "Web3",
+    w3: Web3,
     address: ChecksumAddress,
-    normalizers: Tuple[Callable[..., Any], ...],
+    normalizers: tuple[Callable[..., Any], ...],
     function_identifier: ABIElementIdentifier,
     transaction: TxParams,
     block_id: BlockIdentifier | None = None,
@@ -85,14 +86,10 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-man
         # Provide a more helpful error message than the one provided by
         # eth-abi-utils
         is_missing_code_error = (
-            return_data in ACCEPTABLE_EMPTY_STRINGS
-            and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
+            return_data in ACCEPTABLE_EMPTY_STRINGS and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
         )
         if is_missing_code_error:
-            msg = (
-                "Could not transact with/call contract function, is contract "
-                "deployed correctly and chain synced?"
-            )
+            msg = "Could not transact with/call contract function, is contract deployed correctly and chain synced?"
         else:
             msg = (
                 f"Could not decode contract function call to {function_identifier} "

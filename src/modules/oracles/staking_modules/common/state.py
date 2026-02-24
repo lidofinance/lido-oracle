@@ -51,9 +51,15 @@ class ValidatorDuties:
 @dataclass
 class NetworkDuties:
     # fmt: off
-    attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
-    proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
-    syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(default_factory=lambda: defaultdict(DutyAccumulator))
+    attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
+    proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
+    syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
 
     def merge(self, other: Self) -> None:
         for val, duty in other.attestations.items():
@@ -121,9 +127,9 @@ class State:
                 # Ensure loaded object has the correct oracle_name
                 # pylint: disable=protected-access
                 if obj._oracle_name != oracle_name:
-                    logger.warning({
-                        "msg": f"Cache oracle name mismatch: {obj._oracle_name} != {oracle_name}. Creating new state."
-                    })
+                    logger.warning(
+                        {"msg": f"Cache oracle name mismatch: {obj._oracle_name} != {oracle_name}. Creating new state."}
+                    )
                     return cls(oracle_name)
                 # Set oracle_name for backward compatibility with old cache files
                 obj._oracle_name = oracle_name
@@ -175,7 +181,7 @@ class State:
         """Split epochs to process into frames of `epochs_per_frame` length"""
         if len(epochs_to_process) % epochs_per_frame != 0:
             raise ValueError("Insufficient epochs to form a frame")
-        return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame)]
+        return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame, strict=False)]
 
     def clear(self) -> None:
         self.data = {}
@@ -183,7 +189,7 @@ class State:
         self._processed_epochs.clear()
         assert self.is_empty
 
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=1)  # noqa: B019
     def find_frame(self, epoch: EpochNumber) -> Frame:
         for epoch_range in self.frames:
             from_epoch, to_epoch = epoch_range

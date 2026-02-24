@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class LidoIPFS(IPFSProvider):
-
     RPC_UNIXFS_ADD_ARGS: dict[str, int | str] = {
         "chunker": "size-262144",
         "hash": "sha2-256",
@@ -29,10 +28,7 @@ class LidoIPFS(IPFSProvider):
         self.timeout = timeout
 
     def _get_headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.token}",
-            "User-Agent": f"Lido-Oracle/v{get_oracle_version()}"
-        }
+        return {"Authorization": f"Bearer {self.token}", "User-Agent": f"Lido-Oracle/v{get_oracle_version()}"}
 
     def _fetch(self, cid: CID) -> bytes:
         """Fetch content by CID from Lido IPFS node.
@@ -64,11 +60,7 @@ class LidoIPFS(IPFSProvider):
 
         try:
             response = requests.post(
-                url,
-                files={"file": content},
-                params=params,
-                headers=self._get_headers(),
-                timeout=self.timeout
+                url, files={"file": content}, params=params, headers=self._get_headers(), timeout=self.timeout
             )
             response.raise_for_status()
         except requests.RequestException as ex:

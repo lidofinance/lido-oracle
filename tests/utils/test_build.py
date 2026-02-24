@@ -20,7 +20,7 @@ class TestGetBuildInfo(unittest.TestCase):
         build_info = get_build_info()
 
         # Assertions
-        mock_open_file.assert_called_once_with("./build-info.json", "r")
+        mock_open_file.assert_called_once_with("./build-info.json")
         self.assertEqual(build_info, expected_build_info, "Build info should match the data from the file")
 
     def test_get_build_info_file_not_exists(self):
@@ -39,5 +39,5 @@ class TestGetBuildInfo(unittest.TestCase):
             build_info = get_build_info()
 
         # Assertions
-        mock_open_file.assert_called_once_with("./build-info.json", "r")
+        mock_open_file.assert_called_once_with("./build-info.json")
         self.assertEqual(build_info, UNKNOWN_BUILD_INFO, "Should return UNKNOWN_BUILD_INFO when JSON decode fails")

@@ -24,12 +24,14 @@ class LidoContract(ContractInterface):
         """
         response = self.functions.getBufferedEther().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getBufferedEther()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getBufferedEther()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -42,12 +44,14 @@ class LidoContract(ContractInterface):
         """
         response = self.functions.totalSupply().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `totalSupply()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `totalSupply()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -62,10 +66,12 @@ class LidoContract(ContractInterface):
         response = self.functions.getBeaconStat().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, BeaconStat)
 
-        logger.info({
-            'msg': 'Call `getBeaconStat()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getBeaconStat()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response

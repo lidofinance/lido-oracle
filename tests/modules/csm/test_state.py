@@ -103,7 +103,7 @@ def test_is_empty_returns_false_for_non_empty_state():
 def test_unprocessed_epochs_raises_error_if_epochs_not_set():
     state = State("test_oracle")
     with pytest.raises(ValueError, match="Epochs to process are not set"):
-        state.unprocessed_epochs
+        _ = state.unprocessed_epochs
 
 
 @pytest.mark.unit

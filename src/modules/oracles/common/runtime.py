@@ -31,13 +31,15 @@ logger = logging.getLogger(__name__)
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-def _build_web3_base(web3_cls: type[W3]) -> W3:
+def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
     logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = web3_cls(FallbackProviderModule(
-        variables.EXECUTION_CLIENT_URI,
-        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-        cache_allowed_requests=True,
-    ))
+    web3 = web3_cls(
+        FallbackProviderModule(
+            variables.EXECUTION_CLIENT_URI,
+            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+            cache_allowed_requests=True,
+        )
+    )
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
@@ -149,11 +151,7 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
     the returned CID matches our own CAR conversion logic. This makes consensus
     more reliable when providers disagree on CID calculation.
     """
-    if (
-        variables.STORACHA_AUTH_SECRET and
-        variables.STORACHA_AUTHORIZATION and
-        variables.STORACHA_SPACE_DID
-    ):
+    if variables.STORACHA_AUTH_SECRET and variables.STORACHA_AUTHORIZATION and variables.STORACHA_SPACE_DID:
         yield Storacha(
             variables.STORACHA_AUTH_SECRET,
             variables.STORACHA_AUTHORIZATION,

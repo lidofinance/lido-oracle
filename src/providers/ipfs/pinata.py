@@ -22,7 +22,9 @@ class Pinata(IPFSProvider):
     PUBLIC_GATEWAY = "https://gateway.pinata.cloud"
     MAX_DEDICATED_GATEWAY_RETRIES = 1
 
-    def __init__(self, jwt_token: str, *, timeout: int, dedicated_gateway_url: str, dedicated_gateway_token: str) -> None:
+    def __init__(
+        self, jwt_token: str, *, timeout: int, dedicated_gateway_url: str, dedicated_gateway_token: str
+    ) -> None:
         super().__init__()
         validate_jwt(jwt_token)
         self.timeout = timeout
@@ -30,11 +32,13 @@ class Pinata(IPFSProvider):
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {jwt_token}"
 
-        dedicated_adapter = HTTPAdapter(max_retries=Retry(
-            total=self.MAX_DEDICATED_GATEWAY_RETRIES,
-            status_forcelist=list(range(400, 600)),
-            backoff_factor=3.0,
-        ))
+        dedicated_adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=self.MAX_DEDICATED_GATEWAY_RETRIES,
+                status_forcelist=list(range(400, 600)),
+                backoff_factor=3.0,
+            )
+        )
         self.dedicated_session = requests.Session()
         self.dedicated_session.headers["x-pinata-gateway-token"] = dedicated_gateway_token
         self.dedicated_session.mount("https://", dedicated_adapter)
@@ -47,10 +51,7 @@ class Pinata(IPFSProvider):
         try:
             return self._fetch_from_dedicated_gateway(cid)
         except requests.RequestException as ex:
-            logger.warning({
-                "msg": "Dedicated gateway failed after retries, trying public gateway",
-                "error": str(ex)
-            })
+            logger.warning({"msg": "Dedicated gateway failed after retries, trying public gateway", "error": str(ex)})
             return self._fetch_from_public_gateway(cid)
 
     def _fetch_from_dedicated_gateway(self, cid: CID) -> bytes:

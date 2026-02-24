@@ -24,6 +24,7 @@ def pulse():
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
     """Request handler for Docker HEALTHCHECK"""
+
     def do_GET(self):
         global _last_pulse
 

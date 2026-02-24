@@ -245,7 +245,6 @@ class VaultInfo(Nested, FromResponse):
     pending_disconnect: bool
 
 
-
 @dataclass(frozen=True)
 class VaultFee:
     infra_fee: int
@@ -338,7 +337,7 @@ class StakingVaultIpfsReport:
     extra_values: dict[str, ExtraValue]
 
     @classmethod
-    def parse_merkle_tree_data(cls, raw_bytes: bytes) -> "StakingVaultIpfsReport":
+    def parse_merkle_tree_data(cls, raw_bytes: bytes) -> Self:
         data = json.loads(raw_bytes.decode("utf-8"))
 
         if data["format"] != StandardMerkleTree.FORMAT:
@@ -360,8 +359,9 @@ class StakingVaultIpfsReport:
                     fee=int(entry["value"][fee_index]),
                     liability_shares=int(entry["value"][liability_shares_index]),
                     max_liability_shares=int(entry["value"][max_liability_shares_index]),
-                slashing_reserve=int(entry["value"][slashing_reserve_index]),
-            ))
+                    slashing_reserve=int(entry["value"][slashing_reserve_index]),
+                )
+            )
 
         extra_values = {}
         for vault_addr, val in data.get("extraValues", {}).items():
@@ -373,7 +373,7 @@ class StakingVaultIpfsReport:
                 reservation_fee=val["reservationFee"],
             )
 
-        return StakingVaultIpfsReport(
+        return cls(
             format=data["format"],
             leaf_encoding=data["leafEncoding"],
             tree=data["tree"],
@@ -416,6 +416,7 @@ class PendingBalances:
     @property
     def max(self) -> Gwei:
         return Gwei(max((deposit.amount for deposit in self.pending_deposits), default=0))
+
 
 class ValidatorStage(Enum):
     NONE = 0

@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Iterable, Self
+from typing import Self
 
 from hexbytes import HexBytes
 

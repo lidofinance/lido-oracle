@@ -23,7 +23,7 @@ from tests.fork.conftest import first_slot_of_epoch
 
 @pytest.fixture()
 def hash_consensus_bin():
-    with open('tests/fork/contracts/csm/HashConsensus_bin', 'r') as f:
+    with open('tests/fork/contracts/csm/HashConsensus_bin') as f:
         yield f.read()
 
 
@@ -61,10 +61,12 @@ def performance_local_db(testrun_path):
         if col_name in table.c:
             table.c[col_name].type = JSON()
 
-    with patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url):
-        with patch('src.modules.sidecars.performance.common.db.DutiesDB._build_engine', mock_build_engine):
-            with patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init):
-                yield mock_get_database_url, mock_init
+    with (
+        patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url),
+        patch('src.modules.sidecars.performance.common.db.DutiesDB._build_engine', mock_build_engine),
+        patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init),
+    ):
+        yield mock_get_database_url, mock_init
 
 
 @pytest.fixture()

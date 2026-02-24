@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Final, Iterable, Literal, Sequence, TypeAlias
+from typing import Final, Literal
 
 from hexbytes import HexBytes
 
@@ -48,8 +49,8 @@ class StrikesList(Sequence[int]):
         self.data.insert(0, item)
 
 
-ParticipationShares: TypeAlias = int
-RewardsShares: TypeAlias = int
+type ParticipationShares = int
+type RewardsShares = int
 type RewardsTreeLeaf = tuple[NodeOperatorId, RewardsShares]
 type StrikesTreeLeaf = tuple[NodeOperatorId, HexBytes, StrikesList]
 

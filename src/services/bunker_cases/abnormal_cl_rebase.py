@@ -1,6 +1,7 @@
 import logging
 import math
-from typing import Sequence, cast
+from collections.abc import Sequence
+from typing import cast
 
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
@@ -41,11 +42,14 @@ class AbnormalClRebase:
     ) -> bool:
         """
         First of all, we should calculate the normal CL rebase for this report
-        If diff between current CL rebase and normal CL rebase more than `normalized_cl_reward_mistake_rate`,
+        If diff between current CL rebase and normal CL rebase is more than
+        `normalized_cl_reward_mistake_rate`,
         then we should check the intraframe sampled CL rebase: we consider two points (nearest and distant slots)
         in frame and calculate CL rebase for each of them and if one of them is negative, then it is abnormal CL rebase.
 
-        `normalized_cl_reward_mistake_rate`, `rebase_check_nearest_epoch_distance` and `rebase_check_distant_epoch_distance`
+        `normalized_cl_reward_mistake_rate`,
+        `rebase_check_nearest_epoch_distance` and
+        `rebase_check_distant_epoch_distance`
         are configurable parameters, which can change behavior of this check.
         Like, don't check intraframe sampled CL rebase and look only on normal CL rebase
         """
@@ -134,10 +138,7 @@ class AbnormalClRebase:
 
         distant_cl_rebase = self._calculate_cl_rebase_between_blocks(distant_blockstamp, blockstamp)
         logger.info({"msg": f"Distant intraframe sampled CL rebase {distant_cl_rebase} Gwei"})
-        if distant_cl_rebase < 0:
-            return True
-
-        return False
+        return distant_cl_rebase < 0
 
     def _get_nearest_and_distant_blockstamps(
         self, ref_blockstamp: ReferenceBlockStamp
@@ -182,9 +183,7 @@ class AbnormalClRebase:
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )
 
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
-            ref_blockstamp, self.lido_validators
-        )
+        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
 
         prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
             prev_blockstamp, prev_lido_validators
@@ -206,7 +205,11 @@ class AbnormalClRebase:
 
         logger.info(
             {
-                "msg": f"CL rebase between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks: {cl_rebase} Gwei"
+                "msg": (
+                    "CL rebase between "
+                    f"{prev_blockstamp.block_number, ref_blockstamp.block_number} "
+                    f"blocks: {cl_rebase} Gwei"
+                )
             }
         )
 
@@ -233,7 +236,11 @@ class AbnormalClRebase:
 
         logger.info(
             {
-                "msg": f"Get withdrawn from vault between {prev_blockstamp.block_number,ref_blockstamp.block_number} blocks"
+                "msg": (
+                    "Get withdrawn from vault between "
+                    f"{prev_blockstamp.block_number, ref_blockstamp.block_number} "
+                    "blocks"
+                )
             }
         )
 
@@ -338,8 +345,10 @@ class AbnormalClRebase:
           estimation on number of active validators through interception of
           active validators between current oracle report epoch and last one - Randomness within measurement algorithm
          * Not absolutely ideal performance of Lido Validators and network as a whole  - Randomness of real world
-        If the difference between observed real CL rewards and its theoretical value (normal_cl_rebase) couldn't be explained by
-        those 4 factors that means there is an additional factor leading to lower rewards - incidents within Lido or BeaconChain.
+        If the difference between observed real CL rewards and its theoretical
+        value (normal_cl_rebase) couldn't be explained by
+        those 4 factors means there is an additional factor leading to lower
+        rewards, i.e. incidents within Lido or BeaconChain.
         To formalize “high enough” difference we’re suggesting `normalized_cl_reward_per_epoch` constant
         represent ethereum specification and equals to `BASE_REWARD_FACTOR` constant
         """

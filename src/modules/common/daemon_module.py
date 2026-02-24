@@ -2,8 +2,8 @@ import logging
 import signal
 import time
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from dataclasses import asdict
-from typing import ContextManager
 
 from timeout_decorator import timeout
 
@@ -64,10 +64,12 @@ class DaemonModule(ABC):
                 blockstamp = self._receive_last_finalized_slot()
 
                 if blockstamp.slot_number <= self._slot_threshold:
-                    logger.info({
-                        'msg': 'Skipping the report. Waiting for new finalized slot.',
-                        'slot_threshold': self._slot_threshold,
-                    })
+                    logger.info(
+                        {
+                            'msg': 'Skipping the report. Waiting for new finalized slot.',
+                            'slot_threshold': self._slot_threshold,
+                        }
+                    )
                     cycle_result = CycleResult.SUCCESS
                     return
 
@@ -122,5 +124,5 @@ class DaemonModule(ABC):
         return self._cc
 
     @abstractmethod
-    def exception_handler(self) -> ContextManager[None]:
+    def exception_handler(self) -> AbstractContextManager[None]:
         """Context manager for cycle exception handling"""

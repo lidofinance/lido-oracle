@@ -51,7 +51,7 @@ class ValidatorDutiesOutcome:
 class DistributionResult:
     total_rewards: RewardsShares = 0
     total_rebate: RewardsShares = 0
-    total_rewards_map: dict[NodeOperatorId, RewardsShares] = field(default_factory=lambda: defaultdict(RewardsShares))
+    total_rewards_map: dict[NodeOperatorId, RewardsShares] = field(default_factory=lambda: defaultdict(int))
     strikes: dict[StrikesValidator, StrikesList] = field(default_factory=lambda: defaultdict(StrikesList))
     logs: Logs = field(default_factory=Logs)
 
@@ -79,7 +79,9 @@ class Distribution:
             frame_blockstamp = self._get_frame_blockstamp(blockstamp, to_epoch)
             frame_module_validators = self._get_module_validators(frame_blockstamp)
 
-            total_rewards_to_distribute = self.w3.staking_module.fee_distributor.shares_to_distribute(frame_blockstamp.block_hash)
+            total_rewards_to_distribute = self.w3.staking_module.fee_distributor.shares_to_distribute(
+                frame_blockstamp.block_hash
+            )
             rewards_to_distribute_in_frame = total_rewards_to_distribute - distributed_so_far
 
             frame_log = FramePerfLog(frame_blockstamp, frame)
@@ -286,8 +288,7 @@ class Distribution:
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
             val_effective_balance = min(
-                max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance),
-                MAX_EFFECTIVE_BALANCE_ELECTRA
+                max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance), MAX_EFFECTIVE_BALANCE_ELECTRA
             )
             participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
             #
@@ -317,7 +318,7 @@ class Distribution:
         if rewards_to_distribute < 0:
             raise ValueError(f"Invalid rewards to distribute: {rewards_to_distribute=}")
 
-        rewards_distribution: dict[NodeOperatorId, RewardsShares] = defaultdict(RewardsShares)
+        rewards_distribution: dict[NodeOperatorId, RewardsShares] = defaultdict(int)
 
         node_operators_participation_shares_sum = 0
         per_node_operator_participation_shares: dict[NodeOperatorId, ParticipationShares] = {}
@@ -337,7 +338,7 @@ class Distribution:
             # Just for logging purpose. We don't expect here any accurate values.
             for val_index, val_participation_share in participation_shares[no_id].items():
                 log.operators[no_id].validators[val_index].distributed_rewards = (
-                        rewards_to_distribute * val_participation_share // total_shares
+                    rewards_to_distribute * val_participation_share // total_shares
                 )
 
         return rewards_distribution

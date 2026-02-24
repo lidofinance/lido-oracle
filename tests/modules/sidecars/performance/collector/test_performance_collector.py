@@ -180,9 +180,7 @@ class TestDefineEpochsToProcessRange:
         ]
 
         def mock_is_range_available(from_epoch, to_epoch):
-            if from_epoch == 60 and to_epoch == 70:
-                return True  # Satisfied
-            return False  # Unsatisfied
+            return from_epoch == 60 and to_epoch == 70
 
         mock_db.is_range_available.side_effect = mock_is_range_available
         # After processing demands, start_epoch becomes min(198, 20, 95) = 20

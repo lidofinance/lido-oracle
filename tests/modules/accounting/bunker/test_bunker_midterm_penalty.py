@@ -14,6 +14,9 @@ from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Valida
 from src.utils.web3converter import Web3Converter
 
 
+DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
+
+
 def simple_blockstamp(
     block_number: int,
 ) -> ReferenceBlockStamp:
@@ -26,7 +29,7 @@ def simple_validators(
     slashed=False,
     withdrawable_epoch=8192,
     exit_epoch=7892,
-    effective_balance=Gwei(32 * 10**9),
+    effective_balance=DEFAULT_EFFECTIVE_BALANCE,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):

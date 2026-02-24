@@ -1,7 +1,7 @@
 import logging
 import traceback
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -32,6 +32,7 @@ class PerformanceCollector(DaemonModule):
     """
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
+
     # Timestamp of the last epochs demand update
     last_epochs_demand_update: int | None = None
 
@@ -110,11 +111,13 @@ class PerformanceCollector(DaemonModule):
         for checkpoint in checkpoints:
             processed_epochs = processor.exec(checkpoint)
             checkpoint_count += 1
-            logger.info({
-                'msg': 'Checkpoint processing completed',
-                'checkpoint_slot': checkpoint.slot,
-                'processed_epochs': processed_epochs
-            })
+            logger.info(
+                {
+                    'msg': 'Checkpoint processing completed',
+                    'checkpoint_slot': checkpoint.slot,
+                    'processed_epochs': processed_epochs,
+                }
+            )
             # Reset base cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
@@ -123,10 +126,7 @@ class PerformanceCollector(DaemonModule):
                 logger.info({"msg": "New epochs demand is found during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
-        logger.info({
-            'msg': 'All checkpoints processing completed',
-            'total_checkpoints_processed': checkpoint_count
-        })
+        logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
 
         return ModuleExecuteDelay.NEXT_SLOT
 
@@ -154,14 +154,16 @@ class PerformanceCollector(DaemonModule):
         if not epochs_demand:
             logger.info({"msg": "No epoch demands found"})
         for demand in epochs_demand:
-            logger.info({
-                "msg": "Epochs demand", **demand.model_dump()
-            })
-            is_range_available = self.db.is_range_available(EpochNumber(demand.from_epoch), EpochNumber(demand.to_epoch))
+            logger.info({"msg": "Epochs demand", **demand.model_dump()})
+            is_range_available = self.db.is_range_available(
+                EpochNumber(demand.from_epoch), EpochNumber(demand.to_epoch)
+            )
             if is_range_available:
-                logger.info({
-                    "msg": f"Epochs demand for {demand.consumer} is already satisfied",
-                })
+                logger.info(
+                    {
+                        "msg": f"Epochs demand for {demand.consumer} is already satisfied",
+                    }
+                )
                 # Remove from the DB just in case
                 self.db.delete_demand(demand.consumer)
                 # There is no sense to lower start_epoch because the demand is already satisfied (data is in the DB)

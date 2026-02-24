@@ -25,10 +25,11 @@ logger = logging.getLogger(__name__)
 class StakingModuleContracts(Module):
     """
     Web3 extension for staking module contracts interaction.
-    
+
     Uses staking module contract address from environment:
     - STAKING_MODULE_ADDRESS must be set
     """
+
     w3: Web3
 
     oracle: CSFeeOracleContract
@@ -144,15 +145,16 @@ class StakingModuleContracts(Module):
                 return
             except Web3Exception as e:
                 last_error = e
-                logger.error({
-                    "msg": f"Attempt {attempt + 1}/{self.CONTRACT_LOAD_MAX_RETRIES} failed to load contracts",
-                    "error": str(e)
-                })
+                logger.error(
+                    {
+                        "msg": f"Attempt {attempt + 1}/{self.CONTRACT_LOAD_MAX_RETRIES} failed to load contracts",
+                        "error": str(e),
+                    }
+                )
                 sleep(self.CONTRACT_LOAD_RETRY_DELAY)
 
         raise Web3Exception(
-            f"Failed to load contracts in CSM module "
-            f"after {self.CONTRACT_LOAD_MAX_RETRIES} attempts"
+            f"Failed to load contracts in CSM module after {self.CONTRACT_LOAD_MAX_RETRIES} attempts"
         ) from last_error
 
     def _get_contract_addresses(self) -> tuple[str, ...]:

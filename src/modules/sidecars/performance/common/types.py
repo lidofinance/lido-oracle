@@ -1,5 +1,3 @@
-from typing import TypeAlias
-
 from pydantic import BaseModel
 
 from src.types import ValidatorIndex
@@ -15,4 +13,4 @@ class SyncDuty(BaseModel):
     missed_count: int  # 0..32
 
 
-AttDutyMisses: TypeAlias = set[ValidatorIndex]
+type AttDutyMisses = set[ValidatorIndex]

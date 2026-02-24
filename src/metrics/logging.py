@@ -1,7 +1,8 @@
 import dataclasses
 import json
 import logging
-from typing import Any, Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any
 
 
 def convert_bytes_to_hex(data: Any) -> Any:
@@ -27,16 +28,18 @@ class JsonFormatter(logging.Formatter):
         if 'value' in message:
             message['value'] = str(message['value'])
 
-        to_json_msg = json.dumps({
-            'timestamp': int(record.created),
-            'name': record.name,
-            'levelname': record.levelname,
-            'funcName': record.funcName,
-            'lineno': record.lineno,
-            'module': record.module,
-            'pathname': record.pathname,
-            **message,
-        })
+        to_json_msg = json.dumps(
+            {
+                'timestamp': int(record.created),
+                'name': record.name,
+                'levelname': record.levelname,
+                'funcName': record.funcName,
+                'lineno': record.lineno,
+                'module': record.module,
+                'pathname': record.pathname,
+                **message,
+            }
+        )
         return to_json_msg
 
 

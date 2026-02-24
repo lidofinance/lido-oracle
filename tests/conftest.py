@@ -123,7 +123,7 @@ def configure_testnet_tests(request, monkeypatch):
 
 
 @pytest.fixture()
-def web3(monkeypatch) -> Generator[Web3, None, None]:
+def web3(monkeypatch) -> Generator[Web3]:
     mock_backend = MockBackend()
     tester = EthereumTester(backend=mock_backend)
     w3 = Web3(provider=EthereumTesterProvider(tester))
@@ -170,7 +170,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
 
 
 @pytest.fixture()
-def web3_integration() -> Generator[Web3, None, None]:
+def web3_integration() -> Generator[Web3]:
     w3 = Web3(
         FallbackProviderModule(
             variables.EXECUTION_CLIENT_URI,

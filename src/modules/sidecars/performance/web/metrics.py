@@ -21,10 +21,7 @@ def attach_metrics(app: FastAPI):
         registry=CUSTOM_REGISTRY,
     )
     instrumentator.add(
-        metrics.default(
-            metric_namespace=variables.PERFORMANCE_WEB_SERVER_METRICS_PREFIX,
-            registry=CUSTOM_REGISTRY
-        )
+        metrics.default(metric_namespace=variables.PERFORMANCE_WEB_SERVER_METRICS_PREFIX, registry=CUSTOM_REGISTRY)
     )
     instrumentator.instrument(app).expose(
         app,
