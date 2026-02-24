@@ -7,15 +7,15 @@ from unittest.mock import Mock
 import pytest
 
 from src import variables
-from src.constants import CSM_STATE_VERSION
-from src.modules.csm.state import DutyAccumulator, InvalidState, NetworkDuties, State
+from src.constants import STAKING_MODULE_STATE_VERSION
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import ValidatorIndex
 from src.utils.range import sequence
 
 
 @pytest.fixture()
 def state_file_path(tmp_path: Path) -> Path:
-    return (tmp_path / "mock").with_suffix(State.EXTENSION)
+    return (tmp_path / "test_oracle_cache").with_suffix(State.EXTENSION)
 
 
 @pytest.fixture(autouse=True)
@@ -36,29 +36,29 @@ class TestCachePathConfigurable:
 
     @pytest.mark.unit
     def test_file_returns_correct_path(self, cache_path: Path):
-        assert State.file() == cache_path / "cache.pkl"
+        assert State.file("test_oracle") == cache_path / "test_oracle_cache.pkl"
 
     @pytest.mark.unit
     def test_buffer_returns_correct_path(self, cache_path: Path):
-        state = State()
-        assert state.buffer == cache_path / "cache.buf"
+        state = State("test_oracle")
+        assert state.buffer == cache_path / "test_oracle_cache.buf"
 
 
 @pytest.mark.unit
 def test_load_restores_state_from_file():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
     }
     state.commit()
-    loaded_state = State.load()
+    loaded_state = State.load("test_oracle")
     assert loaded_state.data == state.data
 
 
 @pytest.mark.unit
 def test_load_returns_new_instance_if_file_not_found(state_file_path: Path):
     assert not state_file_path.exists()
-    state = State.load()
+    state = State.load("test_oracle")
     assert state.is_empty
 
 
@@ -66,13 +66,13 @@ def test_load_returns_new_instance_if_file_not_found(state_file_path: Path):
 def test_load_returns_new_instance_if_empty_object(state_file_path: Path):
     with open(state_file_path, "wb") as f:
         pickle.dump(None, f)
-    state = State.load()
+    state = State.load("test_oracle")
     assert state.is_empty
 
 
 @pytest.mark.unit
 def test_commit_saves_state_to_file(state_file_path: Path, monkeypatch: pytest.MonkeyPatch):
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
     }
@@ -88,27 +88,27 @@ def test_commit_saves_state_to_file(state_file_path: Path, monkeypatch: pytest.M
 
 @pytest.mark.unit
 def test_is_empty_returns_true_for_empty_state():
-    state = State()
+    state = State("test_oracle")
     assert state.is_empty
 
 
 @pytest.mark.unit
 def test_is_empty_returns_false_for_non_empty_state():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): NetworkDuties()}
     assert not state.is_empty
 
 
 @pytest.mark.unit
 def test_unprocessed_epochs_raises_error_if_epochs_not_set():
-    state = State()
+    state = State("test_oracle")
     with pytest.raises(ValueError, match="Epochs to process are not set"):
-        state.unprocessed_epochs
+        _ = state.unprocessed_epochs
 
 
 @pytest.mark.unit
 def test_unprocessed_epochs_returns_correct_set():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 63))
     assert state.unprocessed_epochs == set(sequence(64, 95))
@@ -116,7 +116,7 @@ def test_unprocessed_epochs_returns_correct_set():
 
 @pytest.mark.unit
 def test_is_fulfilled_returns_true_if_no_unprocessed_epochs():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 95))
     assert state.is_fulfilled
@@ -124,7 +124,7 @@ def test_is_fulfilled_returns_true_if_no_unprocessed_epochs():
 
 @pytest.mark.unit
 def test_is_fulfilled_returns_false_if_unprocessed_epochs_exist():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 63))
     assert not state.is_fulfilled
@@ -146,7 +146,7 @@ def test_calculate_frames_raises_error_for_insufficient_epochs():
 
 @pytest.mark.unit
 def test_clear_resets_state_to_empty():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})}
     state.clear()
     assert state.is_empty
@@ -154,14 +154,14 @@ def test_clear_resets_state_to_empty():
 
 @pytest.mark.unit
 def test_find_frame_returns_correct_frame():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): {}}
     assert state.find_frame(15) == (0, 31)
 
 
 @pytest.mark.unit
 def test_find_frame_raises_error_for_out_of_range_epoch():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): {}}
     with pytest.raises(ValueError, match="Epoch 32 is out of frames range"):
         state.find_frame(32)
@@ -169,7 +169,7 @@ def test_find_frame_raises_error_for_out_of_range_epoch():
 
 @pytest.mark.unit
 def test_increment_att_duty_adds_duty_correctly():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -182,7 +182,7 @@ def test_increment_att_duty_adds_duty_correctly():
 
 @pytest.mark.unit
 def test_increment_prop_duty_adds_duty_correctly():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -195,7 +195,7 @@ def test_increment_prop_duty_adds_duty_correctly():
 
 @pytest.mark.unit
 def test_increment_sync_duty_adds_duty_correctly():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -208,7 +208,7 @@ def test_increment_sync_duty_adds_duty_correctly():
 
 @pytest.mark.unit
 def test_increment_att_duty_creates_new_validator_entry():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -221,7 +221,7 @@ def test_increment_att_duty_creates_new_validator_entry():
 
 @pytest.mark.unit
 def test_increment_prop_duty_creates_new_validator_entry():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -234,7 +234,7 @@ def test_increment_prop_duty_creates_new_validator_entry():
 
 @pytest.mark.unit
 def test_increment_sync_duty_creates_new_validator_entry():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -247,7 +247,7 @@ def test_increment_sync_duty_creates_new_validator_entry():
 
 @pytest.mark.unit
 def test_increment_att_duty_handles_non_included_duty():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -260,7 +260,7 @@ def test_increment_att_duty_handles_non_included_duty():
 
 @pytest.mark.unit
 def test_increment_prop_duty_handles_non_included_duty():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -273,7 +273,7 @@ def test_increment_prop_duty_handles_non_included_duty():
 
 @pytest.mark.unit
 def test_increment_sync_duty_handles_non_included_duty():
-    state = State()
+    state = State("test_oracle")
     frame = (0, 31)
     duty_epoch, _ = frame
     state.data = {
@@ -286,7 +286,7 @@ def test_increment_sync_duty_handles_non_included_duty():
 
 @pytest.mark.unit
 def test_increment_att_duty_raises_error_for_out_of_range_epoch():
-    state = State()
+    state = State("test_oracle")
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -296,7 +296,7 @@ def test_increment_att_duty_raises_error_for_out_of_range_epoch():
 
 @pytest.mark.unit
 def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
-    state = State()
+    state = State("test_oracle")
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -306,7 +306,7 @@ def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
 
 @pytest.mark.unit
 def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
-    state = State()
+    state = State("test_oracle")
     state.att_data = {
         (0, 31): defaultdict(DutyAccumulator),
     }
@@ -316,14 +316,14 @@ def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
 
 @pytest.mark.unit
 def test_add_processed_epoch_adds_epoch_to_processed_set():
-    state = State()
+    state = State("test_oracle")
     state.add_processed_epoch(5)
     assert 5 in state._processed_epochs
 
 
 @pytest.mark.unit
 def test_add_processed_epoch_does_not_duplicate_epochs():
-    state = State()
+    state = State("test_oracle")
     state.add_processed_epoch(5)
     state.add_processed_epoch(5)
     assert len(state._processed_epochs) == 1
@@ -331,8 +331,8 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
 
 @pytest.mark.unit
 def test_migrate_discards_data_on_version_change():
-    state = State()
-    state._version = CSM_STATE_VERSION + 1
+    state = State("test_oracle")
+    state._version = STAKING_MODULE_STATE_VERSION + 1
     state.clear = Mock()
     state.commit = Mock()
     state.migrate(0, 63, 32)
@@ -341,12 +341,12 @@ def test_migrate_discards_data_on_version_change():
     state.commit.assert_called_once()
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == CSM_STATE_VERSION
+    assert state.version == STAKING_MODULE_STATE_VERSION
 
 
 @pytest.mark.unit
 def test_migrate_no_migration_needed():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): defaultdict(DutyAccumulator),
         (32, 63): defaultdict(DutyAccumulator),
@@ -357,13 +357,13 @@ def test_migrate_no_migration_needed():
 
     assert state.frames == [(0, 31), (32, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == CSM_STATE_VERSION
+    assert state.version == STAKING_MODULE_STATE_VERSION
     state.commit.assert_not_called()
 
 
 @pytest.mark.unit
 def test_migrate_migrates_data():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -388,13 +388,13 @@ def test_migrate_migrates_data():
     }
     assert state.frames == [(0, 63)]
     assert state._epochs_to_process == tuple(sequence(0, 63))
-    assert state.version == CSM_STATE_VERSION
+    assert state.version == STAKING_MODULE_STATE_VERSION
     state.commit.assert_called_once()
 
 
 @pytest.mark.unit
 def test_migrate_invalidates_unmigrated_frames():
-    state = State()
+    state = State("test_oracle")
     state._consensus_version = 1
     state.data = {
         (0, 63): NetworkDuties(
@@ -418,7 +418,7 @@ def test_migrate_invalidates_unmigrated_frames():
 
 @pytest.mark.unit
 def test_migrate_discards_unmigrated_frame():
-    state = State()
+    state = State("test_oracle")
     state._consensus_version = 1
     state.data = {
         (0, 31): NetworkDuties(
@@ -462,7 +462,7 @@ def test_migrate_discards_unmigrated_frame():
 
 @pytest.mark.unit
 def test_migrate_frames_data_creates_new_data_correctly():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -492,7 +492,7 @@ def test_migrate_frames_data_creates_new_data_correctly():
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_migration():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -517,7 +517,7 @@ def test_migrate_frames_data_handles_no_migration():
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_partial_migration():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
@@ -552,7 +552,7 @@ def test_migrate_frames_data_handles_partial_migration():
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_no_data():
-    state = State()
+    state = State("test_oracle")
     state.data = {frame: NetworkDuties() for frame in state.frames}
 
     new_frames = [(0, 31)]
@@ -563,7 +563,7 @@ def test_migrate_frames_data_handles_no_data():
 
 @pytest.mark.unit
 def test_migrate_frames_data_handles_wider_old_frame():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 63): NetworkDuties(
             attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
@@ -585,7 +585,7 @@ def test_migrate_frames_data_handles_wider_old_frame():
 
 @pytest.mark.unit
 def test_validate_raises_error_if_state_not_fulfilled():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 94))
     with pytest.raises(InvalidState, match="State is not fulfilled"):
@@ -594,7 +594,7 @@ def test_validate_raises_error_if_state_not_fulfilled():
 
 @pytest.mark.unit
 def test_validate_raises_error_if_processed_epoch_out_of_range():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 95))
     state._processed_epochs.add(96)
@@ -604,7 +604,7 @@ def test_validate_raises_error_if_processed_epoch_out_of_range():
 
 @pytest.mark.unit
 def test_validate_raises_error_if_epoch_missing_in_processed_epochs():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 94))
     state._processed_epochs = set(sequence(0, 94))
     with pytest.raises(InvalidState, match="Epoch 95 missing in processed epochs"):
@@ -613,7 +613,7 @@ def test_validate_raises_error_if_epoch_missing_in_processed_epochs():
 
 @pytest.mark.unit
 def test_validate_passes_for_fulfilled_state():
-    state = State()
+    state = State("test_oracle")
     state._epochs_to_process = tuple(sequence(0, 95))
     state._processed_epochs = set(sequence(0, 95))
     state.validate(0, 95)
@@ -627,7 +627,7 @@ def test_attestation_aggregate_perf():
 
 @pytest.mark.unit
 def test_get_validator_duties():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(
@@ -655,7 +655,7 @@ def test_get_validator_duties():
 
 @pytest.mark.unit
 def test_get_att_network_aggr_computes_correctly():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             attestations=defaultdict(
@@ -671,7 +671,7 @@ def test_get_att_network_aggr_computes_correctly():
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_computes_correctly():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             syncs=defaultdict(
@@ -687,7 +687,7 @@ def test_get_sync_network_aggr_computes_correctly():
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_computes_correctly():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(
             proposals=defaultdict(
@@ -703,7 +703,7 @@ def test_get_prop_network_aggr_computes_correctly():
 
 @pytest.mark.unit
 def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
     }
@@ -713,7 +713,7 @@ def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
     }
@@ -723,7 +723,7 @@ def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
+    state = State("test_oracle")
     state.data = {
         (0, 31): NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)}))
     }
@@ -733,28 +733,28 @@ def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
 
 @pytest.mark.unit
 def test_get_att_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
+    state = State("test_oracle")
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_att_network_aggr((0, 31))
 
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
+    state = State("test_oracle")
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_prop_network_aggr((0, 31))
 
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
+    state = State("test_oracle")
     with pytest.raises(ValueError, match="No data for frame"):
         state.get_sync_network_aggr((0, 31))
 
 
 @pytest.mark.unit
 def test_get_att_network_aggr_handles_empty_frame_data():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_att_network_aggr((0, 31))
     assert aggr.assigned == 0
@@ -763,7 +763,7 @@ def test_get_att_network_aggr_handles_empty_frame_data():
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_handles_empty_frame_data():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_prop_network_aggr((0, 31))
     assert aggr.assigned == 0
@@ -772,7 +772,7 @@ def test_get_prop_network_aggr_handles_empty_frame_data():
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_handles_empty_frame_data():
-    state = State()
+    state = State("test_oracle")
     state.data = {(0, 31): NetworkDuties()}
     aggr = state.get_sync_network_aggr((0, 31))
     assert aggr.assigned == 0

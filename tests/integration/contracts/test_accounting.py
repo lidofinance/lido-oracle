@@ -1,7 +1,7 @@
 import pytest
 from web3.types import Wei
 
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ReportSimulationPayload,
     ReportSimulationResults,
 )

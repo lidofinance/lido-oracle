@@ -12,6 +12,7 @@ from eth_typing import BlockNumber
 
 from src.utils.block import _should_batch, get_block_timestamps
 
+
 SECONDS_PER_SLOT = 12
 
 
@@ -1198,7 +1199,6 @@ class TestBatchingConfiguration:
         """Timestamps should be identical with BLOCK_BATCH_SIZE_LIMIT=1 and =10."""
         blocks = {BlockNumber(b) for b in range(100, 110)}
         first_ts = 1000
-        last_ts = 1108  # 1000 + 9*12
 
         def mock_get_block_func(block_num):
             return {"timestamp": first_ts + (block_num - 100) * SECONDS_PER_SLOT}

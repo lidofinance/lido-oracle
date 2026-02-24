@@ -9,6 +9,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================

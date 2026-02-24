@@ -8,6 +8,7 @@ from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import build_blockstamp, build_reference_blockstamp
 
+
 logger = logging.getLogger(__name__)
 
 

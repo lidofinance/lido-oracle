@@ -1,11 +1,12 @@
 import json
 import logging
-from typing import Any, Self, Type
+from typing import Any, Self
 
 from web3 import Web3
 from web3.types import BlockIdentifier
 
 from src.web3py.contract_tweak import Contract
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class ContractInterface(Contract):
             return json.load(abi_json)
 
     @classmethod
-    def factory(cls, w3: Web3, class_name: str | None = None, **kwargs: Any) -> Type[Self]:
+    def factory(cls, w3: Web3, class_name: str | None = None, **kwargs: Any) -> type[Self]:
         if cls.abi_path is None:
             raise AttributeError(f'abi_path attribute is missing in {cls.__name__} class')
 

@@ -62,14 +62,41 @@ FUNCTIONS_DURATION = Histogram(
     'Duration of oracle daemon tasks',
     ['name', 'status'],
     namespace=PROMETHEUS_PREFIX,
-    buckets=(.1, .5, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 30.0, 60.0, 120.0, 180.0, 240.0, 300.0, 600.0, INF),
+    buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 30.0, 60.0, 120.0, 180.0, 240.0, 300.0, 600.0, INF),
 )
 
-requests_buckets = (.01, .05, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 120.0, INF)
+requests_buckets = (
+    0.01,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    2.5,
+    5.0,
+    7.5,
+    10.0,
+    20.0,
+    30.0,
+    40.0,
+    50.0,
+    60.0,
+    120.0,
+    INF,
+)
 
 CL_REQUESTS_DURATION = Histogram(
     'cl_requests_duration',
     'Duration of requests to CL API',
+    ['endpoint', 'code', 'domain'],
+    namespace=PROMETHEUS_PREFIX,
+    buckets=requests_buckets,
+)
+
+PERFORMANCE_REQUESTS_DURATION = Histogram(
+    'performance_requests_duration',
+    'Duration of requests to Performance Collector API',
     ['endpoint', 'code', 'domain'],
     namespace=PROMETHEUS_PREFIX,
     buckets=requests_buckets,
@@ -128,6 +155,4 @@ def init_basic_metrics(w3) -> None:
     LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value).set(time.time())
 
     if variables.ACCOUNT:
-        ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(
-            w3.eth.get_balance(variables.ACCOUNT.address)
-        )
+        ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(w3.eth.get_balance(variables.ACCOUNT.address))

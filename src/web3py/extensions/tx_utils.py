@@ -3,14 +3,16 @@ import logging
 from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
-from web3.types import TxParams, TxReceipt
+from web3.types import BlockData, TxParams, TxReceipt, Wei
 
-from src import variables
+from src import constants, variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 from src.utils.transaction import build_transaction_params, sign_and_send_transaction
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +37,7 @@ class TransactionUtils(Module):
 
     def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount):
         logger.warning({'msg': 'Send transaction in manual mode.'})
-        msg = (
-            '\n'
-            'Going to send transaction to blockchain: \n'
-            f'Tx args:\n{transaction.args}\n'
-            f'Tx params:\n{params}\n'
-        )
+        msg = f'\nGoing to send transaction to blockchain: \nTx args:\n{transaction.args}\nTx params:\n{params}\n'
         if prompt(f'{msg}Should we send this TX? [y/n]: '):
             self._send_transaction(transaction, params, account)
 
@@ -62,7 +59,51 @@ class TransactionUtils(Module):
         logger.info({"msg": "Transaction executed successfully.", "value": result})
         return True
 
-    def _send_transaction(
+    def _get_transaction_params(self, transaction: ContractFunction, account: LocalAccount):
+        # get pending block doesn't work on erigon node in specific cases
+        latest_block: BlockData = self.w3.eth.get_block("latest")
+        max_priority_fee = Wei(
+            min(
+                variables.MAX_PRIORITY_FEE,
+                max(
+                    self.w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
+                    variables.MIN_PRIORITY_FEE,
+                ),
+            )
+        )
+
+        params: TxParams = {
+            "from": account.address,
+            "maxFeePerGas": Wei(
+                latest_block["baseFeePerGas"] * 2 + max_priority_fee  # type: ignore[index]
+            ),
+            "maxPriorityFeePerGas": max_priority_fee,
+            "nonce": self.w3.eth.get_transaction_count(account.address),
+        }
+
+        if gas := self._estimate_gas(transaction, account):
+            params['gas'] = gas
+
+        return params
+
+    @staticmethod
+    def _estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | None:
+        """If transaction throws exception return None"""
+        try:
+            gas = transaction.estimate_gas({'from': account.address})
+        except ContractLogicError as error:
+            logger.warning({'msg': 'Can not estimate gas. Contract logic error.', 'error': str(error)})
+            return None
+        except ValueError as error:
+            logger.warning({'msg': 'Can not estimate gas. Execution reverted.', 'error': str(error)})
+            return None
+
+        return min(
+            constants.MAX_BLOCK_GAS_LIMIT,
+            gas + variables.TX_GAS_ADDITION,
+        )
+
+    def _sign_and_send_transaction(
         self,
         transaction,
         params: TxParams,

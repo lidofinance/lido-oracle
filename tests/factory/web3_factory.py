@@ -23,7 +23,7 @@ class Web3DataclassFactory[T](BaseFactory[T]):
         return bool(is_dataclass(value))
 
     @classmethod
-    def get_model_fields(cls) -> list["FieldMeta"]:
+    def get_model_fields(cls) -> list[FieldMeta]:
         """Retrieve a list of fields from the factory's model.
 
 

@@ -1,3 +1,4 @@
+import math
 import re
 from collections import defaultdict
 from unittest.mock import Mock
@@ -6,11 +7,19 @@ import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS
-from src.modules.csm.distribution import Distribution, ValidatorDuties, ValidatorDutiesOutcome
-from src.modules.csm.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
-from src.modules.csm.state import DutyAccumulator, Frame, NetworkDuties, State
-from src.modules.csm.types import StrikesList
+from src.constants import (
+    EFFECTIVE_BALANCE_INCREMENT,
+    MIN_ACTIVATION_BALANCE,
+    TOTAL_BASIS_POINTS,
+)
+from src.modules.oracles.staking_modules.common.distribution import (
+    Distribution,
+    ValidatorDuties,
+    ValidatorDutiesOutcome,
+)
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
+from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
     CurveParams,
@@ -21,8 +30,8 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
-from src.web3py.extensions import CSM
-from src.web3py.types import Web3
+from src.web3py.extensions import StakingModuleContracts
+from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
@@ -292,11 +301,14 @@ def test_calculate_distribution(
     expected_strikes,
 ):
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
-    w3.csm.get_curve_params = mocked_curve_params
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
+    w3.staking_module.get_curve_params = mocked_curve_params
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {f: {} for f in frames}
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
@@ -309,8 +321,8 @@ def test_calculate_distribution(
     assert result.total_rebate == expected_total_rebate
     assert result.strikes == expected_strikes
 
-    assert len(result.logs) == len(frames)
-    for i, log in enumerate(result.logs):
+    assert len(result.logs.frames) == len(frames)
+    for i, log in enumerate(result.logs.frames):
         assert log.blockstamp == frame_blockstamps[i]
         assert log.frame == frames[i]
 
@@ -318,11 +330,14 @@ def test_calculate_distribution(
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    w3.csm.get_curve_params = Mock(...)
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
+    w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -346,11 +361,14 @@ def test_calculate_distribution_handles_invalid_distribution():
 @pytest.mark.unit
 def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM, fee_distributor=Mock(spec=CSFeeDistributorContract)))
-    w3.csm.fee_distributor.shares_to_distribute = Mock(return_value=500)
-    w3.csm.get_curve_params = Mock(...)
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
+    )
+    w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
+    w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -525,6 +543,105 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 },
             ),
         ),
+        # Leeway of 1.0 disables strikes regardless of performance
+        (
+            100,
+            {
+                (..., NodeOperatorId(1)): [
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(1),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x01", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(2),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x02", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                ],
+            },
+            NetworkDuties(
+                attestations=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+                proposals=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+                syncs=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=10),
+                    },
+                ),
+            ),
+            Mock(
+                return_value=CurveParams(
+                    strikes_params=...,
+                    perf_leeway_data=Mock(get_for=Mock(return_value=1)),
+                    reward_share_data=Mock(get_for=Mock(return_value=1)),
+                    perf_coeffs=PerformanceCoefficients(),
+                )
+            ),
+            # Expected:
+            # Distribution map
+            {
+                NodeOperatorId(1): 100,
+            },
+            # Distributed rewards
+            100,
+            # Rebate to protocol
+            0,
+            # Strikes
+            {},
+            FramePerfLog(
+                blockstamp=...,
+                frame=...,
+                distributable=100,
+                distributed_rewards=100,
+                rebate_to_protocol=0,
+                operators={
+                    NodeOperatorId(1): OperatorFrameSummary(
+                        distributed_rewards=100,
+                        performance_coefficients=PerformanceCoefficients(),
+                        validators={
+                            ValidatorIndex(1): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=0.0,
+                                threshold=0.0,
+                                rewards_share=1.0,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=0),
+                                proposal_duty=DutyAccumulator(assigned=10, included=0),
+                                sync_duty=DutyAccumulator(assigned=10, included=0),
+                            ),
+                            ValidatorIndex(2): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=1.0,
+                                threshold=0.0,
+                                rewards_share=1.0,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=10),
+                                proposal_duty=DutyAccumulator(assigned=10, included=10),
+                                sync_duty=DutyAccumulator(assigned=10, included=10),
+                            ),
+                        },
+                    )
+                },
+            ),
+        ),
         #  Mixed. With custom threshold and reward share
         (
             100,
@@ -532,40 +649,64 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 # Operator 1. One above threshold performance, one slashed
                 (..., NodeOperatorId(1)): [
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(1), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x01")
+                        index=ValidatorIndex(1),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x01", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(2), validator=ValidatorStateFactory.build(slashed=True, pubkey="0x02")
+                        index=ValidatorIndex(2),
+                        validator=ValidatorStateFactory.build(
+                            slashed=True, pubkey="0x02", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                 ],
                 # Operator 2. One above threshold performance, one below
                 (..., NodeOperatorId(2)): [
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(3), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x03")
+                        index=ValidatorIndex(3),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x03", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(4), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x04")
+                        index=ValidatorIndex(4),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x04", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                 ],
                 # Operator 3. All below threshold performance
                 (..., NodeOperatorId(3)): [
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(5), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x05")
+                        index=ValidatorIndex(5),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x05", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                 ],
                 # Operator 4. No duties
                 (..., NodeOperatorId(4)): [
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(6), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x06")
+                        index=ValidatorIndex(6),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x06", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                 ],
                 # Operator 5. All above threshold performance
                 (..., NodeOperatorId(5)): [
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(7), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x07")
+                        index=ValidatorIndex(7),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x07", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                     LidoValidatorFactory.build(
-                        index=ValidatorIndex(8), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x08")
+                        index=ValidatorIndex(8),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x08", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
                     ),
                 ],
             },
@@ -806,11 +947,11 @@ def test_calculate_distribution_in_frame(
 ):
     log = FramePerfLog(blockstamp=..., frame=...)
     # Mocking the data from EL
-    w3 = Mock(spec=Web3, csm=Mock(spec=CSM))
-    w3.csm.get_curve_params = mocked_curve_params
+    w3 = Mock(spec=Web3StakingModule, staking_module=Mock(spec=StakingModuleContracts))
+    w3.staking_module.get_curve_params = mocked_curve_params
 
     frame = (EpochNumber(0), EpochNumber(31))
-    state = State()
+    state = State(oracle_name='test')
     state.migrate(*frame, epochs_per_frame=32)
     state.data = {frame: frame_state_data}
 
@@ -887,7 +1028,40 @@ def test_get_network_performance_raises_error_for_invalid_performance():
             False,
             0.5,
             1,
-            ValidatorDutiesOutcome(participation_share=10, rebate_share=0, strikes=0),
+            ValidatorDutiesOutcome(participation_share=10 * 32, rebate_share=0, strikes=0),
+        ),
+        (
+            ValidatorDuties(
+                attestation=DutyAccumulator(assigned=10, included=5),
+                proposal=DutyAccumulator(assigned=10, included=5),
+                sync=DutyAccumulator(assigned=10, included=5),
+            ),
+            False,
+            0.5,
+            1,
+            ValidatorDutiesOutcome(participation_share=10 * 32, rebate_share=0, strikes=0),
+        ),
+        (
+            ValidatorDuties(
+                attestation=DutyAccumulator(assigned=10, included=10),
+                proposal=DutyAccumulator(assigned=10, included=10),
+                sync=DutyAccumulator(assigned=10, included=10),
+            ),
+            False,
+            0.5,
+            0.85,
+            ValidatorDutiesOutcome(participation_share=272, rebate_share=48, strikes=0),
+        ),
+        (
+            ValidatorDuties(
+                attestation=DutyAccumulator(assigned=3, included=3),
+                proposal=DutyAccumulator(assigned=3, included=3),
+                sync=DutyAccumulator(assigned=3, included=3),
+            ),
+            False,
+            0.5,
+            0.3,
+            ValidatorDutiesOutcome(participation_share=29, rebate_share=67, strikes=0),
         ),
         (
             ValidatorDuties(
@@ -924,6 +1098,7 @@ def test_get_network_performance_raises_error_for_invalid_performance():
 def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_share, expected_outcome):
     validator = LidoValidatorFactory.build()
     validator.validator.slashed = is_slashed
+    validator.validator.effective_balance = MIN_ACTIVATION_BALANCE
     log_operator = Mock()
     log_operator.validators = defaultdict(ValidatorFrameSummary)
 
@@ -1079,7 +1254,7 @@ def test_merge_strikes(
     expected: dict,
 ):
     distribution = Distribution(Mock(csm=Mock()), Mock(), Mock())
-    distribution.w3.csm.get_curve_params = Mock(
+    distribution.w3.staking_module.get_curve_params = Mock(
         side_effect=lambda no_id, _: Mock(strikes_params=threshold_per_op[no_id])
     )
 
@@ -1188,3 +1363,116 @@ def test_interval_mapping_raises_error_for_key_number_out_of_range():
     reward_share = KeyNumberValueIntervalList([KeyNumberValueInterval(11, 10000)])
     with pytest.raises(ValueError, match="No value found for key number=2"):
         reward_share.get_for(2)
+
+
+@pytest.mark.parametrize("multiplier", [1, 2, 3, 64])
+@pytest.mark.unit
+def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: int):
+    validator = LidoValidatorFactory.build()
+    validator.validator.slashed = False
+    validator.validator.effective_balance = MIN_ACTIVATION_BALANCE * multiplier
+
+    duties = ValidatorDuties(
+        attestation=DutyAccumulator(assigned=10, included=10),
+        proposal=None,
+        sync=None,
+    )
+
+    threshold = 0.0
+    reward_share = 0.5
+    log_operator = Mock()
+    log_operator.validators = defaultdict(ValidatorFrameSummary)
+
+    outcome = Distribution.get_validator_duties_outcome(
+        validator,
+        duties,
+        threshold,
+        reward_share,
+        PerformanceCoefficients(),
+        log_operator,
+    )
+
+    expected_assigned = 10 * MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
+    expected_participation = math.ceil(expected_assigned * reward_share)
+    expected_rebate = expected_assigned - expected_participation
+
+    assert outcome == ValidatorDutiesOutcome(
+        participation_share=expected_participation,
+        rebate_share=expected_rebate,
+        strikes=0,
+    )
+
+
+@pytest.mark.unit
+def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
+    w3 = Mock(spec=Web3StakingModule, staking_module=Mock())
+    reward_share_data = Mock()
+    reward_share_data.get_for = Mock(side_effect=lambda k: {1: 1.0, 2: 0.9, 3: 0.8, 4: 0.7, 5: 0.6, 6: 0.5}[k])
+    w3.staking_module.get_curve_params = Mock(
+        return_value=CurveParams(
+            strikes_params=...,
+            perf_leeway_data=Mock(get_for=Mock(return_value=0.0)),
+            reward_share_data=reward_share_data,
+            perf_coeffs=PerformanceCoefficients(attestations_weight=1, blocks_weight=0, sync_weight=0),
+        )
+    )
+
+    distribution = Distribution(w3, converter=..., state=State(oracle_name='test'))
+    distribution._get_network_performance = Mock(return_value=0.9)
+
+    frame = (EpochNumber(0), EpochNumber(31))
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=31)
+    log = FramePerfLog(blockstamp, frame)
+
+    # Three validators with different indices and balances; final order expected by index asc
+    v_idx5 = LidoValidatorFactory.build(index=ValidatorIndex(5))
+    v_idx7 = LidoValidatorFactory.build(index=ValidatorIndex(7))
+    v_idx8 = LidoValidatorFactory.build(index=ValidatorIndex(8))
+    v_idx9 = LidoValidatorFactory.build(index=ValidatorIndex(9))
+    v_idx10 = LidoValidatorFactory.build(index=ValidatorIndex(10))
+    v_idx6 = LidoValidatorFactory.build(index=ValidatorIndex(6))
+    v_idx5.validator.slashed = False
+    v_idx7.validator.slashed = False
+    v_idx8.validator.slashed = False
+    v_idx9.validator.slashed = False
+    v_idx10.validator.slashed = False
+    v_idx6.validator.slashed = False
+
+    v_idx5.validator.effective_balance = MIN_ACTIVATION_BALANCE
+    v_idx7.validator.effective_balance = MIN_ACTIVATION_BALANCE * 3
+    v_idx8.validator.effective_balance = MIN_ACTIVATION_BALANCE * 2
+    v_idx10.validator.effective_balance = MIN_ACTIVATION_BALANCE * 2
+    v_idx9.validator.effective_balance = MIN_ACTIVATION_BALANCE * 65
+    v_idx6.validator.effective_balance = MIN_ACTIVATION_BALANCE * 64
+
+    # Same perfect duties for all
+    distribution.state.data = {
+        frame: NetworkDuties(
+            attestations=defaultdict(
+                DutyAccumulator,
+                {
+                    v_idx5.index: DutyAccumulator(assigned=10, included=10),
+                    v_idx7.index: DutyAccumulator(assigned=10, included=10),
+                    v_idx8.index: DutyAccumulator(assigned=10, included=10),
+                    v_idx9.index: DutyAccumulator(assigned=10, included=10),
+                    v_idx10.index: DutyAccumulator(assigned=10, included=10),
+                    v_idx6.index: DutyAccumulator(assigned=10, included=10),
+                },
+            ),
+            proposals=defaultdict(DutyAccumulator),
+            syncs=defaultdict(DutyAccumulator),
+        )
+    }
+
+    operators_to_validators = {
+        (..., NodeOperatorId(1)): [v_idx10, v_idx7, v_idx5, v_idx8, v_idx9, v_idx6],
+    }
+
+    distribution._calculate_distribution_in_frame(frame, blockstamp, Wei(300), operators_to_validators, log)
+
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(6)].rewards_share == 1.0
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(9)].rewards_share == 0.9
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].rewards_share == 0.8
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].rewards_share == 0.7
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].rewards_share == 0.6
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].rewards_share == 0.5

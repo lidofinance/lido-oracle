@@ -1,0 +1,118 @@
+groups:
+  - name: instance-availability
+    rules:
+      - alert: InstanceDown
+        expr: up{job=~"performance-web|performance-collector|csm-oracle|cm-oracle"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus scrape failed"
+          description: "Prometheus cannot scrape this target. Check the service is running, networking/DNS, and that /metrics responds ({{ $labels.job }} / {{ $labels.instance }})."
+
+  - name: oracle-health
+    rules:
+      - alert: OutdatedConsensusHeadSlot
+        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oracle is not progressing"
+          description: "Oracle consensus data is stale. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
+
+      - alert: LowAccountBalance
+        expr: lido_oracle_account_balance / 1e18 < 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oracle account balance low"
+          description: "Top up the oracle account to avoid transaction failures. Address: {{ $labels.address }}, balance: {{ $value }} ETH ({{ $labels.job }} / {{ $labels.instance }})."
+
+  - name: perf-sidecar
+    rules:
+      - alert: PerformanceApiRequestErrors
+        expr: sum by (job, instance) (rate(lido_oracle_performance_requests_duration_count{code!="200"}[10m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Performance API errors"
+          description: "Oracle cannot reliably read the Performance API. Check `performance-web` health, DB connectivity, and network between services ({{ $labels.job }} / {{ $labels.instance }})."
+
+  - name: perf-epochs
+    rules:
+      - alert: PerformanceCollectorDbLagHigh
+        expr: |
+          (
+            (
+              floor(lido_oracle_slot_number{state="finalized"} / 32) - 2
+            )
+            - on(job, instance) lido_oracle_performance_collector_db_max_epoch
+          ) > 3
+          and on(job, instance) (lido_oracle_performance_collector_db_epochs_count > 0)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Collector behind chain"
+          description: "Collector is not keeping up with finalized epochs (lag: {{ $value }}). Check collector logs, consensus endpoint health, and DB performance ({{ $labels.instance }})."
+
+      - alert: PerformanceCollectorDbHasGaps
+        expr: |
+          (
+            (lido_oracle_performance_collector_db_max_epoch - lido_oracle_performance_collector_db_min_epoch + 1)
+            - lido_oracle_performance_collector_db_epochs_count
+          ) > 0
+          and (lido_oracle_performance_collector_db_epochs_count > 0)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Missing data in Performance DB"
+          description: "Performance DB has missing epochs inside [min;max] (missing: {{ $value }}). Check collector logs and DB health ({{ $labels.instance }})."
+
+      - alert: PerformanceCollectorNotAdvancingWithDemand
+        expr: lido_oracle_performance_collector_db_demand_count > 0 and changes(lido_oracle_performance_collector_db_max_epoch[30m]) == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Collector stuck while consumers wait"
+          description: "Collector is not making progress while consumers are waiting for data. Check collector process health, consensus connectivity, and DB locks/timeouts ({{ $labels.instance }})."
+
+      - alert: PerformanceOracleRangeAlreadyFinalizedButUnavailable
+        expr: |
+          (lido_oracle_performance_oracle_waiting_for_data == 1)
+          and
+          (
+            (floor(lido_oracle_slot_number{state="finalized"} / 32) - 2)
+            - on(job, instance) group_left(consumer)
+              lido_oracle_performance_oracle_target_r_epoch
+            > 0
+          )
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Oracle waits for already-finalized data"
+          description: "Oracle waits for performance data that should already be available. Check `performance-collector`/DB progress and network between oracle and `performance-web` (consumer: {{ $labels.consumer }}, {{ $labels.instance }})."
+
+      - alert: PerformanceOracleNoRangeChecks
+        expr: time() - lido_oracle_performance_oracle_last_range_check_unixtime > 1800
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Oracle not polling Performance API"
+          description: "Oracle has not checked performance data availability recently. Check oracle process/container, logs, and connectivity to `performance-web` (consumer: {{ $labels.consumer }}, {{ $labels.instance }})."
+
+      - alert: PerformanceCollectorErrors
+        expr: sum by (job, instance, type) (rate(lido_oracle_performance_collector_errors_total[10m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Collector errors"
+          description: "Collector is erroring ({{ $labels.type }}). Check collector logs and consensus/DB connectivity ({{ $labels.instance }})."

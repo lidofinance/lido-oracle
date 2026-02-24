@@ -8,10 +8,10 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.modules.submodules import consensus as consensus_module
-from src.modules.submodules.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.submodules.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
+from src.modules.oracles.common import consensus as consensus_module
+from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
+from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -259,7 +259,7 @@ def test_incompatible_oracle(consensus, contract_version, consensus_version):
     consensus.report_contract.get_contract_version = Mock(return_value=contract_version)
     consensus.report_contract.get_consensus_version = Mock(return_value=consensus_version)
 
-    consensus._check_compatability(bs)
+    consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit
@@ -282,7 +282,7 @@ def test_contract_upgrade_before_report_submited(consensus, contract_version, co
         side_effect=lambda tag: consensus_version if tag == 'latest' else 2
     )
 
-    assert expected == consensus._check_compatability(bs)
+    assert expected == consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit
@@ -293,7 +293,7 @@ def test_incompatible_contract_version(consensus):
     consensus.report_contract.get_consensus_version = Mock(return_value=3)
 
     with pytest.raises(IncompatibleOracleVersion):
-        consensus._check_compatability(bs)
+        consensus._check_compatibility(bs)
 
 
 @pytest.mark.unit

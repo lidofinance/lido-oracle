@@ -1,12 +1,13 @@
 import itertools
-from typing import Any, Callable, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from eth_abi.exceptions import DecodingError
 from eth_typing import (
     ABI,
     ABIFunction,
+    ChecksumAddress,
 )
-from eth_typing import ChecksumAddress
 from eth_utils.abi import (
     get_abi_output_types,
 )
@@ -19,23 +20,22 @@ from web3._utils.abi import (
 from web3._utils.contracts import prepare_transaction
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 from web3.contract import Contract as _Contract
-from web3.contract.contract import ContractFunction as _ContractFunction
-from web3.contract.contract import ContractFunctions as _ContractFunctions
+from web3.contract.contract import ContractFunction as _ContractFunction, ContractFunctions as _ContractFunctions
 from web3.contract.utils import ACCEPTABLE_EMPTY_STRINGS
 from web3.exceptions import BadFunctionCallOutput
 from web3.types import (
+    ABIElementIdentifier,
     BlockIdentifier,
     StateOverride,
-    ABIElementIdentifier,
     TxParams,
 )
 from web3.utils import get_abi_element
 
 
 def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-many-positional-arguments
-    w3: "Web3",
+    w3: Web3,
     address: ChecksumAddress,
-    normalizers: Tuple[Callable[..., Any], ...],
+    normalizers: tuple[Callable[..., Any], ...],
     function_identifier: ABIElementIdentifier,
     transaction: TxParams,
     block_id: BlockIdentifier | None = None,
@@ -86,14 +86,10 @@ def call_contract_function(  # pylint: disable=keyword-arg-before-vararg,too-man
         # Provide a more helpful error message than the one provided by
         # eth-abi-utils
         is_missing_code_error = (
-            return_data in ACCEPTABLE_EMPTY_STRINGS
-            and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
+            return_data in ACCEPTABLE_EMPTY_STRINGS and w3.eth.get_code(address) in ACCEPTABLE_EMPTY_STRINGS
         )
         if is_missing_code_error:
-            msg = (
-                "Could not transact with/call contract function, is contract "
-                "deployed correctly and chain synced?"
-            )
+            msg = "Could not transact with/call contract function, is contract deployed correctly and chain synced?"
         else:
             msg = (
                 f"Could not decode contract function call to {function_identifier} "

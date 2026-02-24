@@ -1,7 +1,8 @@
 import logging
 from abc import ABC
+from collections.abc import Callable, Sequence
 from http import HTTPStatus
-from typing import Any, Callable, NoReturn, Protocol, Sequence
+from typing import Any, NoReturn, Protocol
 from urllib.parse import urljoin, urlparse
 
 # NOTE: Missing library stubs or py.typed marker. That's why we use `type: ignore`
@@ -13,6 +14,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from src.providers.consistency import ProviderConsistencyModule
+
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         stream: bool = False,
     ) -> tuple[Any, dict]:
         """
-        Get plain or streamed request with fallbacks
+        Plain or streamed GET request with fallbacks
         Returns (data, meta) or raises exception
 
         force_raise - function that returns an Exception if it should be thrown immediately.
@@ -152,7 +154,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         retval_validator: ReturnValueValidator = data_is_any,
     ) -> tuple[Any, dict]:
         """
-        Simple get request without fallbacks
+        Simple GET request without fallbacks
         Returns (data, meta) or raises an exception
         """
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
@@ -189,11 +191,123 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
 
             try:
-                if stream:
-                    # There's no guarantee the JSON is valid at this point.
-                    json_response = json_stream_requests.load(response)
-                else:
-                    json_response = response.json()
+                # There's no guarantee streamed JSON is valid at this point.
+                json_response = json_stream_requests.load(response) if stream else response.json()
+            except JSONDecodeError as error:
+                response_fail_msg = (
+                    f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
+
+        meta: dict[str, Any] = {}
+        try:
+            data = json_response["data"]  # type: ignore[index]
+
+            if not stream and isinstance(json_response, dict):
+                json_response.pop("data", None)
+                meta = json_response
+        except (KeyError, TypeError):
+            # NOTE: Used by KeysAPIClient and PerformanceClient only.
+            data = json_response
+
+        retval_validator(data, meta, endpoint=endpoint)
+        return data, meta
+
+    def _post(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        """
+        Plain POST request with fallbacks
+        Returns (data, meta) or raises exception
+
+        force_raise - function that returns an Exception if it should be thrown immediately.
+        Sometimes NotOk response from first provider is the response that we are expecting.
+        """
+        errors: list[Exception] = []
+
+        for host in self.hosts:
+            try:
+                return self._post_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    body_data,
+                    retval_validator=retval_validator,
+                )
+            except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+
+                # Check if exception should be raised immediately
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
+
+                logger.warning(
+                    {
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
+                        'error': str(e),
+                        'provider': urlparse(host).netloc,
+                    }
+                )
+
+        # Raise error from last provider.
+        raise errors[-1]
+
+    def _post_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        """
+        Simple POST request without fallbacks
+        Returns (data, meta) or raises an exception
+        """
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response = self.session.post(
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
+                    params=query_params,
+                    json=body_data,
+                    timeout=self.request_timeout,
+                )
+            except Exception as error:
+                logger.error({'msg': str(error)})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
+
+            if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
+
+            try:
+                json_response = response.json()
             except JSONDecodeError as error:
                 response_fail_msg = (
                     f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
@@ -202,14 +316,114 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
         try:
-            data = json_response["data"]  # type: ignore[index]
+            data = json_response["data"]
+            del json_response["data"]
+            meta = json_response
+        except KeyError:
+            data = json_response
             meta = {}
 
-            if not stream:
-                del json_response["data"]  # type: ignore[attr-defined]
-                meta = json_response
+        retval_validator(data, meta, endpoint=endpoint)
+        return data, meta
+
+    def _delete(
+        self,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        force_raise: Callable[..., Exception | None] = lambda _: None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        errors: list[Exception] = []
+
+        for host in self.hosts:
+            try:
+                return self._delete_without_fallbacks(
+                    host,
+                    endpoint,
+                    path_params,
+                    query_params,
+                    body_data,
+                    retval_validator=retval_validator,
+                )
+            except Exception as e:  # pylint: disable=W0703
+                errors.append(e)
+
+                if to_force_raise := force_raise(errors):
+                    raise to_force_raise from e
+
+                logger.warning(
+                    {
+                        'msg': f'[{self.__class__.__name__}] Host [{urlparse(host).netloc}] responded with error',
+                        'error': str(e),
+                        'provider': urlparse(host).netloc,
+                    }
+                )
+
+        if not errors:
+            raise RuntimeError('No hosts available for DELETE request')
+        raise errors[-1]
+
+    def _delete_without_fallbacks(
+        self,
+        host: str,
+        endpoint: str,
+        path_params: Sequence[str | int] | None = None,
+        query_params: dict | None = None,
+        body_data: dict | None = None,
+        retval_validator: ReturnValueValidator = data_is_any,
+    ) -> tuple[dict, dict]:
+        complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
+
+        with self.PROMETHEUS_HISTOGRAM.time() as t:
+            try:
+                response = self.session.delete(
+                    self._urljoin(host, complete_endpoint if path_params else endpoint),
+                    params=query_params,
+                    json=body_data,
+                    timeout=self.request_timeout,
+                )
+            except Exception as error:  # pylint: disable=W0703
+                logger.error({'msg': str(error)})
+                t.labels(
+                    endpoint=endpoint,
+                    code=0,
+                    domain=urlparse(host).netloc,
+                )
+                raise self.PROVIDER_EXCEPTION(status=0, text='Response error.') from error
+
+            t.labels(
+                endpoint=endpoint,
+                code=response.status_code,
+                domain=urlparse(host).netloc,
+            )
+
+            if response.status_code != HTTPStatus.OK:
+                response_fail_msg = (
+                    f'Response from {complete_endpoint} [{response.status_code}]'
+                    f' with text: "{str(response.text)}" returned.'
+                )
+                logger.debug({'msg': response_fail_msg})
+                raise self.PROVIDER_EXCEPTION(response_fail_msg, status=response.status_code, text=response.text)
+
+            if not response.content:
+                json_response: dict = {}
+            else:
+                try:
+                    json_response = response.json()
+                except JSONDecodeError as error:
+                    response_fail_msg = (
+                        f'Failed to decode JSON response from {complete_endpoint} with text: "{str(response.text)}"'
+                    )
+                    logger.debug({'msg': response_fail_msg})
+                    raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
+
+        try:
+            data = json_response["data"]
+            del json_response["data"]
+            meta = json_response
         except KeyError:
-            # NOTE: Used by KeysAPIClient only.
             data = json_response
             meta = {}
 

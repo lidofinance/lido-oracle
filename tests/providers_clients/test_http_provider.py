@@ -38,8 +38,12 @@ def test_all_fallbacks_ok():
 @pytest.mark.unit
 def test_all_fallbacks_bad():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
-    with pytest.raises(Exception):
+    provider._get_without_fallbacks = Mock(side_effect=NotOkResponse("fail", status=500, text="fail"))
+
+    with pytest.raises(NotOkResponse):
         provider._get('test')
+
+    assert provider._get_without_fallbacks.call_count == 2
 
 
 @pytest.mark.unit

@@ -1,3 +1,4 @@
+import signal
 from http import HTTPStatus
 from unittest.mock import MagicMock, Mock, patch
 
@@ -18,11 +19,13 @@ from src.metrics.prometheus.basic import (
     Status,
     init_basic_metrics,
 )
-from src.modules.submodules.exceptions import (
+from src.modules.common.types import ModuleExecuteDelay
+from src.modules.oracles.common.exceptions import (
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.modules.submodules.oracle_module import BaseModule, ModuleExecuteDelay
+from src.modules.oracles.common.oracle_module import OracleModule
+from src.modules.oracles.common.runtime import run_oracle_module
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
@@ -31,14 +34,35 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
 
-class SimpleOracle(BaseModule):
+class SimpleOracle(OracleModule):
     call_count: int = 0
+    COMPATIBLE_CONTRACT_VERSION = 1
+    COMPATIBLE_CONSENSUS_VERSION = 1
+
+    def __init__(self, w3):
+        self.report_contract = MagicMock()
+        super().__init__(w3)
 
     def execute_module(self, blockstamp):
         self.call_count += 1
         return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
+    def build_report(self, blockstamp):
+        return ()
+
+    def is_contract_reportable(self, blockstamp):
+        return True
+
+    def is_main_data_submitted(self, blockstamp):
+        return False
+
+    def is_reporting_allowed(self, blockstamp):
+        return True
+
     def refresh_contracts(self):
+        pass
+
+    def is_contracts_addresses_changed(self):
         pass
 
 
@@ -74,22 +98,22 @@ def test_receive_last_finalized_slot(oracle):
 @pytest.mark.unit
 @responses.activate
 def test_cycle_handler_run_once_per_slot(oracle, web3):
-    web3.lido_contracts.has_contract_address_changed = Mock()
+    oracle.is_contracts_addresses_changed = Mock()
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
     responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
 
     oracle.cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
+    assert oracle.is_contracts_addresses_changed.call_count == 1
 
     oracle.cycle_handler()
     assert oracle.call_count == 1
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 1
+    assert oracle.is_contracts_addresses_changed.call_count == 1
 
     oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
     oracle.cycle_handler()
     assert oracle.call_count == 2
-    assert web3.lido_contracts.has_contract_address_changed.call_count == 2
+    assert oracle.is_contracts_addresses_changed.call_count == 2
 
 
 @pytest.mark.unit
@@ -111,6 +135,43 @@ def test_run_as_daemon(oracle):
 
 
 @pytest.mark.unit
+def test_run_oracle_module__single_cycle__calls_shutdown(oracle: OracleModule, monkeypatch):
+    monkeypatch.setattr(variables, "DAEMON", False)
+    oracle.check_contract_configs = Mock()
+    oracle.cycle_handler = Mock()
+    oracle.shutdown = Mock()
+
+    with (
+        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
+        patch("src.modules.common.graceful_shutdown.signal.signal"),
+    ):
+        run_oracle_module(oracle)
+
+    oracle.check_contract_configs.assert_called_once()
+    oracle.cycle_handler.assert_called_once()
+    oracle.shutdown.assert_called_once()
+
+
+@pytest.mark.unit
+def test_run_oracle_module__daemon_exit__calls_shutdown(oracle: OracleModule, monkeypatch):
+    monkeypatch.setattr(variables, "DAEMON", True)
+    oracle.check_contract_configs = Mock()
+    oracle.run_as_daemon = Mock(side_effect=SystemExit(0))
+    oracle.shutdown = Mock()
+
+    with (
+        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
+        patch("src.modules.common.graceful_shutdown.signal.signal"),
+        pytest.raises(SystemExit, match="0"),
+    ):
+        run_oracle_module(oracle)
+
+    oracle.check_contract_configs.assert_called_once()
+    oracle.run_as_daemon.assert_called_once()
+    oracle.shutdown.assert_called_once()
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "ex",
     [
@@ -125,7 +186,7 @@ def test_run_as_daemon(oracle):
     ],
     ids=lambda param: f"{type(param).__name__}",
 )
-def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
+def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
@@ -147,7 +208,7 @@ def test_cycle_no_fail_on_retryable_error(oracle: BaseModule, ex: Exception):
     ],
     ids=lambda param: f"{type(param).__name__}",
 )
-def test_run_cycle_fails_on_critical_exceptions(oracle: BaseModule, ex: Exception):
+def test_run_cycle_fails_on_critical_exceptions(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
@@ -178,15 +239,12 @@ def test_init_basic_metrics__all_labels__metrics_exist(web3):
 
 
 @pytest.mark.unit
-@responses.activate
-def test_cycle__successful_execution__records_success_metric(oracle: BaseModule):
-    oracle.w3.lido_contracts = MagicMock()
-    responses.get(f'http://localhost:{variables.HEALTHCHECK_SERVER_PORT}/pulse/', status=HTTPStatus.OK)
+def test_cycle__successful_execution__records_success_metric(oracle: OracleModule):
     before = CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get()
 
     with (
+        patch("src.modules.common.daemon_module.pulse"),
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
-        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False),
         patch.object(oracle, "execute_module", return_value=ModuleExecuteDelay.NEXT_FINALIZED_EPOCH),
     ):
         oracle._cycle()
@@ -196,13 +254,11 @@ def test_cycle__successful_execution__records_success_metric(oracle: BaseModule)
 
 
 @pytest.mark.unit
-def test_cycle__retryable_error__records_error_metric(oracle: BaseModule):
-    oracle.w3.lido_contracts = MagicMock()
+def test_cycle__retryable_error__records_error_metric(oracle: OracleModule):
     before = CYCLE_COUNT.labels(result=CycleResult.ERROR.value)._value.get()
 
     with (
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
-        patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False),
         patch.object(oracle, "execute_module", side_effect=RequestsConnectionError("Fake")),
     ):
         oracle._cycle()
@@ -212,7 +268,7 @@ def test_cycle__retryable_error__records_error_metric(oracle: BaseModule):
 
 
 @pytest.mark.unit
-def test_cycle__slot_below_threshold__records_success_metric(oracle: BaseModule):
+def test_cycle__slot_below_threshold__records_success_metric(oracle: OracleModule):
     oracle._slot_threshold = 999999
     success_before = CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get()
     error_before = CYCLE_COUNT.labels(result=CycleResult.ERROR.value)._value.get()

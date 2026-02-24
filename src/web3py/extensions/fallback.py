@@ -8,7 +8,6 @@ from src.providers.consistency import ProviderConsistencyModule
 
 
 class FallbackProviderModule(ProviderConsistencyModule, FallbackProvider):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

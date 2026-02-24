@@ -1,5 +1,5 @@
 import logging
-from typing import Iterator
+from collections.abc import Iterator
 
 from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
@@ -8,6 +8,7 @@ from web3.types import EventData
 from src import variables
 from src.providers.execution.exceptions import InconsistentEvents
 from src.types import ReferenceBlockStamp
+
 
 logger = logging.getLogger(__name__)
 

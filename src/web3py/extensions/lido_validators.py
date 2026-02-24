@@ -3,14 +3,15 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress, HexStr
+from eth_typing import ChecksumAddress
 from web3.module import Module
 
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
-from src.types import BlockStamp, StakingModuleId, NodeOperatorId, NodeOperatorGlobalIndex, StakingModuleAddress
+from src.types import BlockStamp, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,15 +76,19 @@ class NodeOperator(Nested):
 
     @classmethod
     def from_response(cls, data, staking_module):
-        _id, is_active, (
-            is_target_limit_active,
-            target_validators_count,
-            _stuck_validators_count,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L748
-            refunded_validators_count,
-            _stuck_penalty_end_timestamp,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L757
-            total_exited_validators,
-            total_deposited_validators,
-            depositable_validators_count,
+        (
+            _id,
+            is_active,
+            (
+                is_target_limit_active,
+                target_validators_count,
+                _stuck_validators_count,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L748
+                refunded_validators_count,
+                _stuck_penalty_end_timestamp,  # deprecated, https://github.com/lidofinance/core/blob/c7372de2d6999e6e655350f3fbde9a7cb86ef29b/contracts/0.8.9/StakingRouter.sol#L757
+                total_exited_validators,
+                total_deposited_validators,
+                depositable_validators_count,
+            ),
         ) = data
 
         return cls(
@@ -113,7 +118,7 @@ type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator
 
 
 class LidoValidatorsProvider(Module):
-    w3: 'Web3'
+    w3: Web3
 
     @lru_cache(maxsize=1)
     def get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
@@ -127,10 +132,13 @@ class LidoValidatorsProvider(Module):
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
 
-        # Make sure that used keys fetched from Keys API >= total amount of total deposited validators from Staking Router
+        # Make sure that used keys fetched from Keys API is >= total amount of
+        # deposited validators from Staking Router.
         if keys_count_received < stats.deposited_validators:
-            raise CountOfKeysDiffersException(f'Keys API Service returned lesser keys ({keys_count_received}) '
-                                              f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router')
+            raise CountOfKeysDiffersException(
+                f'Keys API Service returned lesser keys ({keys_count_received}) '
+                f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router'
+            )
 
     @staticmethod
     def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
@@ -141,10 +149,12 @@ class LidoValidatorsProvider(Module):
 
         for key in keys:
             if key.key in validators_keys_dict:
-                lido_validators.append(LidoValidator(
-                    lido_id=key,
-                    **asdict(validators_keys_dict[key.key]),
-                ))
+                lido_validators.append(
+                    LidoValidator(
+                        lido_id=key,
+                        **asdict(validators_keys_dict[key.key]),
+                    )
+                )
 
         return lido_validators
 
@@ -159,8 +169,7 @@ class LidoValidatorsProvider(Module):
         }
 
         staking_module_address = {
-            operator.staking_module.staking_module_address: operator.staking_module.id
-            for operator in no_operators
+            operator.staking_module.staking_module_address: operator.staking_module.id for operator in no_operators
         }
 
         for validator in merged_validators:
@@ -172,53 +181,12 @@ class LidoValidatorsProvider(Module):
             if global_no_id in no_validators:
                 no_validators[global_no_id].append(validator)
             else:
-                logger.warning({
-                    'msg': f'Got global node operator id: {global_no_id}, '
-                           f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
-                })
-
-        return no_validators
-
-    @lru_cache(maxsize=1)
-    def get_used_module_validators_by_node_operators(
-        self,
-        module_address: StakingModuleAddress,
-        blockstamp: BlockStamp,
-    ) -> ValidatorsByNodeOperator:
-        """
-        Get module validators by querying the KeysAPI for the module keys.
-
-        Args:
-            module_address (StakingModuleAddress): The address of the staking module.
-            blockstamp (BlockStamp): The block timestamp for querying validators.
-
-        Returns:
-            ValidatorsByNodeOperator: A mapping of node operator IDs to their corresponding validators.
-        """
-
-        kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
-        module_id = StakingModuleId(kapi['module']['id'])
-
-
-        # Make sure even empty NO will be presented in dict
-        no_validators: ValidatorsByNodeOperator = {
-            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
-        }
-
-        # Map validators to their corresponding node operators
-        validators = self.w3.cc.get_validators(blockstamp)
-        keys = {k.key: k for k in kapi['keys']}
-        for validator in validators:
-            lido_key = keys.get(HexStr(validator.validator.pubkey))
-            if not lido_key:
-                continue
-            global_id = (module_id, lido_key.operatorIndex)
-            no_validators[global_id].append(
-                LidoValidator(
-                    lido_id=lido_key,
-                    **asdict(validator),
+                logger.warning(
+                    {
+                        'msg': f'Got global node operator id: {global_no_id}, '
+                        f'but it`s not exist in staking router on block number: {blockstamp.block_number}',
+                    }
                 )
-            )
 
         return no_validators
 
@@ -228,7 +196,9 @@ class LidoValidatorsProvider(Module):
 
         modules = self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
         for module in modules:
-            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(module, blockstamp.block_hash)
+            result[module.id] = self.w3.lido_contracts.staking_router.get_all_node_operator_digests(
+                module, blockstamp.block_hash
+            )
 
         return result
 

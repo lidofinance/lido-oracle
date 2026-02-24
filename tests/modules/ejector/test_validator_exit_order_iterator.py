@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from src.web3py.extensions.lido_validators import NodeOperatorLimitMode
 from tests.factory.blockstamp import ReferenceBlockStampFactory

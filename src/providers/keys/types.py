@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import cast, Self
+from typing import Self, cast
 
 from eth_typing import ChecksumAddress, HexStr
 

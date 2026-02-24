@@ -3,13 +3,14 @@ from copy import deepcopy
 from functools import reduce
 
 from src.metrics.prometheus.accounting import ACCOUNTING_EXITED_VALIDATORS
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.types import OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.validator_state import is_exited_validator, is_on_exit
-from src.web3py.extensions.lido_validators import (LidoValidator, NodeOperatorGlobalIndex)
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class LidoValidatorStateService:
 
         result = {}
 
-        for global_no_index in lido_validators.keys():
+        for global_no_index in lido_validators:
             result[global_no_index] = reduce(
                 lambda total, validator: total + int(is_exited_validator(validator, blockstamp.ref_epoch)),
                 lido_validators[global_no_index],
@@ -68,7 +69,11 @@ class LidoValidatorStateService:
         validators_recently_requested_to_exit: list[LidoValidator] = []
 
         for global_index, validators in lido_validators_by_operator.items():
-            def is_validator_recently_requested_but_not_exited(validator: LidoValidator) -> bool:
+
+            def is_validator_recently_requested_but_not_exited(
+                validator: LidoValidator,
+                global_index: NodeOperatorGlobalIndex = global_index,
+            ) -> bool:
                 # Validator is not exiting on CL and there is recent exit request event
                 return not is_on_exit(validator) and validator.index in recent_exit_requests[global_index]
 
@@ -87,7 +92,9 @@ class LidoValidatorStateService:
         """
         Returns validators indexes that were asked to exit in last {{lookup_window}} slots.
         """
-        lookup_window = self.w3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots(blockstamp.block_hash)
+        lookup_window = self.w3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots(
+            blockstamp.block_hash
+        )
 
         events = get_events_in_past(
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]

@@ -1,7 +1,7 @@
 import logging
 import threading
 from datetime import datetime, timedelta
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 import requests
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -24,6 +24,7 @@ def pulse():
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
     """Request handler for Docker HEALTHCHECK"""
+
     def do_GET(self):
         global _last_pulse
 

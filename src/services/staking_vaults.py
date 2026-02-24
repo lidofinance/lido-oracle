@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from dataclasses import asdict
 from decimal import ROUND_UP, Decimal
-from typing import Any, Optional
+from typing import Any
 
 from eth_typing import BlockNumber, ChecksumAddress
 from oz_merkle_tree import StandardMerkleTree
@@ -15,7 +15,8 @@ from src.constants import (
     SECONDS_IN_YEAR,
     TOTAL_BASIS_POINTS,
 )
-from src.modules.accounting.events import (
+from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -25,7 +26,7 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -42,7 +43,6 @@ from src.modules.accounting.types import (
     VaultToValidators,
     VaultTreeNode,
 )
-from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -54,6 +54,7 @@ from src.utils.slot import get_blockstamp
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
+
 
 logger = logging.getLogger(__name__)
 
@@ -129,14 +130,18 @@ class StakingVaultsService:
                 vault_validators=validators_by_vault.get(vault_address, []),
                 total_pending_amount_by_pubkey=total_pending_amount_by_pubkey,
                 vault_validator_statuses=validator_statuses_by_vault.get(vault_address, {}),
-                vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(vault_address, {}),
+                vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(
+                    vault_address, {}
+                ),
             )
 
             total_values[vault_address] = Wei(vault_total)
-            logger.info({
-                'msg': f'Calculate vault TVL: {vault_address}.',
-                'value': total_values[vault_address],
-            })
+            logger.info(
+                {
+                    'msg': f'Calculate vault TVL: {vault_address}.',
+                    'value': total_values[vault_address],
+                }
+            )
 
         return total_values
 
@@ -168,7 +173,9 @@ class StakingVaultsService:
         return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
 
     @staticmethod
-    def _get_non_eligible_for_activation_validators_pubkeys(validators: list[Validator], vault_wcs: set[str]) -> set[str]:
+    def _get_non_eligible_for_activation_validators_pubkeys(
+        validators: list[Validator], vault_wcs: set[str]
+    ) -> set[str]:
         """
         Get set of pubkeys of non-eligible for activation validators that are associated with the vaults.
         """
@@ -176,14 +183,12 @@ class StakingVaultsService:
             v.validator.pubkey
             for v in validators
             if has_far_future_activation_eligibility_epoch(v.validator)
-               and v.validator.withdrawal_credentials in vault_wcs
+            and v.validator.withdrawal_credentials in vault_wcs
         }
 
     @staticmethod
     def _get_unmatched_deposits_pubkeys(
-        validators: list[Validator],
-        pending_deposits: list[PendingDeposit],
-        vault_wcs: set[str]
+        validators: list[Validator], pending_deposits: list[PendingDeposit], vault_wcs: set[str]
     ) -> set[str]:
         """
         Get set of pubkeys of pending deposits that are associated with the vaults and do not have matching validator.
@@ -299,8 +304,7 @@ class StakingVaultsService:
 
         # Only sum 1 ETH for unmatched pending deposits in PREDEPOSITED stage
         num_predeposited = sum(
-            status.stage == ValidatorStage.PREDEPOSITED
-            for status in vault_unmatched_pending_deposit_statuses.values()
+            status.stage == ValidatorStage.PREDEPOSITED for status in vault_unmatched_pending_deposit_statuses.values()
         )
 
         vault_total += num_predeposited * int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
@@ -404,10 +408,12 @@ class StakingVaultsService:
         def stringify_values(data) -> list[dict[str, str | int]]:
             out = []
             for item in data:
-                out.append({
-                    "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
-                    "treeIndex": item["treeIndex"],
-                })
+                out.append(
+                    {
+                        "value": (item["value"][0],) + tuple(str(x) for x in item["value"][1:]),
+                        "treeIndex": item["treeIndex"],
+                    }
+                )
             return out
 
         values = stringify_values(tree.values)
@@ -465,14 +471,16 @@ class StakingVaultsService:
             if vault_address not in vaults_fees:
                 raise ValueError(f'Vault {vault_address} is not in vaults_fees')
 
-            tree_data.append((
-                vault_address,
-                Wei(vaults_total_values[vault_address]),
-                vaults_fees[vault_address].total(),
-                vault.liability_shares,
-                vault.max_liability_shares,
-                vaults_slashing_reserve.get(vault_address, 0),
-            ))
+            tree_data.append(
+                (
+                    vault_address,
+                    Wei(vaults_total_values[vault_address]),
+                    vaults_fees[vault_address].total(),
+                    vault.liability_shares,
+                    vault.max_liability_shares,
+                    vaults_slashing_reserve.get(vault_address, 0),
+                )
+            )
 
         return tree_data
 
@@ -483,14 +491,16 @@ class StakingVaultsService:
     def is_tree_root_valid(self, expected_tree_root: str, merkle_tree: StakingVaultIpfsReport) -> bool:
         tree_data = []
         for vault in merkle_tree.values:
-            tree_data.append((
-                vault.vault_address,
-                vault.total_value_wei,
-                vault.fee,
-                vault.liability_shares,
-                vault.max_liability_shares,
-                vault.slashing_reserve,
-            ))
+            tree_data.append(
+                (
+                    vault.vault_address,
+                    vault.total_value_wei,
+                    vault.fee,
+                    vault.liability_shares,
+                    vault.max_liability_shares,
+                    vault.slashing_reserve,
+                )
+            )
 
         rebuild_merkle_tree = self.get_merkle_tree(tree_data)
         root_hex = f'0x{rebuild_merkle_tree.root.hex()}'
@@ -602,8 +612,7 @@ class StakingVaultsService:
             interval_seconds = prev_event_timestamp - event_timestamp
             if interval_seconds < 0:
                 raise ValueError(
-                    f"Negative event interval for vault {vault_address}. "
-                    f"{prev_event_timestamp=} {event_timestamp=}"
+                    f"Negative event interval for vault {vault_address}. {prev_event_timestamp=} {event_timestamp=}"
                 )
             minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
             vault_liquidity_fee += StakingVaultsService.calc_fee_value(
@@ -613,10 +622,13 @@ class StakingVaultsService:
             if isinstance(event, VaultConnectedEvent):
                 # If we catch a VaultConnectedEvent, it means that in the past there could be no more events,
                 # because the vault was previously disconnected.
-                # Technically, we could skip this check, but it explicitly communicates the business logic and intention.
+                # Technically, we could skip this check, but it explicitly
+                # communicates the business logic and intention.
                 if liability_shares != 0:
                     raise ValueError(
-                        f"Wrong vault liquidity shares by vault {vault_address}. Vault had reconnected event and then his vault_liquidity_shares must be 0. got {liability_shares}"
+                        "Wrong vault liquidity shares by vault "
+                        f"{vault_address}. Vault had reconnected event and then "
+                        f"his vault_liquidity_shares must be 0. got {liability_shares}"
                     )
 
                 return vault_liquidity_fee, liability_shares
@@ -635,8 +647,7 @@ class StakingVaultsService:
         interval_seconds = prev_event_timestamp - prev_ref_slot_timestamp
         if interval_seconds < 0:
             raise ValueError(
-                f"Negative event interval for vault {vault_address}. "
-                f"{prev_event_timestamp=} {prev_ref_slot_timestamp=}"
+                f"Negative event interval for vault {vault_address}. {prev_event_timestamp=} {prev_ref_slot_timestamp=}"
             )
 
         minted_steth_on_event = get_steth_by_shares(liability_shares, pre_total_pooled_ether, pre_total_shares)
@@ -650,7 +661,7 @@ class StakingVaultsService:
         self,
         latest_onchain_ipfs_report_data: OnChainIpfsVaultReportData,
         current_frame: FrameNumber,
-    ) -> Optional[StakingVaultIpfsReport]:
+    ) -> StakingVaultIpfsReport | None:
         """
         Fetch and validate the previous IPFS report if available.
 
@@ -664,15 +675,14 @@ class StakingVaultsService:
 
         if not self.is_tree_root_valid(tree_root_hex, prev_ipfs_report):
             raise ValueError(
-                f"Invalid tree root in IPFS report data. "
-                f"Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
+                f"Invalid tree root in IPFS report data. Expected: {tree_root_hex}, actual: {prev_ipfs_report.tree[0]}"
             )
 
         return prev_ipfs_report
 
     @staticmethod
     def _build_prev_report_maps(
-        prev_ipfs_report: Optional[StakingVaultIpfsReport],
+        prev_ipfs_report: StakingVaultIpfsReport | None,
     ) -> tuple[defaultdict[ChecksumAddress, int], defaultdict[ChecksumAddress, int]]:
         """Build lookup maps for previous fees and liability shares from the last report."""
         prev_fee_map: defaultdict[ChecksumAddress, int] = defaultdict(int)
@@ -810,7 +820,9 @@ class StakingVaultsService:
         if not from_ref_slot:
             # Time range should include all events from FrameIndex 0 upto current ref slot
             # Calculate FrameIndex 0 ref slot
-            potential_prev_ref_slot = (frame_config.initial_epoch - frame_config.epochs_per_frame) * chain_config.slots_per_epoch - 1
+            potential_prev_ref_slot = (
+                frame_config.initial_epoch - frame_config.epochs_per_frame
+            ) * chain_config.slots_per_epoch - 1
             from_ref_slot = SlotNumber(max(potential_prev_ref_slot, 0))
 
         prev_report_block_number = get_blockstamp(
