@@ -10,6 +10,7 @@ from src.modules.submodules.types import ChainConfig, FrameConfig
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
+from tests.factory.blockstamp import BlockStampFactory
 from tests.modules.accounting.staking_vault.conftest import (
     ExtraValueFactory,
     FeeTestConstants,
@@ -41,7 +42,6 @@ class TestGetVaultsFees:
 
         fake_blockstamp = MagicMock()
         fake_blockstamp.block_number = 0
-
         monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
 
         return svc
@@ -111,42 +111,100 @@ class TestGetVaultsFees:
 
         assert fees[vault_adr].prev_fee == 0
 
-    def test_initial_epoch_zero_uses_non_negative_prev_ref_slot(self, service):
-        # Setup
+    def test_negative_ref_slot_on_first_report(self, service, monkeypatch):
+        # initial_epoch - frame_epoches <= 0
         vault_adr = VaultAddresses.VAULT_0
         vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
-        blockstamp = self.make_blockstamp(block=10, slot=100)
 
-        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = 0
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = None
         service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
         service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
         service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
 
-        with patch("src.services.staking_vaults.get_blockstamp", return_value=MagicMock(block_number=0)) as get_bs_mock:
-            # Act
-            service.get_vaults_fees(
-                blockstamp=blockstamp,
-                vaults={vault_adr: vault},
-                vaults_total_values={},
-                latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
-                core_apr_ratio=Decimal("0"),
-                pre_total_pooled_ether=Wei(0),
-                pre_total_shares=0,
-                frame_config=FrameConfig(initial_epoch=0, epochs_per_frame=1, fast_lane_length_slots=0),
-                chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
-                current_frame=FrameNumber(0),
-            )
+        # Negative prev_slot -> events should be fetched from 0 block
+        blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
+        monkeypatch.setattr(
+            "src.services.staking_vaults.get_blockstamp",
+            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+        )
 
-        # Assert
-        assert get_bs_mock.call_args.kwargs["slot"] == SlotNumber(0)
+        service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
+            core_apr_ratio=Decimal("0"),
+            pre_total_pooled_ether=Wei(0),
+            pre_total_shares=0,
+            frame_config=FrameConfig(initial_epoch=3, epochs_per_frame=5, fast_lane_length_slots=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            current_frame=FrameNumber(0),
+        )
+
+        service._get_vault_events_for_fees.assert_called_once_with(
+            vault_hub=service.w3.lido_contracts.vault_hub,
+            from_block=1,
+            to_block=3 * 32 - 1,
+        )
+
         service._calculate_vault_fee_components.assert_called_once_with(
             vault_address=vault_adr,
             vault_info=vault,
             vault_total_value=0,
             vault_events=[],
-            report_interval_seconds=100 * 12,
+            report_interval_seconds=(3 * 32 - 1) * 12,
             prev_ref_slot_timestamp=0,
-            current_ref_slot_timestamp=100 * 12,
+            current_ref_slot_timestamp=(3 * 32 - 1) * 12,
+            core_apr_ratio=Decimal(0),
+            pre_total_pooled_ether=0,
+            pre_total_shares=0,
+            block_timestamps={},
+        )
+
+    def test_first_ref_slot_calculate_on_first_report(self, service, monkeypatch):
+        # initial_epoch - frame_epoches > 0
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
+
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = None
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
+        service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
+        service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
+
+        monkeypatch.setattr(
+            "src.services.staking_vaults.get_blockstamp",
+            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+        )
+
+        # First report -> events should be fetched from initial_epoch - frame_epoches
+        blockstamp = self.make_blockstamp(block=10 * 32 - 1, slot=10 * 32 - 1)
+        service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
+            core_apr_ratio=Decimal("0"),
+            pre_total_pooled_ether=Wei(0),
+            pre_total_shares=0,
+            frame_config=FrameConfig(initial_epoch=10, epochs_per_frame=5, fast_lane_length_slots=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            current_frame=FrameNumber(0),
+        )
+
+        service._get_vault_events_for_fees.assert_called_once_with(
+            vault_hub=service.w3.lido_contracts.vault_hub,
+            from_block=(10 - 5) * 32,
+            to_block=10 * 32 - 1,
+        )
+
+        service._calculate_vault_fee_components.assert_called_once_with(
+            vault_address=vault_adr,
+            vault_info=vault,
+            vault_total_value=0,
+            vault_events=[],
+            report_interval_seconds=5 * 32 * 12,
+            prev_ref_slot_timestamp=(5 * 32 - 1) * 12,
+            current_ref_slot_timestamp=(10 * 32 - 1) * 12,
             core_apr_ratio=Decimal(0),
             pre_total_pooled_ether=0,
             pre_total_shares=0,
