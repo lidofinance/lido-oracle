@@ -17,17 +17,16 @@ class Web3Base(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
+    telemetry_data_bus: TelemetryDataBus
 
 
 class Web3(Web3Base):
     lido_contracts: LidoContracts
     lido_validators: LidoValidatorsProvider
     ipfs: IPFS
-    telemetry_data_bus: TelemetryDataBus
 
 
 class Web3StakingModule(Web3Base):
     staking_module: StakingModuleContracts
     performance: PerformanceClient
     ipfs: IPFS
-    telemetry_data_bus: TelemetryDataBus
