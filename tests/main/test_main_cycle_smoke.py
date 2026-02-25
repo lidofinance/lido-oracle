@@ -2,11 +2,14 @@ import logging
 import logging.handlers
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
+from typing import cast
 
 import pytest
 
 from src import variables
 from src.main import main
+from src.modules.common.daemon_module import DaemonModule
+from src.modules.oracles.common.consensus import ConsensusModule
 from src.types import OracleModuleName
 
 
@@ -21,6 +24,9 @@ class TestIntegrationMainCycleSmoke:
 
         variables.DAEMON = False
         variables.CYCLE_SLEEP_IN_SECONDS = 0
+
+        # Use last finalized instead of head slot for avoiding calls with non-existent block at the moment of cycle
+        ConsensusModule._get_latest_blockstamp = lambda self: cast(DaemonModule, self)._receive_last_finalized_slot()
 
         if module_name is OracleModuleName.CSM:
             variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]
