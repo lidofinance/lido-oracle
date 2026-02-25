@@ -8,6 +8,7 @@ from web3.types import BlockData, TxParams, Wei
 
 from src import constants, variables
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +56,9 @@ def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | 
     )
 
 
-def sign_and_send_transaction(w3: Web3, transaction: ContractFunction, params: TxParams, account: LocalAccount) -> bytes:
+def sign_and_send_transaction(
+    w3: Web3, transaction: ContractFunction, params: TxParams, account: LocalAccount,
+) -> bytes:
     tx = transaction.build_transaction(params)
     signed_tx = w3.eth.account.sign_transaction(tx, account.key)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
