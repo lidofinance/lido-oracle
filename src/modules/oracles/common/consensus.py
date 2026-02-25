@@ -323,17 +323,18 @@ class ConsensusModule[W3: Web3Base](ABC):
         report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
 
-        self._send_telemetry(report_data, report_hash)
+        try:
+            # We need to check whether report has unexpected data before sending.
+            # otherwise we have to check it manually.
+            if not self.is_reporting_allowed(blockstamp):
+                logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
+                return
 
-        # We need to check whether report has unexpected data before sending.
-        # otherwise we have to check it manually.
-        if not self.is_reporting_allowed(blockstamp):
-            logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
-            return
-
-        self._process_report_hash(blockstamp, report_hash)
-        # Even if report hash transaction was failed we have to check if we can report data for current frame
-        self._process_report_data(blockstamp, report_data, report_hash)
+            self._process_report_hash(blockstamp, report_hash)
+            # Even if report hash transaction was failed we have to check if we can report data for current frame
+            self._process_report_data(blockstamp, report_data, report_hash)
+        finally:
+            self._send_telemetry(report_data, report_hash)
 
     def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
         try:

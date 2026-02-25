@@ -83,6 +83,71 @@ def test_process_report_main(consensus, caplog):
     )
 
 
+@pytest.mark.unit
+def test_process_report__not_allowed__sends_telemetry(consensus):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5)],
+        count_exited_validators_by_staking_module=[6],
+        withdrawal_vault_balance=Wei(7),
+        el_rewards_vault_balance=Wei(8),
+        shares_requested_to_burn=9,
+        withdrawal_finalization_batches=[10],
+        finalization_share_rate=11,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=False,
+        extra_data_format=12,
+        extra_data_hash=HexBytes(int.to_bytes(13, 32)),
+        extra_data_items_count=14,
+    ).as_tuple()
+    consensus.build_report = Mock(return_value=report_data)
+    consensus.is_reporting_allowed = Mock(return_value=False)
+
+    consensus.process_report(blockstamp)
+
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        report_data, consensus._encode_data_hash(report_data)
+    )
+
+
+@pytest.mark.unit
+def test_process_report__report_hash_raises__sends_telemetry(consensus):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        validators_count=3,
+        cl_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5)],
+        count_exited_validators_by_staking_module=[6],
+        withdrawal_vault_balance=Wei(7),
+        el_rewards_vault_balance=Wei(8),
+        shares_requested_to_burn=9,
+        withdrawal_finalization_batches=[10],
+        finalization_share_rate=11,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=False,
+        extra_data_format=12,
+        extra_data_hash=HexBytes(int.to_bytes(13, 32)),
+        extra_data_items_count=14,
+    ).as_tuple()
+    consensus.build_report = Mock(return_value=report_data)
+    consensus._process_report_hash = Mock(side_effect=RuntimeError("tx failed"))
+
+    with pytest.raises(RuntimeError, match="tx failed"):
+        consensus.process_report(blockstamp)
+
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        report_data, consensus._encode_data_hash(report_data)
+    )
+
+
 # ----- Hash calculations ----------
 @pytest.mark.unit
 def test_hash_calculations(consensus):

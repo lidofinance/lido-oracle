@@ -103,7 +103,6 @@ class TelemetryDataBus(Module):
 
         tx = self._contract.send_message(EVENT_ID, payload)
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)
-        params['nonce'] = self._data_bus_w3.eth.get_transaction_count(variables.ACCOUNT.address, 'pending')
         tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT)
         self._data_bus_w3.eth.wait_for_transaction_receipt(tx_hash)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
