@@ -260,17 +260,8 @@ def anvil_port():
 
 
 @pytest.fixture()
-def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvil_port: int):
+def forked_el_client(blockstamp_for_forking: BlockStamp | None, testrun_path: str, anvil_port: int):
     fork_rpc_url = variables.EXECUTION_CLIENT_URI[0]
-    fork_block_number = int(blockstamp_for_forking.block_number)
-    smoke_web3 = Web3(MultiProvider([fork_rpc_url], request_kwargs={'timeout': 30}))
-
-    assert smoke_web3.is_connected(), f"TESTRUN EL smoke check failed: cannot connect to {fork_rpc_url}"
-    try:
-        block_number = smoke_web3.eth.get_block(fork_block_number)['number']
-    except Exception as error:
-        raise AssertionError(f"TESTRUN EL smoke check failed: {error}") from error
-    assert int(block_number) == fork_block_number, "TESTRUN EL smoke check failed: unexpected block number"
 
     cli_params = [
         'anvil',
@@ -281,12 +272,25 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
         '--auto-impersonate',
         '-f',
         fork_rpc_url,
-        '--fork-block-number',
-        str(fork_block_number),
     ]
+
+    if blockstamp_for_forking is not None:
+        fork_block_number = int(blockstamp_for_forking.block_number)
+        smoke_web3 = Web3(MultiProvider([fork_rpc_url], request_kwargs={'timeout': 30}))
+
+        assert smoke_web3.is_connected(), f"TESTRUN EL smoke check failed: cannot connect to {fork_rpc_url}"
+        try:
+            block_number = smoke_web3.eth.get_block(fork_block_number)['number']
+        except Exception as error:
+            raise AssertionError(f"TESTRUN EL smoke check failed: {error}") from error
+        assert int(block_number) == fork_block_number, "TESTRUN EL smoke check failed: unexpected block number"
+
+        cli_params += ['--fork-block-number', str(fork_block_number)]
+
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
-        logger.info(f"TESTRUN Started fork on {anvil_port=} from {blockstamp_for_forking.block_number=}")
+        fork_label = 'latest' if blockstamp_for_forking is None else blockstamp_for_forking.block_number
+        logger.info(f"TESTRUN Started fork on {anvil_port=} from block={fork_label}")
         web3 = Web3(MultiProvider([f'http://127.0.0.1:{anvil_port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])

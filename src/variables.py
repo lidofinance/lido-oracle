@@ -157,7 +157,6 @@ VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STAT
 # Trade-off: higher value = fewer RPC round-trips but more data per call.
 BLOCK_BATCH_SIZE_LIMIT: Final = int(os.getenv("BLOCK_BATCH_SIZE_LIMIT", 10))
 
-# - DataBus telemetry -
 TELEMETRY_DATA_BUS_RPC: Final = os.getenv('TELEMETRY_DATA_BUS_RPC', '')
 DATA_BUS_ADDRESS: Final = os.getenv('DATA_BUS_ADDRESS', '')
 
