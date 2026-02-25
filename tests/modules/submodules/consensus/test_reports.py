@@ -78,7 +78,9 @@ def test_process_report_main(consensus, caplog):
     assert "Calculate report hash." in caplog.text
     assert "Send report hash" in caplog.text
     assert "Quorum is not ready" in caplog.text
-    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(report_data, consensus._encode_data_hash(report_data))
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        report_data, consensus._encode_data_hash(report_data)
+    )
 
 
 # ----- Hash calculations ----------
