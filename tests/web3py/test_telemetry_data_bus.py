@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src import variables
 from src.constants import MAINNET_CHAIN_ID
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
 
@@ -55,8 +56,9 @@ class TestTelemetryDataBus:
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
     def test_send_telemetry__configured__sends_transaction(
-        self, mock_create_web3, mock_validate, mock_build_params, mock_sign_and_send, web3, caplog
+        self, mock_create_web3, mock_validate, mock_build_params, mock_sign_and_send, web3, caplog, monkeypatch
     ):
+        monkeypatch.setattr(variables, 'ACCOUNT', Mock())
         mock_data_bus_w3 = Mock()
         mock_create_web3.return_value = mock_data_bus_w3
         mock_contract = Mock()
@@ -82,3 +84,15 @@ class TestTelemetryDataBus:
         module.send_telemetry((1, 2, 3), b'\x00' * 32)
 
         assert 'DataBus telemetry is not configured. Skipping send.' in caplog.text
+
+    @patch.object(TelemetryDataBus, '_validate')
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test_send_telemetry__no_account__skips_send(self, mock_create_web3, mock_validate, web3, caplog):
+        mock_data_bus_w3 = Mock()
+        mock_create_web3.return_value = mock_data_bus_w3
+        mock_data_bus_w3.eth.contract.return_value = Mock()
+
+        module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+        module.send_telemetry((1, 2, 3), b'\x00' * 32)
+
+        assert 'No account provided. Skipping telemetry send.' in caplog.text

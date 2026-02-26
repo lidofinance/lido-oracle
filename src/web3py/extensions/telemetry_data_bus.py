@@ -50,8 +50,7 @@ class TelemetryDataBus(Module):
             ),
         )
 
-    @staticmethod
-    def _create_web3(rpc_url: str) -> Web3:
+    def _create_web3(self, rpc_url: str) -> Web3:
         retry_strategy = Retry(
             total=3,
             status_forcelist=[418, 429, 500, 502, 503, 504],
@@ -91,6 +90,10 @@ class TelemetryDataBus(Module):
     def send_telemetry(self, report_data: tuple, report_hash: bytes) -> None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
+            return
+
+        if variables.ACCOUNT is None:
+            logger.warning({'msg': 'No account provided. Skipping telemetry send.'})
             return
 
         payload = json.dumps(
