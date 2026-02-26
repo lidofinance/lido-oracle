@@ -56,6 +56,7 @@ class TelemetryDataBus(Module):
         retry_strategy = Retry(
             total=3,
             status_forcelist=[418, 429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"],
             backoff_factor=1,
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -72,7 +73,8 @@ class TelemetryDataBus(Module):
         )
 
     def _validate(self, address: str) -> None:
-        assert self._data_bus_w3 is not None
+        if self._data_bus_w3 is None:
+            raise RuntimeError("DataBus Web3 instance is not initialized.")
 
         chain_id = self._data_bus_w3.eth.chain_id
         if chain_id == constants.MAINNET_CHAIN_ID:
