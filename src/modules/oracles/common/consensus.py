@@ -80,9 +80,7 @@ class ConsensusModule[W3: Web3Base](ABC):
                 raise NotImplementedError(f'{var} attribute should be set.')
 
     def check_contract_configs(self):
-        root = self.w3.cc.get_block_root('head').root
-        block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
+        bs = self._get_latest_blockstamp()
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
