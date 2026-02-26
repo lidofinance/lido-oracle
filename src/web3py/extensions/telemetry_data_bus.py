@@ -2,6 +2,7 @@ import json
 import logging
 from typing import cast
 
+from hexbytes import HexBytes
 from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
@@ -103,6 +104,6 @@ class TelemetryDataBus(Module):
 
         tx = self._contract.send_message(EVENT_ID, payload)
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)
-        tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT)
+        tx_hash = HexBytes(sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT))
         self._data_bus_w3.eth.wait_for_transaction_receipt(tx_hash)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
