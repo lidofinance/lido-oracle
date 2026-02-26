@@ -100,7 +100,7 @@ def configure_mainnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
 
         # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
-        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI)
+        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
         monkeypatch.setattr(variables, 'DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 
     yield
@@ -125,7 +125,7 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
 
         # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
-        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI)
+        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
         monkeypatch.setattr(variables, 'DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 
     yield
