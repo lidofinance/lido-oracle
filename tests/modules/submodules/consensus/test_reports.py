@@ -78,8 +78,9 @@ def test_process_report_main(consensus, caplog):
     assert "Calculate report hash." in caplog.text
     assert "Send report hash" in caplog.text
     assert "Quorum is not ready" in caplog.text
+    report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        report_data, consensus._encode_data_hash(report_data)
+        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 
@@ -110,8 +111,9 @@ def test_process_report__not_allowed__sends_telemetry(consensus):
 
     consensus.process_report(blockstamp)
 
+    report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        report_data, consensus._encode_data_hash(report_data)
+        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 
@@ -143,8 +145,9 @@ def test_process_report__report_hash_raises__sends_telemetry(consensus):
     with pytest.raises(RuntimeError, match="tx failed"):
         consensus.process_report(blockstamp)
 
+    report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        report_data, consensus._encode_data_hash(report_data)
+        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 

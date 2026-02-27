@@ -71,7 +71,8 @@ class TestTelemetryDataBus:
         report_data = (1, 2, 3)
         report_hash = b'\x00' * 32
 
-        module.send_telemetry(report_data, report_hash)
+        data = {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+        module.send_telemetry(data)
 
         mock_contract.send_message.assert_called_once()
         mock_build_params.assert_called_once()
@@ -81,7 +82,7 @@ class TestTelemetryDataBus:
     def test_send_telemetry__not_configured__logs_skipping(self, web3, caplog):
         module = self._create_module(web3)
 
-        module.send_telemetry((1, 2, 3), b'\x00' * 32)
+        module.send_telemetry({'report': [1, 2, 3]})
 
         assert 'DataBus telemetry is not configured. Skipping send.' in caplog.text
 
@@ -93,6 +94,6 @@ class TestTelemetryDataBus:
         mock_data_bus_w3.eth.contract.return_value = Mock()
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.send_telemetry((1, 2, 3), b'\x00' * 32)
+        module.send_telemetry({'report': [1, 2, 3]})
 
         assert 'No account provided. Skipping telemetry send.' in caplog.text

@@ -47,7 +47,8 @@ class TestTelemetryDataBusFork:
 
         # Act
         with account_from(sender_pk):
-            telemetry.send_telemetry(report_data, report_hash)
+            data = {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+            telemetry.send_telemetry(data)
 
         # Assert
         latest_block = forked_el_client.eth.get_block('latest', full_transactions=True)
@@ -59,6 +60,6 @@ class TestTelemetryDataBusFork:
         payload = json.loads(payload_bytes.decode('utf-8'))
 
         assert payload['module'] == 'accounting'
-        assert payload['report_hash'] == '0x' + report_hash.hex()
-        assert payload['report'] == list(report_data)
         assert payload['version'] == get_oracle_version()
+        assert payload['data']['report_hash'] == '0x' + report_hash.hex()
+        assert payload['data']['report'] == list(report_data)

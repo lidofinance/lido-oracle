@@ -87,7 +87,7 @@ class TelemetryDataBus(Module):
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
-    def send_telemetry(self, report_data: tuple, report_hash: bytes) -> None:
+    def send_telemetry(self, data: dict) -> None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
@@ -96,15 +96,12 @@ class TelemetryDataBus(Module):
             logger.warning({'msg': 'No account provided. Skipping telemetry send.'})
             return
 
-        payload = json.dumps(
-            {
-                'version': get_oracle_version(),
-                'module': self._module_name,
-                'report_hash': '0x' + report_hash.hex(),
-                'report': list(report_data),
-            },
-            default=str,
-        ).encode('utf-8')
+        message = {
+            'version': get_oracle_version(),
+            'module': self._module_name,
+            'data': data,
+        }
+        payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(EVENT_ID, payload)
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)

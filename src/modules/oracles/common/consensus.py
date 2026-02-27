@@ -336,7 +336,11 @@ class ConsensusModule[W3: Web3Base](ABC):
 
     def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
         try:
-            self.w3.telemetry_data_bus.send_telemetry(report_data, report_hash)
+            data = {
+                'report_hash': '0x' + report_hash.hex(),
+                'report': list(report_data),
+            }
+            self.w3.telemetry_data_bus.send_telemetry(data)
         except Exception:
             logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
 
