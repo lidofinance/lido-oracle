@@ -26,6 +26,7 @@ from src.modules.oracles.common.exceptions import (
 )
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.common.runtime import run_oracle_module
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
@@ -148,6 +149,7 @@ def test_run_oracle_module__single_cycle__calls_shutdown(oracle: OracleModule, m
         run_oracle_module(oracle)
 
     oracle.check_contract_configs.assert_called_once()
+    oracle.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(TelemetryEventId.ORACLE_STARTUP)
     oracle.cycle_handler.assert_called_once()
     oracle.shutdown.assert_called_once()
 

@@ -4,7 +4,7 @@ import pytest
 
 from src import variables
 from src.constants import MAINNET_CHAIN_ID
-from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
+from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
 DUMMY_RPC = 'http://localhost:8545'
@@ -72,7 +72,7 @@ class TestTelemetryDataBus:
         report_hash = b'\x00' * 32
 
         data = {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
-        module.send_telemetry(data)
+        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
 
         mock_contract.send_message.assert_called_once()
         mock_build_params.assert_called_once()
@@ -82,7 +82,7 @@ class TestTelemetryDataBus:
     def test_send_telemetry__not_configured__logs_skipping(self, web3, caplog):
         module = self._create_module(web3)
 
-        module.send_telemetry({'report': [1, 2, 3]})
+        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
         assert 'DataBus telemetry is not configured. Skipping send.' in caplog.text
 
@@ -94,6 +94,6 @@ class TestTelemetryDataBus:
         mock_data_bus_w3.eth.contract.return_value = Mock()
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.send_telemetry({'report': [1, 2, 3]})
+        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
         assert 'No account provided. Skipping telemetry send.' in caplog.text

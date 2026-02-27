@@ -10,6 +10,7 @@ from src import variables
 from src.modules.common.types import ZERO_HASH, ChainConfig, FrameConfig
 from src.modules.oracles.accounting.types import ReportData
 from src.types import Gwei, SlotNumber, StakingModuleId
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 
@@ -80,7 +81,7 @@ def test_process_report_main(consensus, caplog):
     assert "Quorum is not ready" in caplog.text
     report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 
@@ -113,7 +114,7 @@ def test_process_report__not_allowed__sends_telemetry(consensus):
 
     report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 
@@ -147,7 +148,7 @@ def test_process_report__report_hash_raises__sends_telemetry(consensus):
 
     report_hash = consensus._encode_data_hash(report_data)
     consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
-        {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
     )
 
 

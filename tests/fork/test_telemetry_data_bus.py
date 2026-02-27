@@ -6,7 +6,7 @@ from web3 import Web3
 
 from src import variables
 from src.utils.version import get_oracle_version
-from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus
+from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
 @pytest.fixture()
@@ -48,7 +48,7 @@ class TestTelemetryDataBusFork:
         # Act
         with account_from(sender_pk):
             data = {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
-            telemetry.send_telemetry(data)
+            telemetry.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
 
         # Assert
         latest_block = forked_el_client.eth.get_block('latest', full_transactions=True)

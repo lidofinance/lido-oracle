@@ -1,5 +1,6 @@
 import json
 import logging
+from enum import Enum
 from typing import cast
 
 from requests import Session
@@ -16,7 +17,10 @@ from src.utils.version import get_oracle_version
 
 logger = logging.getLogger(__name__)
 
-EVENT_ID = Web3.keccak(text="OracleReport")
+
+class TelemetryEventId(Enum):
+    ORACLE_REPORT = Web3.keccak(text="OracleReport")
+    ORACLE_STARTUP = Web3.keccak(text="OracleStartup")
 
 
 class TelemetryDataBus(Module):
@@ -87,7 +91,7 @@ class TelemetryDataBus(Module):
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
-    def send_telemetry(self, data: dict) -> None:
+    def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
@@ -96,14 +100,15 @@ class TelemetryDataBus(Module):
             logger.warning({'msg': 'No account provided. Skipping telemetry send.'})
             return
 
-        message = {
+        message: dict = {
             'version': get_oracle_version(),
             'module': self._module_name,
-            'data': data,
         }
+        if data:
+            message['data'] = data
         payload = json.dumps(message, default=str).encode('utf-8')
 
-        tx = self._contract.send_message(EVENT_ID, payload)
+        tx = self._contract.send_message(event_id.value, payload)
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)
         tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})

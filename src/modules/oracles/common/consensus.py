@@ -40,6 +40,7 @@ from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
 
 
@@ -340,7 +341,7 @@ class ConsensusModule[W3: Web3Base](ABC):
                 'report_hash': '0x' + report_hash.hex(),
                 'report': list(report_data),
             }
-            self.w3.telemetry_data_bus.send_telemetry(data)
+            self.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
         except Exception:
             logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
 
