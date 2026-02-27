@@ -10,6 +10,7 @@ from web3 import AsyncWeb3, Web3
 from web3.module import Module
 
 from src import constants, variables
+from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.providers.execution.contracts.data_bus import DataBusContract
 from src.utils.transaction import build_transaction_params, sign_and_send_transaction
 from src.utils.version import get_oracle_version
@@ -90,6 +91,13 @@ class TelemetryDataBus(Module):
             raise self.ContractNotDeployedError(
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
+
+    def update_account_balance_metric(self) -> None:
+        if self._data_bus_w3 is None or variables.ACCOUNT is None:
+            return
+
+        balance = self._data_bus_w3.eth.get_balance(variables.ACCOUNT.address)
+        TELEMETRY_ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(balance)
 
     def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> None:
         if self._contract is None or self._data_bus_w3 is None:

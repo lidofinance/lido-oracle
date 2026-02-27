@@ -4,6 +4,7 @@ import pytest
 
 from src import variables
 from src.constants import MAINNET_CHAIN_ID
+from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
@@ -97,3 +98,20 @@ class TestTelemetryDataBus:
         module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
         assert 'No account provided. Skipping telemetry send.' in caplog.text
+
+    @patch.object(TelemetryDataBus, '_validate')
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test_update_account_balance_metric__configured__sets_metric(
+        self, mock_create_web3, mock_validate, web3, monkeypatch
+    ):
+        account = Mock(address='0x0000000000000000000000000000000000000001')
+        monkeypatch.setattr(variables, 'ACCOUNT', account)
+        mock_data_bus_w3 = Mock()
+        mock_data_bus_w3.eth.get_balance.return_value = 10**18
+        mock_create_web3.return_value = mock_data_bus_w3
+        mock_data_bus_w3.eth.contract.return_value = Mock()
+
+        module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+        module.update_account_balance_metric()
+
+        assert TELEMETRY_ACCOUNT_BALANCE.labels(address=account.address)._value.get() == 10**18
