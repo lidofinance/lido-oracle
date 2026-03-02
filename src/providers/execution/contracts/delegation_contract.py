@@ -8,6 +8,7 @@ from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -81,10 +81,7 @@ class DelegationModule(Module):
         target_address = built_tx['to']
         calldata_hex = built_tx['data']
 
-        if calldata_hex.startswith('0x'):
-            calldata = bytes.fromhex(calldata_hex[2:])
-        else:
-            calldata = bytes.fromhex(calldata_hex)
+        calldata = bytes.fromhex(calldata_hex[2:])
 
         logger.debug({
             'msg': 'Wrapping call for delegation',
@@ -113,7 +110,8 @@ class DelegationModule(Module):
 
         if current_delegatee.lower() != oracle_address.lower():
             raise DelegateMismatchError(
-                f"Delegation contract delegatee ({current_delegatee}) does not match oracle account ({oracle_address}). "
+                f"Delegation contract delegatee ({current_delegatee}) "
+                f"does not match oracle account ({oracle_address}). "
                 f"Admin must call assignDelegate({oracle_address})"
             )
 
