@@ -14,7 +14,6 @@ from src.metrics.prometheus.basic import (
     ACCOUNT_BALANCE,
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
-    TELEMETRY_ACCOUNT_BALANCE,
     TRANSACTIONS_COUNT,
     CycleResult,
     Status,
@@ -27,11 +26,11 @@ from src.modules.oracles.common.exceptions import (
 )
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.common.runtime import run_oracle_module
-from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
