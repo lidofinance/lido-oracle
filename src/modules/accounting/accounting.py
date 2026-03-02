@@ -729,7 +729,7 @@ class Accounting(BaseModule, ConsensusModule):
     @staticmethod
     def _update_metrics(report_data: ReportData):
         ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
-        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_active_balance_gwei)
+        ACCOUNTING_CL_BALANCE_GWEI.set(report_data.cl_validators_balance_gwei)
         ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI.set(report_data.el_rewards_vault_balance)
         ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI.set(report_data.withdrawal_vault_balance)
 
@@ -756,12 +756,12 @@ class Accounting(BaseModule, ConsensusModule):
         return ReportData(
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,
-            cl_active_balance_gwei=cl_balance,
+            cl_validators_balance_gwei=cl_balance,
             cl_pending_balance_gwei=report_pending_deposits,
             staking_module_ids_with_exited_validators=staking_module_ids_list,
             count_exited_validators_by_staking_module=exit_validators_count_list,
             staking_module_ids_with_updated_balance=module_ids_with_updated_balance,
-            active_balances_gwei_by_staking_module=active_balances_by_module,
+            validator_balances_gwei_by_staking_module=active_balances_by_module,
             pending_balances_gwei_by_staking_module=pending_balances_by_module,
             withdrawal_vault_balance=withdrawal_vault_balance,
             el_rewards_vault_balance=el_rewards_vault_balance,
