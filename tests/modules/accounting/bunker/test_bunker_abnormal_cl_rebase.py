@@ -15,11 +15,14 @@ from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
 
+DEFAULT_BALANCE = Gwei(32 * 10**9)
+
+
 def simple_validators(
     from_index: int,
     to_index: int,
-    balance=Gwei(32 * 10**9),
-    effective_balance=Gwei(32 * 10**9),
+    balance=DEFAULT_BALANCE,
+    effective_balance=DEFAULT_BALANCE,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):

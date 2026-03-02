@@ -6,12 +6,15 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
 )
-from src.modules.submodules.consensus import FrameConfig
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
+from src.modules.oracles.common.consensus import FrameConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
+
+
+DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
 
 
 def simple_blockstamp(
@@ -26,7 +29,7 @@ def simple_validators(
     slashed=False,
     withdrawable_epoch=8192,
     exit_epoch=7892,
-    effective_balance=Gwei(32 * 10**9),
+    effective_balance=DEFAULT_EFFECTIVE_BALANCE,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):

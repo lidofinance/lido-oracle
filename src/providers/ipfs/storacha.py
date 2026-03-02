@@ -1,12 +1,12 @@
 import json
 import logging
-from typing import Optional
 from urllib.parse import urljoin
 
 import requests
 
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,7 @@ class Storacha(IPFSProvider):
     BRIDGE_URL = 'https://up.storacha.network/bridge'
     GATEWAY_URL = 'https://storacha.link/ipfs/'
 
-    def __init__(
-        self,
-        auth_secret: str,
-        authorization: str,
-        space_did: str,
-        timeout: int = 30
-    ):
+    def __init__(self, auth_secret: str, authorization: str, space_did: str, timeout: int = 30):
         """Initialize Storacha provider.
 
         Args:
@@ -41,15 +35,15 @@ class Storacha(IPFSProvider):
         return {
             'X-Auth-Secret': self.auth_secret,
             'Authorization': self.authorization,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         }
 
-    def _upload(self, content: bytes, name: Optional[str] = None) -> str:
+    def _upload(self, content: bytes, name: str | None = None) -> str:
         """Upload content to Storacha.
 
         Implemented according to Storacha HTTP-bridge specification:
         https://docs.storacha.network/how-to/http-bridge/
-        
+
         Args:
             content: Content bytes to upload
             name: Not used in Storacha
@@ -62,20 +56,13 @@ class Storacha(IPFSProvider):
         headers = self._get_headers()
 
         store_payload = {
-            "tasks": [
-                [
-                    "store/add",
-                    self.space_did,
-                    {
-                        "link": {"/": car_file.shard_cid},
-                        "size": car_file.size
-                    }
-                ]
-            ]
+            "tasks": [["store/add", self.space_did, {"link": {"/": car_file.shard_cid}, "size": car_file.size}]]
         }
 
         try:
-            response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(store_payload), timeout=self.timeout)
+            response = requests.post(
+                self.BRIDGE_URL, headers=headers, data=json.dumps(store_payload), timeout=self.timeout
+            )
             response.raise_for_status()
             resp_json = response.json()
         except requests.RequestException as ex:
@@ -95,17 +82,17 @@ class Storacha(IPFSProvider):
             upload_headers = store_result['headers']
 
             try:
-                upload_response = requests.put(upload_url, headers=upload_headers, data=car_file.car_bytes, timeout=self.timeout)
+                upload_response = requests.put(
+                    upload_url, headers=upload_headers, data=car_file.car_bytes, timeout=self.timeout
+                )
                 upload_response.raise_for_status()
             except requests.RequestException as ex:
                 # Log error details without exposing upload URL with sensitive info
                 error_info = getattr(ex, 'response', None)
                 status_code = error_info.status_code if error_info is not None else 'unknown'
-                logger.error({
-                    "msg": "Upload request failed",
-                    "error_type": type(ex).__name__,
-                    "status_code": status_code
-                })
+                logger.error(
+                    {"msg": "Upload request failed", "error_type": type(ex).__name__, "status_code": status_code}
+                )
                 raise UploadError(f"Upload request failed: {ex}") from ex
 
         upload_payload = {
@@ -113,16 +100,15 @@ class Storacha(IPFSProvider):
                 [
                     "upload/add",
                     self.space_did,
-                    {
-                        "root": {"/": car_file.root_cid},
-                        "shards": [{"/": car_file.shard_cid}]
-                    }
+                    {"root": {"/": car_file.root_cid}, "shards": [{"/": car_file.shard_cid}]},
                 ]
             ]
         }
 
         try:
-            response = requests.post(self.BRIDGE_URL, headers=headers, data=json.dumps(upload_payload), timeout=self.timeout)
+            response = requests.post(
+                self.BRIDGE_URL, headers=headers, data=json.dumps(upload_payload), timeout=self.timeout
+            )
             response.raise_for_status()
             resp_json = response.json()
         except requests.RequestException as ex:

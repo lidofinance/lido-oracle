@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.providers.consensus.types import ValidatorState
 from src.services.safe_border import SafeBorder
 from src.web3py.extensions.lido_validators import Validator

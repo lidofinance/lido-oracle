@@ -3,7 +3,7 @@ from eth_typing import BlockNumber
 from web3.types import Timestamp
 
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.services.withdrawal import Withdrawal
 from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
 

@@ -6,11 +6,14 @@ from eth_typing import BlockNumber, ChecksumAddress, HexStr
 from web3.types import Timestamp, Wei
 
 
-class OracleModule(StrEnum):
+class OracleModuleName(StrEnum):
     ACCOUNTING = 'accounting'
     EJECTOR = 'ejector'
     CHECK = 'check'
     CSM = 'csm'
+    CM = 'cm'
+    PERFORMANCE_WEB_SERVER = 'performance_web_server'
+    PERFORMANCE_COLLECTOR = 'performance_collector'
 
 
 EpochNumber = NewType('EpochNumber', int)

@@ -8,10 +8,17 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.modules.accounting import accounting as accounting_module
-from src.modules.accounting.accounting import Accounting, logger as accounting_logger
-from src.modules.accounting.third_phase.types import FormatList
-from src.modules.accounting.types import (
+from src.modules.common.types import (
+    ZERO_HASH,
+    ChainConfig,
+    CurrentFrame,
+    FrameConfig,
+    ModuleExecuteDelay,
+)
+from src.modules.oracles.accounting import accounting as accounting_module
+from src.modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
+from src.modules.oracles.accounting.third_phase.types import FormatList
+from src.modules.oracles.accounting.types import (
     AccountingProcessingState,
     ReportSimulationFeeDistribution,
     ReportSimulationPayload,
@@ -20,13 +27,6 @@ from src.modules.accounting.types import (
     VaultsData,
     VaultsMap,
     VaultTreeNode,
-)
-from src.modules.submodules.oracle_module import ModuleExecuteDelay
-from src.modules.submodules.types import (
-    ZERO_HASH,
-    ChainConfig,
-    CurrentFrame,
-    FrameConfig,
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.staking_vaults import StakingVaultsService
@@ -81,7 +81,7 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
     accounting.get_blockstamp_for_report = Mock(return_value=bs)
     accounting.process_report = Mock(return_value=None)
     accounting.process_extra_data = Mock(return_value=None)
-    accounting._check_compatability = Mock(return_value=True)
+    accounting._check_compatibility = Mock(return_value=True)
     assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT, (
         "execute_module should wait for the next slot"
     )
@@ -208,7 +208,15 @@ def test_get_slots_elapsed_from_initialize(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build(ref_slot=100)
     slots_elapsed = accounting._get_slots_elapsed_from_last_report(bs)
 
-    assert slots_elapsed == 100 - 32 * 2 + 1
+    # Ref slot of Frame -1.
+    # (initial_epoch - epochs_per_frame) * slots_per_epoch - 1
+    prev_slot = (2 - 1) * 32 - 1  # 31
+    assert slots_elapsed == bs.ref_slot - prev_slot
+
+    accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=4))
+
+    slots_elapsed = accounting._get_slots_elapsed_from_last_report(bs)
+    assert slots_elapsed == bs.ref_slot
 
 
 @pytest.mark.unit

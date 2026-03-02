@@ -1,5 +1,5 @@
 from time import sleep
-from typing import List, TypedDict, cast
+from typing import TypedDict, cast
 
 from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
 from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
@@ -26,7 +26,7 @@ class KAPIModule(TypedDict):
 
 
 class ModuleOperatorsKeys(TypedDict):
-    keys: List[LidoKey]
+    keys: list[LidoKey]
     module: KAPIModule
     operators: list
 

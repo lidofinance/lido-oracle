@@ -2,12 +2,15 @@ import logging
 import logging.handlers
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
+from typing import cast
 
 import pytest
 
 from src import variables
 from src.main import main
-from src.types import OracleModule
+from src.modules.common.daemon_module import DaemonModule
+from src.modules.oracles.common.consensus import ConsensusModule
+from src.types import OracleModuleName
 
 
 @pytest.mark.mainnet
@@ -19,31 +22,45 @@ class TestIntegrationMainCycleSmoke:
         logger.setLevel(logging.DEBUG)
         logger.addHandler(queue_handler)
 
+        variables.DAEMON = False
+        variables.CYCLE_SLEEP_IN_SECONDS = 0
+
+        # Use last finalized instead of head slot for avoiding calls with non-existent block at the moment of cycle
+        ConsensusModule._get_latest_blockstamp = lambda self: cast(DaemonModule, self)._receive_last_finalized_slot()
+
+        if module_name is OracleModuleName.CSM:
+            variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]
+
+            from src.web3py.extensions.staking_module import StakingModuleContracts
+
+            StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES = 3
+            StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY = 0
+
+            from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+
+            CSPerformanceOracle._collect_data = lambda self: True
+            CSPerformanceOracle.shutdown = lambda self: None
+
+            from src.providers.performance.client import PerformanceClient
+
+            PerformanceClient.is_range_available = lambda *args, **kwargs: True
+            PerformanceClient.get_epochs_demand = lambda *args, **kwargs: None
+            PerformanceClient.post_epochs_demand = lambda *args, **kwargs: None
+            PerformanceClient.delete_epochs_demand = lambda *args, **kwargs: None
+
         main(module_name)
 
     @pytest.mark.parametrize(
         "module_name",
         [
-            "accounting",
-            "ejector",
-            "csm",
+            OracleModuleName.ACCOUNTING,
+            OracleModuleName.EJECTOR,
+            OracleModuleName.CSM,
+            # TODO: Enable when CM module is on mainnet
+            # OracleModuleName.CM
         ],
     )
-    def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(
-        self, monkeypatch, caplog, module_name: OracleModule
-    ):
-        monkeypatch.setattr(variables, 'DAEMON', False)
-        monkeypatch.setattr(variables, 'CYCLE_SLEEP_IN_SECONDS', 0)
-        monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES", 3)
-        monkeypatch.setattr("src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY", 0)
-        # Mock CSM data collection to avoid CI timeout during processing thousands of epochs
-        if module_name == "csm":
-
-            def mock_collect_data(self, blockstamp):
-                return True
-
-            monkeypatch.setattr("src.modules.csm.csm.CSOracle.collect_data", mock_collect_data)
-
+    def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(self, caplog, module_name: OracleModuleName):
         ctx = multiprocessing.get_context('fork')
         manager = ctx.Manager()
         log_queue = manager.Queue()

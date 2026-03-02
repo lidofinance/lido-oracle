@@ -7,6 +7,7 @@ from web3.types import BlockIdentifier, Wei
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

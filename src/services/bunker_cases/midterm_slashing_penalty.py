@@ -13,6 +13,7 @@ from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 
+
 logger = logging.getLogger(__name__)
 
 type SlashedValidatorsFrameBuckets = dict[FrameNumber, list[LidoValidator]]
@@ -58,13 +59,11 @@ class MidtermSlashingPenalty:
         total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
 
         # Calculate sum of Lido midterm penalties in each future frame
-        frames_lido_midterm_penalties = (
-            MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-                blockstamp.ref_epoch,
-                slashings,
-                total_balance,
-                future_frames_lido_validators,
-            )
+        frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
+            blockstamp.ref_epoch,
+            slashings,
+            total_balance,
+            future_frames_lido_validators,
         )
         max_lido_midterm_penalty = max(frames_lido_midterm_penalties.values())
         logger.info({"msg": f"Max lido midterm penalty: {max_lido_midterm_penalty}"})
@@ -161,13 +160,11 @@ class MidtermSlashingPenalty:
         """Calculate sum of midterm penalties in each frame"""
         per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
         for frame_number, validators_in_future_frame in per_frame_validators.items():
-            per_frame_midterm_penalty_sum[frame_number] = (
-                MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
-                    ref_epoch,
-                    slashings,
-                    total_balance,
-                    validators_in_future_frame,
-                )
+            per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
+                ref_epoch,
+                slashings,
+                total_balance,
+                validators_in_future_frame,
             )
 
         return per_frame_midterm_penalty_sum
@@ -223,16 +220,15 @@ class MidtermSlashingPenalty:
         slashings: list[Gwei], midterm_penalty_epoch: EpochNumber, report_ref_epoch: EpochNumber
     ) -> list[Gwei]:
         """
-        Filters out slashing values based on epochs within a midterm penalty epoch. Slashings is a ring buffer on epochs.
+        Filters out slashing values based on epochs within a midterm penalty epoch.
+        Slashings is a ring buffer on epochs.
         @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
         """
 
         if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
             raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
-        obsolete_indexes = {
-            i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)
-        }
+        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)}
 
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
@@ -244,7 +240,9 @@ class MidtermSlashingPenalty:
     ) -> list[Validator]:
         """
         Get bounded slashed validators for particular epoch
-        All slashings that happened in the nearest EPOCHS_PER_SLASHINGS_VECTOR ago from a midterm penalty epoch considered as bounded
+        All slashings that happened in the nearest
+        EPOCHS_PER_SLASHINGS_VECTOR epochs before a midterm penalty epoch are
+        considered as bounded.
         """
         min_bound_epoch = max(0, midterm_penalty_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
 

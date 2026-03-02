@@ -59,10 +59,20 @@ isort: up
 test: up
 	$(EXEC_CMD) pytest $${ORACLE_TEST_PATH:-tests/}
 
+# Use MUTATION_TEST_PATH and MUTATION_ORACLE_TEST_PATH to run mutations against specific paths, e.g.:
+# make test-mutations MUTATION_TEST_PATH=src/oracle MUTATION_ORACLE_TEST_PATH=tests/modules/accounting/staking_vault
+MUTATION_TEST_PATH ?= src/oracle
+MUTATION_ORACLE_TEST_PATH ?= tests
+test-mutations: up
+	$(EXEC_CMD) poetry run mutmut run --paths-to-mutate=$(MUTATION_TEST_PATH) --runner="pytest -x -m unit -q $(MUTATION_ORACLE_TEST_PATH)" && poetry run mutmut results
+
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
 run-module: up
 	$(EXEC_CMD) python -m src.main $(ORACLE_MODULE)
+
+sidecars-up:
+	docker compose up -d postgres init-db performance-collector performance-web
 
 install-pre-commit:
 	@echo "Creating pre-commit hook..."

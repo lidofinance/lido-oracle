@@ -1,11 +1,12 @@
 import operator
-from typing import Callable, TypeVar, Any, Generic
+from collections.abc import Callable
+from typing import Any, TypeVar
+
 
 WrappedType = TypeVar('WrappedType')
 
 
-class LazyObjectProxy(Generic[WrappedType]):
-
+class LazyObjectProxy[WrappedType]:
     def __init__(self, factory: Callable[[], WrappedType]) -> None:
         self._factory: Callable[[], WrappedType] = factory
         self._wrapped_obj: WrappedType | None = None
@@ -18,9 +19,10 @@ class LazyObjectProxy(Generic[WrappedType]):
 
     @staticmethod
     def _proxy_method(method: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(self: 'LazyObjectProxy[WrappedType]', *args: Any, **kwargs: Any) -> Any:
+        def wrapper(self, *args: Any, **kwargs: Any) -> Any:
             self._setup()  # pylint: disable=protected-access
             return method(self._wrapped_obj, *args, **kwargs)  # pylint: disable=protected-access
+
         return wrapper
 
     def __setattr__(self, name: str, value: Any) -> None:

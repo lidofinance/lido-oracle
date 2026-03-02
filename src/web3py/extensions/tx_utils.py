@@ -12,6 +12,7 @@ from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 from src.web3py.types import Web3
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,12 +39,7 @@ class TransactionUtils(Module):
 
     def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount):
         logger.warning({'msg': 'Send transaction in manual mode.'})
-        msg = (
-            '\n'
-            'Going to send transaction to blockchain: \n'
-            f'Tx args:\n{transaction.args}\n'
-            f'Tx params:\n{params}\n'
-        )
+        msg = f'\nGoing to send transaction to blockchain: \nTx args:\n{transaction.args}\nTx params:\n{params}\n'
         if prompt(f'{msg}Should we send this TX? [y/n]: '):
             self._sign_and_send_transaction(transaction, params, account)
 
@@ -74,7 +70,7 @@ class TransactionUtils(Module):
                 max(
                     self.w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
                     variables.MIN_PRIORITY_FEE,
-                )
+                ),
             )
         )
 

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.9.0
 FROM python:3.14-slim AS base
 
-ARG POETRY_VERSION=1.3.2
+ARG POETRY_VERSION=2.3.2
 ARG SOURCE_DATE_EPOCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_VIRTUALENVS_IN_PROJECT=false \
     POETRY_NO_INTERACTION=1 \
+    POETRY_INSTALLER_PARALLEL=false \
     VENV_PATH="/opt/venv" \
     # Building reproducible .so files by enforcing consistent CFLAGS across builds
     CFLAGS="-g0 -O2 -ffile-prefix-map=/src=."

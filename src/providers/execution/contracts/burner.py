@@ -1,11 +1,11 @@
 import logging
-from src.utils.cache import global_lru_cache as lru_cache
 
 from web3.types import BlockIdentifier
 
-from src.modules.accounting.types import SharesRequestedToBurn
+from src.modules.oracles.accounting.types import SharesRequestedToBurn
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
+from src.utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,12 @@ class BurnerContract(ContractInterface):
         response = self.functions.getSharesRequestedToBurn().call(block_identifier=block_identifier)
 
         response = named_tuple_to_dataclass(response, SharesRequestedToBurn)
-        logger.info({
-            'msg': 'Call `getSharesRequestedToBurn()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getSharesRequestedToBurn()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
