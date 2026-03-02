@@ -72,6 +72,7 @@ class ConsensusModule[W3: Web3Base](ABC):
     def __init__(self, w3: W3, **kwargs):
         super().__init__(**kwargs)
         self.w3 = w3
+        self._last_sent_report_hash: HexBytes | None = None
 
         if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
@@ -336,12 +337,17 @@ class ConsensusModule[W3: Web3Base](ABC):
             self._send_telemetry(report_data, report_hash)
 
     def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
+        if report_hash == self._last_sent_report_hash:
+            logger.info({'msg': 'Telemetry already sent for this report hash. Skipping.'})
+            return
+
         try:
             data = {
                 'report_hash': '0x' + report_hash.hex(),
                 'report': list(report_data),
             }
             self.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
+            self._last_sent_report_hash = report_hash
         except Exception:
             logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
 
