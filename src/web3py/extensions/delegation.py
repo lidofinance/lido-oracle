@@ -38,7 +38,7 @@ class DelegationModule(Module):
             self.delegation_contract = cast(
                 DelegationContract,
                 self.w3.eth.contract(
-                    address=delegation_address,
+                    address=cast(ChecksumAddress, delegation_address),
                     ContractFactoryClass=DelegationContract,
                     decode_tuples=True,
                 ),
@@ -53,11 +53,8 @@ class DelegationModule(Module):
         else:
             logger.info({'msg': 'DelegationModule initialized without contract - delegation disabled'})
 
-    def _has_contract(self) -> bool:
-        return self.delegation_contract is not None
-
     def is_enabled(self) -> bool:
-        return self._has_contract()
+        return self.delegation_contract is not None
 
     def wrap_call_for_delegation(self, target_contract_call: ContractFunction) -> ContractFunction:
         """Convert normal contract call to delegated execution
@@ -68,35 +65,26 @@ class DelegationModule(Module):
         Returns:
             ContractFunction that calls delegation.execute() with encoded data
         """
-        if not self._has_contract():
+        if not self.delegation_contract:
             raise RuntimeError("Delegation is not enabled - no contract address configured")
 
-        # Build transaction to get target and calldata
-        try:
-            built_tx = target_contract_call.build_transaction({'gas': 0})
-        except Exception:
-            # Fallback: build without gas estimation if it fails
-            built_tx = target_contract_call.build_transaction({})
-
-        target_address = built_tx['to']
-        calldata_hex = built_tx['data']
-
-        calldata = bytes.fromhex(calldata_hex[2:])
+        target_address = str(target_contract_call.address)
+        contract = self.w3.eth.contract(address=target_contract_call.address, abi=target_contract_call.contract_abi)
+        encoded = contract.encode_abi(target_contract_call.fn_name, target_contract_call.args)
+        calldata = bytes.fromhex(encoded[2:])
 
         logger.debug({
             'msg': 'Wrapping call for delegation',
             'target': target_address,
-            'original_function': target_contract_call.function_identifier,
             'calldata_length': len(calldata)
         })
 
-        # Return delegation contract execute call
         return self.delegation_contract.execute(target_address, calldata)
 
     def _validate_delegation_setup(self) -> None:
         """Validate delegation contract is properly configured for oracle account"""
 
-        if not self._has_contract():
+        if not self.delegation_contract:
             return
 
         current_delegatee = self.delegation_contract.get_delegatee()
