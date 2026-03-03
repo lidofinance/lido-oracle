@@ -120,3 +120,5 @@ class TelemetryDataBus(Module):
         params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)
         tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
+
+        self.update_account_balance_metric()

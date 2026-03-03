@@ -61,6 +61,7 @@ class TestTelemetryDataBus:
     ):
         monkeypatch.setattr(variables, 'ACCOUNT', Mock())
         mock_data_bus_w3 = Mock()
+        mock_data_bus_w3.eth.get_balance.return_value = 10**18
         mock_create_web3.return_value = mock_data_bus_w3
         mock_contract = Mock()
         mock_data_bus_w3.eth.contract.return_value = mock_contract
@@ -79,6 +80,7 @@ class TestTelemetryDataBus:
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
         assert 'DataBus telemetry sent.' in caplog.text
+        mock_data_bus_w3.eth.get_balance.assert_called_once_with(variables.ACCOUNT.address)
 
     def test_send_telemetry__not_configured__logs_skipping(self, web3, caplog):
         module = self._create_module(web3)
