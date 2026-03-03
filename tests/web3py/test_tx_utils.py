@@ -7,7 +7,7 @@ from web3.exceptions import ContractLogicError, TimeExhausted
 
 from src import variables
 from src.utils import input
-from src.web3py.contract_tweak import ContractFunction
+from src.utils.transaction import build_transaction_params, estimate_gas
 from src.web3py.extensions import TransactionUtils
 
 
@@ -30,8 +30,8 @@ class TestTransactionUtils:
         assert result is None
 
     @patch('src.web3py.extensions.tx_utils.prompt', return_value=True)
-    @patch('src.web3py.extensions.TransactionUtils._sign_and_send_transaction')
-    def test_manual_transaction_processing(self, mock_sign_send, mock_prompt, fake_transaction_utils):
+    @patch('src.web3py.extensions.TransactionUtils._send_transaction')
+    def test_manual_transaction_processing(self, mock_send, mock_prompt, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
         params = {'from': account.address}
@@ -40,7 +40,7 @@ class TestTransactionUtils:
         utils._manual_tx_processing(transaction, params, account)
 
         mock_prompt.assert_called()
-        mock_sign_send.assert_called_with(transaction, params, account)
+        mock_send.assert_called_with(transaction, params, account)
 
     def test_check_transaction_reverted(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
@@ -52,10 +52,9 @@ class TestTransactionUtils:
 
         assert result is False
 
-    @patch('src.web3py.extensions.TransactionUtils._estimate_gas', return_value=None)
+    @patch('src.utils.transaction.estimate_gas', return_value=None)
     def test_get_transaction_params_without_gas(self, mock_estimate_gas, fake_transaction_utils):
         utils, account = fake_transaction_utils
-        transaction = MagicMock(spec=ContractFunction)
 
         latest_block = {'baseFeePerGas': 10}
         utils.w3.eth.get_block.return_value = latest_block
@@ -66,7 +65,7 @@ class TestTransactionUtils:
             monkeypatch.setattr(variables, "MAX_PRIORITY_FEE", 20)
             monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 2)
             monkeypatch.setattr(variables, "PRIORITY_FEE_PERCENTILE", 10)
-            params = utils._get_transaction_params(transaction, account)
+            params = build_transaction_params(utils.w3, MagicMock(), account)
 
             assert 'gas' not in params
             assert params['nonce'] == 1
@@ -75,12 +74,12 @@ class TestTransactionUtils:
         utils, account = fake_transaction_utils
         transaction = MagicMock()
         transaction.estimate_gas.side_effect = ValueError("Execution reverted")
-        gas = utils._estimate_gas(transaction, account)
+        gas = estimate_gas(transaction, account)
 
         assert gas is None
 
     @patch('src.web3py.extensions.TransactionUtils._handle_sent_transaction')
-    def test_sign_and_send_transaction(self, mock_handle_sent, fake_transaction_utils):
+    def test_send_transaction(self, mock_handle_sent, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
         params = {'from': account.address}
@@ -96,50 +95,50 @@ class TestTransactionUtils:
         tx_hash = HexBytes("0x123")
         utils.w3.eth.send_raw_transaction.return_value = tx_hash
 
-        utils._sign_and_send_transaction(transaction, params, account)
+        utils._send_transaction(transaction, params, account)
 
         utils.w3.eth.send_raw_transaction.assert_called_with(signed_tx.raw_transaction)
-        mock_handle_sent.assert_called_with(tx_hash)
+        mock_handle_sent.assert_called_with(HexBytes(tx_hash))
 
     def test_estimate_gas(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
 
         tx.estimate_gas = MagicMock(return_value=100)
-        gas_amount = utils._estimate_gas(tx, account)
+        gas_amount = estimate_gas(tx, account)
         assert gas_amount == 100 + variables.TX_GAS_ADDITION
 
         tx.estimate_gas = MagicMock(side_effect=ContractLogicError())
-        gas_amount = utils._estimate_gas(tx, account)
+        gas_amount = estimate_gas(tx, account)
         assert gas_amount is None
 
     def test_manual_tx_processing(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
         input.get_input = MagicMock(return_value='y')
-        utils._sign_and_send_transaction = MagicMock()
+        utils._send_transaction = MagicMock()
         utils._manual_tx_processing(tx, {}, account)
-        utils._sign_and_send_transaction.assert_called_once()
+        utils._send_transaction.assert_called_once()
 
     def test_manual_tx_processing_decline(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
         input.get_input = MagicMock(return_value='n')
-        utils._sign_and_send_transaction = MagicMock()
+        utils._send_transaction = MagicMock()
         utils._manual_tx_processing(tx, {}, account)
-        utils._sign_and_send_transaction.assert_not_called()
+        utils._send_transaction.assert_not_called()
 
-    def test_daemon_check_and_send_transaction(self, fake_transaction_utils):
+    @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
+    def test_daemon_check_and_send_transaction(self, mock_build_params, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
         input.get_input = MagicMock(return_value='n')
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(variables, "DAEMON", False)
-            utils._sign_and_send_transaction = MagicMock()
-            utils._get_transaction_params = MagicMock(return_value={})
+            utils._send_transaction = MagicMock()
             utils._check_transaction = MagicMock(return_value=True)
             utils.check_and_send_transaction(tx, account)
-            utils._sign_and_send_transaction.assert_not_called()
+            utils._send_transaction.assert_not_called()
 
     def test_find_transaction_timeout(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
@@ -171,7 +170,7 @@ class TestTransactionUtils:
         utils.w3.eth.fee_history = MagicMock(return_value={'reward': [[5]]})
         utils.w3.eth.get_transaction_count = MagicMock(return_value=10)
 
-        params = utils._get_transaction_params(tx, account)
+        params = build_transaction_params(utils.w3, tx, account)
 
         assert params['from'] == account.address
         assert params['maxFeePerGas'] == 20 * 2 + variables.MIN_PRIORITY_FEE
@@ -182,7 +181,7 @@ class TestTransactionUtils:
         tx.estimate_gas = MagicMock(side_effect=ContractLogicError())
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(variables, "MIN_PRIORITY_FEE", 1)
-            params = utils._get_transaction_params(tx, account)
+            params = build_transaction_params(utils.w3, tx, account)
 
             assert params['maxPriorityFeePerGas'] == 5
             assert 'from' in params
@@ -191,6 +190,6 @@ class TestTransactionUtils:
             assert 'gas' not in params
 
             utils.w3.eth.fee_history = MagicMock(return_value={'reward': [[1 * 10**18]]})
-            params = utils._get_transaction_params(tx, account)
+            params = build_transaction_params(utils.w3, tx, account)
 
             assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE

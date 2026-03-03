@@ -8,5 +8,5 @@ def run() -> None:
     log_startup(OracleModuleName.CM)
     start_observability()
 
-    web3 = build_staking_module_web3()
+    web3 = build_staking_module_web3(OracleModuleName.CM)
     run_oracle_module(CMPerformanceOracle(web3))

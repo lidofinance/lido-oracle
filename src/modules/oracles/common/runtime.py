@@ -20,6 +20,8 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
+    TelemetryEventId,
     TransactionUtils,
 )
 from src.web3py.extensions.performance import PerformanceClientModule
@@ -72,14 +74,21 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
     return web3
 
 
-def build_oracle_web3() -> Web3:
+def build_oracle_web3(module_name: str) -> Web3:
     web3 = _build_web3_base(Web3)
 
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
+
+    logger.info({'msg': 'Initialize DataBus telemetry module.'})
+    telemetry_data_bus = TelemetryDataBus(
+        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
+    )
+
     modules: dict[str, Any] = {
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'ipfs': lambda: ipfs,
+        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 
@@ -90,7 +99,7 @@ def build_oracle_web3() -> Web3:
     return web3
 
 
-def build_staking_module_web3() -> Web3StakingModule:
+def build_staking_module_web3(module_name: str) -> Web3StakingModule:
     web3 = _build_web3_base(Web3StakingModule)
 
     if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
@@ -98,10 +107,17 @@ def build_staking_module_web3() -> Web3StakingModule:
 
     performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
+
+    logger.info({'msg': 'Initialize DataBus telemetry module.'})
+    telemetry_data_bus = TelemetryDataBus(
+        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
+    )
+
     modules: dict[str, Any] = {
         'staking_module': StakingModuleContracts,
         'performance': lambda: performance,
         'ipfs': lambda: ipfs,
+        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 
@@ -114,6 +130,10 @@ def build_staking_module_web3() -> Web3StakingModule:
 
 def run_oracle_module(module: OracleModule):
     module.check_contract_configs()
+    try:
+        module.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_STARTUP)
+    except Exception:
+        logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
     try:
         # Docker sends SIGTERM on `docker stop`; convert it to SystemExit so `finally`
         # runs module.shutdown() and cleanup is not skipped.
