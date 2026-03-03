@@ -58,6 +58,9 @@ ATTESTATIONS_WEIGHT = 54
 BLOCKS_WEIGHT = 8
 SYNC_WEIGHT = 2
 
+# Ethereum chain IDs
+MAINNET_CHAIN_ID = 1
+
 # Local constants
 GWEI_TO_WEI = 10**9
 UINT64_MAX = 2**64 - 1

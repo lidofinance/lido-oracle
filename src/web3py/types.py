@@ -8,6 +8,7 @@ from src.web3py.extensions import (
     LidoContracts,
     LidoValidatorsProvider,
     StakingModuleContracts,
+    TelemetryDataBus,
     TransactionUtils,
 )
 
@@ -16,6 +17,7 @@ class Web3Base(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
+    telemetry_data_bus: TelemetryDataBus
 
 
 class Web3(Web3Base):

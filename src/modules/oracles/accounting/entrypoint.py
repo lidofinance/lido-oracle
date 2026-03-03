@@ -8,5 +8,5 @@ def run() -> None:
     log_startup(OracleModuleName.ACCOUNTING)
     start_observability()
 
-    web3 = build_oracle_web3()
+    web3 = build_oracle_web3(OracleModuleName.ACCOUNTING)
     run_oracle_module(Accounting(web3))

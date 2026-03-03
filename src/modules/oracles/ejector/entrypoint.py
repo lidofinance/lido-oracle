@@ -8,5 +8,5 @@ def run() -> None:
     log_startup(OracleModuleName.EJECTOR)
     start_observability()
 
-    web3 = build_oracle_web3()
+    web3 = build_oracle_web3(OracleModuleName.EJECTOR)
     run_oracle_module(Ejector(web3))
