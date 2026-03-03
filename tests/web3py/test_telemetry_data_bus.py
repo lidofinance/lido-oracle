@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src import variables
-from src.constants import MAINNET_CHAIN_ID
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
@@ -37,13 +36,6 @@ class TestTelemetryDataBus:
         self._create_module(web3, data_bus_rpc=DUMMY_RPC)
 
         assert 'DataBus telemetry is not configured. Skipping initialization.' in caplog.text
-
-    @patch.object(TelemetryDataBus, '_create_web3')
-    def test___init____mainnet_chain_id__raises_mainnet_forbidden(self, mock_create_web3, web3):
-        mock_create_web3.return_value = self._mock_data_bus_w3(chain_id=MAINNET_CHAIN_ID)
-
-        with pytest.raises(TelemetryDataBus.MainnetForbiddenError):
-            self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
 
     @patch.object(TelemetryDataBus, '_create_web3')
     def test___init____no_code_at_address__raises_contract_not_deployed(self, mock_create_web3, web3):

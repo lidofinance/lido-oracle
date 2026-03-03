@@ -9,7 +9,7 @@ from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
 from web3.module import Module
 
-from src import constants, variables
+from src import variables
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.providers.execution.contracts.data_bus import DataBusContract
 from src.utils.transaction import build_transaction_params, sign_and_send_transaction
@@ -25,9 +25,6 @@ class TelemetryEventId(Enum):
 
 
 class TelemetryDataBus(Module):
-    class MainnetForbiddenError(Exception):
-        pass
-
     class ContractNotDeployedError(Exception):
         pass
 
@@ -80,12 +77,6 @@ class TelemetryDataBus(Module):
             raise RuntimeError("DataBus Web3 instance is not initialized.")
 
         chain_id = self._data_bus_w3.eth.chain_id
-        if chain_id == constants.MAINNET_CHAIN_ID:
-            raise self.MainnetForbiddenError(
-                f"DataBus telemetry must not be used on Ethereum Mainnet (chain_id={chain_id}) "
-                "to prevent draining the report wallet."
-            )
-
         code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
             raise self.ContractNotDeployedError(
