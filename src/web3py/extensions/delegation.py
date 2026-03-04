@@ -38,7 +38,7 @@ class DelegationModule(Module):
             self.delegation_contract = cast(
                 DelegationContract,
                 self.w3.eth.contract(
-                    address=cast(ChecksumAddress, delegation_address),
+                    address=Web3.to_checksum_address(delegation_address),
                     ContractFactoryClass=DelegationContract,
                     decode_tuples=True,
                 ),
@@ -68,7 +68,7 @@ class DelegationModule(Module):
         if not self.delegation_contract:
             raise RuntimeError("Delegation is not enabled - no contract address configured")
 
-        target_address = str(target_contract_call.address)
+        target_address = Web3.to_checksum_address(target_contract_call.address)
         contract = self.w3.eth.contract(address=target_contract_call.address, abi=target_contract_call.contract_abi)
         encoded = contract.encode_abi(target_contract_call.fn_name, target_contract_call.args)
         calldata = bytes.fromhex(encoded[2:])

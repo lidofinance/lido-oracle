@@ -5,12 +5,12 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractLogicError, TimeExhausted
 from web3.module import Module
 from web3.types import TxParams, TxReceipt
+from web3 import Web3
 
 from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
 from src.utils.input import prompt
 from src.utils.transaction import build_transaction_params, sign_and_send_transaction
-from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
