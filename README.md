@@ -283,7 +283,6 @@ The oracle exposes the following basic metrics:
 |-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | build_info                  | Build info                                                      | version, branch, commit                                                                                                                            |
 | env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, STAKING_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
-| genesis_time                | Fetched genesis time from node                                  |                                                                                                                                                    |
 | account_balance             | Fetched account balance from EL                                 | address                                                                                                                                            |
 | slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                      |
 | block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                                                      |
@@ -312,13 +311,12 @@ Interaction with external providers:
 
 Special metrics for accounting oracle:
 
-| Metric name                             | Description                                         | Labels           |
-|-----------------------------------------|-----------------------------------------------------|------------------|
-| accounting_is_bunker                    | Is bunker mode enabled                              |                  |
-| accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
-| accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
-| accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
-| accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
+| Metric name                   | Description                                        | Labels           |
+|-------------------------------|----------------------------------------------------|------------------|
+| accounting_is_bunker          | Is bunker mode enabled                             |                  |
+| accounting_balance_gwei       | CL and EL balances                                 | type             |
+| accounting_exited_validators  | Reported exited validators count for each operator | module_id, no_id |
+| accounting_vaults_total_value | Reported exited validators count for each operator | module_id, no_id |
 
 Special metrics for ejector oracle:
 

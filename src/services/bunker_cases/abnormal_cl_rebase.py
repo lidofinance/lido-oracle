@@ -95,7 +95,7 @@ class AbnormalClRebase:
         last_report_all_validators = self.w3.cc.get_validators_no_cache(last_report_blockstamp)
         last_report_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
             self.lido_keys, last_report_all_validators
-        )
+        )[0]
 
         # Calculate mean sum of effective balance for all validators and Lido validators (ACTIVE only)
         mean_sum_of_all_effective_balance = AbnormalClRebase.get_mean_sum_of_effective_balance(
@@ -181,7 +181,7 @@ class AbnormalClRebase:
         prev_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
-        )
+        )[0]
 
         ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
 

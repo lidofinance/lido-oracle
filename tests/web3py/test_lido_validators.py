@@ -28,7 +28,7 @@ def test_get_lido_validators(web3):
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
 
-    lido_validators = web3.lido_validators.get_lido_validators(blockstamp)
+    lido_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
 
     assert len(lido_validators) == 10
     assert len(lido_keys) != len(lido_validators)
@@ -54,7 +54,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
     )
 
     with pytest.raises(CountOfKeysDiffersException):
-        web3.lido_validators.get_lido_validators(blockstamp)
+        web3.lido_validators.get_active_lido_validators(blockstamp)
 
     web3.lido_contracts.lido.get_beacon_stat = Mock(
         return_value=BeaconStat(
@@ -64,7 +64,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
         )
     )
 
-    web3.lido_validators.get_lido_validators(blockstamp)
+    web3.lido_validators.get_active_lido_validators(blockstamp)
 
     # Keys can exist in KAPI, but no yet represented on CL
     web3.lido_contracts.lido.get_beacon_stat = Mock(
@@ -75,7 +75,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
         )
     )
 
-    web3.lido_validators.get_lido_validators(blockstamp)
+    web3.lido_validators.get_active_lido_validators(blockstamp)
 
 
 @pytest.mark.unit
@@ -115,7 +115,7 @@ def test_get_lido_validators_by_node_operator(web3):
     sm1 = StakingModuleFactory.build(id=1)
     sm2 = StakingModuleFactory.build(id=2)
 
-    web3.lido_validators.get_lido_validators = Mock(
+    web3.lido_validators.get_active_lido_validators = Mock(
         return_value=[
             LidoValidatorFactory.build(
                 lido_id=LidoKeyFactory.build(
@@ -164,7 +164,7 @@ def test_get_lido_validators_by_node_operator(web3):
 @pytest.mark.unit
 def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
     validator = LidoValidatorFactory.build()
-    web3.lido_validators.get_lido_validators = Mock(return_value=[validator])
+    web3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
     web3.lido_validators.get_lido_node_operators = Mock(
         return_value=[
             NodeOperatorFactory.build(

@@ -262,7 +262,6 @@ def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOrac
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
     converter.frame_config = Mock(epochs_per_frame=4)
-    module._converter = Mock(return_value=converter)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=False)
@@ -286,7 +285,6 @@ def test__set_epochs_range_to_collect_skips_post_when_demand_same(
     module.state = Mock(migrate=Mock(), log_progress=Mock())
     converter = Mock()
     converter.frame_config = Mock(epochs_per_frame=4)
-    module._converter = Mock(return_value=converter)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
     module.w3.performance.get_epochs_demands = Mock(return_value={"CSPerformanceOracle": (10, 20)})
@@ -923,7 +921,6 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
         mock_distribution_instance = MockDistribution.return_value
         mock_distribution_instance.calculate.return_value = mock_distribution_result
 
-        module._converter = Mock()
         module.state = Mock()
         module._get_last_report = Mock(return_value=last_report)
 

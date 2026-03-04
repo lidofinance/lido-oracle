@@ -40,6 +40,7 @@ gunicorn = "^21.2.0"
 sqlmodel = "^0.0.27"
 psycopg2-binary = "^2.9.11"
 prometheus-fastapi-instrumentator = "^7.1.0"
+ssz = "^0.5.2"
 
 [tool.poetry.group.dev.dependencies]
 faker = "^37.3.0"
@@ -85,10 +86,6 @@ branch = true
 [tool.pylint.master]
 ignore-patterns = ".*_pb2\\.py"
 generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
-
-[tool.pylint.format]
-max-line-length = "120"
-min-similarity-lines = 6
 
 [tool.pylint."messages control"]
 disable = [
@@ -142,7 +139,7 @@ ignore = [
 ]
 
 [tool.ruff]
-line-length = 120
+line-length = 130
 target-version = "py314"
 
 # Exclude directories and protobuf generated files

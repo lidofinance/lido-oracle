@@ -104,7 +104,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
         stream: bool = False,
     ) -> tuple[Any, dict]:
         """
@@ -124,7 +124,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     path_params,
                     query_params,
                     stream=stream,
-                    retval_validator=retval_validator,
+                    validate_response=validate_response,
                 )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
@@ -151,7 +151,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         stream: bool = False,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
     ) -> tuple[Any, dict]:
         """
         Simple GET request without fallbacks
@@ -211,7 +211,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             # NOTE: Used by KeysAPIClient and PerformanceClient only.
             data = json_response
 
-        retval_validator(data, meta, endpoint=endpoint)
+        validate_response(data, meta, endpoint=endpoint)
         return data, meta
 
     def _post(
@@ -221,7 +221,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         query_params: dict | None = None,
         body_data: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
     ) -> tuple[dict, dict]:
         """
         Plain POST request with fallbacks
@@ -240,7 +240,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     path_params,
                     query_params,
                     body_data,
-                    retval_validator=retval_validator,
+                    validate_response=validate_response,
                 )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
@@ -267,7 +267,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         body_data: dict | None = None,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
     ) -> tuple[dict, dict]:
         """
         Simple POST request without fallbacks
@@ -323,7 +323,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             data = json_response
             meta = {}
 
-        retval_validator(data, meta, endpoint=endpoint)
+        validate_response(data, meta, endpoint=endpoint)
         return data, meta
 
     def _delete(
@@ -333,7 +333,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         query_params: dict | None = None,
         body_data: dict | None = None,
         force_raise: Callable[..., Exception | None] = lambda _: None,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
     ) -> tuple[dict, dict]:
         errors: list[Exception] = []
 
@@ -345,7 +345,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     path_params,
                     query_params,
                     body_data,
-                    retval_validator=retval_validator,
+                    validate_response=validate_response,
                 )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
@@ -372,7 +372,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         path_params: Sequence[str | int] | None = None,
         query_params: dict | None = None,
         body_data: dict | None = None,
-        retval_validator: ReturnValueValidator = data_is_any,
+        validate_response: ReturnValueValidator = data_is_any,
     ) -> tuple[dict, dict]:
         complete_endpoint = endpoint.format(*path_params) if path_params else endpoint
 
@@ -427,7 +427,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             data = json_response
             meta = {}
 
-        retval_validator(data, meta, endpoint=endpoint)  # type: ignore[arg-type]
+        validate_response(data, meta, endpoint=endpoint)  # type: ignore[arg-type]
         return data, meta  # type: ignore[return-value]
 
     def get_all_providers(self) -> list[str]:

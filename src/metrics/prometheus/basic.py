@@ -30,12 +30,6 @@ ENV_VARIABLES_INFO = Info(
     namespace=PROMETHEUS_PREFIX,
 )
 
-GENESIS_TIME = Gauge(
-    'genesis_time',
-    'Genesis time',
-    namespace=PROMETHEUS_PREFIX,
-)
-
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
     'Account balance',

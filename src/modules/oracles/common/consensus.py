@@ -10,7 +10,6 @@ from web3.exceptions import ContractCustomError
 from src import variables
 from src.metrics.prometheus.basic import (
     ACCOUNT_BALANCE,
-    GENESIS_TIME,
     ORACLE_BLOCK_NUMBER,
     ORACLE_SLOT_NUMBER,
 )
@@ -23,7 +22,6 @@ from src.metrics.prometheus.business import (
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
-    ConsensusGenesisConfig,
     CurrentFrame,
     FrameConfig,
     MemberInfo,
@@ -84,8 +82,8 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         config = self.get_chain_config(bs)
         cc_config = self.w3.cc.get_config_spec()
-        genesis_time = self.get_cc_genesis_config().genesis_time
-        GENESIS_TIME.set(genesis_time)
+        genesis_time = self.w3.cc.get_genesis().genesis_time
+
         if any(
             (
                 config.genesis_time != genesis_time,
@@ -125,11 +123,6 @@ class ConsensusModule[W3: Web3Base](ABC):
         return consensus_contract.get_chain_config(blockstamp.block_hash)
 
     @lru_cache(maxsize=1)
-    def get_cc_genesis_config(self) -> ConsensusGenesisConfig:
-        genesis = self.w3.cc.get_genesis()
-        return ConsensusGenesisConfig(genesis_time=genesis.genesis_time)
-
-    @lru_cache(maxsize=1)
     def get_initial_or_current_frame(self, blockstamp: BlockStamp) -> CurrentFrame:
         consensus_contract = self._get_consensus_contract(blockstamp)
 
@@ -142,7 +135,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         converter = self._get_web3_converter(blockstamp)
 
         # If initial epoch is not yet arrived then current frame is the first frame
-        # ref_slot is last slot of previous frame
+        # ref_slot is the last slot of the previous frame
         return CurrentFrame(
             ref_slot=converter.get_frame_last_slot(FrameNumber(0 - 1)),
             report_processing_deadline_slot=converter.get_frame_last_slot(FrameNumber(0)),
@@ -243,12 +236,12 @@ class ConsensusModule[W3: Web3Base](ABC):
         member_info = self.get_member_info(latest_blockstamp)
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Check if current slot is higher than member slot
+        # Check if the current slot is higher than the member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
 
-        # Check latest block didn't miss the deadline.
+        # Check the latest block didn't miss the deadline.
         if latest_blockstamp.slot_number >= member_info.deadline_slot:
             logger.info({'msg': 'Deadline missed.'})
             return None
@@ -267,7 +260,7 @@ class ConsensusModule[W3: Web3Base](ABC):
 
     def _check_compatibility(self, blockstamp: BlockStamp) -> bool:
         """
-        Check if Oracle can process report on reference blockstamp.
+        Check if Oracle can process a report on a reference blockstamp.
 
         Returns if Oracle can proceed with calculations or should spin up waiting for a protocol upgrade
         """

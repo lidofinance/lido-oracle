@@ -39,6 +39,7 @@ WithdrawalVaultBalance = NewType('WithdrawalVaultBalance', Wei)
 ELVaultBalance = NewType('ELVaultBalance', Wei)
 
 type OperatorsValidatorCount = dict[NodeOperatorGlobalIndex, int]
+type OperatorsBalance = dict[NodeOperatorGlobalIndex, Wei]
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,10 @@ class ReferenceBlockStamp(BlockStamp):
     # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
     ref_slot: SlotNumber
     ref_epoch: EpochNumber
+
+
+class StakingModuleType(StrEnum):
+    CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1'
+    COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1'
+    COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE = 'community-staking-module'
+    CURATED_ONCHAIN_V2_TYPE = 'curated-onchain-v2'

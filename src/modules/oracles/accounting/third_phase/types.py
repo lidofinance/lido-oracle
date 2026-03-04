@@ -6,6 +6,7 @@ class ItemType(Enum):
     # Deprecated with TW upgrade
     # EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
     EXTRA_DATA_TYPE_EXITED_VALIDATORS = 2
+    EXTRA_DATA_TYPE_NO_BALANCES = 3
 
 
 class FormatList(Enum):
@@ -27,4 +28,4 @@ class ExtraDataLengths:
     MODULE_ID = 3
     NODE_OPS_COUNT = 8
     NODE_OPERATOR_ID = 8
-    EXITED_VALS_COUNT = 16
+    NODE_OPERATOR_VALUE = 16
