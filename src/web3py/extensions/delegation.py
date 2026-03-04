@@ -13,20 +13,16 @@ from src.providers.execution.contracts.delegation_contract import DelegationCont
 logger = logging.getLogger(__name__)
 
 
-class DelegationNotConfiguredError(Exception):
-    """Raised when delegation contract has no delegatee assigned"""
-    pass
-
-
-class DelegateMismatchError(Exception):
-    """Raised when delegation contract delegatee doesn't match oracle account"""
-    pass
-
-
 class DelegationModule(Module):
     w3: Web3
     delegation_contract: DelegationContract | None
     delegation_address: str | None
+
+    class NotConfiguredError(Exception):
+        """Raised when delegation contract has no delegatee assigned"""
+
+    class DelegateMismatchError(Exception):
+        """Raised when delegation contract delegatee doesn't match oracle account"""
 
     def __init__(self, w3: Web3, delegation_address: str | None = None):
         super().__init__(w3)
@@ -87,17 +83,21 @@ class DelegationModule(Module):
         if not self.delegation_contract:
             return
 
+        if not variables.ACCOUNT:
+            logger.warning({'msg': 'Skipping delegation validation - ACCOUNT is not set'})
+            return
+
         current_delegatee = self.delegation_contract.get_delegatee()
         oracle_address = cast(ChecksumAddress, variables.ACCOUNT.address)
 
         if current_delegatee == '0x0000000000000000000000000000000000000000':
-            raise DelegationNotConfiguredError(
+            raise DelegationModule.NotConfiguredError(
                 f"Delegation contract has no delegatee assigned. "
                 f"Admin must call assignDelegate({oracle_address})"
             )
 
         if current_delegatee.lower() != oracle_address.lower():
-            raise DelegateMismatchError(
+            raise DelegationModule.DelegateMismatchError(
                 f"Delegation contract delegatee ({current_delegatee}) "
                 f"does not match oracle account ({oracle_address}). "
                 f"Admin must call assignDelegate({oracle_address})"
