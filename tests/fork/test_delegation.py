@@ -84,7 +84,8 @@ def hash_consensus_with_delegation_member(web3_with_delegation, delegation_addre
     fast_lane_duration = fast_lane_length_slots * 12
     current_timestamp = web3_with_delegation.eth.get_block('latest')['timestamp']
     web3_with_delegation.provider.make_request(
-        'evm_setNextBlockTimestamp', [current_timestamp + frame_duration + fast_lane_duration],
+        'evm_setNextBlockTimestamp',
+        [current_timestamp + frame_duration + fast_lane_duration],
     )
     web3_with_delegation.provider.make_request('evm_mine', [])
 
