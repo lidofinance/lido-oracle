@@ -25,7 +25,6 @@ class DelegationContract(ContractInterface):
         Returns:
             ContractFunction for execute() call with encoded data
         """
-        # Encode as (address, bytes) for the execute() function
         encoded_data = encode(['address', 'bytes'], [target_address, calldata])
 
         tx = self.functions.execute(encoded_data)

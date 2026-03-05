@@ -47,7 +47,7 @@ def get_contract(w3, contract_class, address):
     return cast(
         contract_class,
         w3.eth.contract(
-            address=address,
+            address=Web3.to_checksum_address(address),
             ContractFactoryClass=contract_class,
             decode_tuples=True,
         ),
