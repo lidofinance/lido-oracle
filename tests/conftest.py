@@ -175,6 +175,7 @@ def web3(monkeypatch) -> Generator[Web3]:
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
             'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
+            'delegation': lambda: Mock(spec=DelegationModule),
         }
     )
 

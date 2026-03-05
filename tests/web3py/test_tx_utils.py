@@ -14,6 +14,7 @@ from src.web3py.extensions import TransactionUtils
 @pytest.fixture
 def fake_transaction_utils():
     w3 = MagicMock()
+    w3.delegation.is_enabled.return_value = False
     utils = TransactionUtils(w3)
     account = MagicMock(spec=LocalAccount)
     account.address = "0x123"
