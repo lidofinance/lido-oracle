@@ -40,7 +40,7 @@ class DelegationContract(ContractInterface):
     def get_admin(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get current admin address"""
         response = self.functions.admin().call(block_identifier=block_identifier)
-        logger.debug({
+        logger.info({
             'msg': 'Call admin()',
             'value': response,
             'block_identifier': repr(block_identifier),
@@ -51,7 +51,7 @@ class DelegationContract(ContractInterface):
     def get_delegatee(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get current delegatee address"""
         response = self.functions.delegatee().call(block_identifier=block_identifier)
-        logger.debug({
+        logger.info({
             'msg': 'Call delegatee()',
             'value': response,
             'block_identifier': repr(block_identifier),
