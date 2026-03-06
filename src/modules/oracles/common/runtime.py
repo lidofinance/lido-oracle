@@ -125,13 +125,15 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
 
 def run_oracle_module(module: OracleModule):
     module.check_contract_configs()
+
     try:
         module.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_STARTUP)
     except Exception:
         logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
+
     try:
-        # Docker sends SIGTERM on `docker stop`; convert it to SystemExit so `finally`
-        # runs module.shutdown() and cleanup is not skipped.
+        # Convert termination signals to SystemExit so regular cleanup in
+        # `finally` still runs during process shutdown.
         with graceful_shutdown_signal_handlers():
             if variables.DAEMON:
                 module.run_as_daemon()
