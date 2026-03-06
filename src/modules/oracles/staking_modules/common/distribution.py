@@ -20,6 +20,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
 )
 from src.providers.execution.exceptions import InconsistentData
+from src.providers.keys.client import KAPIInconsistentData
 from src.types import (
     EpochNumber,
     NodeOperatorId,
@@ -143,7 +144,9 @@ class Distribution:
         # Make sure even empty NO will be presented in dict
         for operator in kapi['operators']:
             if operator['moduleAddress'] != module_address:
-                raise ValueError(f"Invalid module address {operator['moduleAddress']} for module {module_address}")
+                raise KAPIInconsistentData(
+                    f"Invalid module address {operator['moduleAddress']} for module {module_address}"
+                )
             global_id = (module_id, NodeOperatorId(int(operator['index'])))
             no_validators[global_id] = []
 
@@ -154,7 +157,7 @@ class Distribution:
             if not lido_key:
                 continue
             if lido_key.moduleAddress != module_address:
-                raise ValueError(f"Invalid key {lido_key.key} for module {module_address}")
+                raise KAPIInconsistentData(f"Invalid key {lido_key.key} for module {module_address}")
             global_id = (module_id, lido_key.operatorIndex)
             no_validators[global_id].append(
                 LidoValidator(
