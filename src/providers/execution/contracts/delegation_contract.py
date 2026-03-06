@@ -1,8 +1,8 @@
 import logging
-from typing import cast
 
 from eth_abi.abi import encode
 from eth_typing import ChecksumAddress
+from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.types import BlockIdentifier
 
@@ -45,7 +45,7 @@ class DelegationContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address
         })
-        return cast(ChecksumAddress, response)
+        return Web3.to_checksum_address(response)
 
     def get_delegatee(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get current delegatee address"""
@@ -56,5 +56,5 @@ class DelegationContract(ContractInterface):
             'block_identifier': repr(block_identifier),
             'to': self.address
         })
-        return cast(ChecksumAddress, response)
+        return Web3.to_checksum_address(response)
 
