@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from pydantic import PostgresDsn
-from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, delete, desc
+from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, asc, delete, desc, exists
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
@@ -163,17 +163,11 @@ class DutiesDB:
             session.commit()
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
-        if int(from_epoch) > int(to_epoch):
+        if from_epoch > to_epoch:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            stmt = (
-                select(func.count())
-                .select_from(Duty)
-                .where(  # pylint: disable=not-callable
-                    (col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)
-                )
-            )
+            stmt = select(func.count()).select_from(Duty).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch)
             count = session.exec(stmt).one()
             return count == (to_epoch - from_epoch + 1)
 
@@ -182,12 +176,9 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            present_duties = session.exec(
-                select(Duty.epoch)
-                .where((col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch))
-                .order_by(col(Duty.epoch))
+            present = session.exec(
+                select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch).distinct()
             ).all()
-            present = {EpochNumber(int(epoch)) for epoch in present_duties}
 
         return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
 
@@ -200,27 +191,26 @@ class DutiesDB:
             return session.get(Duty, epoch)
 
     def has_epoch(self, epoch: EpochNumber) -> bool:
-        return self.get_epoch_data(epoch) is not None
+        with self.get_session() as session:
+            return session.exec(select(exists().where(col(Duty.epoch) == epoch))).one()
 
     def min_epoch(self) -> EpochNumber | None:
         with self.get_session() as session:
-            result = session.exec(select(Duty.epoch).order_by(col(Duty.epoch)).limit(1)).first()
-            return EpochNumber(int(result)) if result else None
+            result = session.exec(select(Duty.epoch).order_by(asc(col(Duty.epoch))).limit(1)).first()
+            return EpochNumber(result) if result else None
 
     def max_epoch(self) -> EpochNumber | None:
         with self.get_session() as session:
             result = session.exec(select(Duty.epoch).order_by(desc(col(Duty.epoch))).limit(1)).first()
-            return EpochNumber(int(result)) if result else None
+            return EpochNumber(result) if result else None
 
     def epochs_count(self) -> int:
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(Duty)  # pylint: disable=not-callable
-            return int(session.exec(stmt).one())
+            return session.exec(select(func.count()).select_from(Duty)).one()
 
     def demands_count(self) -> int:
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(EpochsDemand)  # pylint: disable=not-callable
-            return int(session.exec(stmt).one())
+            return session.exec(select(func.count()).select_from(EpochsDemand)).one()
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         with self.get_session() as session:
