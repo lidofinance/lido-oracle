@@ -166,7 +166,7 @@ class PerformanceCollector(DaemonModule):
                     }
                 )
                 # Remove from the DB just in case
-                self.db.delete_demand(demand.consumer)
+                self.db.delete_demand(demand)
                 # There is no sense to lower start_epoch because the demand is already satisfied (data is in the DB)
                 continue
             start_epoch = EpochNumber(min(start_epoch, demand.from_epoch))

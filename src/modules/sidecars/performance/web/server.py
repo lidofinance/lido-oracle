@@ -128,7 +128,7 @@ def delete_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: D
     to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")
-    db.delete_demand(consumer_param.consumer)
+    db.delete_demand(to_delete)
     return to_delete
 
 

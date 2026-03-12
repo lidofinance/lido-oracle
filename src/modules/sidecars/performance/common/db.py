@@ -102,9 +102,9 @@ class DutiesDB:
             session.commit()
             return demand
 
-    def delete_demand(self, consumer: str) -> None:
+    def delete_demand(self, demand: EpochsDemand) -> None:
         with self.get_session() as session:
-            session.exec(delete(EpochsDemand).where(col(EpochsDemand.consumer) == consumer))
+            session.delete(demand)
             session.commit()
 
     def store_epoch(
