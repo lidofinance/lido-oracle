@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
 
+
 # PostgreSQL INTEGER max value (4 bytes, signed)
 PG_INTEGER_MAX = 2_147_483_647
 
