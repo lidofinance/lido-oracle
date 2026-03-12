@@ -46,7 +46,7 @@ types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
-black = "^24.8"
+black = "^26.3"
 pylint = "^3.2.3"
 mypy = "^1.10.0"
 responses = "^0.25.7"
