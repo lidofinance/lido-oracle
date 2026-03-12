@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.modules.sidecars.performance.web.validation import (
+    PG_INTEGER_MAX,
     ConsumerParam,
     EpochParam,
     EpochRangeParam,
@@ -41,6 +42,18 @@ class TestEpochRangeParam:
         with pytest.raises(ValidationError):
             EpochRangeParam.model_validate({"from_epoch": 1, "to_epoch": -1})
 
+    def test_rejects_epoch_exceeding_pg_integer_max(self):
+        with pytest.raises(ValidationError):
+            EpochRangeParam.model_validate({"from_epoch": PG_INTEGER_MAX + 1, "to_epoch": 1})
+
+        with pytest.raises(ValidationError):
+            EpochRangeParam.model_validate({"from_epoch": 1, "to_epoch": PG_INTEGER_MAX + 1})
+
+    def test_accepts_epoch_at_pg_integer_max(self):
+        result = EpochRangeParam.model_validate({"from_epoch": PG_INTEGER_MAX, "to_epoch": PG_INTEGER_MAX})
+        assert result.from_epoch == PG_INTEGER_MAX
+        assert result.to_epoch == PG_INTEGER_MAX
+
     def test_rejects_from_greater_than_to(self):
         with pytest.raises(ValidationError):
             EpochRangeParam.model_validate({"from_epoch": 2, "to_epoch": 1})
@@ -73,6 +86,14 @@ class TestEpochParam:
         with pytest.raises(ValidationError):
             EpochParam(epoch=EpochNumber(-1))
 
+    def test_rejects_epoch_exceeding_pg_integer_max(self):
+        with pytest.raises(ValidationError):
+            EpochParam(epoch=EpochNumber(PG_INTEGER_MAX + 1))
+
+    def test_accepts_epoch_at_pg_integer_max(self):
+        result = EpochParam(epoch=EpochNumber(PG_INTEGER_MAX))
+        assert result.epoch == PG_INTEGER_MAX
+
     def test_accepts_valid(self):
         result = EpochParam(epoch=EpochNumber(42))
         assert result.epoch == 42
@@ -92,3 +113,11 @@ class TestEpochsDemandParam:
     def test_rejects_invalid_epoch_range(self):
         with pytest.raises(ValidationError):
             EpochsDemandParam(consumer="oracle-1", from_epoch=EpochNumber(20), to_epoch=EpochNumber(10))
+
+    def test_rejects_epoch_exceeding_pg_integer_max(self):
+        with pytest.raises(ValidationError):
+            EpochsDemandParam(
+                consumer="oracle-1",
+                from_epoch=EpochNumber(PG_INTEGER_MAX + 1),
+                to_epoch=EpochNumber(PG_INTEGER_MAX + 2),
+            )

@@ -3,6 +3,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
 
+# PostgreSQL INTEGER max value (4 bytes, signed)
+PG_INTEGER_MAX = 2_147_483_647
+
 
 class ConsumerParam(BaseModel):
     consumer: str = Field(..., min_length=1, max_length=255)
@@ -22,9 +25,11 @@ class EpochRangeBase(BaseModel):
 
     @field_validator("from_epoch", "to_epoch")
     @classmethod
-    def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
+    def validate_epoch(cls, value: EpochNumber) -> EpochNumber:
         if value < 0:
             raise ValueError("epoch must be non-negative")
+        if value > PG_INTEGER_MAX:
+            raise ValueError(f"epoch must not exceed {PG_INTEGER_MAX}")
         return value
 
     @model_validator(mode="after")
@@ -56,9 +61,11 @@ class EpochParam(BaseModel):
 
     @field_validator("epoch")
     @classmethod
-    def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
+    def validate_epoch(cls, value: EpochNumber) -> EpochNumber:
         if value < 0:
             raise ValueError("epoch must be non-negative")
+        if value > PG_INTEGER_MAX:
+            raise ValueError(f"epoch must not exceed {PG_INTEGER_MAX}")
         return value
 
 
