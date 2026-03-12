@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
-from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
+from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, delete, desc
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
@@ -12,7 +12,7 @@ from src.types import EpochNumber
 from src.utils.range import sequence
 
 
-def get_datetime_utc():
+def get_datetime_utc() -> datetime:
     return datetime.now(UTC)
 
 
@@ -33,7 +33,7 @@ class EpochsDemand(SQLModel, table=True):
     consumer: str = Field(primary_key=True)
     from_epoch: int
     to_epoch: int
-    updated_at: datetime | None = Field(default_factory=get_datetime_utc)
+    updated_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
 
 
 class DutiesDB:
