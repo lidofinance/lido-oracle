@@ -42,7 +42,7 @@ class EpochRangeParam(EpochRangeBase):
 class LimitedEpochRangeParam(EpochRangeParam):
     @model_validator(mode="after")
     def validate_range_size(self):
-        range_size = int(self.to_epoch) - int(self.from_epoch) + 1
+        range_size = self.to_epoch - self.from_epoch + 1
         if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
             raise ValueError(
                 "Requested epoch range is too large; maximum allowed size is "
@@ -62,7 +62,7 @@ class EpochParam(BaseModel):
         return value
 
 
-class EpochsDemandRequest(ConsumerParam, EpochRangeBase):
+class EpochsDemandParam(ConsumerParam, EpochRangeBase):
     pass
 
 

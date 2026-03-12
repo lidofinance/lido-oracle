@@ -15,7 +15,7 @@ from src.modules.sidecars.performance.web.validation import (
     ConsumerParam,
     EpochParam,
     EpochRangeParam,
-    EpochsDemandRequest,
+    EpochsDemandParam,
     EpochsDemandResponse,
     LimitedEpochRangeParam,
 )
@@ -119,7 +119,7 @@ def one_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: DBDe
 
 
 @api_v1.post("/demands", response_model=EpochsDemandResponse)
-def set_epochs_demand(demand_to_add: Annotated[EpochsDemandRequest, Body()], db: DBDep):
+def set_epochs_demand(demand_to_add: Annotated[EpochsDemandParam, Body()], db: DBDep):
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 

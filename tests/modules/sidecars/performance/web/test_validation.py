@@ -5,7 +5,7 @@ from src.modules.sidecars.performance.web.validation import (
     ConsumerParam,
     EpochParam,
     EpochRangeParam,
-    EpochsDemandRequest,
+    EpochsDemandParam,
     LimitedEpochRangeParam,
 )
 from src.types import EpochNumber
@@ -78,17 +78,17 @@ class TestEpochParam:
         assert result.epoch == 42
 
 
-class TestEpochsDemandRequest:
+class TestEpochsDemandParam:
     def test_validates_consumer_and_range(self):
-        result = EpochsDemandRequest(consumer="oracle-1", from_epoch=EpochNumber(10), to_epoch=EpochNumber(20))
+        result = EpochsDemandParam(consumer="oracle-1", from_epoch=EpochNumber(10), to_epoch=EpochNumber(20))
         assert result.consumer == "oracle-1"
         assert result.from_epoch == 10
         assert result.to_epoch == 20
 
     def test_rejects_blank_consumer(self):
         with pytest.raises(ValidationError):
-            EpochsDemandRequest(consumer="   ", from_epoch=EpochNumber(10), to_epoch=EpochNumber(20))
+            EpochsDemandParam(consumer="   ", from_epoch=EpochNumber(10), to_epoch=EpochNumber(20))
 
     def test_rejects_invalid_epoch_range(self):
         with pytest.raises(ValidationError):
-            EpochsDemandRequest(consumer="oracle-1", from_epoch=EpochNumber(20), to_epoch=EpochNumber(10))
+            EpochsDemandParam(consumer="oracle-1", from_epoch=EpochNumber(20), to_epoch=EpochNumber(10))
