@@ -36,6 +36,7 @@ def main(module: OracleModuleName):
 
         return collector_entrypoint.run()
 
+    # TODO: this function can be splitted or simplified or whatever.
     errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
 
