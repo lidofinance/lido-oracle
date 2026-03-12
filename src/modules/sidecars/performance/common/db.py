@@ -15,7 +15,7 @@ from src.utils.range import sequence
 class Duty(SQLModel, table=True):
     __tablename__: ClassVar[str] = "duties"
 
-    epoch: int = Field(primary_key=True)
+    epoch: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=False))
     attestations: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
     proposals_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
     proposals_flags: list[bool] = Field(default_factory=list, sa_column=Column(ARRAY(Boolean()), nullable=False))
