@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal, cast
 
 import gunicorn.app.base
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, Request
+from fastapi.params import Body
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -17,10 +18,6 @@ from src.modules.sidecars.performance.web.validation import (
     EpochsDemandRequest,
     EpochsDemandResponse,
     LimitedEpochRangeQuery,
-    parse_consumer_path,
-    parse_epoch_path,
-    parse_epoch_range_query,
-    parse_limited_epoch_range_query,
 )
 from src.types import EpochNumber
 from src.variables import (
@@ -87,39 +84,27 @@ def health(db: DBDep):
             session.exec(select(1)).one()
     except Exception as error:  # pylint: disable=broad-exception-caught
         logger.error("Healthcheck DB connection failed: %s", error)
-        raise HTTPException(status_code=503, detail="Database connection failed") from error
+        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(error)}") from error
     return {"status": "ok"}
 
 
 @api_v1.get("/check-epochs", response_model=bool)
-def epochs_check(
-    epoch_range: Annotated[EpochRangeQuery, Depends(parse_epoch_range_query)],
-    db: DBDep,
-):
+def epochs_check(epoch_range: Annotated[EpochRangeQuery, Query()], db: DBDep):
     return db.is_range_available(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/missing-epochs", response_model=list[EpochNumber])
-def epochs_missing(
-    epoch_range: Annotated[LimitedEpochRangeQuery, Depends(parse_limited_epoch_range_query)],
-    db: DBDep,
-):
+def epochs_missing(epoch_range: Annotated[LimitedEpochRangeQuery, Query()], db: DBDep):
     return db.missing_epochs_in(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/epochs", response_model=list[Duty])
-def epochs_data(
-    epoch_range: Annotated[LimitedEpochRangeQuery, Depends(parse_limited_epoch_range_query)],
-    db: DBDep,
-):
+def epochs_data(epoch_range: Annotated[LimitedEpochRangeQuery, Query()], db: DBDep):
     return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/epochs/{epoch}", response_model=Duty | None)
-def epoch_data(
-    epoch_param: Annotated[EpochPath, Depends(parse_epoch_path)],
-    db: DBDep,
-):
+def epoch_data(epoch_param: Annotated[EpochPath, Path()], db: DBDep):
     return db.get_epoch_data(epoch_param.epoch)
 
 
@@ -129,23 +114,17 @@ def epochs_demands(db: DBDep):
 
 
 @api_v1.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
-def one_epochs_demand(
-    consumer_param: Annotated[ConsumerParam, Depends(parse_consumer_path)],
-    db: DBDep,
-):
+def one_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: DBDep):
     return db.get_epochs_demand(consumer_param.consumer)
 
 
 @api_v1.post("/demands", response_model=EpochsDemandResponse)
-def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DBDep):
+def set_epochs_demand(demand_to_add: Annotated[EpochsDemandRequest, Body()], db: DBDep):
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
 @api_v1.delete("/demands/{consumer}", response_model=EpochsDemandResponse)
-def delete_epochs_demand(
-    consumer_param: Annotated[ConsumerParam, Depends(parse_consumer_path)],
-    db: DBDep,
-):
+def delete_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: DBDep):
     to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")
@@ -163,8 +142,7 @@ def serve():
             self.application = app
             super().__init__()
 
-        def init(self, parser, opts, args):
-            return None
+        def init(self, parser, opts, args): ...
 
         def load_config(self):
             for key, value in self.options.items():
