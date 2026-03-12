@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
+from pydantic import PostgresDsn
 from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, delete, desc
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
@@ -66,12 +67,16 @@ class DutiesDB:
     @staticmethod
     def _get_database_url() -> str:
         """Get PostgreSQL database URL from environment variables"""
-        host = variables.PERFORMANCE_DB_HOST
-        port = variables.PERFORMANCE_DB_PORT
-        name = variables.PERFORMANCE_DB_NAME
-        user = variables.PERFORMANCE_DB_USER
-        password = variables.PERFORMANCE_DB_PASSWORD
-        return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+        return str(
+            PostgresDsn.build(
+                scheme="postgresql",
+                username=variables.PERFORMANCE_DB_USER,
+                password=variables.PERFORMANCE_DB_PASSWORD,
+                host=variables.PERFORMANCE_DB_HOST,
+                port=variables.PERFORMANCE_DB_PORT,
+                path=variables.PERFORMANCE_DB_NAME,
+            )
+        )
 
     def _setup_database(self) -> None:
         SQLModel.metadata.create_all(self.engine)
