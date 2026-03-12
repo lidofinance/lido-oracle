@@ -41,6 +41,11 @@ def data_is_any(data: Any, meta: dict, *, endpoint: str):
     pass
 
 
+def data_is_bool(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, bool):
+        raise ValueError(f"Expected bool response from {endpoint}")
+
+
 def data_is_dict(data: Any, meta: dict, *, endpoint: str):
     if not isinstance(data, dict):
         raise ValueError(f"Expected mapping response from {endpoint}")
