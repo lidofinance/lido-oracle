@@ -77,8 +77,11 @@ def get_db() -> DutiesDB:
     return cast(DutiesDB, app.state.db)
 
 
+DBDep = Annotated[DutiesDB, Depends(get_db)]
+
+
 @app.get("/health", response_model=HealthCheckResp, response_model_exclude_none=True)
-def health(db: Annotated[DutiesDB, Depends(get_db)]):
+def health(db: DBDep):
     try:
         with db.get_session() as session:
             session.exec(select(1)).one()
@@ -91,7 +94,7 @@ def health(db: Annotated[DutiesDB, Depends(get_db)]):
 @api_v1.get("/check-epochs", response_model=bool)
 def epochs_check(
     epoch_range: Annotated[EpochRangeQuery, Depends(parse_epoch_range_query)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     return db.is_range_available(epoch_range.from_epoch, epoch_range.to_epoch)
 
@@ -99,7 +102,7 @@ def epochs_check(
 @api_v1.get("/missing-epochs", response_model=list[EpochNumber])
 def epochs_missing(
     epoch_range: Annotated[LimitedEpochRangeQuery, Depends(parse_limited_epoch_range_query)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     return db.missing_epochs_in(epoch_range.from_epoch, epoch_range.to_epoch)
 
@@ -107,7 +110,7 @@ def epochs_missing(
 @api_v1.get("/epochs", response_model=list[Duty])
 def epochs_data(
     epoch_range: Annotated[LimitedEpochRangeQuery, Depends(parse_limited_epoch_range_query)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
@@ -115,33 +118,33 @@ def epochs_data(
 @api_v1.get("/epochs/{epoch}", response_model=Duty | None)
 def epoch_data(
     epoch_param: Annotated[EpochPath, Depends(parse_epoch_path)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     return db.get_epoch_data(epoch_param.epoch)
 
 
 @api_v1.get("/demands", response_model=list[EpochsDemandResponse])
-def epochs_demands(db: Annotated[DutiesDB, Depends(get_db)]):
+def epochs_demands(db: DBDep):
     return db.get_epochs_demands()
 
 
 @api_v1.get("/demands/{consumer}", response_model=EpochsDemandResponse | None)
 def one_epochs_demand(
     consumer_param: Annotated[ConsumerParam, Depends(parse_consumer_path)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     return db.get_epochs_demand(consumer_param.consumer)
 
 
 @api_v1.post("/demands", response_model=EpochsDemandResponse)
-def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: Annotated[DutiesDB, Depends(get_db)]):
+def set_epochs_demand(demand_to_add: EpochsDemandRequest, db: DBDep):
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
 @api_v1.delete("/demands/{consumer}", response_model=EpochsDemandResponse)
 def delete_epochs_demand(
     consumer_param: Annotated[ConsumerParam, Depends(parse_consumer_path)],
-    db: Annotated[DutiesDB, Depends(get_db)],
+    db: DBDep,
 ):
     to_delete = db.get_epochs_demand(consumer_param.consumer)
     if not to_delete:
