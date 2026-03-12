@@ -34,12 +34,12 @@ class EpochRangeBase(BaseModel):
         return self
 
 
-class EpochRangeQuery(EpochRangeBase):
+class EpochRangeParam(EpochRangeBase):
     from_epoch: EpochNumber = Field(..., alias="from")
     to_epoch: EpochNumber = Field(..., alias="to")
 
 
-class LimitedEpochRangeQuery(EpochRangeQuery):
+class LimitedEpochRangeParam(EpochRangeParam):
     @model_validator(mode="after")
     def validate_range_size(self):
         range_size = int(self.to_epoch) - int(self.from_epoch) + 1
@@ -51,7 +51,7 @@ class LimitedEpochRangeQuery(EpochRangeQuery):
         return self
 
 
-class EpochPath(BaseModel):
+class EpochParam(BaseModel):
     epoch: EpochNumber
 
     @field_validator("epoch")

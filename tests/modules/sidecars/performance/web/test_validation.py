@@ -3,10 +3,10 @@ from pydantic import ValidationError
 
 from src.modules.sidecars.performance.web.validation import (
     ConsumerParam,
-    EpochPath,
-    EpochRangeQuery,
+    EpochParam,
+    EpochRangeParam,
     EpochsDemandRequest,
-    LimitedEpochRangeQuery,
+    LimitedEpochRangeParam,
 )
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
@@ -33,48 +33,48 @@ class TestConsumerParam:
         assert result.consumer == "oracle-1"
 
 
-class TestEpochRangeQuery:
+class TestEpochRangeParam:
     def test_rejects_negative_epoch(self):
         with pytest.raises(ValidationError):
-            EpochRangeQuery.model_validate({"from_epoch": -1, "to_epoch": 1})
+            EpochRangeParam.model_validate({"from_epoch": -1, "to_epoch": 1})
 
         with pytest.raises(ValidationError):
-            EpochRangeQuery.model_validate({"from_epoch": 1, "to_epoch": -1})
+            EpochRangeParam.model_validate({"from_epoch": 1, "to_epoch": -1})
 
     def test_rejects_from_greater_than_to(self):
         with pytest.raises(ValidationError):
-            EpochRangeQuery.model_validate({"from_epoch": 2, "to_epoch": 1})
+            EpochRangeParam.model_validate({"from_epoch": 2, "to_epoch": 1})
 
     def test_accepts_valid(self):
-        result = EpochRangeQuery.model_validate({"from_epoch": 1, "to_epoch": 2})
+        result = EpochRangeParam.model_validate({"from_epoch": 1, "to_epoch": 2})
         assert result.from_epoch == 1
         assert result.to_epoch == 2
 
     def test_accepts_alias_fields(self):
-        result = EpochRangeQuery.model_validate({"from": 1, "to": 2})
+        result = EpochRangeParam.model_validate({"from": 1, "to": 2})
         assert result.from_epoch == 1
         assert result.to_epoch == 2
 
 
-class TestLimitedEpochRangeQuery:
+class TestLimitedEpochRangeParam:
     def test_rejects_range_too_large(self):
         with pytest.raises(ValidationError):
-            LimitedEpochRangeQuery.model_validate({"from_epoch": 0, "to_epoch": PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE})
+            LimitedEpochRangeParam.model_validate({"from_epoch": 0, "to_epoch": PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE})
 
     def test_accepts_within_limit(self):
         upper_bound = PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE - 1
-        result = LimitedEpochRangeQuery.model_validate({"from_epoch": 0, "to_epoch": upper_bound})
+        result = LimitedEpochRangeParam.model_validate({"from_epoch": 0, "to_epoch": upper_bound})
         assert result.from_epoch == 0
         assert result.to_epoch == upper_bound
 
 
-class TestEpochPath:
+class TestEpochParam:
     def test_rejects_negative(self):
         with pytest.raises(ValidationError):
-            EpochPath(epoch=EpochNumber(-1))
+            EpochParam(epoch=EpochNumber(-1))
 
     def test_accepts_valid(self):
-        result = EpochPath(epoch=EpochNumber(42))
+        result = EpochParam(epoch=EpochNumber(42))
         assert result.epoch == 42
 
 

@@ -13,11 +13,11 @@ from src.modules.sidecars.performance.web.metrics import attach_metrics
 from src.modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
 from src.modules.sidecars.performance.web.validation import (
     ConsumerParam,
-    EpochPath,
-    EpochRangeQuery,
+    EpochParam,
+    EpochRangeParam,
     EpochsDemandRequest,
     EpochsDemandResponse,
-    LimitedEpochRangeQuery,
+    LimitedEpochRangeParam,
 )
 from src.types import EpochNumber
 from src.variables import (
@@ -89,22 +89,22 @@ def health(db: DBDep):
 
 
 @api_v1.get("/check-epochs", response_model=bool)
-def epochs_check(epoch_range: Annotated[EpochRangeQuery, Query()], db: DBDep):
+def epochs_check(epoch_range: Annotated[EpochRangeParam, Query()], db: DBDep):
     return db.is_range_available(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/missing-epochs", response_model=list[EpochNumber])
-def epochs_missing(epoch_range: Annotated[LimitedEpochRangeQuery, Query()], db: DBDep):
+def epochs_missing(epoch_range: Annotated[LimitedEpochRangeParam, Query()], db: DBDep):
     return db.missing_epochs_in(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/epochs", response_model=list[Duty])
-def epochs_data(epoch_range: Annotated[LimitedEpochRangeQuery, Query()], db: DBDep):
+def epochs_data(epoch_range: Annotated[LimitedEpochRangeParam, Query()], db: DBDep):
     return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
 @api_v1.get("/epochs/{epoch}", response_model=Duty | None)
-def epoch_data(epoch_param: Annotated[EpochPath, Path()], db: DBDep):
+def epoch_data(epoch_param: Annotated[EpochParam, Path()], db: DBDep):
     return db.get_epoch_data(epoch_param.epoch)
 
 
