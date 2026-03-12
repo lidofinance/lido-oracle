@@ -39,16 +39,15 @@ class DutiesDB:
         connect_timeout: int | None = None,
         statement_timeout_ms: int | None = None,
     ):
-        self._statement_timeout_ms = statement_timeout_ms
-        self.engine = self._build_engine(connect_timeout)
+        self.engine = self._build_engine(connect_timeout, statement_timeout_ms)
         self._setup_database()
 
-    def _build_engine(self, connect_timeout: int | None) -> Engine:
+    def _build_engine(self, connect_timeout: int | None, statement_timeout_ms: int | None) -> Engine:
         connect_args: dict[str, Any] = {}
         if connect_timeout:
             connect_args["connect_timeout"] = connect_timeout
-        if self._statement_timeout_ms is not None:
-            connect_args["options"] = f"-c statement_timeout={self._statement_timeout_ms}"
+        if statement_timeout_ms is not None:
+            connect_args["options"] = f"-c statement_timeout={statement_timeout_ms}"
 
         return create_engine(
             self._get_database_url(),
