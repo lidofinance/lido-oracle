@@ -51,7 +51,7 @@ class PerformanceCollector(DaemonModule):
         try:
             yield
         except DecoratorTimeoutError as error:
-            logger.error({'msg': 'Performance collector do not respond.', 'error': str(error)})
+            logger.error({'msg': 'Performance collector does not respond.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="timeout").inc()
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
