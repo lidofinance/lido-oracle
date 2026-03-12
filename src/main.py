@@ -59,8 +59,6 @@ def main(module: OracleModuleName):
 
         return cm_entrypoint.run()
 
-    raise ValueError(f'Unknown module {module}')
-
 
 if __name__ == '__main__':
     module_name_arg = sys.argv[-1]
