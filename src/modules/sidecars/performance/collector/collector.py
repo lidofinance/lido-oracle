@@ -2,6 +2,7 @@ import logging
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -33,8 +34,8 @@ class PerformanceCollector(DaemonModule):
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
 
-    # Timestamp of the last epochs demand update
-    last_epochs_demand_update: int | None = None
+    # Datetime of the last epochs demand update
+    last_epochs_demand_update: datetime | None = None
 
     def __init__(self, cc: ConsensusClient):
         super().__init__(cc=cc)
@@ -42,7 +43,7 @@ class PerformanceCollector(DaemonModule):
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
         )
-        self.last_epochs_demand_update = self._get_epochs_demand_max_updated_at()
+        self.last_epochs_demand_update = self.db.get_epochs_demands_max_updated_at()
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:
@@ -197,13 +198,9 @@ class PerformanceCollector(DaemonModule):
         return start_epoch, end_epoch
 
     def _new_epochs_range_demand_appeared(self) -> bool:
-        max_updated_at = self._get_epochs_demand_max_updated_at()
+        max_updated_at = self.db.get_epochs_demands_max_updated_at()
         updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
         if updated:
             self.last_epochs_demand_update = max_updated_at
             return True
         return False
-
-    def _get_epochs_demand_max_updated_at(self) -> int | None:
-        max_updated_at = self.db.get_epochs_demands_max_updated_at()
-        return int(max_updated_at) if max_updated_at is not None else None

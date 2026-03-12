@@ -1,4 +1,4 @@
-from time import time
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
@@ -10,6 +10,10 @@ from src import variables
 from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
 from src.types import EpochNumber
 from src.utils.range import sequence
+
+
+def get_datetime_utc():
+    return datetime.now(UTC)
 
 
 class Duty(SQLModel, table=True):
@@ -29,7 +33,7 @@ class EpochsDemand(SQLModel, table=True):
     consumer: str = Field(primary_key=True)
     from_epoch: int
     to_epoch: int
-    updated_at: int
+    updated_at: datetime | None = Field(default_factory=get_datetime_utc)
 
 
 class DutiesDB:
@@ -82,13 +86,12 @@ class DutiesDB:
             if demand:
                 demand.from_epoch = from_epoch
                 demand.to_epoch = to_epoch
-                demand.updated_at = int(time())
+                demand.updated_at = get_datetime_utc()
             else:
                 demand = EpochsDemand(
                     consumer=consumer,
                     from_epoch=from_epoch,
                     to_epoch=to_epoch,
-                    updated_at=int(time()),
                 )
                 session.add(demand)
             session.commit()
@@ -222,6 +225,6 @@ class DutiesDB:
         with self.get_session() as session:
             return list(session.exec(select(EpochsDemand)).all())
 
-    def get_epochs_demands_max_updated_at(self) -> int | None:
+    def get_epochs_demands_max_updated_at(self) -> datetime | None:
         with self.get_session() as session:
             return session.exec(select(func.max(EpochsDemand.updated_at))).one()
