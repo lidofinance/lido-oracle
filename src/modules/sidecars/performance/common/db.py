@@ -116,7 +116,7 @@ class DutiesDB:
     ) -> None:
         # TODO: test that store and get are consistent
         self._store_data(epoch, att_misses, proposals, syncs)
-        self._auto_prune(epoch)
+        self._prune(epoch)
 
     def _store_data(
         self,
@@ -151,15 +151,16 @@ class DutiesDB:
                 session.add(duty)
             session.commit()
 
-    def _auto_prune(self, current_epoch: EpochNumber) -> None:
-        if variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS <= 0:
+    def _prune(self, current_epoch: EpochNumber) -> None:
+        if variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS == 0:
             return
-        threshold = int(current_epoch) - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS
-        if threshold <= 0:
+
+        min_epoch_to_keep = current_epoch - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS + 1
+        if min_epoch_to_keep <= 0:
             return
 
         with self.get_session() as session:
-            session.exec(delete(Duty).where(col(Duty.epoch) < threshold))
+            session.exec(delete(Duty).where(col(Duty.epoch) < min_epoch_to_keep))
             session.commit()
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
