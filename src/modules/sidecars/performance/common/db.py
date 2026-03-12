@@ -114,7 +114,6 @@ class DutiesDB:
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
     ) -> None:
-        # TODO: test that store and get are consistent
         self._store_data(epoch, att_misses, proposals, syncs)
         self._prune(epoch)
 
@@ -125,11 +124,11 @@ class DutiesDB:
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
     ) -> None:
-        att_list: list[int] = [int(v) for v in att_misses] if att_misses else []
-        prop_vids: list[int] = [int(p.validator_index) for p in proposals] if proposals else []
-        prop_flags: list[bool] = [bool(p.is_proposed) for p in proposals] if proposals else []
-        sync_vids: list[int] = [int(s.validator_index) for s in syncs] if syncs else []
-        sync_misses: list[int] = [int(s.missed_count) for s in syncs] if syncs else []
+        att_list: list[int] = list(att_misses)
+        prop_vids: list[int] = [p.validator_index for p in proposals]
+        prop_flags: list[bool] = [p.is_proposed for p in proposals]
+        sync_vids: list[int] = [s.validator_index for s in syncs]
+        sync_misses: list[int] = [s.missed_count for s in syncs]
 
         with self.get_session() as session:
             duty = session.get(Duty, epoch)
