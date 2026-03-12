@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 import gunicorn.app.base
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
@@ -41,7 +41,8 @@ logger = logging.getLogger(__name__)
 
 
 class HealthCheckResp(BaseModel):
-    status: str = "ok"
+    status: Literal["ok"] | None = None
+    detail: str | None = None
 
 
 @asynccontextmanager
@@ -76,7 +77,7 @@ def get_db() -> DutiesDB:
     return cast(DutiesDB, app.state.db)
 
 
-@app.get("/health", response_model=HealthCheckResp)
+@app.get("/health", response_model=HealthCheckResp, response_model_exclude_none=True)
 def health(db: Annotated[DutiesDB, Depends(get_db)]):
     try:
         with db.get_session() as session:
