@@ -8,6 +8,7 @@ from src.utils.build import get_build_info
 
 
 # To avoid auto-scraping metrics from `src/metrics/prometheus` and any other possible places.
+# TODO: once we achieve a proper metrics modules separation we can use the default registry.
 CUSTOM_REGISTRY = CollectorRegistry()
 CUSTOM_REGISTRY.register(BUILD_INFO)
 

@@ -30,6 +30,13 @@ ENV_VARIABLES_INFO = Info(
     namespace=PROMETHEUS_PREFIX,
 )
 
+GENESIS_TIME = Gauge(
+    'genesis_time',
+    'Genesis time',
+    namespace=PROMETHEUS_PREFIX,
+)
+
+# TODO: this one and a lot of other metrics should not be a part of basic metrics setups since we have sidecars now.
 ACCOUNT_BALANCE = Gauge(
     'account_balance',
     'Account balance',
