@@ -4,6 +4,7 @@ from collections import defaultdict
 from unittest.mock import Mock
 
 import pytest
+from eth_utils.address import to_checksum_address
 from hexbytes import HexBytes
 from web3.types import Wei
 
@@ -29,11 +30,12 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
+from src.providers.keys.client import KAPIInconsistentData
 from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
+from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
 
 @pytest.mark.parametrize(
@@ -1014,6 +1016,61 @@ def test_get_network_performance_raises_error_for_invalid_performance():
 
     with pytest.raises(ValueError, match="Invalid performance: performance"):
         distribution._get_network_performance(frame)
+
+
+@pytest.mark.unit
+def test_get_module_validators_raises_for_operator_module_address_mismatch():
+    module_address = to_checksum_address("0x" + "11" * 20)
+    wrong_module_address = to_checksum_address("0x" + "22" * 20)
+    blockstamp = ReferenceBlockStampFactory.build()
+
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
+        kac=Mock(),
+        cc=Mock(),
+    )
+    w3.kac.get_used_module_operators_keys.return_value = {
+        "module": {"id": 1},
+        "operators": [{"index": 1, "moduleAddress": wrong_module_address}],
+        "keys": [],
+    }
+
+    distribution = Distribution(w3, converter=Mock(), state=State(oracle_name="test"))
+
+    with pytest.raises(KAPIInconsistentData, match="Invalid module address"):
+        distribution._get_module_validators(blockstamp)
+
+
+@pytest.mark.unit
+def test_get_module_validators_raises_for_key_module_address_mismatch():
+    module_address = to_checksum_address("0x" + "11" * 20)
+    wrong_module_address = to_checksum_address("0x" + "22" * 20)
+    blockstamp = ReferenceBlockStampFactory.build()
+    validator = ValidatorFactory.build(validator=ValidatorStateFactory.build())
+    key = LidoKeyFactory.build(
+        key=validator.validator.pubkey,
+        operatorIndex=NodeOperatorId(1),
+        moduleAddress=wrong_module_address,
+    )
+
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
+        kac=Mock(),
+        cc=Mock(),
+    )
+    w3.kac.get_used_module_operators_keys.return_value = {
+        "module": {"id": 1},
+        "operators": [{"index": 1, "moduleAddress": module_address}],
+        "keys": [key],
+    }
+    w3.cc.get_validators.return_value = [validator]
+
+    distribution = Distribution(w3, converter=Mock(), state=State(oracle_name="test"))
+
+    with pytest.raises(KAPIInconsistentData, match="Invalid key"):
+        distribution._get_module_validators(blockstamp)
 
 
 @pytest.mark.parametrize(
