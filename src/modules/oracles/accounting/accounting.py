@@ -294,7 +294,6 @@ class Accounting(OracleModule[Web3]):
     def _get_no_active_balance(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, dict[str, Gwei]]:
         no_stats = defaultdict(lambda: {
             'active': Gwei(0),
-            'effective': Gwei(0),
             'pending': Gwei(0),
         })
 
@@ -304,7 +303,6 @@ class Accounting(OracleModule[Web3]):
             for validator in validators:
                 keys_by_no[validator.validator.pubkey] = gid
                 no_stats[gid]['active'] += validator.balance
-                no_stats[gid]['effective'] += validator.validator.effective_balance
 
         modules_by_address = {
             module.staking_module_address: module.id
@@ -435,30 +433,13 @@ class Accounting(OracleModule[Web3]):
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
 
-        balance_by_no = self._get_updated_balance_by_no(blockstamp)
-        logger.info({'msg': 'Calculate balance by no.', 'value': balance_by_no})
-
         orl = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(blockstamp.block_hash)
 
         return ExtraDataService.collect(
             exited_validators,
-            balance_by_no,
             orl.max_items_per_extra_data_transaction,
             orl.max_node_operators_per_extra_data_item,
         )
-
-    def _get_updated_balance_by_no(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, Gwei]:
-        balance_by_no = self._get_no_active_balance(blockstamp)
-
-        new_balances_by_no = {}
-        for gid, balance in balance_by_no.items():
-            new_balances_by_no[gid] = balance['effective'] + balance['pending']
-
-        # TODO: Remove duplicated data
-        # fetch latest data from SM
-        # remove sm that not supported
-
-        return new_balances_by_no
 
     def _handle_vaults_report(self, blockstamp: ReferenceBlockStamp) -> VaultsReport:
         """

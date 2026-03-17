@@ -201,11 +201,11 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if distribution.strikes:
             strikes_tree = self._make_strikes_tree(distribution.strikes)
             strikes_tree_root = strikes_tree.root
-            strikes_cid = self._publish_tree(strikes_tree)
             if strikes_tree_root == last_report.strikes_tree_root:
                 logger.info({"msg": "Strikes tree is the same as the previous one"})
-            if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
-                raise ValueError(f"Invalid strikes tree built: {strikes_cid=}, {strikes_tree_root=}")
+                strikes_cid = last_report.strikes_tree_cid
+            else:
+                strikes_cid = self._publish_tree(strikes_tree)
         else:
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None

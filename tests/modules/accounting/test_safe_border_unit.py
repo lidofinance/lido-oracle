@@ -253,7 +253,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     border
 ###
 @pytest.mark.unit
-def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp):
+def test_get_earliest_slashed_epoch_if_exiting_validator_slashed(safe_border, past_blockstamp):
     # in binary search:
     # start frame = 73
     # end frame = 101

@@ -4,7 +4,7 @@ from itertools import batched, groupby
 
 from src.modules.common.types import ZERO_HASH
 from src.modules.oracles.accounting.third_phase.types import ExtraData, ExtraDataLengths, FormatList, ItemType
-from src.types import Gwei, NodeOperatorGlobalIndex
+from src.types import NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 
 
@@ -35,13 +35,11 @@ class ExtraDataService:
     def collect(
         cls,
         exited_validators: dict[NodeOperatorGlobalIndex, int],
-        balance_by_no: dict[NodeOperatorGlobalIndex, Gwei],
         max_items_count_per_tx: int,
         max_no_in_payload_count: int,
     ) -> ExtraData:
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
-        balance_payloads = cls.build_validators_payloads(balance_by_no, max_no_in_payload_count)
-        items_count, txs = cls.build_extra_transactions_data(exited_payloads, balance_payloads, max_items_count_per_tx)
+        items_count, txs = cls.build_extra_transactions_data(exited_payloads, max_items_count_per_tx)
         first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
 
         if items_count:
@@ -89,12 +87,10 @@ class ExtraDataService:
     def build_extra_transactions_data(
         cls,
         exited_payloads: list[ItemPayload],
-        balance_payloads: list[ItemPayload],
         max_items_count_per_tx: int,
     ) -> tuple[int, list[bytes]]:
         all_payloads = [
             *[(ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, payload) for payload in exited_payloads],
-            *[(ItemType.EXTRA_DATA_TYPE_NO_BALANCES, payload) for payload in balance_payloads],
         ]
 
         index = 0

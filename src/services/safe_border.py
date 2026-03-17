@@ -203,8 +203,8 @@ class SafeBorder(Web3Converter):
 
     def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
         """
-        Returns number of slashed validators for the frame for the given validators
-        Slashed flag can't be undone, so we can only look at the last slot
+        Returns True if there are any slashed validators for the frame for the given validators;
+        since the slashed flag is permanent, we only need to examine the last slot in the frame.
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
         last_slot_in_frame_blockstamp = self._get_blockstamp(last_slot_in_frame)

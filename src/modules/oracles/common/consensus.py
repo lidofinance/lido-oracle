@@ -38,6 +38,7 @@ from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
 
 
@@ -69,6 +70,7 @@ class ConsensusModule[W3: Web3Base](ABC):
     def __init__(self, w3: W3, **kwargs):
         super().__init__(**kwargs)
         self.w3 = w3
+        self._last_sent_report_hash: HexBytes | None = None
 
         if getattr(self, "report_contract", None) is None:
             raise NotImplementedError('report_contract attribute should be set.')
@@ -313,15 +315,34 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         report_hash = self._encode_data_hash(report_data)
         logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
-        # We need to check whether report has unexpected data before sending.
-        # otherwise we have to check it manually.
-        if not self.is_reporting_allowed(blockstamp):
-            logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
+
+        try:
+            # We need to check whether report has unexpected data before sending.
+            # otherwise we have to check it manually.
+            if not self.is_reporting_allowed(blockstamp):
+                logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
+                return
+
+            self._process_report_hash(blockstamp, report_hash)
+            # Even if report hash transaction was failed we have to check if we can report data for current frame
+            self._process_report_data(blockstamp, report_data, report_hash)
+        finally:
+            self._send_telemetry(report_data, report_hash)
+
+    def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
+        if report_hash == self._last_sent_report_hash:
+            logger.info({'msg': 'Telemetry already sent for this report hash. Skipping.'})
             return
 
-        self._process_report_hash(blockstamp, report_hash)
-        # Even if report hash transaction was failed we have to check if we can report data for current frame
-        self._process_report_data(blockstamp, report_data, report_hash)
+        try:
+            data = {
+                'report_hash': '0x' + report_hash.hex(),
+                'report': list(report_data),
+            }
+            self.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
+            self._last_sent_report_hash = report_hash
+        except Exception:
+            logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
 
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()

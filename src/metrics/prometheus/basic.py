@@ -37,6 +37,13 @@ ACCOUNT_BALANCE = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
+TELEMETRY_ACCOUNT_BALANCE = Gauge(
+    'telemetry_account_balance',
+    'Telemetry account balance',
+    ['address'],
+    namespace=PROMETHEUS_PREFIX,
+)
+
 ORACLE_SLOT_NUMBER = Gauge(
     "slot_number",
     "Oracle head or finalized slot number",
@@ -150,3 +157,5 @@ def init_basic_metrics(w3) -> None:
 
     if variables.ACCOUNT:
         ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(w3.eth.get_balance(variables.ACCOUNT.address))
+
+    w3.telemetry_data_bus.update_account_balance_metric()

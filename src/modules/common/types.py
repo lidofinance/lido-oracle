@@ -10,7 +10,6 @@ ZERO_HASH = bytes([0] * 32)
 
 class ModuleExecuteDelay(Enum):
     """Signals from execute_module method"""
-
     NEXT_SLOT = 0
     NEXT_FINALIZED_EPOCH = 1
 

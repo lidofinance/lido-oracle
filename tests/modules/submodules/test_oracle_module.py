@@ -1,4 +1,3 @@
-import signal
 from http import HTTPStatus
 from unittest.mock import MagicMock, Mock, patch
 
@@ -30,6 +29,7 @@ from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
@@ -142,12 +142,12 @@ def test_run_oracle_module__single_cycle__calls_shutdown(oracle: OracleModule, m
     oracle.shutdown = Mock()
 
     with (
-        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
         patch("src.modules.common.graceful_shutdown.signal.signal"),
     ):
         run_oracle_module(oracle)
 
     oracle.check_contract_configs.assert_called_once()
+    oracle.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(TelemetryEventId.ORACLE_STARTUP)
     oracle.cycle_handler.assert_called_once()
     oracle.shutdown.assert_called_once()
 
@@ -160,7 +160,6 @@ def test_run_oracle_module__daemon_exit__calls_shutdown(oracle: OracleModule, mo
     oracle.shutdown = Mock()
 
     with (
-        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
         patch("src.modules.common.graceful_shutdown.signal.signal"),
         pytest.raises(SystemExit, match="0"),
     ):
@@ -236,6 +235,7 @@ def test_init_basic_metrics__all_labels__metrics_exist(web3):
             assert CYCLE_COUNT.labels(result=result.value) is not None
         assert LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value)._value.get() > 0
         assert ACCOUNT_BALANCE.labels(address='0x0000000000000000000000000000000000000001')._value.get() >= 0
+        web3.telemetry_data_bus.update_account_balance_metric.assert_called_once()
 
 
 @pytest.mark.unit

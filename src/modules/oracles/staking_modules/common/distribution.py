@@ -20,6 +20,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
 )
 from src.providers.execution.exceptions import InconsistentData
+from src.providers.keys.client import KAPIInconsistentData
 from src.types import (
     EpochNumber,
     NodeOperatorId,
@@ -138,10 +139,16 @@ class Distribution:
         kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
         module_id = StakingModuleId(kapi['module']['id'])
 
+        no_validators: ValidatorsByNodeOperator = {}
+
         # Make sure even empty NO will be presented in dict
-        no_validators: ValidatorsByNodeOperator = {
-            (module_id, NodeOperatorId(int(operator['index']))): [] for operator in kapi['operators']
-        }
+        for operator in kapi['operators']:
+            if operator['moduleAddress'] != module_address:
+                raise KAPIInconsistentData(
+                    f"Invalid module address {operator['moduleAddress']} for module {module_address}"
+                )
+            global_id = (module_id, NodeOperatorId(int(operator['index'])))
+            no_validators[global_id] = []
 
         validators = self.w3.cc.get_validators(blockstamp)
         keys = {k.key: k for k in kapi['keys']}
@@ -149,6 +156,8 @@ class Distribution:
             lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:
                 continue
+            if lido_key.moduleAddress != module_address:
+                raise KAPIInconsistentData(f"Invalid key {lido_key.key} for module {module_address}")
             global_id = (module_id, lido_key.operatorIndex)
             no_validators[global_id].append(
                 LidoValidator(
