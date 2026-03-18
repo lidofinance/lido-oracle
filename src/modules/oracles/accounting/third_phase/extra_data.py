@@ -38,6 +38,14 @@ class ExtraDataService:
         max_items_count_per_tx: int,
         max_no_in_payload_count: int,
     ) -> ExtraData:
+        """
+        Collect and encode exited validators data into the ExtraData structure.
+
+        Args:
+            exited_validators: Dictionary mapping node operator global index to exited validators count.
+            max_items_count_per_tx: Maximum number of items allowed in a single transaction.
+            max_no_in_payload_count: Maximum number of node operators allowed in a single item payload.
+        """
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
         items_count, txs = cls.build_extra_transactions_data(exited_payloads, max_items_count_per_tx)
         first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
@@ -60,6 +68,7 @@ class ExtraDataService:
         validators: dict[NodeOperatorGlobalIndex, int],
         max_no_in_payload_count: int,
     ) -> list[ItemPayload]:
+        """Group and batch validator exit data into ItemPayload objects."""
         operator_validators = sorted(validators.items(), key=lambda x: x[0])
 
         payloads = []
@@ -89,6 +98,7 @@ class ExtraDataService:
         exited_payloads: list[ItemPayload],
         max_items_count_per_tx: int,
     ) -> tuple[int, list[bytes]]:
+        """Batch item payloads into transactions and encode them into bytes."""
         all_payloads = [
             *[(ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, payload) for payload in exited_payloads],
         ]
@@ -116,6 +126,11 @@ class ExtraDataService:
 
     @staticmethod
     def add_hashes_to_transactions(txs_data: list[bytes]) -> tuple[bytes, list[bytes]]:
+        """
+        Chain transactions together using hashes.
+        Each transaction (except the last one in the list, which is the first one in the chain)
+        contains the hash of the next transaction.
+        """
         txs_data.reverse()
 
         txs_with_hashes = []

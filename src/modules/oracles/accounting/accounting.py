@@ -81,13 +81,18 @@ class Accounting(OracleModule[Web3]):
         self.bunker_service = BunkerService(self.w3)
         self.staking_vaults = StakingVaultsService(self.w3)
 
-    def refresh_contracts(self):
+    def refresh_contracts(self) -> None:
+        """Refresh contract instances from the Web3 provider."""
         self.report_contract = self.w3.lido_contracts.accounting_oracle  # type: ignore
 
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.lido_contracts.has_contract_address_changed()
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+        """
+        Execute the accounting module's reporting cycle.
+        Includes reporting of the main data and the extra data.
+        """
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if not report_blockstamp or not self._check_compatibility(report_blockstamp):
@@ -98,7 +103,11 @@ class Accounting(OracleModule[Web3]):
         self.process_extra_data(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
 
-    def process_extra_data(self, blockstamp: ReferenceBlockStamp):
+    def process_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
+        """
+        Process the third phase of the report: submit extra data.
+        The extra data can only be submitted after the main data has been submitted.
+        """
         latest_blockstamp = self._get_latest_blockstamp()
         if not self.can_submit_extra_data(latest_blockstamp):
             logger.info({'msg': 'Extra data can not be submitted.'})
@@ -118,6 +127,7 @@ class Accounting(OracleModule[Web3]):
         self._submit_extra_data(blockstamp)
 
     def _submit_extra_data(self, blockstamp: ReferenceBlockStamp) -> None:
+        """Fetch and submit extra data to the accounting oracle contract."""
         extra_data = self.get_extra_data(blockstamp)
 
         if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
@@ -136,6 +146,7 @@ class Accounting(OracleModule[Web3]):
         return report_data.as_tuple()
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
+        """Check if the main report data (second phase) was already submitted for the current frame."""
         # Consensus module: if contract got report data (second phase)
         processing_state = self._get_processing_state(blockstamp)
         logger.debug({'msg': 'Check if main data was submitted.', 'value': processing_state.main_data_submitted})
@@ -147,6 +158,7 @@ class Accounting(OracleModule[Web3]):
         return processing_state.main_data_submitted and not processing_state.extra_data_submitted
 
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
+        """Check if the contract is in a state where it can accept report data (either phase 2 or phase 3)."""
         # Consensus module: if contract can accept the report (in any phase)
         is_reportable = not self.is_main_data_submitted(blockstamp) or self.can_submit_extra_data(blockstamp)
         logger.info({'msg': 'Check if contract could accept report.', 'value': is_reportable})
@@ -183,7 +195,8 @@ class Accounting(OracleModule[Web3]):
         )
 
     # ---------------------------------------- Build report ----------------------------------------
-    def _calculate_report(self, blockstamp: ReferenceBlockStamp):
+    def _calculate_report(self, blockstamp: ReferenceBlockStamp) -> ReportData:
+        """Calculate all the data required for the main oracle report."""
         consensus_version = self.get_consensus_version(blockstamp)
         logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
 
@@ -240,15 +253,16 @@ class Accounting(OracleModule[Web3]):
         return validator_balance_sum
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
+        """Calculate the total balance of all pending Lido validators on the Consensus Layer."""
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
 
-        pending_sum = Gwei(0)
+        pending_sum = 0
 
         for _, pendings in lido_pending_balance_by_keys.values():
             for pending in pendings:
                 pending_sum += pending.amount
 
-        return pending_sum
+        return Gwei(pending_sum)
 
     def _get_newly_exited_validators_by_modules(
         self,
@@ -271,14 +285,17 @@ class Accounting(OracleModule[Web3]):
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return [sm_id for sm_id, _ in items], [val_exits for _, val_exits in items]
 
-    def _get_balances_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[Gwei], list[Gwei]]:
+    def _get_balances_by_modules(
+        self,
+        blockstamp: ReferenceBlockStamp,
+    ) -> tuple[list[StakingModuleId], list[Gwei], list[Gwei]]:
         """
         Calculate active and pending balances by modules.
         Exclude modules without changes from the report.
         """
         balances_by_no = self._get_no_active_balance(blockstamp)
 
-        module_stats: dict[StakingModuleId, dict[str, Gwei]] = defaultdict(lambda: {'active': Gwei(0), 'pending': Gwei(0)})
+        module_stats: dict[StakingModuleId, dict[str, int]] = defaultdict(lambda: {'active': 0, 'pending': 0})
         for (module_id, _), balance in balances_by_no.items():
             module_stats[module_id]['active'] += balance['active']
             module_stats[module_id]['pending'] += balance['pending']
@@ -286,8 +303,8 @@ class Accounting(OracleModule[Web3]):
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
             [sm_id for sm_id, _ in items],
-            [balance['active'] for _, balance in items],
-            [balance['pending'] for _, balance in items],
+            [Gwei(balance['active']) for _, balance in items],
+            [Gwei(balance['pending']) for _, balance in items],
         )
 
     @lru_cache(maxsize=1)
@@ -324,6 +341,7 @@ class Accounting(OracleModule[Web3]):
         return no_stats
 
     def get_shares_to_burn(self, blockstamp: ReferenceBlockStamp) -> Shares:
+        """Calculate total amount of shares requested to be burned (cover and non-cover)."""
         shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return Shares(shares_data.cover_shares + shares_data.non_cover_shares)
 
@@ -355,6 +373,7 @@ class Accounting(OracleModule[Web3]):
         return batches, FinalizationShareRate(share_rate)
 
     def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
+        """Simulate a full oracle report rebase, including execution layer rewards."""
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
         return self.simulate_rebase_after_report(blockstamp, el_rewards=el_rewards)
 
@@ -396,6 +415,7 @@ class Accounting(OracleModule[Web3]):
         )
 
     def _get_slots_elapsed_from_last_report(self, blockstamp: ReferenceBlockStamp) -> int:
+        """Calculate the number of slots passed since the last successful oracle report."""
         chain_conf = self.get_chain_config(blockstamp)
         frame_config = self.get_frame_config(blockstamp)
 
@@ -430,6 +450,7 @@ class Accounting(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def get_extra_data(self, blockstamp: ReferenceBlockStamp) -> ExtraData:
+        """Collect and encode extra data (newly exited validators by node operator)."""
         exited_validators = self.lido_validator_state_service.get_lido_newly_exited_validators(blockstamp)
         logger.info({'msg': 'Calculate exited validators.', 'value': exited_validators})
 
