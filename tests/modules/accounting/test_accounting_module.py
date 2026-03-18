@@ -3,7 +3,6 @@ from typing import cast
 from unittest.mock import Mock, patch
 
 import pytest
-from eth_typing import ChecksumAddress, HexAddress, HexStr
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
@@ -23,15 +22,10 @@ from src.modules.oracles.accounting.types import (
     ReportSimulationFeeDistribution,
     ReportSimulationPayload,
     ReportSimulationResults,
-    VaultInfo,
-    VaultsData,
-    VaultsMap,
-    VaultTreeNode,
+    Shares,
 )
-from src.providers.consensus.types import Validator, ValidatorState
-from src.services.staking_vaults import StakingVaultsService
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -91,23 +85,23 @@ def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
 
 
 @pytest.mark.unit
-def test_get_updated_modules_stats(accounting: Accounting):
+def test_get_newly_exited_validators_by_modules_stats(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     staking_modules: list[StakingModule] = [
-        StakingModuleFactory.build(exited_validators_count=10),
-        StakingModuleFactory.build(exited_validators_count=20),
-        StakingModuleFactory.build(exited_validators_count=30),
+        StakingModuleFactory.build(id=1, exited_validators_count=10),
+        StakingModuleFactory.build(id=2, exited_validators_count=20),
+        StakingModuleFactory.build(id=3, exited_validators_count=30),
     ]
 
-    node_operators_stats = {
+    exited_validators_stats = {
         (staking_modules[0].id, NodeOperatorId(0)): 10,
         (staking_modules[1].id, NodeOperatorId(0)): 25,
         (staking_modules[2].id, NodeOperatorId(0)): 30,
     }
 
-    module_ids, exited_validators_count_list = accounting.get_updated_modules_stats(
-        staking_modules,
-        node_operators_stats,
-    )
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=staking_modules)
+    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value=exited_validators_stats)
+
+    module_ids, exited_validators_count_list = accounting._get_newly_exited_validators_by_modules(ref_bs)
 
     assert len(module_ids) == 1
     assert module_ids[0] == staking_modules[1].id
@@ -115,34 +109,30 @@ def test_get_updated_modules_stats(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_consensus_lido_state_pre_electra(accounting: Accounting):
+def test_get_cl_validators_balance(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
 
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
-    count, balance = accounting._get_consensus_lido_state(bs)
+    balance = accounting._get_cl_validators_balance(bs)
 
-    assert count == 10
     assert balance == sum(val.balance for val in validators)
 
 
 @pytest.mark.unit
-def test_get_consensus_lido_state(accounting: Accounting):
+def test_get_cl_pending_validators_balance(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
-    validators = [
-        *[LidoValidatorFactory.build_transition_period_pending_deposit_vals() for _ in range(3)],
-        *[LidoValidatorFactory.build_not_active_vals(bs.ref_epoch) for _ in range(3)],
-        *[LidoValidatorFactory.build_active_vals(bs.ref_epoch) for _ in range(2)],
-        *[LidoValidatorFactory.build_exit_vals(bs.ref_epoch) for _ in range(2)],
-    ]
-    accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
-    accounting.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=bs.ref_epoch))
-    count, balance = accounting._get_consensus_lido_state(bs)
 
-    assert count == 10
-    assert balance == sum(val.balance for val in validators)
+    # Mock pending validators data structure
+    pending_validators_data = {
+        'key1': ('wc1', [Mock(amount=1000), Mock(amount=2000)]),
+        'key2': ('wc2', [Mock(amount=3000)]),
+    }
+    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value=pending_validators_data)
+
+    balance = accounting._get_cl_pending_validators_balance(bs)
+
+    assert balance == 6000
 
 
 @pytest.mark.unit
@@ -482,100 +472,9 @@ def test_simulate_rebase_after_report(
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
 
-    validators: list[Validator] = [
-        Validator(
-            index=ValidatorIndex(1985),
-            balance=Gwei(32834904184),
-            validator=ValidatorState(
-                pubkey='0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99124',
-                withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
-                effective_balance=Gwei(32000000000),
-                slashed=False,
-                activation_eligibility_epoch=EpochNumber(225469),
-                activation_epoch=EpochNumber(225475),
-                exit_epoch=EpochNumber(18446744073709551615),
-                withdrawable_epoch=EpochNumber(18446744073709551615),
-            ),
-        ),
-        Validator(
-            index=ValidatorIndex(1986),
-            balance=Gwei(0),
-            validator=ValidatorState(
-                pubkey='0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce',
-                withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
-                effective_balance=Gwei(0),
-                slashed=False,
-                activation_eligibility_epoch=EpochNumber(226130),
-                activation_epoch=EpochNumber(226136),
-                exit_epoch=EpochNumber(227556),
-                withdrawable_epoch=EpochNumber(227812),
-            ),
-        ),
-    ]
-    accounting.w3.cc = Mock()
-    accounting.w3.cc.get_validators = Mock(return_value=validators)
-
-    tree_data: list[VaultTreeNode] = [
-        (
-            '0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
-            99786510875371698360,
-            33000000000000000000,
-            33000000000000000000,
-            0,
-            0,
-        ),
-        (
-            '0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
-            2500000000000000000,
-            2500000000000000000,
-            2500000000000000000,
-            0,
-            1,
-        ),
-    ]
-    vaults: VaultsMap = {
-        ChecksumAddress(HexAddress(HexStr('0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60'))): VaultInfo(
-            aggregated_balance=Wei(66951606691371698360),
-            in_out_delta=Wei(33000000000000000000),
-            liability_shares=0,
-            max_liability_shares=0,
-            vault='0xEcB7C8D2BaF7270F90066B4cd8286e2CA1154F60',
-            withdrawal_credentials='0x020000000000000000000000ecb7c8d2baf7270f90066b4cd8286e2ca1154f60',
-            share_limit=0,
-            reserve_ratio_bp=0,
-            forced_rebalance_threshold_bp=0,
-            infra_fee_bp=0,
-            liquidity_fee_bp=0,
-            reservation_fee_bp=0,
-            pending_disconnect=False,
-            mintable_st_eth=0,
-        ),
-        ChecksumAddress(HexAddress(HexStr('0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db'))): VaultInfo(
-            aggregated_balance=Wei(2500000000000000000),
-            in_out_delta=Wei(2500000000000000000),
-            liability_shares=1,
-            max_liability_shares=1,
-            vault='0xc1F9c4a809cbc6Cb2cA60bCa09cE9A55bD5337Db',
-            withdrawal_credentials='0x020000000000000000000000c1f9c4a809cbc6cb2ca60bca09ce9a55bd5337db',
-            share_limit=0,
-            reserve_ratio_bp=0,
-            forced_rebalance_threshold_bp=0,
-            infra_fee_bp=0,
-            liquidity_fee_bp=0,
-            reservation_fee_bp=0,
-            pending_disconnect=False,
-            mintable_st_eth=0,
-        ),
-    }
-    vaults_total_values = {}
-    mock_vaults_data: VaultsData = (tree_data, vaults, vaults_total_values)
-    accounting.w3.staking_vaults = Mock()
-    accounting.w3.staking_vaults.get_vaults_data = Mock(return_value=mock_vaults_data)
-    accounting.w3.staking_vaults.publish_proofs = Mock(return_value='proof_cid')
-    accounting.w3.staking_vaults.publish_tree = Mock(return_value='tree_cid')
-    accounting.w3.staking_vaults.get_merkle_tree = Mock(return_value=StakingVaultsService.get_merkle_tree(tree_data))
-
-    accounting._get_consensus_lido_state = Mock(return_value=(0, 0))
+    # Mock the balance methods instead of dealing with validator mocking
+    accounting._get_cl_validators_balance = Mock(return_value=Gwei(0))
+    accounting._get_cl_pending_validators_balance = Mock(return_value=Gwei(0))
     accounting._get_slots_elapsed_from_last_report = Mock(return_value=42)
 
     accounting.w3.lido_contracts.accounting = Mock()
@@ -610,11 +509,11 @@ def test_simulate_rebase_after_report(
         ReportSimulationPayload(
             timestamp=1678794852,
             time_elapsed=504,
-            cl_validators=0,
-            cl_balance=Wei(0),
+            cl_validators_balance=Wei(0),
+            cl_pending_balance=Wei(0),
             withdrawal_vault_balance=Wei(17),
             el_rewards_vault_balance=Wei(0),
-            shares_requested_to_burn=13,
+            shares_requested_to_burn=Shares(13),
             withdrawal_finalization_batches=[],
             simulated_share_rate=0,
         ),
@@ -624,16 +523,18 @@ def test_simulate_rebase_after_report(
 
 
 @pytest.mark.unit
-def test_get_newly_exited_validators_by_modules(accounting: Accounting, ref_bs: ReferenceBlockStamp):
-    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[Mock(), Mock()])
-    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value=[])
+def test_get_newly_exited_validators_by_modules_empty(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    staking_modules = [
+        StakingModuleFactory.build(id=1, exited_validators_count=0),
+        StakingModuleFactory.build(id=2, exited_validators_count=0),
+    ]
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=staking_modules)
+    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value={})
 
-    RESULT = object()
-    accounting.get_updated_modules_stats = Mock(return_value=RESULT)
+    module_ids, exited_validators_count_list = accounting._get_newly_exited_validators_by_modules(ref_bs)
 
-    out = accounting._get_newly_exited_validators_by_modules(ref_bs)
-
-    assert out is RESULT
+    assert module_ids == []
+    assert exited_validators_count_list == []
     accounting.w3.lido_contracts.staking_router.get_staking_modules.assert_called_once_with(ref_bs.block_hash)
     accounting.lido_validator_state_service.get_exited_lido_validators.assert_called_once_with(ref_bs)
 
