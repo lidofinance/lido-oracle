@@ -61,7 +61,7 @@ class Accounting(OracleModule[Web3]):
     Accounting module updates the protocol TVL, distributes node-operator rewards,
     and processes user withdrawal requests.
 
-    Report goes in tree phases:
+    Report goes in three phases:
         - Send report hash
         - Send report data (with extra data hash inside)
             Contains information about lido state, withdrawal requests to finalize,
@@ -178,7 +178,7 @@ class Accounting(OracleModule[Web3]):
             return self.report_contract.get_processing_state(blockstamp.block_hash)
         except ContractCustomError as revert:
             if revert.data != InitialEpochIsYetToArriveRevert:
-                raise revert
+                raise
 
         frame = self.get_initial_or_current_frame(blockstamp)
 
