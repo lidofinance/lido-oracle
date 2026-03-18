@@ -260,12 +260,17 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
 def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
-    converter = Mock()
-    converter.frame_config = Mock(epochs_per_frame=4)
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            epochs_per_frame=4,
+            initial_epoch=0,
+            fast_lane_length_slots=0,
+        )
+    )
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=False)
-    module.w3.performance.get_epochs_demand = Mock(return_value={})
+    module.w3.performance.get_epochs_demand = Mock(return_value=None)
     module.w3.performance.post_epochs_demand = Mock()
 
     module._set_epochs_range_to_collect(blockstamp)
@@ -273,7 +278,7 @@ def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOrac
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.state.log_progress.assert_called_once()
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
-    module.w3.performance.get_epochs_demand.assert_called_once()
+    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
     module.w3.performance.post_epochs_demand.assert_called_once_with("CSPerformanceOracle", 10, 20)
 
 
@@ -283,11 +288,20 @@ def test__set_epochs_range_to_collect_skips_post_when_demand_same(
 ):
     blockstamp = ReferenceBlockStampFactory.build()
     module.state = Mock(migrate=Mock(), log_progress=Mock())
-    converter = Mock()
-    converter.frame_config = Mock(epochs_per_frame=4)
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            epochs_per_frame=4,
+            initial_epoch=0,
+            fast_lane_length_slots=0,
+        )
+    )
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
     module.w3 = Mock()
-    module.w3.performance.get_epochs_demands = Mock(return_value={"CSPerformanceOracle": (10, 20)})
+    demand_mock = Mock()
+    demand_mock.from_epoch = 10
+    demand_mock.to_epoch = 20
+    module.w3.performance.is_range_available = Mock(return_value=True)
+    module.w3.performance.get_epochs_demand = Mock(return_value=demand_mock)
     module.w3.performance.post_epochs_demand = Mock()
 
     module._set_epochs_range_to_collect(blockstamp)
