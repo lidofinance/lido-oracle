@@ -44,7 +44,7 @@ from src.web3py.types import Web3, Web3Base
 
 logger = logging.getLogger(__name__)
 
-# Initial epoch is in the future. Revert signature: '0xcd0883ea'
+# The initial epoch is in the future. Revert signature: '0xcd0883ea'
 InitialEpochIsYetToArriveRevert = Web3.to_hex(primitive=Web3.keccak(text="InitialEpochIsYetToArrive()")[:4])
 
 W3 = TypeVar("W3", bound=Web3Base)
@@ -55,11 +55,11 @@ class ConsensusModule[W3: Web3Base](ABC):
     Module that works with Hash Consensus Contract.
 
     Do next things:
-    - Calculate report blockstamp if contract is reportable
+    - Calculate report blockstamp if the contract is reportable
     - Calculates and sends report hash
     - Decides in what order Oracles should report
 
-    report_contract should contain getConsensusContract method.
+    report_contract should contain the getConsensusContract method.
     """
 
     report_contract: BaseOracleContract
@@ -224,13 +224,13 @@ class ConsensusModule[W3: Web3Base](ABC):
     # ----- Calculation reference slot for report -----
     def get_blockstamp_for_report(self, last_finalized_blockstamp: BlockStamp) -> ReferenceBlockStamp | None:
         """
-        Get blockstamp that should be used to build and send report for current frame.
+        Get a blockstamp that should be used to build and send a report for the current frame.
         Returns:
-            Non-missed reference slot blockstamp in case contract is reportable.
+            Non-missed reference slot blockstamp in case the contract is reportable.
         """
         latest_blockstamp = self._get_latest_blockstamp()
 
-        # Check if contract is currently reportable
+        # Check if the contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
             return None
@@ -309,7 +309,7 @@ class ConsensusModule[W3: Web3Base](ABC):
 
     # ----- Working with report -----
     def process_report(self, blockstamp: ReferenceBlockStamp) -> None:
-        """Builds and sends report for current frame with provided blockstamp."""
+        """Builds and sends a report for the current frame with the provided blockstamp."""
         report_data = self.build_report(blockstamp)
         logger.info({'msg': 'Build report.', 'value': report_data})
 
@@ -317,14 +317,14 @@ class ConsensusModule[W3: Web3Base](ABC):
         logger.info({'msg': 'Calculate report hash.', 'value': repr(report_hash)})
 
         try:
-            # We need to check whether report has unexpected data before sending.
+            # We need to check whether a report has unexpected data before sending.
             # otherwise we have to check it manually.
             if not self.is_reporting_allowed(blockstamp):
                 logger.warning({'msg': 'Reporting checks are not passed. Report will not be sent.'})
                 return
 
             self._process_report_hash(blockstamp, report_hash)
-            # Even if report hash transaction was failed we have to check if we can report data for current frame
+            # Even if report hash transaction was failed we have to check if we can report data for the current frame
             self._process_report_data(blockstamp, report_data, report_hash)
         finally:
             self._send_telemetry(report_data, report_hash)
@@ -356,7 +356,7 @@ class ConsensusModule[W3: Web3Base](ABC):
             return None
 
         if not member_info.is_fast_lane:
-            # Check if current slot is newer than (member slot + slots_delay)
+            # Check if the current slot is newer than (member slot + slots_delay)
             if latest_blockstamp.slot_number < member_info.current_frame_ref_slot + member_info.fast_lane_length_slot:
                 logger.info(
                     {
@@ -439,7 +439,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         return latest_blockstamp, member_info
 
     def _encode_data_hash(self, report_data: tuple) -> HexBytes:
-        # The Accounting Oracle and Ejector Bus has same named method to report data
+        # The Accounting Oracle and Ejector Bus have the same named method to report data
         report_function_name = 'submitReportData'
 
         report_function_abi = next(x for x in self.report_contract.abi if x.get('name') == report_function_name)
@@ -450,7 +450,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         # Transform abi to string
         report_str_abi = ','.join(map(lambda x: x['type'], report_data_abi))  # type: ignore
 
-        # Transform str abi to tuple, because ReportData is struct
+        # Transform str abi to tuple, because ReportData is a struct
         encoded = encode([f'({report_str_abi})'], [report_data])
 
         report_hash = self.w3.keccak(encoded)
@@ -484,10 +484,10 @@ class ConsensusModule[W3: Web3Base](ABC):
         If the member was added in the current frame,
         the result of _get_slot_delay_before_data_submit may be inconsistent for different latest blocks, but it's ok.
 
-        Do not use ref blockstamp here because new oracle member will fail is_member check,
+        Do not use ref blockstamp here because the new oracle member will fail is_member check,
         because it wasn't in quorum on ref_slot.
 
-        Returns in slots time to sleep before data report.
+        Returns in slots time to sleep before a data report.
         """
         member = self.get_member_info(blockstamp)
         if member.is_submit_member or variables.ACCOUNT is None:
@@ -506,7 +506,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         if sleep_count < 0:
             sleep_count += len(members)
 
-        # 1 - is default delay for non submit members.
+        # 1 - is default delay for non-submit members.
         total_delay = (1 + sleep_count) * variables.SUBMIT_DATA_DELAY_IN_SLOTS
 
         logger.info({'msg': 'Calculate slots delay.', 'value': total_delay})
@@ -525,17 +525,16 @@ class ConsensusModule[W3: Web3Base](ABC):
         return FrameNumber(frame_number)
 
     @abstractmethod
-    @lru_cache(maxsize=1)
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
         """Returns ReportData struct with calculated data."""
 
     @abstractmethod
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
-        """Returns if main data already submitted"""
+        """Returns if the main data already submitted"""
 
     @abstractmethod
     def is_contract_reportable(self, blockstamp: BlockStamp) -> bool:
-        """Returns true if contract is ready for report"""
+        """Returns true if the contract is ready for a report"""
 
     @abstractmethod
     def is_reporting_allowed(self, blockstamp: ReferenceBlockStamp) -> bool:
