@@ -1,3 +1,4 @@
+# pyright: reportPrivateImportUsage=false
 import ssz
 from eth_typing import Hash32
 from py_ecc.bls import G2ProofOfPossession as BLSVerifier

@@ -80,7 +80,6 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_GENESIS, validate_response=data_is_dict)
         return GenesisResponse.from_response(**data)
 
-
     def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot

@@ -309,10 +309,12 @@ class Accounting(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _get_no_active_balance(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, dict[str, Gwei]]:
-        no_stats = defaultdict(lambda: {
-            'active': Gwei(0),
-            'pending': Gwei(0),
-        })
+        no_stats = defaultdict(
+            lambda: {
+                'active': Gwei(0),
+                'pending': Gwei(0),
+            }
+        )
 
         validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         keys_by_no = {}

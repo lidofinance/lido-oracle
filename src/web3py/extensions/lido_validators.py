@@ -160,7 +160,6 @@ class LidoValidatorsProvider(Module):
         # Validate there are no frontrun
         for pending_deposit in pending_deposits:
             if pending_deposit.pubkey in pending_keys:
-
                 # In case we already had valid pending deposit for key
                 if pending_deposit.pubkey in pending_validators:
                     pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
@@ -188,7 +187,12 @@ class LidoValidatorsProvider(Module):
                     else:
                         # Possible frontrun attack
                         invalid_keys.add(pending_deposit.pubkey)
-                        logger.warning({'msg': 'Ignoring key. Possible front run attack', 'value': pending_deposit.pubkey})
+                        logger.warning(
+                            {
+                                'msg': 'Ignoring key. Possible front run attack',
+                                'value': pending_deposit.pubkey,
+                            }
+                        )
 
         return pending_validators
 
@@ -212,7 +216,10 @@ class LidoValidatorsProvider(Module):
             )
 
     @staticmethod
-    def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> tuple[list[LidoValidator], list[LidoKey]]:
+    def merge_validators_with_keys(
+        keys: list[LidoKey],
+        validators: list[Validator],
+    ) -> tuple[list[LidoValidator], list[LidoKey]]:
         """Merging and filter non-lido validators."""
         validators_keys_dict = {validator.validator.pubkey: validator for validator in validators}
 

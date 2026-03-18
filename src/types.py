@@ -29,7 +29,20 @@ NodeOperatorGlobalIndex = tuple[StakingModuleId, NodeOperatorId]
 
 BlockHash = NewType('BlockHash', HexStr)
 
-Gwei = NewType('Gwei', int)
+
+class Gwei(int):
+    """Gwei type with addition support."""
+
+    def __add__(self, other):
+        if isinstance(other, (int, Gwei)):
+            return Gwei(int.__add__(self, int(other)))
+        return NotImplemented
+
+    def __radd__(self, other):
+        if isinstance(other, (int, Gwei)):
+            return Gwei(int.__add__(int(other), self))
+        return NotImplemented
+
 
 ValidatorIndex = NewType('ValidatorIndex', int)
 CommitteeIndex = NewType('CommitteeIndex', int)
