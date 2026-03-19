@@ -33,7 +33,7 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
         url = f"{self.endpoint}/api/v0/cat"
         try:
-            resp = requests.get(url, timeout=self.timeout, params={"arg": str(cid)})
+            resp = requests.post(url, timeout=self.timeout, params={"arg": str(cid)})
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
