@@ -219,7 +219,7 @@ class TestDeleteDemand:
         assert response.status_code == 200
         data = response.json()
         assert data["consumer"] == "consumer1"
-        mock_db.delete_demand.assert_called_once_with("consumer1")
+        mock_db.delete_demand.assert_called_once_with(demand)
 
     def test_returns_404_when_not_found(self, client, mock_db):
         mock_db.get_epochs_demand.return_value = None
