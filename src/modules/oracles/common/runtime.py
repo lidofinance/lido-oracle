@@ -200,6 +200,5 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
         yield Kubo(
             variables.KUBO_HOST,
             variables.KUBO_RPC_PORT,
-            variables.KUBO_GATEWAY_PORT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
