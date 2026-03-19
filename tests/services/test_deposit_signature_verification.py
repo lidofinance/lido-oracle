@@ -11,6 +11,7 @@ from src.services.deposit_signature_verification import (
     is_valid_deposit_signature,
 )
 
+
 # SSZ-valid byte constants (sizes match the ssz field types)
 _PUBKEY = bytes(48)  # ssz.bytes48
 _WC = bytes(32)  # ssz.bytes32

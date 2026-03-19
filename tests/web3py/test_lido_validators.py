@@ -19,6 +19,7 @@ from tests.factory.no_registry import (
     ValidatorFactory,
 )
 
+
 # Hex values used in pending-deposit tests (lengths don't matter since BLS is mocked)
 _PUBKEY = '0x' + 'ab' * 4
 _SIGNATURE = '0x' + 'ef' * 4
