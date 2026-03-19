@@ -32,9 +32,10 @@ class Kubo(IPFSProvider):
         self.gateway_port = gateway_port
 
     def _fetch(self, cid: CID) -> bytes:
-        url = f"{self.host}:{self.gateway_port}/ipfs/{cid}"
+        # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
+        url = f"{self.host}:{self.gateway_port}/api/v0/cat"
         try:
-            resp = requests.get(url, timeout=self.timeout)
+            resp = requests.get(url, timeout=self.timeout, params={"arg": str(cid)})
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
