@@ -18,6 +18,8 @@ from src.modules.sidecars.performance.web.validation import (
     EpochsDemandParam,
     EpochsDemandResponse,
     LimitedEpochRangeParam,
+    RetentionEpochsParam,
+    RetentionEpochsResponse,
 )
 from src.types import EpochNumber
 from src.variables import (
@@ -120,6 +122,13 @@ def one_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: DBDe
 
 @api_v1.post("/demands", response_model=EpochsDemandResponse)
 def set_epochs_demand(demand_to_add: Annotated[EpochsDemandParam, Body()], db: DBDep):
+    retention = db.get_retention_epochs()
+    demand_span = demand_to_add.to_epoch - demand_to_add.from_epoch + 1
+    if demand_span > retention:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Demand epoch range ({demand_span} epochs) exceeds the retention interval ({retention} epochs)",
+        )
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 
@@ -130,6 +139,17 @@ def delete_epochs_demand(consumer_param: Annotated[ConsumerParam, Path()], db: D
         raise HTTPException(status_code=404, detail=f"No demand found for consumer '{consumer_param.consumer}'")
     db.delete_demand(to_delete)
     return to_delete
+
+
+@api_v1.get("/admin/settings/retention-epochs", response_model=RetentionEpochsResponse)
+def get_retention_epochs(db: DBDep):
+    return RetentionEpochsResponse(retention_epochs=db.get_retention_epochs())
+
+
+@api_v1.put("/admin/settings/retention-epochs", response_model=RetentionEpochsResponse)
+def set_retention_epochs(body: Annotated[RetentionEpochsParam, Body()], db: DBDep):
+    db.set_retention_epochs(body.retention_epochs)
+    return RetentionEpochsResponse(retention_epochs=body.retention_epochs)
 
 
 app.include_router(api_v1)

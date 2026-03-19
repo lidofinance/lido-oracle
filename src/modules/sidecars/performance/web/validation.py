@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.types import EpochNumber
@@ -75,5 +77,13 @@ class EpochsDemandParam(ConsumerParam, EpochRangeBase):
 
 
 class EpochsDemandResponse(ConsumerParam, EpochRangeBase):
-    updated_at: int
+    updated_at: datetime | None
     model_config = ConfigDict(from_attributes=True)
+
+
+class RetentionEpochsParam(BaseModel):
+    retention_epochs: int = Field(..., gt=0)
+
+
+class RetentionEpochsResponse(BaseModel):
+    retention_epochs: int

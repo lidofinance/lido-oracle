@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -156,8 +157,8 @@ class TestEpochData:
 class TestDemands:
     def test_returns_all_demands(self, client, mock_db):
         demands = [
-            EpochsDemand(consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=1000),
-            EpochsDemand(consumer="consumer2", from_epoch=30, to_epoch=40, updated_at=2000),
+            EpochsDemand(consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=datetime(2021, 1, 1, tzinfo=UTC)),
+            EpochsDemand(consumer="consumer2", from_epoch=30, to_epoch=40, updated_at=datetime(2021, 1, 2, tzinfo=UTC)),
         ]
         mock_db.get_epochs_demands.return_value = demands
         response = client.get("/v1/demands")
@@ -168,7 +169,9 @@ class TestDemands:
         assert data[1]["consumer"] == "consumer2"
 
     def test_returns_single_demand(self, client, mock_db):
-        demand = EpochsDemand(consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=1000)
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
         mock_db.get_epochs_demand.return_value = demand
         response = client.get("/v1/demands/consumer1")
         assert response.status_code == 200
@@ -190,7 +193,10 @@ class TestDemands:
 
 class TestSetDemand:
     def test_creates_demand(self, client, mock_db):
-        demand = EpochsDemand(consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=1000)
+        mock_db.get_retention_epochs.return_value = 1000
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
         mock_db.store_demand.return_value = demand
         response = client.post(
             "/v1/demands",
@@ -201,19 +207,51 @@ class TestSetDemand:
         assert data["consumer"] == "consumer1"
         assert data["from_epoch"] == 10
         assert data["to_epoch"] == 20
-        assert data["updated_at"] == 1000
+        assert data["updated_at"] == "2021-01-01T00:00:00Z"
 
-    def test_rejects_invalid_payload(self, client):
+    def test_rejects_blank_consumer(self, client):
         response = client.post(
             "/v1/demands",
-            json={"consumer": "   ", "from_epoch": 20, "to_epoch": 10},
+            json={"consumer": "   ", "from_epoch": 10, "to_epoch": 20},
         )
         assert response.status_code == 422
+
+    def test_rejects_inverted_epoch_range(self, client):
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": 20, "to_epoch": 10},
+        )
+        assert response.status_code == 422
+
+    def test_returns_422_when_demand_exceeds_retention(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 10000
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": 0, "to_epoch": 10000},
+        )
+        assert response.status_code == 422
+        assert "exceeds the retention interval" in response.json()["detail"]
+        mock_db.store_demand.assert_not_called()
+
+    def test_allows_demand_exactly_at_retention(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 50
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=0, to_epoch=49, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
+        mock_db.store_demand.return_value = demand
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": demand.from_epoch, "to_epoch": demand.from_epoch},
+        )
+        assert response.status_code == 200
+        mock_db.store_demand.assert_called_once()
 
 
 class TestDeleteDemand:
     def test_succeeds(self, client, mock_db):
-        demand = EpochsDemand(consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=1000)
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=10, to_epoch=20, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
         mock_db.get_epochs_demand.return_value = demand
         response = client.delete("/v1/demands/consumer1")
         assert response.status_code == 200
@@ -225,3 +263,39 @@ class TestDeleteDemand:
         mock_db.get_epochs_demand.return_value = None
         response = client.delete("/v1/demands/unknown")
         assert response.status_code == 404
+
+
+class TestRetentionSettings:
+    def test_get_retention_epochs(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 37800
+        response = client.get("/v1/admin/settings/retention-epochs")
+        assert response.status_code == 200
+        assert response.json() == {"retention_epochs": 37800}
+
+    def test_set_retention_epochs(self, client, mock_db):
+        response = client.put(
+            "/v1/admin/settings/retention-epochs",
+            json={"retention_epochs": 5000},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"retention_epochs": 5000}
+        mock_db.set_retention_epochs.assert_called_once_with(5000)
+
+    def test_get_retention_epochs_returns_500_when_get_retention_epochs_throws(self, client, mock_db):
+        mock_db.get_retention_epochs.side_effect = ValueError("something")
+        response = client.get("/v1/admin/settings/retention-epochs")
+        assert response.status_code == 500
+
+    def test_set_retention_epochs_rejects_zero(self, client):
+        response = client.put(
+            "/v1/admin/settings/retention-epochs",
+            json={"retention_epochs": 0},
+        )
+        assert response.status_code == 422
+
+    def test_set_retention_epochs_rejects_negative(self, client):
+        response = client.put(
+            "/v1/admin/settings/retention-epochs",
+            json={"retention_epochs": -1},
+        )
+        assert response.status_code == 422

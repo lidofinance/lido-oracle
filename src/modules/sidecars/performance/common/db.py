@@ -5,6 +5,7 @@ from pydantic import PostgresDsn
 from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, asc, delete, desc, exists
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
+from sqlalchemy.types import JSON
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
 from src import variables
@@ -35,6 +36,17 @@ class EpochsDemand(SQLModel, table=True):
     from_epoch: int
     to_epoch: int
     updated_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
+
+
+class Settings(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "settings"
+
+    key: str = Field(primary_key=True)
+    value: Any = Field(sa_column=Column(JSON, nullable=False))
+
+
+RETENTION_EPOCHS_KEY = "retention_epochs"
+RETENTION_EPOCHS_DEFAULT = 225 * 30 * 6
 
 
 class DutiesDB:
@@ -80,10 +92,40 @@ class DutiesDB:
 
     def _setup_database(self) -> None:
         SQLModel.metadata.create_all(self.engine)
+        self._seed_settings()
+
+    def _seed_settings(self) -> None:
+        with self.get_session() as session:
+            existing = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if not existing:
+                session.add(Settings(key=RETENTION_EPOCHS_KEY, value=RETENTION_EPOCHS_DEFAULT))
+                session.commit()
 
     def get_session(self) -> Session:
         # Keep model attributes available after commit when objects are returned outside this context.
         return Session(self.engine, expire_on_commit=False)
+
+    def get_retention_epochs(self) -> int:
+        with self.get_session() as session:
+            setting = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if setting is None:
+                raise ValueError(f"'{RETENTION_EPOCHS_KEY}' setting not found in database")
+            if not isinstance(setting.value, int):
+                raise TypeError(f"'{RETENTION_EPOCHS_KEY}' setting expected an int, got {type(setting.value).__name__}")
+            if setting.value <= 0:
+                raise ValueError(f"'{RETENTION_EPOCHS_KEY}' must be positive, got {setting.value}")
+            return setting.value
+
+    def set_retention_epochs(self, value: int) -> None:
+        if value <= 0:
+            raise ValueError("retention_epochs must be positive")
+        with self.get_session() as session:
+            setting = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if setting:
+                setting.value = value
+            else:
+                session.add(Settings(key=RETENTION_EPOCHS_KEY, value=value))
+            session.commit()
 
     def store_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> EpochsDemand:
         with self.get_session() as session:
@@ -151,10 +193,8 @@ class DutiesDB:
             session.commit()
 
     def _prune(self, current_epoch: EpochNumber) -> None:
-        if variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS == 0:
-            return
-
-        min_epoch_to_keep = current_epoch - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS + 1
+        retention = self.get_retention_epochs()
+        min_epoch_to_keep = current_epoch - retention + 1
         if min_epoch_to_keep <= 0:
             return
 
