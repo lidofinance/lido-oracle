@@ -6,7 +6,6 @@ class ItemType(Enum):
     # Deprecated with TW upgrade
     # EXTRA_DATA_TYPE_STUCK_VALIDATORS = 1
     EXTRA_DATA_TYPE_EXITED_VALIDATORS = 2
-    EXTRA_DATA_TYPE_NO_BALANCES = 3
 
 
 class FormatList(Enum):
