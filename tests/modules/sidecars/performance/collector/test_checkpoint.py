@@ -233,6 +233,28 @@ class TestFrameCheckpointsIterator:
         assert list(iter(iterator)) == expected_checkpoints
 
 
+class TestMetricsRefresh:
+    def test_maybe_refresh_db_metrics_throttles_by_interval(self, processor: FrameCheckpointProcessor):
+        processor._refresh_db_metrics = Mock()
+
+        with patch.object(checkpoint_module.time, 'monotonic', side_effect=[100.0, 110.0, 131.0]):
+            processor._maybe_refresh_db_metrics(interval_seconds=30.0)
+            processor._maybe_refresh_db_metrics(interval_seconds=30.0)
+            processor._maybe_refresh_db_metrics(interval_seconds=30.0)
+
+        assert processor._refresh_db_metrics.call_count == 2
+        assert processor._last_metrics_refresh == 131.0
+
+    def test_exec_refreshes_metrics_via_maybe_refresh(self, processor: FrameCheckpointProcessor):
+        processor._maybe_refresh_db_metrics = Mock()
+        processor.db.has_epoch = Mock(return_value=True)
+
+        processed = processor.exec(FrameCheckpoint(slot=SlotNumber(100), duty_epochs=[EpochNumber(10)]))
+
+        assert processed == 0
+        processor._maybe_refresh_db_metrics.assert_called_once_with(interval_seconds=0.0)
+
+
 class TestBlockRoots:
     @pytest.mark.parametrize(
         "checkpoint_slot, missing_slots, expected_existing_roots_count",

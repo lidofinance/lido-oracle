@@ -137,9 +137,7 @@ class FrameCheckpointProcessor:
         self._last_metrics_refresh = 0.0
 
     def exec(self, checkpoint: FrameCheckpoint) -> int:
-        self._refresh_db_metrics()
-        with self._metrics_lock:
-            self._last_metrics_refresh = time.time()
+        self._maybe_refresh_db_metrics(interval_seconds=0.0)
 
         logger.info(
             {"msg": f"Processing checkpoint for slot {checkpoint.slot} with {len(checkpoint.duty_epochs)} epochs"}
@@ -308,7 +306,7 @@ class FrameCheckpointProcessor:
 
     def _maybe_refresh_db_metrics(self, interval_seconds: float = 30.0) -> None:
         with self._metrics_lock:
-            now = time.time()
+            now = time.monotonic()
             if now - self._last_metrics_refresh < interval_seconds:
                 return
             self._last_metrics_refresh = now
