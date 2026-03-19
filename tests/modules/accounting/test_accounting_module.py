@@ -16,16 +16,21 @@ from src.modules.common.types import (
 )
 from src.modules.oracles.accounting import accounting as accounting_module
 from src.modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
+from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataService
 from src.modules.oracles.accounting.third_phase.types import FormatList
 from src.modules.oracles.accounting.types import (
     AccountingProcessingState,
+    FinalizationShareRate,
+    ReportData,
     ReportSimulationFeeDistribution,
     ReportSimulationPayload,
     ReportSimulationResults,
     Shares,
+    VaultsTreeCid,
+    VaultsTreeRoot,
 )
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -286,6 +291,24 @@ class TestAccountingProcessExtraData:
         assert accounting.can_submit_extra_data.call_count == 2
         assert accounting.can_submit_extra_data.call_args[0][0] is bs
         submit_extra_data_mock.assert_called_once_with(ref_bs)
+
+    @pytest.mark.unit
+    @pytest.mark.usefixtures('_no_sleep_before_report')
+    def test_second_can_submit_check_blocks_submission(
+        self,
+        accounting: Accounting,
+        submit_extra_data_mock: Mock,
+        ref_bs: ReferenceBlockStamp,
+        bs: BlockStamp,
+    ):
+        accounting._get_latest_blockstamp = Mock(return_value=bs)
+        # First check passes, second check (after sleep) fails
+        accounting.can_submit_extra_data = Mock(side_effect=[True, False])
+
+        accounting.process_extra_data(ref_bs)
+
+        assert accounting.can_submit_extra_data.call_count == 2
+        submit_extra_data_mock.assert_not_called()
 
 
 @pytest.mark.unit
@@ -594,3 +617,334 @@ def test_accounting_get_processing_state(accounting: Accounting):
     result = accounting._get_processing_state(bs)
 
     assert accounting_processing_state == result
+
+
+# ---- refresh_contracts / is_contracts_addresses_changed ----
+
+
+@pytest.mark.unit
+def test_refresh_contracts(accounting: Accounting):
+    new_contract = Mock()
+    accounting.w3.lido_contracts.accounting_oracle = new_contract
+    accounting.refresh_contracts()
+    assert accounting.report_contract is new_contract
+
+
+@pytest.mark.unit
+def test_is_contracts_addresses_changed(accounting: Accounting):
+    accounting.w3.lido_contracts.has_contract_address_changed = Mock(return_value=True)
+    assert accounting.is_contracts_addresses_changed() is True
+
+    accounting.w3.lido_contracts.has_contract_address_changed = Mock(return_value=False)
+    assert accounting.is_contracts_addresses_changed() is False
+
+
+# ---- execute_module: _check_compatibility returns False ----
+
+
+@pytest.mark.unit
+def test_accounting_execute_module_compatibility_fails(accounting: Accounting, bs: BlockStamp):
+    accounting.get_blockstamp_for_report = Mock(return_value=bs)
+    accounting._check_compatibility = Mock(return_value=False)
+    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+    accounting.get_blockstamp_for_report.assert_called_once_with(bs)
+
+
+# ---- _get_processing_state: non-matching ContractCustomError re-raises ----
+
+
+@pytest.mark.unit
+def test_accounting_get_processing_state_unknown_error_reraises(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+    accounting.report_contract.get_processing_state = Mock(
+        side_effect=ContractCustomError('0xdeadbeef', '0xdeadbeef')
+    )
+    with pytest.raises(ContractCustomError):
+        accounting._get_processing_state(bs)
+
+
+# ---- _get_finalization_data: post_total_shares == 0 → share_rate == 0 ----
+
+
+@pytest.mark.unit
+def test_get_finalization_data_zero_shares(accounting: Accounting):
+    lido_rebase = ReportSimulationResultsFactory.build(
+        post_total_pooled_ether=10**18,
+        post_total_shares=0,
+        withdrawals_vault_transfer=Wei(0),
+        el_rewards_vault_transfer=Wei(0),
+        ether_to_finalize_wq=0,
+        shares_to_finalize_wq=0,
+        shares_to_burn_for_withdrawals=0,
+        total_shares_to_burn=0,
+        shares_to_mint_as_fees=0,
+        fee_distribution=ReportSimulationFeeDistribution(
+            module_fee_recipients=[],
+            module_ids=[],
+            module_shares_to_mint=0,
+            treasury_shares_to_mint=0,
+        ),
+        principal_cl_balance=0,
+        post_internal_shares=0,
+        post_internal_ether=0,
+    )
+    accounting.get_chain_config = Mock(return_value=ChainConfigFactory.build())
+    accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
+    accounting.simulate_full_rebase = Mock(return_value=lido_rebase)
+    accounting._is_bunker = Mock(return_value=False)
+
+    bs = ReferenceBlockStampFactory.build()
+    with (
+        patch.object(Withdrawal, '__init__', return_value=None),
+        patch.object(Withdrawal, 'get_finalization_batches', return_value=[]),
+    ):
+        _, share_rate = accounting._get_finalization_data(bs)
+
+    assert share_rate == 0
+
+
+# ---- _get_cl_pending_validators_balance: empty input ----
+
+
+@pytest.mark.unit
+def test_get_cl_pending_validators_balance_empty(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    balance = accounting._get_cl_pending_validators_balance(bs)
+    assert balance == 0
+
+
+# ---- _get_newly_exited_validators_by_modules: multiple operators per module are summed ----
+
+
+@pytest.mark.unit
+def test_get_newly_exited_validators_by_modules_multi_operators(
+    accounting: Accounting, ref_bs: ReferenceBlockStamp
+):
+    staking_modules = [StakingModuleFactory.build(id=1, exited_validators_count=5)]
+    exited_validators_stats = {
+        (staking_modules[0].id, NodeOperatorId(0)): 3,
+        (staking_modules[0].id, NodeOperatorId(1)): 4,
+    }
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=staking_modules)
+    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(
+        return_value=exited_validators_stats
+    )
+
+    module_ids, exited_count_list = accounting._get_newly_exited_validators_by_modules(ref_bs)
+
+    assert module_ids == [staking_modules[0].id]
+    assert exited_count_list == [7]  # 3 + 4 operators summed
+
+
+# ---- _get_balances_by_modules ----
+
+
+@pytest.mark.unit
+def test_get_balances_by_modules(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    balances_by_no = {
+        (StakingModuleId(1), NodeOperatorId(0)): {'active': Gwei(100), 'pending': Gwei(50)},
+        (StakingModuleId(1), NodeOperatorId(1)): {'active': Gwei(200), 'pending': Gwei(30)},
+        (StakingModuleId(2), NodeOperatorId(0)): {'active': Gwei(300), 'pending': Gwei(70)},
+    }
+    accounting._get_no_active_balance = Mock(return_value=balances_by_no)
+
+    sm_ids, active_balances, pending_balances = accounting._get_balances_by_modules(ref_bs)
+
+    assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
+    assert active_balances == [Gwei(300), Gwei(300)]
+    assert pending_balances == [Gwei(80), Gwei(70)]
+
+
+# ---- _get_no_active_balance ----
+
+
+@pytest.mark.unit
+def test_get_no_active_balance(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    module_address = '0x' + 'ab' * 20
+    module_id = StakingModuleId(1)
+    operator_index = 0
+    gid = (module_id, operator_index)
+    pubkey = '0xdeadbeef'
+
+    validator = Mock()
+    validator.validator.pubkey = pubkey
+    validator.balance = 100
+
+    module = Mock()
+    module.staking_module_address = module_address
+    module.id = module_id
+
+    lido_key = Mock()
+    lido_key.moduleAddress = module_address
+    lido_key.operatorIndex = operator_index
+    new_deposit = Mock(amount=32_000_000_000)
+
+    topup_deposit = Mock(pubkey=pubkey, amount=1_000_000_000)
+    unknown_deposit = Mock(pubkey='0xunknown', amount=999)
+
+    accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={gid: [validator]}
+    )
+    accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module])
+    accounting.w3.lido_validators.get_pending_lido_validators = Mock(
+        return_value={'key1': (lido_key, [new_deposit])}
+    )
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[topup_deposit, unknown_deposit])
+
+    result = accounting._get_no_active_balance(ref_bs)
+
+    assert result[gid]['active'] == 100
+    assert result[gid]['pending'] == new_deposit.amount + topup_deposit.amount
+    # Unknown pubkey should not contribute to any existing operator's pending balance
+    assert result.get(('0xunknown', 0)) is None
+
+
+# ---- get_extra_data ----
+
+
+@pytest.mark.unit
+def test_get_extra_data(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    exited_validators = {(StakingModuleId(1), NodeOperatorId(0)): 5}
+    accounting.lido_validator_state_service.get_lido_newly_exited_validators = Mock(
+        return_value=exited_validators
+    )
+    orl = Mock(max_items_per_extra_data_transaction=10, max_node_operators_per_extra_data_item=20)
+    accounting.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(return_value=orl)
+
+    expected_result = Mock()
+    with patch.object(ExtraDataService, 'collect', return_value=expected_result) as mock_collect:
+        result = accounting.get_extra_data(ref_bs)
+
+    assert result is expected_result
+    mock_collect.assert_called_once_with(exited_validators, 10, 20)
+
+
+# ---- _handle_vaults_report ----
+
+
+@pytest.mark.unit
+def test_handle_vaults_report_empty_vaults(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    accounting.staking_vaults.get_vaults = Mock(return_value={})
+
+    tree_root, tree_cid = accounting._handle_vaults_report(ref_bs)
+
+    assert tree_root == ZERO_HASH
+    assert tree_cid == ''
+
+
+@pytest.mark.unit
+def test_handle_vaults_report_non_empty_vaults(
+    accounting: Accounting,
+    ref_bs: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+    frame_config: FrameConfig,
+):
+    vault_addr = '0x' + '11' * 20
+    vaults = {vault_addr: Mock()}
+    tree_root_bytes = b'\x01' * 32
+    tree_cid_str = 'QmTest'
+
+    merkle_tree = Mock()
+    merkle_tree.root = tree_root_bytes
+
+    simulation = Mock(
+        pre_total_pooled_ether=1000,
+        pre_total_shares=1000,
+        post_internal_ether=1010,
+        post_internal_shares=1000,
+        shares_to_mint_as_fees=0,
+    )
+
+    accounting.staking_vaults.get_vaults = Mock(return_value=vaults)
+    accounting.get_frame_number_by_slot = Mock(return_value=10)
+    accounting.w3.cc.get_validators = Mock(return_value=[])
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.get_chain_config = Mock(return_value=chain_config)
+    accounting.get_frame_config = Mock(return_value=frame_config)
+    accounting.simulate_full_rebase = Mock(return_value=simulation)
+    accounting.staking_vaults.get_vaults_total_values = Mock(return_value={vault_addr: Wei(100)})
+    accounting._get_slots_elapsed_from_last_report = Mock(return_value=100)
+    accounting.staking_vaults.get_latest_onchain_ipfs_report_data = Mock(return_value=Mock(report_cid='QmPrev'))
+    accounting.staking_vaults.get_vaults_fees = Mock(return_value={})
+    accounting.staking_vaults.get_vaults_slashing_reserve = Mock(return_value={})
+    accounting.staking_vaults.build_tree_data = Mock(return_value=[])
+    accounting.staking_vaults.get_merkle_tree = Mock(return_value=merkle_tree)
+    accounting.staking_vaults.publish_tree = Mock(return_value=tree_cid_str)
+
+    with (
+        patch('src.modules.oracles.accounting.accounting.calculate_gross_core_apr', return_value=0.05),
+        patch('src.modules.oracles.accounting.accounting.VAULTS_TOTAL_VALUE'),
+    ):
+        result_root, result_cid = accounting._handle_vaults_report(ref_bs)
+
+    assert result_root == tree_root_bytes
+    assert result_cid == tree_cid_str
+    accounting.staking_vaults.get_merkle_tree.assert_called_once()
+    accounting.staking_vaults.publish_tree.assert_called_once()
+
+
+# ---- _update_metrics ----
+
+
+@pytest.mark.unit
+def test_update_metrics():
+    report_data = Mock(
+        is_bunker=True,
+        cl_pending_balance_gwei=100,
+        cl_validators_balance_gwei=200,
+        withdrawal_vault_balance=300,
+        el_rewards_vault_balance=400,
+    )
+    with (
+        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER') as mock_bunker,
+        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI') as mock_balance,
+    ):
+        Accounting._update_metrics(report_data)
+
+    mock_bunker.set.assert_called_once_with(True)
+    mock_balance.labels.assert_any_call('pending')
+    mock_balance.labels.assert_any_call('active')
+    mock_balance.labels.assert_any_call('withdrawal_vault')
+    mock_balance.labels.assert_any_call('el_reward_vault')
+
+
+# ---- _calculate_report ----
+
+
+@pytest.mark.unit
+def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    accounting.get_consensus_version = Mock(return_value=6)
+    accounting._get_cl_validators_balance = Mock(return_value=Gwei(1000))
+    accounting._get_cl_pending_validators_balance = Mock(return_value=Gwei(500))
+    accounting._get_newly_exited_validators_by_modules = Mock(return_value=([StakingModuleId(1)], [5]))
+    accounting._get_balances_by_modules = Mock(
+        return_value=([StakingModuleId(1)], [Gwei(1000)], [Gwei(500)])
+    )
+    accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(100))
+    accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(200))
+    accounting.get_shares_to_burn = Mock(return_value=Shares(10))
+    accounting._get_finalization_data = Mock(return_value=([], FinalizationShareRate(10**27)))
+    accounting._is_bunker = Mock(return_value=False)
+    accounting._handle_vaults_report = Mock(return_value=(VaultsTreeRoot(ZERO_HASH), VaultsTreeCid('')))
+    accounting.get_extra_data = Mock(return_value=Mock(format=0, data_hash=bytes(32), items_count=0))
+
+    with (
+        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER'),
+        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI'),
+    ):
+        report_data = accounting._calculate_report(ref_bs)
+
+    assert isinstance(report_data, ReportData)
+    assert report_data.consensus_version == 6
+    assert report_data.ref_slot == ref_bs.ref_slot
+    assert report_data.cl_validators_balance_gwei == 1000
+    assert report_data.cl_pending_balance_gwei == 500
+    assert report_data.staking_module_ids_with_exited_validators == [StakingModuleId(1)]
+    assert report_data.count_exited_validators_by_staking_module == [5]
+    assert report_data.withdrawal_vault_balance == 100
+    assert report_data.el_rewards_vault_balance == 200
+    assert report_data.is_bunker is False
+    accounting.get_consensus_version.assert_called_once_with(ref_bs)
+    accounting._get_cl_validators_balance.assert_called_once_with(ref_bs)
+    accounting._get_cl_pending_validators_balance.assert_called_once_with(ref_bs)
