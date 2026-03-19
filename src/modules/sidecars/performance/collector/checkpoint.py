@@ -277,7 +277,7 @@ class FrameCheckpointProcessor:
     ):
         logger.info({"msg": f"Processing epoch {duty_epoch}"})
 
-        propose_duties = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
+        propose_duties_by_slot = self._prepare_propose_duties(duty_epoch, checkpoint_block_roots, checkpoint_slot)
         att_committees, att_misses = self._prepare_attestation_duties(duty_epoch)
         sync_duties = self._prepare_sync_committee_duties(duty_epoch)
 
@@ -287,11 +287,11 @@ class FrameCheckpointProcessor:
                 continue
             attestations, sync_aggregate = self.cc.get_block_attestations_and_sync(root)
             if (slot, root) in duty_epoch_roots:
-                propose_duties[slot].is_proposed = True
+                propose_duties_by_slot[slot].is_proposed = True
                 sync_duties = process_sync(sync_aggregate, sync_duties)
             att_misses = process_attestations(attestations, att_committees, att_misses)
 
-        propose_duties = list(propose_duties.values())
+        propose_duties = list(propose_duties_by_slot.values())
         if len(propose_duties) > self.converter.chain_config.slots_per_epoch:
             raise ValueError(f"Invalid number of propose duties prepared in epoch {duty_epoch}")
         if len(sync_duties) > SYNC_COMMITTEE_SIZE:
