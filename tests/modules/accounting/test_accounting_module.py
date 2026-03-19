@@ -656,9 +656,7 @@ def test_accounting_execute_module_compatibility_fails(accounting: Accounting, b
 @pytest.mark.unit
 def test_accounting_get_processing_state_unknown_error_reraises(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
-    accounting.report_contract.get_processing_state = Mock(
-        side_effect=ContractCustomError('0xdeadbeef', '0xdeadbeef')
-    )
+    accounting.report_contract.get_processing_state = Mock(side_effect=ContractCustomError('0xdeadbeef', '0xdeadbeef'))
     with pytest.raises(ContractCustomError):
         accounting._get_processing_state(bs)
 
@@ -718,18 +716,14 @@ def test_get_cl_pending_validators_balance_empty(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_newly_exited_validators_by_modules_multi_operators(
-    accounting: Accounting, ref_bs: ReferenceBlockStamp
-):
+def test_get_newly_exited_validators_by_modules_multi_operators(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     staking_modules = [StakingModuleFactory.build(id=1, exited_validators_count=5)]
     exited_validators_stats = {
         (staking_modules[0].id, NodeOperatorId(0)): 3,
         (staking_modules[0].id, NodeOperatorId(1)): 4,
     }
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=staking_modules)
-    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(
-        return_value=exited_validators_stats
-    )
+    accounting.lido_validator_state_service.get_exited_lido_validators = Mock(return_value=exited_validators_stats)
 
     module_ids, exited_count_list = accounting._get_newly_exited_validators_by_modules(ref_bs)
 
@@ -783,13 +777,9 @@ def test_get_no_active_balance(accounting: Accounting, ref_bs: ReferenceBlockSta
     topup_deposit = Mock(pubkey=pubkey, amount=1_000_000_000)
     unknown_deposit = Mock(pubkey='0xunknown', amount=999)
 
-    accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
-        return_value={gid: [validator]}
-    )
+    accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={gid: [validator]})
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module])
-    accounting.w3.lido_validators.get_pending_lido_validators = Mock(
-        return_value={'key1': (lido_key, [new_deposit])}
-    )
+    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={'key1': (lido_key, [new_deposit])})
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[topup_deposit, unknown_deposit])
 
     result = accounting._get_no_active_balance(ref_bs)
@@ -806,9 +796,7 @@ def test_get_no_active_balance(accounting: Accounting, ref_bs: ReferenceBlockSta
 @pytest.mark.unit
 def test_get_extra_data(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     exited_validators = {(StakingModuleId(1), NodeOperatorId(0)): 5}
-    accounting.lido_validator_state_service.get_lido_newly_exited_validators = Mock(
-        return_value=exited_validators
-    )
+    accounting.lido_validator_state_service.get_lido_newly_exited_validators = Mock(return_value=exited_validators)
     orl = Mock(max_items_per_extra_data_transaction=10, max_node_operators_per_extra_data_item=20)
     accounting.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(return_value=orl)
 
@@ -918,9 +906,7 @@ def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     accounting._get_cl_validators_balance = Mock(return_value=Gwei(1000))
     accounting._get_cl_pending_validators_balance = Mock(return_value=Gwei(500))
     accounting._get_newly_exited_validators_by_modules = Mock(return_value=([StakingModuleId(1)], [5]))
-    accounting._get_balances_by_modules = Mock(
-        return_value=([StakingModuleId(1)], [Gwei(1000)], [Gwei(500)])
-    )
+    accounting._get_balances_by_modules = Mock(return_value=([StakingModuleId(1)], [Gwei(1000)], [Gwei(500)]))
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(100))
     accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(200))
     accounting.get_shares_to_burn = Mock(return_value=Shares(10))

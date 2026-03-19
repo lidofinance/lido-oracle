@@ -261,14 +261,14 @@ def test_kapi_sanity_check_boundary_equal(web3):
 def test_node_operator_from_response():
     staking_module = StakingModuleFactory.build()
     data = (
-        1,     # id
+        1,  # id
         True,  # is_active
         (
-            1,   # is_target_limit_active → SOFT
-            100, # target_validators_count
-            0,   # _stuck_validators_count (deprecated)
-            5,   # refunded_validators_count
-            0,   # _stuck_penalty_end_timestamp (deprecated)
+            1,  # is_target_limit_active → SOFT
+            100,  # target_validators_count
+            0,  # _stuck_validators_count (deprecated)
+            5,  # refunded_validators_count
+            0,  # _stuck_penalty_end_timestamp (deprecated)
             10,  # total_exited_validators
             50,  # total_deposited_validators
             40,  # depositable_validators_count

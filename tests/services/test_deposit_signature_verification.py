@@ -12,8 +12,8 @@ from src.services.deposit_signature_verification import (
 )
 
 # SSZ-valid byte constants (sizes match the ssz field types)
-_PUBKEY = bytes(48)   # ssz.bytes48
-_WC = bytes(32)       # ssz.bytes32
+_PUBKEY = bytes(48)  # ssz.bytes48
+_WC = bytes(32)  # ssz.bytes32
 _AMOUNT = 32_000_000_000
 _SIGNATURE = bytes(96)
 
@@ -173,7 +173,10 @@ def test_is_valid_deposit_signature_with_explicit_genesis_fork_version():
     with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(
-            _PUBKEY, _WC, _AMOUNT, _SIGNATURE,
+            _PUBKEY,
+            _WC,
+            _AMOUNT,
+            _SIGNATURE,
             genesis_fork_version=b'\x01\x00\x00\x00',
         )
     assert result is True
@@ -184,7 +187,10 @@ def test_is_valid_deposit_signature_with_explicit_genesis_validators_root():
     with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(
-            _PUBKEY, _WC, _AMOUNT, _SIGNATURE,
+            _PUBKEY,
+            _WC,
+            _AMOUNT,
+            _SIGNATURE,
             genesis_validators_root=b'\xab' * 32,
         )
     assert result is True
