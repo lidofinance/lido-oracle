@@ -129,6 +129,19 @@ def set_epochs_demand(demand_to_add: Annotated[EpochsDemandParam, Body()], db: D
             status_code=422,
             detail=f"Demand epoch range ({demand_span} epochs) exceeds the retention interval ({retention} epochs)",
         )
+
+    max_stored_epoch = db.max_epoch()
+    if max_stored_epoch is not None:
+        min_epoch_to_keep = max_stored_epoch - retention + 1
+        if min_epoch_to_keep > 0 and demand_to_add.from_epoch < min_epoch_to_keep:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Demand start epoch ({demand_to_add.from_epoch}) is older than retainable range start "
+                    f"({min_epoch_to_keep}) for newest stored epoch ({max_stored_epoch})"
+                ),
+            )
+
     return db.store_demand(demand_to_add.consumer, demand_to_add.from_epoch, demand_to_add.to_epoch)
 
 

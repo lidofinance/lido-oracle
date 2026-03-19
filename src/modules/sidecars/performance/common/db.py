@@ -194,7 +194,9 @@ class DutiesDB:
 
     def _prune(self, current_epoch: EpochNumber) -> None:
         retention = self.get_retention_epochs()
-        min_epoch_to_keep = current_epoch - retention + 1
+        max_stored_epoch = self.max_epoch()
+        anchor_epoch = max_stored_epoch if max_stored_epoch is not None else current_epoch
+        min_epoch_to_keep = anchor_epoch - retention + 1
         if min_epoch_to_keep <= 0:
             return
 

@@ -23,6 +23,7 @@ def mock_session():
 def mock_db(mock_session):
     db = MagicMock(spec=DutiesDB)
     db.get_session.return_value = mock_session
+    db.max_epoch.return_value = None
     return db
 
 
@@ -245,6 +246,51 @@ class TestSetDemand:
         )
         assert response.status_code == 200
         mock_db.store_demand.assert_called_once()
+
+    def test_allows_demand_when_db_empty_and_span_within_retention(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 100
+        mock_db.max_epoch.return_value = None
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=0, to_epoch=99, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
+        mock_db.store_demand.return_value = demand
+
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": 0, "to_epoch": 99},
+        )
+
+        assert response.status_code == 200
+        mock_db.store_demand.assert_called_once_with("consumer1", 0, 99)
+
+    def test_rejects_demand_older_than_retainable_window(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 100
+        mock_db.max_epoch.return_value = 199
+
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": 99, "to_epoch": 120},
+        )
+
+        assert response.status_code == 422
+        assert "older than retainable range start" in response.json()["detail"]
+        mock_db.store_demand.assert_not_called()
+
+    def test_allows_demand_within_retainable_window(self, client, mock_db):
+        mock_db.get_retention_epochs.return_value = 100
+        mock_db.max_epoch.return_value = 199
+        demand = EpochsDemand(
+            consumer="consumer1", from_epoch=100, to_epoch=120, updated_at=datetime(2021, 1, 1, tzinfo=UTC)
+        )
+        mock_db.store_demand.return_value = demand
+
+        response = client.post(
+            "/v1/demands",
+            json={"consumer": "consumer1", "from_epoch": 100, "to_epoch": 120},
+        )
+
+        assert response.status_code == 200
+        mock_db.store_demand.assert_called_once_with("consumer1", 100, 120)
 
 
 class TestDeleteDemand:
