@@ -314,12 +314,6 @@ class FrameCheckpointProcessor:
 
     def _refresh_db_metrics(self) -> None:
         db_epochs_count = self.db.epochs_count()
-        if db_epochs_count == 0:
-            PERFORMANCE_COLLECTOR_DB_MIN_EPOCH.set(0)
-            PERFORMANCE_COLLECTOR_DB_MAX_EPOCH.set(0)
-            PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT.set(0)
-            return
-
         db_min = self.db.min_epoch() or 0
         db_max = self.db.max_epoch() or 0
 
