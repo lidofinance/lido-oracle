@@ -2,9 +2,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import src.modules.sidecars.performance.collector.collector as collector_module
+from src.modules.sidecars.performance.collector.checkpoint import FrameCheckpointsIterator
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.modules.sidecars.performance.common.db import DutiesDB, EpochsDemand
 from src.types import EpochNumber
+
+
+UPDATED_AT = None
 
 
 @pytest.fixture
@@ -22,11 +27,7 @@ def mock_db():
 @pytest.fixture
 def performance_collector(mock_w3, mock_db):
     """Create PerformanceCollector instance with mocked dependencies"""
-    with (
-        patch('src.modules.sidecars.performance.collector.collector.DutiesDB', return_value=mock_db),
-        patch('src.modules.sidecars.performance.web.server.serve'),
-        patch('src.modules.sidecars.performance.web.server.PERFORMANCE_WEB_SERVER_API_PORT', 8080),
-    ):
+    with patch.object(collector_module, 'DutiesDB', return_value=mock_db):
         mock_db.get_epochs_demands_max_updated_at.return_value = 0
         collector = PerformanceCollector(mock_w3)
         return collector
@@ -55,28 +56,9 @@ class TestDefineEpochsToProcessRange:
         assert result == (EpochNumber(98), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_empty_db_with_low_finalized_epoch(self, performance_collector, mock_db):
-        """Test when finalized epoch is low and DB is empty"""
-        finalized_epoch = EpochNumber(5)
-
-        # Setup empty DB
-        mock_db.min_epoch.return_value = None
-        mock_db.max_epoch.return_value = None
-        mock_db.get_epochs_demands.return_value = []
-        mock_db.missing_epochs_in.return_value = [3]
-
-        result = performance_collector._define_epochs_to_process_range(finalized_epoch)
-
-        # Expected calculations:
-        # max_available_epoch_to_check = 5 - 2 = 3
-        # start_epoch = 3 (from missing_epochs_in)
-        # end_epoch = 3
-        assert result == (EpochNumber(3), EpochNumber(3))
-
-    @pytest.mark.unit
-    def test_finalized_epoch_too_low_returns_none(self, performance_collector, mock_db):
-        """Test when finalized epoch is too low - should return None"""
-        finalized_epoch = EpochNumber(1)
+    def test_finalized_epoch_less_than_checkpoint_delay_returns_none(self, performance_collector, mock_db):
+        """Test when finalized epoch is below checkpoint required delay gap."""
+        finalized_epoch = EpochNumber(FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS - 1)
 
         # Setup empty DB
         mock_db.min_epoch.return_value = None
@@ -89,6 +71,40 @@ class TestDefineEpochsToProcessRange:
         assert result is None
 
     @pytest.mark.unit
+    def test_db_with_gap_and_no_current_demands_process_missing_epochs(self, performance_collector, mock_db):
+        """Test when there's a gap in the database and no current demands"""
+        finalized_epoch = EpochNumber(100)
+
+        # Setup DB with gap
+        mock_db.min_epoch.return_value = 10
+        mock_db.max_epoch.return_value = 90
+        mock_db.get_epochs_demands.return_value = []
+        mock_db.missing_epochs_in.return_value = [50, 51, 98]
+
+        result = performance_collector._define_epochs_to_process_range(finalized_epoch)
+
+        mock_db.missing_epochs_in.assert_called_once_with(10, 98)
+
+        # Should start from the first missing epoch
+        assert result[0] == EpochNumber(50)
+        assert result[1] == EpochNumber(98)
+
+    @pytest.mark.unit
+    def test_db_min_epoch_zero_is_used_as_start(self, performance_collector, mock_db):
+        finalized_epoch = EpochNumber(100)
+
+        mock_db.min_epoch.return_value = 0
+        mock_db.max_epoch.return_value = 90
+        mock_db.get_epochs_demands.return_value = []
+        mock_db.missing_epochs_in.return_value = [0, 1, 2]
+
+        result = performance_collector._define_epochs_to_process_range(finalized_epoch)
+
+        mock_db.missing_epochs_in.assert_called_once_with(0, 98)
+        assert result[0] == EpochNumber(0)
+        assert result[1] == EpochNumber(98)
+
+    @pytest.mark.unit
     def test_db_with_gap_process_missing_epochs(self, performance_collector, mock_db):
         """Test when there's a gap in the database"""
         finalized_epoch = EpochNumber(100)
@@ -96,11 +112,14 @@ class TestDefineEpochsToProcessRange:
         # Setup DB with gap
         mock_db.min_epoch.return_value = 10
         mock_db.max_epoch.return_value = 90
-        mock_db.get_epochs_demands.return_value = []
-        # First call (start_epoch=98, end_epoch=98) returns missing epochs
+        mock_db.get_epochs_demands.return_value = [EpochsDemand(consumer="test", from_epoch=10, to_epoch=90)]
+        mock_db.is_range_available.return_value = False
         mock_db.missing_epochs_in.return_value = [50, 51, 52]
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
+
+        mock_db.is_range_available.assert_called_once_with(10, 90)
+        mock_db.missing_epochs_in.assert_called_once_with(10, 98)
 
         # Should start from the first missing epoch
         assert result[0] == EpochNumber(50)
@@ -133,7 +152,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = 50
         mock_db.max_epoch.return_value = 90
         mock_db.get_epochs_demands.return_value = [
-            EpochsDemand(consumer='consumer1', from_epoch=20, to_epoch=30, updated_at=1234)
+            EpochsDemand(consumer='consumer1', from_epoch=20, to_epoch=30, updated_at=UPDATED_AT)
         ]
         mock_db.is_range_available.return_value = False  # Unsatisfied demand
         # When missing_epochs_in is called with (20, 98), return missing epochs in that range
@@ -154,7 +173,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = 50
         mock_db.max_epoch.return_value = 90
         mock_db.get_epochs_demands.return_value = [
-            EpochsDemand(consumer='consumer1', from_epoch=60, to_epoch=70, updated_at=1234)
+            EpochsDemand(consumer='consumer1', from_epoch=60, to_epoch=70, updated_at=UPDATED_AT)
         ]
         mock_db.is_range_available.return_value = True  # Satisfied demand
         mock_db.missing_epochs_in.return_value = []
@@ -174,9 +193,9 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = 50
         mock_db.max_epoch.return_value = 90
         mock_db.get_epochs_demands.return_value = [
-            EpochsDemand(consumer='consumer1', from_epoch=20, to_epoch=30, updated_at=1234),  # Unsatisfied
-            EpochsDemand(consumer='consumer2', from_epoch=95, to_epoch=105, updated_at=1234),  # Unsatisfied
-            EpochsDemand(consumer='consumer3', from_epoch=60, to_epoch=70, updated_at=1234),  # Satisfied
+            EpochsDemand(consumer='consumer1', from_epoch=20, to_epoch=30, updated_at=UPDATED_AT),  # Unsatisfied
+            EpochsDemand(consumer='consumer2', from_epoch=95, to_epoch=105, updated_at=UPDATED_AT),  # Unsatisfied
+            EpochsDemand(consumer='consumer3', from_epoch=60, to_epoch=70, updated_at=UPDATED_AT),  # Satisfied
         ]
 
         def mock_is_range_available(from_epoch, to_epoch):
@@ -232,7 +251,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = 10  # min_epoch > max_available(3)
         mock_db.max_epoch.return_value = 100
 
-        with pytest.raises(ValueError, match="Max available epoch to check is lower than the minimum epoch in the DB"):
+        with pytest.raises(ValueError, match="CL node is not synced"):
             performance_collector._define_epochs_to_process_range(finalized_epoch)
 
     @pytest.mark.unit
@@ -244,7 +263,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = 30
         mock_db.max_epoch.return_value = 150
         mock_db.get_epochs_demands.return_value = [
-            EpochsDemand(consumer='consumer1', from_epoch=10, to_epoch=25, updated_at=1234),
+            EpochsDemand(consumer='consumer1', from_epoch=10, to_epoch=25, updated_at=UPDATED_AT),
         ]
         mock_db.is_range_available.return_value = False  # Unsatisfied demand
         # After processing demand: start_epoch becomes min(198, 10) = 10
