@@ -291,7 +291,7 @@ class Accounting(OracleModule[Web3]):
     ) -> tuple[list[StakingModuleId], list[Gwei], list[Gwei]]:
         """
         Calculate active and pending balances by modules.
-        Exclude modules without changes from the report.
+        Balances are aggregated for all modules returned by `_get_no_active_balance`.
         """
         balances_by_no = self._get_no_active_balance(blockstamp)
 
@@ -560,5 +560,5 @@ class Accounting(OracleModule[Web3]):
         ACCOUNTING_IS_BUNKER.set(report_data.is_bunker)
         ACCOUNTING_BALANCE_GWEI.labels('pending').set(report_data.cl_pending_balance_gwei)
         ACCOUNTING_BALANCE_GWEI.labels('active').set(report_data.cl_validators_balance_gwei)
-        ACCOUNTING_BALANCE_GWEI.labels('withdrawal_vault').set(report_data.withdrawal_vault_balance)
-        ACCOUNTING_BALANCE_GWEI.labels('el_reward_vault').set(report_data.el_rewards_vault_balance)
+        ACCOUNTING_BALANCE_GWEI.labels('withdrawal_vault').set(report_data.withdrawal_vault_balance * 10**9)
+        ACCOUNTING_BALANCE_GWEI.labels('el_reward_vault').set(report_data.el_rewards_vault_balance * 10**9)

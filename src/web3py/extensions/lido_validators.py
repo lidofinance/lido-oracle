@@ -41,9 +41,9 @@ class StakingModule(FromResponse):
     staking_module_fee: int
     # part of the fee taken from staking rewards that goes to the treasury
     treasury_fee: int
-    # target percent of total validators in protocol, in BP
+    # target percentage of total validators in protocol, in BP
     stake_share_limit: int
-    # staking module status if staking module can not accept
+    # staking module status if staking module cannot accept
     # the deposits or can participate in further reward distribution
     status: int
     # name of staking module
@@ -160,7 +160,7 @@ class LidoValidatorsProvider(Module):
         # Validate there are no frontrun
         for pending_deposit in pending_deposits:
             if pending_deposit.pubkey in pending_keys:
-                # In case we already had valid pending deposit for key
+                # In case we already had a valid pending deposit for the key
                 if pending_deposit.pubkey in pending_validators:
                     pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
                     continue
@@ -169,7 +169,7 @@ class LidoValidatorsProvider(Module):
                 if pending_deposit.pubkey in invalid_keys:
                     continue
 
-                # In case if this is the first possibly valid pending deposit for key
+                # In case if this is the first possibly valid pending deposit for the key
                 if is_valid_deposit_signature(
                     pubkey=hex_str_to_bytes(pending_deposit.pubkey),
                     withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
@@ -207,7 +207,7 @@ class LidoValidatorsProvider(Module):
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
 
-        # Make sure that used keys fetched from Keys API is >= total amount of
+        # Make sure that used keys fetched from Keys API are >= total number of
         # deposited validators from Staking Router.
         if keys_count_received < stats.deposited_validators:
             raise CountOfKeysDiffersException(

@@ -182,6 +182,11 @@ class PendingDeposit(Nested):
     signature: HexStr
     slot: SlotNumber
 
+    def __post_init__(self):
+        super().__post_init__()
+        self.pubkey = HexStr(self.pubkey.lower())
+        self.withdrawal_credentials = HexStr(self.withdrawal_credentials.lower())
+
 
 @dataclass
 class BeaconStateView(Nested, FromResponse):
