@@ -76,10 +76,7 @@ def build_oracle_web3(module_name: str) -> Web3:
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
     telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
+        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
     )
 
     modules: dict[str, Any] = {
@@ -108,10 +105,7 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
     telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
+        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
     )
 
     modules: dict[str, Any] = {
@@ -207,9 +201,6 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             variables.FILEBASE_IPFS_HOST,
             443,
             token=variables.FILEBASE_IPFS_TOKEN,
-            add_params={},
-            trust_env=False,
-            extra_headers={"User-Agent": "curl/8.5.0", "Accept": "*/*"},
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
