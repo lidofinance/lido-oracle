@@ -12,22 +12,19 @@ from web3.types import Wei
 from src.constants import TOTAL_BASIS_POINTS
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.types import (
-    ELVaultBalance,
-    FinalizationBatches,
     Gwei,
     OperatorsValidatorCount,
     SlotNumber,
     StakingModuleId,
-    WithdrawalVaultBalance,
 )
+from src.utils.abi import snake_to_camel
 from src.utils.dataclass import FromResponse, Nested
 
 
 BunkerMode = NewType('BunkerMode', bool)
-ValidatorsCount = NewType('ValidatorsCount', int)
-ValidatorsBalance = NewType('ValidatorsBalance', Gwei)
 
 Shares = NewType('Shares', int)
+
 VaultsTreeRoot = NewType('VaultsTreeRoot', bytes)
 VaultsTreeCid = NewType('VaultsTreeCid', str)
 VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
@@ -35,24 +32,17 @@ VaultTreeNode = tuple[ChecksumAddress, Wei, int, int, int, int]
 FinalizationShareRate = NewType('FinalizationShareRate', int)
 
 
-type SharesToBurn = int
-type RebaseReport = tuple[ValidatorsCount, ValidatorsBalance, WithdrawalVaultBalance, ELVaultBalance, SharesToBurn]
-type WqReport = tuple[BunkerMode, FinalizationBatches, FinalizationShareRate]
-
-
-def snake_to_camel(s):
-    parts = s.split('_')
-    return parts[0] + ''.join(word.capitalize() for word in parts[1:])
-
-
 @dataclass
 class ReportData:
     consensus_version: int
     ref_slot: SlotNumber
-    validators_count: int
-    cl_balance_gwei: Gwei
+    cl_validators_balance_gwei: Gwei
+    cl_pending_balance_gwei: Gwei
     staking_module_ids_with_exited_validators: list[StakingModuleId]
     count_exited_validators_by_staking_module: list[int]
+    staking_module_ids_with_updated_balance: list[StakingModuleId]
+    validator_balances_gwei_by_staking_module: list[Gwei]
+    pending_balances_gwei_by_staking_module: list[Gwei]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
@@ -66,14 +56,17 @@ class ReportData:
     extra_data_items_count: int
 
     def as_tuple(self):
-        # Tuple with report in correct order
+        # Tuple with a report in correct order
         return (
             self.consensus_version,
             self.ref_slot,
-            self.validators_count,
-            self.cl_balance_gwei,
+            self.cl_validators_balance_gwei,
+            self.cl_pending_balance_gwei,
             self.staking_module_ids_with_exited_validators,
             self.count_exited_validators_by_staking_module,
+            self.staking_module_ids_with_updated_balance,
+            self.validator_balances_gwei_by_staking_module,
+            self.pending_balances_gwei_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
@@ -170,8 +163,8 @@ class BeaconStat:
 class ReportSimulationPayload:
     timestamp: int
     time_elapsed: int
-    cl_validators: int
-    cl_balance: Wei
+    cl_validators_balance: Wei
+    cl_pending_balance: Wei
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
@@ -182,8 +175,8 @@ class ReportSimulationPayload:
         return (
             self.timestamp,
             self.time_elapsed,
-            self.cl_validators,
-            self.cl_balance,
+            self.cl_validators_balance,
+            self.cl_pending_balance,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
@@ -207,7 +200,7 @@ class ReportSimulationResults:
     ether_to_finalize_wq: Wei
     shares_to_finalize_wq: Shares
     shares_to_burn_for_withdrawals: Shares
-    total_shares_to_burn: SharesToBurn
+    total_shares_to_burn: Shares
     shares_to_mint_as_fees: Shares
     fee_distribution: ReportSimulationFeeDistribution
     principal_cl_balance: Wei

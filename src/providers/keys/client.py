@@ -92,11 +92,11 @@ class KeysAPIClient(HTTPProvider):
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
-        data, _ = self._get(self.STATUS, retval_validator=data_is_dict)
+        data, _ = self._get(self.STATUS, validate_response=data_is_dict)
         return KeysApiStatus.from_response(**data)
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
-        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, retval_validator=data_is_dict)
+        data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, validate_response=data_is_dict)
         return KeysApiStatus.from_response(**data).chainId
 
     def _check_used_keys(self, keys: list[LidoKey]):

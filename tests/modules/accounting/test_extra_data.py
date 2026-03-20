@@ -64,10 +64,10 @@ def test_build_validators_payloads():
     assert result[0].module_id == 1
     assert result[1].module_id == 1
     assert result[1].node_operator_ids == [3, 4]
-    assert result[1].vals_counts == [3, 4]
+    assert result[1].value == [3, 4]
     assert result[2].module_id == 1
     assert result[2].node_operator_ids == [5]
-    assert result[2].vals_counts == [5]
+    assert result[2].value == [5]
     assert result[3].module_id == 2
 
     assert not ExtraDataService.build_validators_payloads({}, 2)

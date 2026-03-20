@@ -1,4 +1,3 @@
-import signal
 from http import HTTPStatus
 from unittest.mock import MagicMock, Mock, patch
 
@@ -143,7 +142,6 @@ def test_run_oracle_module__single_cycle__calls_shutdown(oracle: OracleModule, m
     oracle.shutdown = Mock()
 
     with (
-        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
         patch("src.modules.common.graceful_shutdown.signal.signal"),
     ):
         run_oracle_module(oracle)
@@ -162,7 +160,6 @@ def test_run_oracle_module__daemon_exit__calls_shutdown(oracle: OracleModule, mo
     oracle.shutdown = Mock()
 
     with (
-        patch("src.modules.common.graceful_shutdown.signal.getsignal", return_value=signal.SIG_DFL),
         patch("src.modules.common.graceful_shutdown.signal.signal"),
         pytest.raises(SystemExit, match="0"),
     ):

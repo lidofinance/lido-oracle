@@ -27,4 +27,4 @@ class ExtraDataLengths:
     MODULE_ID = 3
     NODE_OPS_COUNT = 8
     NODE_OPERATOR_ID = 8
-    EXITED_VALS_COUNT = 16
+    NODE_OPERATOR_VALUE = 16

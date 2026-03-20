@@ -20,7 +20,7 @@ def build_transaction_params(w3: Web3, transaction: ContractFunction, account: L
             max(
                 w3.eth.fee_history(1, 'latest', [variables.PRIORITY_FEE_PERCENTILE])['reward'][0][0],
                 variables.MIN_PRIORITY_FEE,
-            )
+            ),
         )
     )
 
@@ -57,7 +57,10 @@ def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | 
 
 
 def sign_and_send_transaction(
-    w3: Web3, transaction: ContractFunction, params: TxParams, account: LocalAccount,
+    w3: Web3,
+    transaction: ContractFunction,
+    params: TxParams,
+    account: LocalAccount,
 ) -> bytes:
     tx = transaction.build_transaction(params)
     signed_tx = w3.eth.account.sign_transaction(tx, account.key)
