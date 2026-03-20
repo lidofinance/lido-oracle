@@ -27,6 +27,9 @@ STORACHA_SPACE_DID: Final = os.getenv('STORACHA_SPACE_DID')
 LIDO_IPFS_HOST: Final = os.getenv('LIDO_IPFS_HOST') or None
 LIDO_IPFS_TOKEN: Final = os.getenv('LIDO_IPFS_TOKEN')
 
+FILEBASE_IPFS_HOST: Final = os.getenv('FILEBASE_IPFS_HOST')
+FILEBASE_IPFS_TOKEN: Final = os.getenv('FILEBASE_IPFS_TOKEN')
+
 # - Account -
 ACCOUNT = None
 MEMBER_PRIV_KEY = from_file_or_env('MEMBER_PRIV_KEY')

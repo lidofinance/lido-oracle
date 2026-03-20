@@ -196,6 +196,17 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
         )
 
+    if variables.FILEBASE_IPFS_HOST and variables.FILEBASE_IPFS_TOKEN:
+        yield Kubo(
+            variables.FILEBASE_IPFS_HOST,
+            443,
+            token=variables.FILEBASE_IPFS_TOKEN,
+            add_params={},
+            trust_env=False,
+            extra_headers={"User-Agent": "curl/8.5.0", "Accept": "*/*"},
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
     if variables.KUBO_HOST:
         yield Kubo(
             variables.KUBO_HOST,
