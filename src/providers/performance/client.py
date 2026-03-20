@@ -38,7 +38,7 @@ class PerformanceClient(HTTPProvider):
         data, _ = self._get(
             self.API_EPOCHS_DATA,
             query_params={'from': l_epoch, 'to': r_epoch},
-            retval_validator=data_is_list,
+            validate_response=data_is_list,
         )
         return [Duty.model_validate(item) for item in data] if data else []
 

@@ -123,7 +123,7 @@ class SafeBorder(Web3Converter):
 
     @duration_meter()
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> EpochNumber | None:
-        validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
+        validators = self.w3.lido_validators.get_active_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
 
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
@@ -203,13 +203,13 @@ class SafeBorder(Web3Converter):
 
     def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
         """
-        Returns number of slashed validators for the frame for the given validators
-        Slashed flag can't be undone, so we can only look at the last slot
+        Returns True if there are any slashed validators for the frame for the given validators;
+        since the slashed flag is permanent, we only need to examine the last slot in the frame.
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
         last_slot_in_frame_blockstamp = self._get_blockstamp(last_slot_in_frame)
 
-        lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
+        lido_validators = self.w3.lido_validators.get_active_lido_validators(last_slot_in_frame_blockstamp)
         slashed_validators = filter_slashed_validators(
             v for v in lido_validators if v.validator.pubkey in slashed_pubkeys
         )

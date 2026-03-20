@@ -56,7 +56,7 @@ class BunkerService:
         state = self.w3.cc.get_state_view(blockstamp)
         all_validators = state.indexed_validators
         slashings = state.slashings
-        lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp)
+        lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
 
         # Set metrics
         ALL_VALIDATORS.set(len(all_validators))

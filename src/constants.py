@@ -38,6 +38,8 @@ SYNC_COMMITTEE_SIZE = 512
 EPOCHS_PER_SYNC_COMMITTEE_PERIOD = 256
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
 DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
+# https://github.com/ethereum/consensus-specs/blob/f0f41198d6a8d7ae709d7d36a61c1e97c235d8ec/specs/phase0/beacon-chain.md?plain=1#L329C52-L329C62
+GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3

@@ -165,7 +165,7 @@ class TestIsBunkerMode:
     def mock_validators(self, bunker: BunkerService) -> Sequence[LidoValidator]:
         validators = LidoValidatorFactory.batch(5)
         bunker.w3.cc.get_validators = Mock(return_value=validators)
-        bunker.w3.lido_validators.get_lido_validators = Mock(return_value=validators[:2])
+        bunker.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators[:2])
         return validators
 
     @pytest.fixture

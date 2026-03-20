@@ -36,11 +36,6 @@ class MemberInfo:
 
 
 @dataclass(frozen=True)
-class ConsensusGenesisConfig:
-    genesis_time: int
-
-
-@dataclass(frozen=True)
 class CurrentFrame:
     # Order is important!
     ref_slot: SlotNumber

@@ -36,7 +36,6 @@ from src.types import (
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.range import sequence
 from src.utils.validator_state import is_active_validator
-from src.utils.web3converter import Web3Converter
 from src.web3py.types import Web3StakingModule
 
 
@@ -133,7 +132,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     @duration_meter()
     def _set_epochs_range_to_collect(self, blockstamp: BlockStamp):
-        converter = self._converter(blockstamp)
+        converter = self._get_web3_converter(blockstamp)
 
         l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
@@ -232,7 +231,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     @lru_cache(maxsize=1)
     def _calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
         last_report = self._get_last_report(blockstamp)
-        distribution = Distribution(self.w3, self._converter(blockstamp), self.state)
+        distribution = Distribution(self.w3, self._get_web3_converter(blockstamp), self.state)
         result = distribution.calculate(blockstamp, last_report)
         return result, last_report
 
@@ -425,7 +424,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     @lru_cache(maxsize=1)
     def _get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
-        converter = self._converter(blockstamp)
+        converter = self._get_web3_converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
         if converter.frame_config.initial_epoch == far_future_initial_epoch:
@@ -469,6 +468,3 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         logger.info({"msg": "Epochs range for the report", "l_epoch": l_epoch, "r_epoch": r_epoch})
 
         return l_epoch, r_epoch
-
-    def _converter(self, blockstamp: BlockStamp) -> Web3Converter:
-        return Web3Converter(self.get_chain_config(blockstamp), self.get_frame_config(blockstamp))
