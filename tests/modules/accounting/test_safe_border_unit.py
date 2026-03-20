@@ -139,14 +139,14 @@ def test_get_associated_slashings_border_epoch(safe_border, past_blockstamp):
 
 @pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_validators(safe_border, past_blockstamp):
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[])
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=[])
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
 
 @pytest.mark.unit
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_validators(safe_border, past_blockstamp):
-    safe_border.w3.lido_validators.get_lido_validators = Mock(
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(
         return_value=[
             create_validator_stub(100, 105),
             create_validator_stub(102, 107),
@@ -161,7 +161,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_no_slashed_valida
 def test_get_earliest_slashed_epoch_among_incomplete_slashings_withdrawable_validators(safe_border, past_blockstamp):
     withdrawable_epoch = past_blockstamp.ref_epoch - 10
     validators = [create_validator_stub(100, withdrawable_epoch, True)]
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
@@ -174,7 +174,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_unable_to_predict
             non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, non_withdrawable_epoch, True
         )
     ]
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
     safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
@@ -190,7 +190,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_all_withdrawable(
             past_blockstamp.ref_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, past_blockstamp.ref_epoch - 2, True
         ),
     ]
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() is None
 
@@ -206,7 +206,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_predicted(safe_bo
             non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY - 2, non_withdrawable_epoch, True
         ),
     ]
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == (
         non_withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
@@ -227,7 +227,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
             non_withdrawable_epoch - MIN_VALIDATOR_WITHDRAWABILITY_DELAY, non_withdrawable_epoch, True
         ),
     ]
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=validators)
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
     safe_border._find_earliest_slashed_epoch_rounded_to_frame = Mock(return_value=1331)
 
     assert safe_border._get_earliest_slashed_epoch_among_incomplete_slashings() == 1331
@@ -253,7 +253,7 @@ def test_get_earliest_slashed_epoch_among_incomplete_slashings_at_least_one_unpr
 #     border
 ###
 @pytest.mark.unit
-def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, past_blockstamp):
+def test_get_earliest_slashed_epoch_if_exiting_validator_slashed(safe_border, past_blockstamp):
     # in binary search:
     # start frame = 73
     # end frame = 101
@@ -283,7 +283,7 @@ def test_get_earliest_slashed_epcoh_if_exiting_validator_slashed(safe_border, pa
         )
     )
     safe_border._slashings_in_frame = Mock(side_effect=lambda frame, slashed_pubkeys: frame >= 45)
-    safe_border.w3.lido_validators.get_lido_validators = Mock(return_value=[validator1, validator2])
+    safe_border.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator1, validator2])
     earliest_slashed_epoch = safe_border._get_earliest_slashed_epoch_among_incomplete_slashings()
     assert earliest_slashed_epoch == 450
 

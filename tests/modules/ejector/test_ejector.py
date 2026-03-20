@@ -359,7 +359,7 @@ def test_get_withdrawable_lido_validators_balance(
     ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    ejector.w3.lido_validators.get_lido_validators = Mock(
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
         return_value=[
             LidoValidatorFactory.build(balance="0"),
             LidoValidatorFactory.build(balance="0"),
@@ -379,7 +379,7 @@ def test_get_withdrawable_lido_validators_balance(
         assert result == 42 * GWEI_TO_WEI, "Unexpected withdrawable amount"
 
         ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
-        ejector.w3.lido_validators.get_lido_validators.assert_called_once()
+        ejector.w3.lido_validators.get_active_lido_validators.assert_called_once()
 
 
 @pytest.mark.unit

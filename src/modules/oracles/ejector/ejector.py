@@ -207,7 +207,7 @@ class Ejector(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        lido_validators = self.w3.lido_validators.get_lido_validators(blockstamp=blockstamp)
+        lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
         return sum(
             (
                 self._get_predicted_withdrawable_balance(v)
