@@ -3,14 +3,17 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from eth_typing import ChecksumAddress
+from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.providers.consensus.types import Validator
+from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.keys.types import LidoKey
+from src.services.deposit_signature_verification import is_valid_deposit_signature
 from src.types import BlockStamp, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.types import hex_str_to_bytes
 
 
 logger = logging.getLogger(__name__)
@@ -38,9 +41,9 @@ class StakingModule(FromResponse):
     staking_module_fee: int
     # part of the fee taken from staking rewards that goes to the treasury
     treasury_fee: int
-    # target percent of total validators in protocol, in BP
+    # target percentage of total validators in protocol, in BP
     stake_share_limit: int
-    # staking module status if staking module can not accept
+    # staking module status if staking module cannot accept
     # the deposits or can participate in further reward distribution
     status: int
     # name of staking module
@@ -115,16 +118,88 @@ class CountOfKeysDiffersException(Exception):
 
 
 type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
 
 class LidoValidatorsProvider(Module):
     w3: Web3
 
+    def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        return self._get_lido_validators_with_keys(blockstamp)[0]
+
+    def get_lido_wc_list(self, blockstamp: BlockStamp) -> list[HexStr]:
+        wc_address = self.w3.lido_contracts.lido_locator.withdrawal_vault(blockstamp.block_hash)[2:].lower()
+        wc_postfix = '0' * 22 + wc_address
+
+        return [
+            HexStr(ETH1_ADDRESS_WITHDRAWAL_PREFIX + wc_postfix),
+            HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + wc_postfix),
+        ]
+
     @lru_cache(maxsize=1)
-    def get_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+    def get_pending_lido_validators(
+        self,
+        blockstamp: BlockStamp,
+    ) -> dict[HexStr, PendingValidator]:
+        """
+        Return the list of Lido keys that already have pending deposits on the CL.
+
+        Validates all BLS signatures and ensures there are no front-running attacks.
+        """
+
+        lido_wc_list = self.get_lido_wc_list(blockstamp)
+
+        genesis_config = self.w3.cc.get_genesis()
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        pending_lido_keys = self._get_lido_validators_with_keys(blockstamp)[1]
+        pending_keys = {key.key: key for key in pending_lido_keys}
+
+        pending_validators = {}
+        invalid_keys = set()
+
+        # Validate there are no frontrun
+        for pending_deposit in pending_deposits:
+            if pending_deposit.pubkey in pending_keys:
+                # In case we already had a valid pending deposit for the key
+                if pending_deposit.pubkey in pending_validators:
+                    pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
+                    continue
+
+                # If there already were valid validator with wrong wc
+                if pending_deposit.pubkey in invalid_keys:
+                    continue
+
+                # In case if this is the first possibly valid pending deposit for the key
+                if is_valid_deposit_signature(
+                    pubkey=hex_str_to_bytes(pending_deposit.pubkey),
+                    withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
+                    amount=pending_deposit.amount,
+                    signature=hex_str_to_bytes(pending_deposit.signature),
+                    genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
+                    # Fork-agnostic domain since deposits are valid across forks
+                    # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
+                ):
+                    lido_key = pending_keys[pending_deposit.pubkey]
+
+                    if pending_deposit.withdrawal_credentials in lido_wc_list:
+                        # Lido WC
+                        pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
+                    else:
+                        # Possible frontrun attack
+                        invalid_keys.add(pending_deposit.pubkey)
+                        logger.warning(
+                            {
+                                'msg': 'Ignoring key. Possible front run attack',
+                                'value': pending_deposit.pubkey,
+                            }
+                        )
+
+        return pending_validators
+
+    @lru_cache(maxsize=1)
+    def _get_lido_validators_with_keys(self, blockstamp: BlockStamp) -> tuple[list[LidoValidator], list[LidoKey]]:
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
         validators = self.w3.cc.get_validators(blockstamp)
-
         self._kapi_sanity_check(len(lido_keys), blockstamp)
 
         return self.merge_validators_with_keys(lido_keys, validators)
@@ -132,7 +207,7 @@ class LidoValidatorsProvider(Module):
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
 
-        # Make sure that used keys fetched from Keys API is >= total amount of
+        # Make sure that used keys fetched from Keys API are >= total number of
         # deposited validators from Staking Router.
         if keys_count_received < stats.deposited_validators:
             raise CountOfKeysDiffersException(
@@ -141,11 +216,15 @@ class LidoValidatorsProvider(Module):
             )
 
     @staticmethod
-    def merge_validators_with_keys(keys: list[LidoKey], validators: list[Validator]) -> list[LidoValidator]:
+    def merge_validators_with_keys(
+        keys: list[LidoKey],
+        validators: list[Validator],
+    ) -> tuple[list[LidoValidator], list[LidoKey]]:
         """Merging and filter non-lido validators."""
         validators_keys_dict = {validator.validator.pubkey: validator for validator in validators}
 
         lido_validators = []
+        pending_lido_keys = []
 
         for key in keys:
             if key.key in validators_keys_dict:
@@ -155,12 +234,14 @@ class LidoValidatorsProvider(Module):
                         **asdict(validators_keys_dict[key.key]),
                     )
                 )
+            else:
+                pending_lido_keys.append(key)
 
-        return lido_validators
+        return lido_validators, pending_lido_keys
 
     @lru_cache(maxsize=1)
     def get_lido_validators_by_node_operators(self, blockstamp: BlockStamp) -> ValidatorsByNodeOperator:
-        merged_validators = self.get_lido_validators(blockstamp)
+        merged_validators = self.get_active_lido_validators(blockstamp)
         no_operators = self.get_lido_node_operators(blockstamp)
 
         # Make sure even empty NO will be presented in dict

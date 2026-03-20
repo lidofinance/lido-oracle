@@ -116,7 +116,7 @@ class DaemonModule(ABC):
 
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
-        """Executes module business logic for given blockstamp"""
+        """Executes module business logic for a given blockstamp"""
 
     @property
     def cc(self) -> ConsensusClient:

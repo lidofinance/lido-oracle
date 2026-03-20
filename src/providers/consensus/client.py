@@ -69,14 +69,15 @@ class ConsensusClient(HTTPProvider):
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
-        data, _ = self._get(self.API_GET_SPEC, retval_validator=data_is_dict)
+        data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
-    def get_genesis(self):
+    @lru_cache(maxsize=1)
+    def get_genesis(self) -> GenesisResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """
-        data, _ = self._get(self.API_GET_GENESIS, retval_validator=data_is_dict)
+        data, _ = self._get(self.API_GET_GENESIS, validate_response=data_is_dict)
         return GenesisResponse.from_response(**data)
 
     def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
@@ -89,7 +90,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_ROOT,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BlockRootResponse.from_response(**data)
 
@@ -100,7 +101,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
         return resp
@@ -112,7 +113,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BlockDetailsResponse.from_response(**data)
 
@@ -127,7 +128,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
 
         attestations = [
@@ -153,7 +154,7 @@ class ConsensusClient(HTTPProvider):
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error,
-                retval_validator=data_is_list,
+                validate_response=data_is_list,
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
@@ -175,7 +176,7 @@ class ConsensusClient(HTTPProvider):
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch},
                 force_raise=self.__raise_on_prysm_error,
-                retval_validator=data_is_dict,
+                validate_response=data_is_dict,
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
@@ -204,7 +205,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_PROPOSER_DUTIES,
             path_params=(epoch,),
-            retval_validator=data_is_list_and_dependent_root_matches,
+            validate_response=data_is_list_and_dependent_root_matches,
         )
         return data
 
@@ -214,7 +215,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_STATE,
             path_params=(state_id,),
             stream=True,
-            retval_validator=data_is_transient_dict,
+            validate_response=data_is_transient_dict,
         )
         return list(data["block_roots"])
 
@@ -271,7 +272,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_STATE,
             path_params=(state_id,),
             force_raise=self.__raise_on_prysm_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return data
 
@@ -299,7 +300,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
-            retval_validator=data_is_list,
+            validate_response=data_is_list,
         )
         return data
 
@@ -314,7 +315,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_SYNC_COMMITTEE,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch},
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return data
 
@@ -334,6 +335,6 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get_without_fallbacks(
             self.hosts[provider_index],
             self.API_GET_SPEC,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID

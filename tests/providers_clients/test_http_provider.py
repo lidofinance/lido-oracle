@@ -78,12 +78,12 @@ def test_force_raise():
         None,
         None,
         stream=False,
-        retval_validator=data_is_any,
+        validate_response=data_is_any,
     )
 
 
 @pytest.mark.unit
-def test_retval_validator():
+def test_validate_response():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
     provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
@@ -96,7 +96,7 @@ def test_retval_validator():
         raise ValueError("Validation failed")
 
     with pytest.raises(ValueError, match="Validation failed"):
-        provider._get('test', retval_validator=failed_validation)
+        provider._get('test', validate_response=failed_validation)
 
 
 @pytest.mark.unit
