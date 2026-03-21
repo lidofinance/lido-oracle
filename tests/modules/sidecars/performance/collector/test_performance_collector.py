@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import cast
 from unittest.mock import Mock, call, patch
 
@@ -12,6 +13,9 @@ from src.types import EpochNumber
 
 
 UPDATED_AT = None
+
+T0 = datetime(2026, 1, 1, tzinfo=UTC)
+T1 = datetime(2026, 1, 2, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -30,7 +34,8 @@ def mock_db() -> Mock:
 def performance_collector(mock_w3: Mock, mock_db: Mock) -> PerformanceCollector:
     """Create PerformanceCollector instance with mocked dependencies"""
     with patch.object(collector_module, 'DutiesDB', return_value=mock_db):
-        mock_db.get_epochs_demands_max_updated_at.return_value = 0
+        mock_db.get_epochs_demands_max_updated_at.return_value = T0
+        mock_db.demands_count.return_value = 0
         collector = PerformanceCollector(mock_w3)
         return collector
 
@@ -331,7 +336,7 @@ class TestExecuteModule:
         checkpoints = [Mock(slot=10), Mock(slot=20)]
 
         performance_collector._define_epochs_to_process_range = Mock(return_value=(start_epoch, end_epoch))
-        performance_collector._new_epochs_range_demand_appeared = Mock(return_value=False)
+        performance_collector._has_epochs_demand_changed = Mock(return_value=False)
 
         processor = Mock(exec=Mock(side_effect=[[EpochNumber(90)], [EpochNumber(91)]]))
 
@@ -351,13 +356,13 @@ class TestExecuteModule:
         )
         assert processor.exec.call_count == len(checkpoints)
         assert cast(Mock, performance_collector._reset_cycle_timeout).call_count == len(checkpoints)
-        assert cast(Mock, performance_collector._new_epochs_range_demand_appeared).call_count == len(checkpoints)
+        assert cast(Mock, performance_collector._has_epochs_demand_changed).call_count == len(checkpoints)
 
     @pytest.mark.unit
     def test_empty_checkpoints_returns_next_slot(self, performance_collector: PerformanceCollector):
         """Test when FrameCheckpointsIterator yields no checkpoints"""
         performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
-        performance_collector._new_epochs_range_demand_appeared = Mock()
+        performance_collector._has_epochs_demand_changed = Mock()
 
         processor = Mock()
 
@@ -370,7 +375,7 @@ class TestExecuteModule:
         assert result is ModuleExecuteDelay.NEXT_SLOT
         processor.exec.assert_not_called()
         cast(Mock, performance_collector._reset_cycle_timeout).assert_not_called()
-        cast(Mock, performance_collector._new_epochs_range_demand_appeared).assert_not_called()
+        cast(Mock, performance_collector._has_epochs_demand_changed).assert_not_called()
 
     @pytest.mark.unit
     def test_stops_on_new_demand(self, performance_collector: PerformanceCollector):
@@ -378,7 +383,7 @@ class TestExecuteModule:
         checkpoints = [Mock(slot=10), Mock(slot=20), Mock(slot=30)]
 
         performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
-        performance_collector._new_epochs_range_demand_appeared = Mock(side_effect=[False, True])
+        performance_collector._has_epochs_demand_changed = Mock(side_effect=[False, True])
 
         processor = Mock()
         processor.exec.side_effect = [[...], [...]]
@@ -393,7 +398,7 @@ class TestExecuteModule:
         assert processor.exec.call_count == 2
         processor.exec.assert_has_calls([call(checkpoints[0]), call(checkpoints[1])])
         assert cast(Mock, performance_collector._reset_cycle_timeout).call_count == 2
-        assert cast(Mock, performance_collector._new_epochs_range_demand_appeared).call_count == 2
+        assert cast(Mock, performance_collector._has_epochs_demand_changed).call_count == 2
 
     @pytest.mark.unit
     def test_checkpoints_processed_in_order(self, performance_collector: PerformanceCollector):
@@ -401,7 +406,7 @@ class TestExecuteModule:
         checkpoints = [Mock(slot=10), Mock(slot=20), Mock(slot=30)]
 
         performance_collector._define_epochs_to_process_range = Mock(return_value=(EpochNumber(90), EpochNumber(98)))
-        performance_collector._new_epochs_range_demand_appeared = Mock(return_value=False)
+        performance_collector._has_epochs_demand_changed = Mock(return_value=False)
 
         processor = Mock()
         processor.exec.side_effect = [[EpochNumber(90)], [EpochNumber(91)], [EpochNumber(92)]]
@@ -416,3 +421,54 @@ class TestExecuteModule:
         assert processor.exec.call_count == len(checkpoints)
         expected_call_seq = [call(ch) for ch in checkpoints]
         processor.exec.assert_has_calls(expected_call_seq, any_order=False)
+
+
+class TestHasEpochsDemandChanged:
+    @pytest.mark.unit
+    def test_no_change(self, performance_collector: PerformanceCollector, mock_db: Mock):
+        performance_collector.last_epochs_demand_update = T0
+        performance_collector.last_demands_count = 0
+        mock_db.get_epochs_demands_max_updated_at.return_value = T0
+        mock_db.demands_count.return_value = 0
+
+        assert performance_collector._has_epochs_demand_changed() is False
+
+    @pytest.mark.unit
+    def test_detects_new_demand_by_updated_at(self, performance_collector: PerformanceCollector, mock_db: Mock):
+        performance_collector.last_epochs_demand_update = T0
+        performance_collector.last_demands_count = 1
+        mock_db.get_epochs_demands_max_updated_at.return_value = T1
+        mock_db.demands_count.return_value = 1
+
+        assert performance_collector._has_epochs_demand_changed() is True
+        assert performance_collector.last_epochs_demand_update == T1
+
+    @pytest.mark.unit
+    def test_detects_demand_deletion_by_count(self, performance_collector: PerformanceCollector, mock_db: Mock):
+        performance_collector.last_epochs_demand_update = T0
+        performance_collector.last_demands_count = 2
+        mock_db.get_epochs_demands_max_updated_at.return_value = T0
+        mock_db.demands_count.return_value = 1
+
+        assert performance_collector._has_epochs_demand_changed() is True
+        assert performance_collector.last_demands_count == 1
+
+    @pytest.mark.unit
+    def test_detects_all_demands_deleted(self, performance_collector: PerformanceCollector, mock_db: Mock):
+        performance_collector.last_epochs_demand_update = T0
+        performance_collector.last_demands_count = 1
+        mock_db.get_epochs_demands_max_updated_at.return_value = None
+        mock_db.demands_count.return_value = 0
+
+        assert performance_collector._has_epochs_demand_changed() is True
+        assert performance_collector.last_demands_count == 0
+        assert performance_collector.last_epochs_demand_update is None
+
+    @pytest.mark.unit
+    def test_no_change_on_empty_table(self, performance_collector: PerformanceCollector, mock_db: Mock):
+        performance_collector.last_epochs_demand_update = None
+        performance_collector.last_demands_count = 0
+        mock_db.get_epochs_demands_max_updated_at.return_value = None
+        mock_db.demands_count.return_value = 0
+
+        assert performance_collector._has_epochs_demand_changed() is False

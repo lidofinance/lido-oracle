@@ -36,6 +36,7 @@ class PerformanceCollector(DaemonModule):
 
     # Datetime of the last epochs demand update
     last_epochs_demand_update: datetime | None = None
+    last_demands_count: int = 0
 
     def __init__(self, cc: ConsensusClient):
         super().__init__(cc=cc)
@@ -44,6 +45,7 @@ class PerformanceCollector(DaemonModule):
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
         )
         self.last_epochs_demand_update = self.db.get_epochs_demands_max_updated_at()
+        self.last_demands_count = self.db.demands_count()
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:
@@ -122,8 +124,8 @@ class PerformanceCollector(DaemonModule):
             # Reset base cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
-            if self._new_epochs_range_demand_appeared():
-                logger.info({"msg": "New epochs demand is found during processing"})
+            if self._has_epochs_demand_changed():
+                logger.info({"msg": "Epochs demand change detected during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
         logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
@@ -194,11 +196,15 @@ class PerformanceCollector(DaemonModule):
 
         return start_epoch, end_epoch
 
-    def _new_epochs_range_demand_appeared(self) -> bool:
+    def _has_epochs_demand_changed(self) -> bool:
         max_updated_at = self.db.get_epochs_demands_max_updated_at()
-        updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
-        if updated:
+        count = self.db.demands_count()
+        changed = count != self.last_demands_count or (
+            max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
+        )
+        if changed:
             self.last_epochs_demand_update = max_updated_at
+            self.last_demands_count = count
             self._update_demand_metrics()
             return True
         return False
