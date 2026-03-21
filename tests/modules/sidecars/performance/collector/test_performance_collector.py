@@ -1,8 +1,10 @@
-from unittest.mock import Mock, patch
+from typing import cast
+from unittest.mock import Mock, call, patch
 
 import pytest
 
 import src.modules.sidecars.performance.collector.collector as collector_module
+from src.modules.common.types import ModuleExecuteDelay
 from src.modules.sidecars.performance.collector.checkpoint import FrameCheckpointsIterator
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.modules.sidecars.performance.common.db import DutiesDB, EpochsDemand
@@ -13,19 +15,19 @@ UPDATED_AT = None
 
 
 @pytest.fixture
-def mock_w3():
+def mock_w3() -> Mock:
     """Mock Web3 instance"""
     return Mock()
 
 
 @pytest.fixture
-def mock_db():
+def mock_db() -> Mock:
     """Mock DutiesDB instance"""
     return Mock(spec=DutiesDB)
 
 
 @pytest.fixture
-def performance_collector(mock_w3, mock_db):
+def performance_collector(mock_w3: Mock, mock_db: Mock) -> PerformanceCollector:
     """Create PerformanceCollector instance with mocked dependencies"""
     with patch.object(collector_module, 'DutiesDB', return_value=mock_db):
         mock_db.get_epochs_demands_max_updated_at.return_value = 0
@@ -37,7 +39,7 @@ class TestDefineEpochsToProcessRange:
     """Test cases for define_epochs_to_process_range method"""
 
     @pytest.mark.unit
-    def test_empty_db_default_range(self, performance_collector, mock_db):
+    def test_empty_db_default_range(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when database is empty - should return default range"""
         finalized_epoch = EpochNumber(100)
 
@@ -56,7 +58,9 @@ class TestDefineEpochsToProcessRange:
         assert result == (EpochNumber(98), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_finalized_epoch_less_than_checkpoint_delay_returns_none(self, performance_collector, mock_db):
+    def test_finalized_epoch_less_than_checkpoint_delay_returns_none(
+        self, performance_collector: PerformanceCollector, mock_db: Mock
+    ):
         """Test when finalized epoch is below checkpoint required delay gap."""
         finalized_epoch = EpochNumber(FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS - 1)
 
@@ -71,7 +75,9 @@ class TestDefineEpochsToProcessRange:
         assert result is None
 
     @pytest.mark.unit
-    def test_db_with_gap_and_no_current_demands_process_missing_epochs(self, performance_collector, mock_db):
+    def test_db_with_gap_and_no_current_demands_process_missing_epochs(
+        self, performance_collector: PerformanceCollector, mock_db: Mock
+    ):
         """Test when there's a gap in the database and no current demands"""
         finalized_epoch = EpochNumber(100)
 
@@ -86,11 +92,10 @@ class TestDefineEpochsToProcessRange:
         mock_db.missing_epochs_in.assert_called_once_with(10, 98)
 
         # Should start from the first missing epoch
-        assert result[0] == EpochNumber(50)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(50), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_db_min_epoch_zero_is_used_as_start(self, performance_collector, mock_db):
+    def test_db_min_epoch_zero_is_used_as_start(self, performance_collector: PerformanceCollector, mock_db: Mock):
         finalized_epoch = EpochNumber(100)
 
         mock_db.min_epoch.return_value = 0
@@ -101,11 +106,10 @@ class TestDefineEpochsToProcessRange:
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         mock_db.missing_epochs_in.assert_called_once_with(0, 98)
-        assert result[0] == EpochNumber(0)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(0), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_db_with_gap_process_missing_epochs(self, performance_collector, mock_db):
+    def test_db_with_gap_process_missing_epochs(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when there's a gap in the database"""
         finalized_epoch = EpochNumber(100)
 
@@ -122,11 +126,10 @@ class TestDefineEpochsToProcessRange:
         mock_db.missing_epochs_in.assert_called_once_with(10, 98)
 
         # Should start from the first missing epoch
-        assert result[0] == EpochNumber(50)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(50), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_db_without_gap_continues_from_last(self, performance_collector, mock_db):
+    def test_db_without_gap_continues_from_last(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when DB has no gaps - should collect next epochs"""
         finalized_epoch = EpochNumber(100)
 
@@ -140,11 +143,12 @@ class TestDefineEpochsToProcessRange:
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         # Should start from next epoch after max_epoch_in_db
-        assert result[0] == EpochNumber(91)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(91), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_unsatisfied_epochs_demand_affects_start_epoch(self, performance_collector, mock_db):
+    def test_unsatisfied_epochs_demand_affects_start_epoch(
+        self, performance_collector: PerformanceCollector, mock_db: Mock
+    ):
         """Test when there's unsatisfied demand - should affect start epoch"""
         finalized_epoch = EpochNumber(100)
 
@@ -161,11 +165,10 @@ class TestDefineEpochsToProcessRange:
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         # start_epoch should be min(98, 20) = 20 due to unsatisfied demand, then min of missing epochs
-        assert result[0] == EpochNumber(20)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(20), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_satisfied_epochs_demand_ignored(self, performance_collector, mock_db):
+    def test_satisfied_epochs_demand_ignored(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test that satisfied epochs demand is ignored"""
         finalized_epoch = EpochNumber(100)
 
@@ -180,12 +183,13 @@ class TestDefineEpochsToProcessRange:
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
+        # Satisfied demand should be deleted from the DB
+        mock_db.delete_demand.assert_called_once()
         # Should start from next epoch after max (ignoring satisfied demand)
-        assert result[0] == EpochNumber(91)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(91), EpochNumber(98))
 
     @pytest.mark.unit
-    def test_multiple_demands_with_mixed_satisfaction(self, performance_collector, mock_db):
+    def test_multiple_demands_with_mixed_satisfaction(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test with multiple demands - some satisfied, some not"""
         finalized_epoch = EpochNumber(200)
 
@@ -208,11 +212,10 @@ class TestDefineEpochsToProcessRange:
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         # start_epoch should be min(198, 20, 95) = 20 from unsatisfied demands
-        assert result[0] == EpochNumber(20)
-        assert result[1] == EpochNumber(198)
+        assert result == (EpochNumber(20), EpochNumber(198))
 
     @pytest.mark.unit
-    def test_gap_in_empty_db_handling(self, performance_collector, mock_db):
+    def test_gap_in_empty_db_handling(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test handling when DB is empty but missing_epochs_in is called"""
         finalized_epoch = EpochNumber(100)
 
@@ -227,7 +230,7 @@ class TestDefineEpochsToProcessRange:
             performance_collector._define_epochs_to_process_range(finalized_epoch)
 
     @pytest.mark.unit
-    def test_start_epoch_exceeds_max_available(self, performance_collector, mock_db):
+    def test_start_epoch_exceeds_max_available(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when start_epoch > max_available_epoch_to_check"""
         finalized_epoch = EpochNumber(100)
 
@@ -243,7 +246,7 @@ class TestDefineEpochsToProcessRange:
         assert result is None
 
     @pytest.mark.unit
-    def test_cl_node_not_synced_error(self, performance_collector, mock_db):
+    def test_cl_node_not_synced_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when CL node is not synced (max_available < min_epoch_in_db)"""
         finalized_epoch = EpochNumber(5)
 
@@ -255,7 +258,7 @@ class TestDefineEpochsToProcessRange:
             performance_collector._define_epochs_to_process_range(finalized_epoch)
 
     @pytest.mark.unit
-    def test_complex_scenario_with_gaps_and_demands(self, performance_collector, mock_db):
+    def test_complex_scenario_with_gaps_and_demands(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test complex scenario with gaps and demands"""
         finalized_epoch = EpochNumber(200)
 
@@ -272,11 +275,12 @@ class TestDefineEpochsToProcessRange:
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         # start_epoch should be min from missing epochs = 10
-        assert result[0] == EpochNumber(10)  # From demand and missing epochs
-        assert result[1] == EpochNumber(198)
+        assert result == (EpochNumber(10), EpochNumber(198))
 
     @pytest.mark.unit
-    def test_no_epochs_demand_logging(self, performance_collector, mock_db, caplog):
+    def test_no_epochs_demand_logging(
+        self, performance_collector: PerformanceCollector, mock_db: Mock, caplog: pytest.LogCaptureFixture
+    ):
         """Test that 'No epoch demands found' is logged when appropriate"""
         finalized_epoch = EpochNumber(100)
 
@@ -290,5 +294,125 @@ class TestDefineEpochsToProcessRange:
             result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
         assert "No epoch demands found" in caplog.text
-        assert result[0] == EpochNumber(91)
-        assert result[1] == EpochNumber(98)
+        assert result == (EpochNumber(91), EpochNumber(98))
+
+
+class TestExecuteModule:
+    @pytest.fixture
+    def converter(self) -> Mock:
+        return Mock(get_epoch_by_slot=Mock(return_value=100))
+
+    @pytest.fixture(autouse=True)
+    def setup_collector(self, performance_collector: PerformanceCollector, converter: Mock) -> None:
+        """Mock internal methods common to all execute_module tests"""
+        performance_collector._build_converter = Mock(return_value=converter)
+        performance_collector._update_demand_metrics = Mock()
+        performance_collector._reset_cycle_timeout = Mock()
+
+    @pytest.mark.unit
+    def test_returns_next_slot_when_no_epochs_to_process(
+        self, performance_collector: PerformanceCollector, converter: Mock
+    ):
+        converter.get_epoch_by_slot.return_value = 10
+        performance_collector._define_epochs_to_process_range = Mock(return_value=None)
+
+        result = performance_collector.execute_module(Mock())
+
+        assert result is ModuleExecuteDelay.NEXT_SLOT
+        cast(Mock, performance_collector._update_demand_metrics).assert_called_once_with()
+        cast(Mock, performance_collector._define_epochs_to_process_range).assert_called_once_with(EpochNumber(9))
+
+    @pytest.mark.unit
+    def test_processes_all_checkpoints_when_no_new_demand(
+        self, performance_collector: PerformanceCollector, converter: Mock
+    ):
+        blockstamp = Mock()
+        start_epoch, end_epoch = EpochNumber(90), EpochNumber(98)
+        checkpoints = [Mock(slot=10), Mock(slot=20)]
+
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(start_epoch, end_epoch))
+        performance_collector._new_epochs_range_demand_appeared = Mock(return_value=False)
+
+        processor = Mock(exec=Mock(side_effect=[[EpochNumber(90)], [EpochNumber(91)]]))
+
+        with (
+            patch.object(collector_module, 'FrameCheckpointsIterator', return_value=checkpoints) as iterator_mock,
+            patch.object(collector_module, 'FrameCheckpointProcessor', return_value=processor) as processor_mock,
+        ):
+            result = performance_collector.execute_module(blockstamp)
+
+        assert result is ModuleExecuteDelay.NEXT_SLOT
+        iterator_mock.assert_called_once_with(converter, start_epoch, end_epoch, EpochNumber(99))
+        processor_mock.assert_called_once_with(
+            performance_collector.cc,
+            performance_collector.db,
+            converter,
+            blockstamp,
+        )
+        assert processor.exec.call_count == len(checkpoints)
+        assert cast(Mock, performance_collector._reset_cycle_timeout).call_count == len(checkpoints)
+        assert cast(Mock, performance_collector._new_epochs_range_demand_appeared).call_count == len(checkpoints)
+
+    @pytest.mark.unit
+    def test_empty_checkpoints_returns_next_slot(self, performance_collector: PerformanceCollector):
+        """Test when FrameCheckpointsIterator yields no checkpoints"""
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
+        performance_collector._new_epochs_range_demand_appeared = Mock()
+
+        processor = Mock()
+
+        with (
+            patch.object(collector_module, 'FrameCheckpointsIterator', return_value=[]),
+            patch.object(collector_module, 'FrameCheckpointProcessor', return_value=processor),
+        ):
+            result = performance_collector.execute_module(Mock())
+
+        assert result is ModuleExecuteDelay.NEXT_SLOT
+        processor.exec.assert_not_called()
+        cast(Mock, performance_collector._reset_cycle_timeout).assert_not_called()
+        cast(Mock, performance_collector._new_epochs_range_demand_appeared).assert_not_called()
+
+    @pytest.mark.unit
+    def test_stops_on_new_demand(self, performance_collector: PerformanceCollector):
+        """Test that processing stops mid-sequence when new demand appears"""
+        checkpoints = [Mock(slot=10), Mock(slot=20), Mock(slot=30)]
+
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
+        performance_collector._new_epochs_range_demand_appeared = Mock(side_effect=[False, True])
+
+        processor = Mock()
+        processor.exec.side_effect = [[...], [...]]
+
+        with (
+            patch.object(collector_module, 'FrameCheckpointsIterator', return_value=checkpoints),
+            patch.object(collector_module, 'FrameCheckpointProcessor', return_value=processor),
+        ):
+            result = performance_collector.execute_module(Mock())
+
+        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert processor.exec.call_count == 2
+        processor.exec.assert_has_calls([call(checkpoints[0]), call(checkpoints[1])])
+        assert cast(Mock, performance_collector._reset_cycle_timeout).call_count == 2
+        assert cast(Mock, performance_collector._new_epochs_range_demand_appeared).call_count == 2
+
+    @pytest.mark.unit
+    def test_checkpoints_processed_in_order(self, performance_collector: PerformanceCollector):
+        """Test that each checkpoint is passed to processor.exec in iteration order"""
+        checkpoints = [Mock(slot=10), Mock(slot=20), Mock(slot=30)]
+
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(EpochNumber(90), EpochNumber(98)))
+        performance_collector._new_epochs_range_demand_appeared = Mock(return_value=False)
+
+        processor = Mock()
+        processor.exec.side_effect = [[EpochNumber(90)], [EpochNumber(91)], [EpochNumber(92)]]
+
+        with (
+            patch.object(collector_module, 'FrameCheckpointsIterator', return_value=checkpoints),
+            patch.object(collector_module, 'FrameCheckpointProcessor', return_value=processor),
+        ):
+            performance_collector.execute_module(Mock())
+
+        # Verify exact call order
+        assert processor.exec.call_count == len(checkpoints)
+        expected_call_seq = [call(ch) for ch in checkpoints]
+        processor.exec.assert_has_calls(expected_call_seq, any_order=False)
