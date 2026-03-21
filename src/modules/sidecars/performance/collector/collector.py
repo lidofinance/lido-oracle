@@ -123,7 +123,6 @@ class PerformanceCollector(DaemonModule):
             self._reset_cycle_timeout()
 
             if self._new_epochs_range_demand_appeared():
-                self._update_demand_metrics()
                 logger.info({"msg": "New epochs demand is found during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
@@ -200,5 +199,6 @@ class PerformanceCollector(DaemonModule):
         updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
         if updated:
             self.last_epochs_demand_update = max_updated_at
+            self._update_demand_metrics()
             return True
         return False
