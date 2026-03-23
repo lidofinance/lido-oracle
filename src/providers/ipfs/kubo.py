@@ -57,7 +57,7 @@ class Kubo(IPFSProvider):
                 files={name: (name, content, "application/octet-stream")},
                 params=self.RPC_UNIXFS_ADD_ARGS,
                 headers=self._headers(),
-                timeout=15,
+                timeout=self.timeout,
             )
             resp.raise_for_status()
         except requests.RequestException as ex:

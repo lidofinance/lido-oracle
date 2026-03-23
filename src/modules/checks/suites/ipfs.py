@@ -7,12 +7,11 @@ from collections.abc import Callable
 from typing import Any
 
 from src.modules.oracles.common.runtime import ipfs_providers
-from src.providers.ipfs import LidoIPFS, Pinata, Storacha
-from src.providers.ipfs.filebase import Filebase
+from src.providers.ipfs import Filebase, LidoIPFS, Pinata
 from src.utils.car.converter import DEFAULT_CHUNK_SIZE
 
 
-REQUIRED_PROVIDERS = (Pinata, Storacha, LidoIPFS, Filebase)
+REQUIRED_PROVIDERS = (Filebase, Pinata, LidoIPFS, )
 
 SMALL_CONTENT_SIZE = DEFAULT_CHUNK_SIZE - 1000
 LARGE_CONTENT_SIZE = int(DEFAULT_CHUNK_SIZE * 3.5)

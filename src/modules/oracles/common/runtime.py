@@ -9,8 +9,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
-from src.providers.ipfs.filebase import Filebase
+from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
