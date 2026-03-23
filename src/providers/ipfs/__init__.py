@@ -3,7 +3,6 @@ from .filebase import Filebase
 from .kubo import Kubo
 from .lido_ipfs import LidoIPFS
 from .pinata import Pinata
-from .storacha import Storacha
 from .types import FetchError, IPFSError, IPFSProvider, PinError, UploadError
 
 
@@ -16,7 +15,6 @@ __all__ = [
     "Kubo",
     "LidoIPFS",
     "Pinata",
-    "Storacha",
     "IPFSError",
     "FetchError",
     "UploadError",
