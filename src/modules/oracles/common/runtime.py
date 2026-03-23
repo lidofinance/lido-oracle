@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from typing import Any, TypeVar, cast
 
 from packaging.version import Version
+from src.providers.ipfs.filebase import Filebase
 from web3_multi_provider.metrics import init_metrics
 
 from src import constants, variables
@@ -203,7 +204,7 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
         )
 
     if variables.FILEBASE_IPFS_HOST and variables.FILEBASE_IPFS_TOKEN:
-        yield Kubo(
+        yield Filebase(
             variables.FILEBASE_IPFS_HOST,
             443,
             token=variables.FILEBASE_IPFS_TOKEN,
