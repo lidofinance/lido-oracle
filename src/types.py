@@ -33,12 +33,12 @@ BlockHash = NewType('BlockHash', HexStr)
 class Gwei(int):
     """Gwei type with addition support."""
 
-    def __add__(self, other):
+    def __add__(self, other) -> Gwei:
         if isinstance(other, (int, Gwei)):
             return Gwei(int.__add__(self, int(other)))
         return NotImplemented
 
-    def __radd__(self, other):
+    def __radd__(self, other) -> Gwei:
         if isinstance(other, (int, Gwei)):
             return Gwei(int.__add__(int(other), self))
         return NotImplemented

@@ -176,8 +176,9 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
         ref_slot=15392,
         ref_epoch=481,
     )
-    recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
-        blockstamp, chain_config
+    recently_requested_validators = validator_state.get_recently_requested_but_not_exiting_validators(
+        chain_config,
+        blockstamp,
     )
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 

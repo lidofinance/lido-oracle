@@ -31,10 +31,7 @@ from src.types import (
 )
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import (
-    LidoValidator,
-    ValidatorsByNodeOperator,
-)
+from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3StakingModule
 
 
@@ -134,12 +131,12 @@ class Distribution:
             last_finalized_slot_number=blockstamp.slot_number,
         )
 
-    def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> ValidatorsByNodeOperator:
+    def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:
         module_address = StakingModuleAddress(self.w3.staking_module.module.address)
         kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
         module_id = StakingModuleId(kapi['module']['id'])
 
-        no_validators: ValidatorsByNodeOperator = {}
+        no_validators = {}
 
         # Make sure even empty NO will be presented in dict
         for operator in kapi['operators']:
@@ -173,7 +170,7 @@ class Distribution:
         frame: Frame,
         blockstamp: ReferenceBlockStamp,
         rewards_to_distribute: RewardsShares,
-        operators_to_validators: ValidatorsByNodeOperator,
+        operators_to_validators: dict[NodeOperatorId, list[LidoValidator]],
         log: FramePerfLog,
     ) -> tuple[dict[NodeOperatorId, RewardsShares], RewardsShares, RewardsShares, dict[StrikesValidator, int]]:
         total_rebate_share = 0

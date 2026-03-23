@@ -25,11 +25,6 @@ class TestStakingVaultsContractsSmoke:
         )
         assert len(events) == 0
 
-    @pytest.mark.skip("Distribution disabled on devnet")
-    def test_staking_fee_aggregate_distribution(self, web3_integration):
-        out = web3_integration.lido_contracts.staking_router.get_staking_fee_aggregate_distribution()
-        assert out.lido_fee_bp() != 0
-
     def test_vault_lazy_oracle_get_report(self, web3_integration):
         report = web3_integration.lido_contracts.lazy_oracle.get_latest_report_data()
         assert report is not None

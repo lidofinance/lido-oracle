@@ -781,6 +781,7 @@ def test_get_no_active_balance(accounting: Accounting, ref_bs: ReferenceBlockSta
     accounting.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[module])
     accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={'key1': (lido_key, [new_deposit])})
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[topup_deposit, unknown_deposit])
+    accounting.w3.cc.get_pending_consolidations = Mock(return_value=[topup_deposit, unknown_deposit])
 
     result = accounting._get_no_active_balance(ref_bs)
 

@@ -189,6 +189,12 @@ class PendingDeposit(Nested):
 
 
 @dataclass
+class PendingConsolidation:
+    source_index: int
+    target_index: int
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -205,6 +211,7 @@ class BeaconStateView(Nested, FromResponse):
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
+    pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

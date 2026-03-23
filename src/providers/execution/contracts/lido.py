@@ -75,3 +75,20 @@ class LidoContract(ContractInterface):
             }
         )
         return response
+
+    def get_deposits_reserve(self, block_identifier: BlockIdentifier) -> Wei:
+        """
+        Returns the amount of ETH reserved for deposits every AO frame.
+        """
+        response = self.functions.getDepositsReserve().call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `getDepositsReserve()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+
+        return response

@@ -93,7 +93,7 @@ class AbnormalClRebase:
         epochs_passed_since_last_report = blockstamp.ref_epoch - last_report_blockstamp.ref_epoch
 
         last_report_all_validators = self.w3.cc.get_validators_no_cache(last_report_blockstamp)
-        last_report_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
+        last_report_lido_validators = LidoValidatorsProvider.compute_lido_validators(
             self.lido_keys, last_report_all_validators
         )[0]
 
@@ -178,7 +178,7 @@ class AbnormalClRebase:
             # Can't calculate rebase between the same block
             return Gwei(0)
 
-        prev_lido_validators = LidoValidatorsProvider.merge_validators_with_keys(
+        prev_lido_validators = LidoValidatorsProvider.compute_lido_validators(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )[0]

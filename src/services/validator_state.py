@@ -8,7 +8,7 @@ from src.types import OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.validator_state import is_exited_validator, is_on_exit
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
+from src.web3py.extensions.lido_validators import ExtendedLidoValidator, NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 
 
@@ -29,7 +29,7 @@ class LidoValidatorStateService:
         for operator in node_operators:
             global_index = (operator.staking_module.id, operator.id)
             ACCOUNTING_EXITED_VALIDATORS.labels(*global_index).set(lido_validators[global_index])
-            # If amount of exited validators weren't changed skip report for operator
+            # If number of exited validators weren't changed skip report for operator
             if lido_validators[global_index] == operator.total_exited_validators:
                 del lido_validators[global_index]
 
@@ -52,13 +52,13 @@ class LidoValidatorStateService:
         return result
 
     @lru_cache(maxsize=1)
-    def get_recently_requested_but_not_exited_validators(
+    def get_recently_requested_but_not_exiting_validators(
         self,
-        blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
-    ) -> list[LidoValidator]:
+        blockstamp: ReferenceBlockStamp,
+    ) -> list[ExtendedLidoValidator]:
         """
-        Returns list of validators recently requested to exit (exit deadline slot in future).
+        Returns the list of validators recently requested to exit (exit deadline slot in future).
         """
         lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         recent_exit_requests = self.get_recently_requested_to_exit_validators_by_node_operator(
@@ -66,19 +66,25 @@ class LidoValidatorStateService:
             blockstamp,
         )
 
-        validators_recently_requested_to_exit: list[LidoValidator] = []
+        validators_recently_requested_to_exit: list[ExtendedLidoValidator] = []
 
         for global_index, validators in lido_validators_by_operator.items():
 
-            def is_validator_recently_requested_but_not_exited(
-                validator: LidoValidator,
+            def is_validator_recently_requested_but_not_exiting(
+                validator: ExtendedLidoValidator,
                 global_index: NodeOperatorGlobalIndex = global_index,
             ) -> bool:
                 # Validator is not exiting on CL and there is recent exit request event
-                return not is_on_exit(validator) and validator.index in recent_exit_requests[global_index]
+                return (
+                    not is_on_exit(validator)
+                    and validator.index in recent_exit_requests[global_index]
+                    and
+                    # In the case of consolidation validator is not exitable
+                    not validator.consolidating_as_source
+                )
 
             validators_recently_requested_to_exit.extend(
-                filter(is_validator_recently_requested_but_not_exited, validators)
+                filter(is_validator_recently_requested_but_not_exiting, validators)
             )
 
         return validators_recently_requested_to_exit
@@ -90,7 +96,7 @@ class LidoValidatorStateService:
         blockstamp: ReferenceBlockStamp,
     ) -> dict[NodeOperatorGlobalIndex, set[int]]:
         """
-        Returns validators indexes that were asked to exit in last {{lookup_window}} slots.
+        Returns validators indexes asked to exit in the last {{lookup_window}} slots.
         """
         lookup_window = self.w3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots(
             blockstamp.block_hash
