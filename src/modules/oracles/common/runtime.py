@@ -76,7 +76,10 @@ def build_oracle_web3(module_name: str) -> Web3:
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
     telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
+        variables.TELEMETRY_DATA_BUS_RPC,
+        variables.DATA_BUS_ADDRESS,
+        module_name,
+        web3,
     )
 
     modules: dict[str, Any] = {
@@ -105,7 +108,10 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
     telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, module_name, web3,
+        variables.TELEMETRY_DATA_BUS_RPC,
+        variables.DATA_BUS_ADDRESS,
+        module_name,
+        web3,
     )
 
     modules: dict[str, Any] = {

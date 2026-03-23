@@ -12,12 +12,12 @@ from src.web3py.types import Web3
 class ItemPayload:
     module_id: int
     node_operator_ids: Sequence[int]
-    vals_counts: Sequence[int]
+    value: Sequence[int]
 
 
 class ExtraDataService:
     """
-    Service that encodes extra data into bytes in correct order.
+    Service that encodes extra data into bytes in the correct order.
 
     Extra data is an array of items, each item being encoded as follows:
     | 32 bytes |  3 bytes  | 2 bytes  |   X bytes   |
@@ -25,7 +25,7 @@ class ExtraDataService:
 
     itemPayload format:
     | 3 bytes  |   8 bytes    |  nodeOpsCount * 8 bytes  |  nodeOpsCount * 16 bytes  |
-    | moduleId | nodeOpsCount |      nodeOperatorIds     |   exitedValsCount  |
+    | moduleId | nodeOpsCount |      nodeOperatorIds     |           value           |
 
     max_items_count_per_tx - max itemIndex in extra data.
     max_no_in_payload_count - max nodeOpsCount that could be used in itemPayload.
@@ -38,20 +38,28 @@ class ExtraDataService:
         max_items_count_per_tx: int,
         max_no_in_payload_count: int,
     ) -> ExtraData:
+        """
+        Collect and encode exited validators data into the ExtraData structure.
+
+        Args:
+            exited_validators: Dictionary mapping node operator global index to exited validators count.
+            max_items_count_per_tx: Maximum number of items allowed in a single transaction.
+            max_no_in_payload_count: Maximum number of node operators allowed in a single item payload.
+        """
         exited_payloads = cls.build_validators_payloads(exited_validators, max_no_in_payload_count)
         items_count, txs = cls.build_extra_transactions_data(exited_payloads, max_items_count_per_tx)
         first_hash, hashed_txs = cls.add_hashes_to_transactions(txs)
 
         if items_count:
-            extra_data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY
+            extra_data_format = FormatList.EXTRA_DATA_FORMAT_LIST_NON_EMPTY.value
         else:
-            extra_data_format = FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY
+            extra_data_format = FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value
 
         return ExtraData(
             items_count=items_count,
             extra_data_list=hashed_txs,
             data_hash=first_hash,
-            format=extra_data_format.value,
+            format=extra_data_format,
         )
 
     @classmethod
@@ -60,6 +68,7 @@ class ExtraDataService:
         validators: dict[NodeOperatorGlobalIndex, int],
         max_no_in_payload_count: int,
     ) -> list[ItemPayload]:
+        """Group and batch validator exit data into ItemPayload objects."""
         operator_validators = sorted(validators.items(), key=lambda x: x[0])
 
         payloads = []
@@ -67,17 +76,17 @@ class ExtraDataService:
         for module_id, operators_by_module in groupby(operator_validators, key=lambda x: x[0][0]):
             for nos_in_batch in batched(list(operators_by_module), max_no_in_payload_count, strict=False):
                 operator_ids = []
-                vals_count = []
+                value = []
 
-                for (_, no_id), validators_count in nos_in_batch:
+                for (_, no_id), no_value in nos_in_batch:
                     operator_ids.append(no_id)
-                    vals_count.append(validators_count)
+                    value.append(no_value)
 
                 payloads.append(
                     ItemPayload(
                         module_id=module_id,
                         node_operator_ids=operator_ids,
-                        vals_counts=vals_count,
+                        value=value,
                     )
                 )
 
@@ -89,6 +98,7 @@ class ExtraDataService:
         exited_payloads: list[ItemPayload],
         max_items_count_per_tx: int,
     ) -> tuple[int, list[bytes]]:
+        """Batch item payloads into transactions and encode them into bytes."""
         all_payloads = [
             *[(ItemType.EXTRA_DATA_TYPE_EXITED_VALIDATORS, payload) for payload in exited_payloads],
         ]
@@ -106,7 +116,7 @@ class ExtraDataService:
                 tx_body += b''.join(
                     no_id.to_bytes(ExtraDataLengths.NODE_OPERATOR_ID) for no_id in payload.node_operator_ids
                 )
-                tx_body += b''.join(count.to_bytes(ExtraDataLengths.EXITED_VALS_COUNT) for count in payload.vals_counts)
+                tx_body += b''.join(count.to_bytes(ExtraDataLengths.NODE_OPERATOR_VALUE) for count in payload.value)
 
                 index += 1
 
@@ -116,6 +126,11 @@ class ExtraDataService:
 
     @staticmethod
     def add_hashes_to_transactions(txs_data: list[bytes]) -> tuple[bytes, list[bytes]]:
+        """
+        Chain transactions together using hashes.
+        Each transaction (except the last one in the list, which is the first one in the chain)
+        contains the hash of the next transaction.
+        """
         txs_data.reverse()
 
         txs_with_hashes = []

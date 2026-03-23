@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
 
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
@@ -32,6 +32,8 @@ class BeaconSpecResponse(Nested, FromResponse):
 @dataclass
 class GenesisResponse(Nested, FromResponse):
     genesis_time: int
+    genesis_validators_root: HexStr
+    genesis_fork_version: HexStr
 
 
 @dataclass
@@ -174,11 +176,16 @@ class PendingPartialWithdrawal(Nested):
 
 @dataclass
 class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
+    pubkey: HexStr
+    withdrawal_credentials: HexStr
     amount: Gwei
-    signature: str
+    signature: HexStr
     slot: SlotNumber
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.pubkey = HexStr(self.pubkey.lower())
+        self.withdrawal_credentials = HexStr(self.withdrawal_credentials.lower())
 
 
 @dataclass
