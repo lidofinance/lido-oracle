@@ -86,7 +86,7 @@ class LidoValidatorStateService:
     @lru_cache(maxsize=1)
     def get_recently_requested_to_exit_validators_by_node_operator(
         self,
-        seconds_per_slot: int,
+        seconds_per_slot: float,
         blockstamp: ReferenceBlockStamp,
     ) -> dict[NodeOperatorGlobalIndex, set[int]]:
         """

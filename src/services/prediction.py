@@ -7,6 +7,7 @@ from src.providers.execution.exceptions import InconsistentEvents
 from src.types import ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
+from src.utils.time import eip7805_float_seconds_to_int
 from src.web3py.types import Web3
 
 
@@ -75,7 +76,7 @@ class RewardsPredictionService:
             time_spent += event['timeElapsed']
 
         return max(
-            Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent),
+            Wei(total_rewards * eip7805_float_seconds_to_int(chain_configs.seconds_per_slot) * chain_configs.slots_per_epoch // time_spent),
             Wei(0),
         )
 

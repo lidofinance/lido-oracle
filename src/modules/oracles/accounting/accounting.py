@@ -48,6 +48,7 @@ from src.types import (
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.time import eip7805_float_seconds_to_int
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
@@ -401,7 +402,7 @@ class Accounting(OracleModule[Web3]):
 
         report = ReportSimulationPayload(
             timestamp=blockstamp.block_timestamp,
-            time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
+            time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * eip7805_float_seconds_to_int(chain_conf.seconds_per_slot),
             cl_validators_balance=gwei_to_wei(cl_balance),
             cl_pending_balance=gwei_to_wei(pending_balance),
             withdrawal_vault_balance=self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
@@ -514,7 +515,7 @@ class Accounting(OracleModule[Web3]):
             post_internal_ether=simulation.post_internal_ether,
             post_internal_shares=simulation.post_internal_shares,
             shares_minted_as_fees=simulation.shares_to_mint_as_fees,
-            time_elapsed_seconds=slots_elapsed * chain_config.seconds_per_slot,
+            time_elapsed_seconds=slots_elapsed * eip7805_float_seconds_to_int(chain_config.seconds_per_slot),
         )
 
         latest_onchain_ipfs_report_data = self.staking_vaults.get_latest_onchain_ipfs_report_data(blockstamp.block_hash)

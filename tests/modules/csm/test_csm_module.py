@@ -86,7 +86,7 @@ def mock_chain_config(module: CSPerformanceOracle):
     module.get_chain_config = Mock(
         return_value=ChainConfigFactory.build(
             slots_per_epoch=32,
-            seconds_per_slot=12,
+            seconds_per_slot=12.0,
             genesis_time=0,
         )
     )

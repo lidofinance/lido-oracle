@@ -248,7 +248,7 @@ def test_get_rewards_no_matching_events(web3):
     )
     cc = ChainConfig(
         slots_per_epoch=32,
-        seconds_per_slot=12,
+        seconds_per_slot=12.0,
         genesis_time=0,
     )
     web3.lido_contracts.lido.events = MagicMock()
@@ -275,7 +275,7 @@ def test_get_rewards_prediction(web3, monkeypatch: pytest.MonkeyPatch):
 
     cc = ChainConfig(
         slots_per_epoch=32,
-        seconds_per_slot=12,
+        seconds_per_slot=12.0,
         genesis_time=0,
     )
 

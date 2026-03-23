@@ -17,6 +17,7 @@ from src.types import (
     ValidatorIndex,
 )
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.time import ms_to_seconds, seconds_to_ms
 from src.utils.types import hex_str_to_bytes
 
 
@@ -24,9 +25,24 @@ from src.utils.types import hex_str_to_bytes
 class BeaconSpecResponse(Nested, FromResponse):
     DEPOSIT_CHAIN_ID: int
     SLOTS_PER_EPOCH: int
-    SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
+    SLOT_DURATION_MS: int = 0
+    SECONDS_PER_SLOT: float = 0
+
+    class NeitherSlotDurationFieldPresent(Exception):
+        pass
+
+    def __post_init__(self):
+        super().__post_init__()
+        if self.SLOT_DURATION_MS == 0 and self.SECONDS_PER_SLOT == 0:
+            raise BeaconSpecResponse.NeitherSlotDurationFieldPresent(
+                "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
+            )
+        if self.SLOT_DURATION_MS == 0:
+            self.SLOT_DURATION_MS = seconds_to_ms(self.SECONDS_PER_SLOT)
+        if self.SECONDS_PER_SLOT == 0:
+            self.SECONDS_PER_SLOT = ms_to_seconds(self.SLOT_DURATION_MS)
 
 
 @dataclass

@@ -25,7 +25,7 @@ def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
 
 @pytest.fixture
 def chain_config():
-    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1675263480)
+    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=1675263480)
 
 
 @pytest.fixture

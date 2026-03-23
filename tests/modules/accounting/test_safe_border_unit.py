@@ -42,7 +42,7 @@ class WithdrawalStatus:
 
 @pytest.fixture()
 def chain_config():
-    yield ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
+    yield ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0)
 
 
 @pytest.fixture()

@@ -51,6 +51,7 @@ from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
 from src.utils.slot import get_blockstamp
+from src.utils.time import eip7805_float_seconds_to_int
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
@@ -433,7 +434,7 @@ class StakingVaultsService:
             "refSlot": bs.ref_slot,
             "blockHash": bs.block_hash,
             "blockNumber": bs.block_number,
-            "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
+            "timestamp": chain_config.genesis_time + bs.slot_number * eip7805_float_seconds_to_int(chain_config.seconds_per_slot),
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {k.value: v.value for k, v in MerkleValue.leaf_index_to_data().items()},
@@ -546,7 +547,7 @@ class StakingVaultsService:
     @staticmethod
     def _get_report_timestamp(ref_slot: SlotNumber, chain_config: ChainConfig) -> int:
         """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
-        return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
+        return chain_config.genesis_time + int(ref_slot) * eip7805_float_seconds_to_int(chain_config.seconds_per_slot)
 
     @staticmethod
     def _calculate_liquidity_fee_by_events(

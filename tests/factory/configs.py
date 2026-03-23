@@ -14,7 +14,7 @@ from tests.factory.web3_factory import Web3DataclassFactory
 
 class ChainConfigFactory(Web3DataclassFactory[ChainConfig]):
     slots_per_epoch = 32
-    seconds_per_slot = 12
+    seconds_per_slot = 12.0
     genesis_time = 0
 
 
@@ -40,7 +40,8 @@ class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
 
 
 class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
-    SECONDS_PER_SLOT = 12
+    SLOT_DURATION_MS = 12000
+    SECONDS_PER_SLOT = 12.0
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
 
