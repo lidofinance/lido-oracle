@@ -5,6 +5,7 @@ import requests
 import responses
 
 from src.providers.ipfs.cid import CID
+from src.providers.ipfs.filebase import Filebase
 from src.providers.ipfs.kubo import Kubo
 from src.providers.ipfs.types import FetchError, PinError, UploadError
 
@@ -14,6 +15,10 @@ class TestKubo:
     @pytest.fixture
     def kubo_provider(self):
         return Kubo(host="http://localhost", rpc_port=5001, timeout=30)
+
+    @pytest.fixture
+    def kubo_provider_with_token(self):
+        return Kubo(host="http://localhost", rpc_port=5001, timeout=30, token="test_bearer_token")
 
     @responses.activate
     def test_fetch__valid_cid__returns_content(self, kubo_provider):
@@ -32,6 +37,22 @@ class TestKubo:
         assert result == expected_content
         assert len(responses.calls) == 1
         assert f"arg={cid}" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_fetch__token_is_set__includes_authorization_header(self, kubo_provider_with_token):
+        cid = CID("QmXvrr3gPtddcNrisH7i2nan9rY7v7RcxVQ9jjRreoWwRS")
+
+        responses.add(
+            responses.POST,
+            "http://localhost:5001/api/v0/cat",
+            body=b"test content",
+            status=200,
+        )
+
+        kubo_provider_with_token.fetch(cid)
+
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["Authorization"] == "Bearer test_bearer_token"
 
     @responses.activate
     def test_fetch__request_fails__raises_fetch_error(self, kubo_provider):
@@ -77,6 +98,23 @@ class TestKubo:
         assert "cid-version=0" in request_url
         assert "trickle=false" in request_url
         assert "raw-leaves=false" in request_url
+
+    @responses.activate
+    def test_upload__token_is_set__includes_authorization_header(self, kubo_provider_with_token):
+        content = b"mock car content for upload test"
+        expected_response = {"Hash": "QmTvfdWcdo964nULYqsDtLfUV7Gj7Yrob8msaeVJZo58zc"}
+
+        responses.add(
+            responses.POST,
+            "http://localhost:5001/api/v0/add",
+            json=expected_response,
+            status=200,
+        )
+
+        kubo_provider_with_token.upload(content)
+
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["Authorization"] == "Bearer test_bearer_token"
 
     @responses.activate
     def test_upload__request_fails__raises_upload_error(self, kubo_provider):
@@ -161,6 +199,22 @@ class TestKubo:
         assert f"arg={cid}" in responses.calls[0].request.url
 
     @responses.activate
+    def test_pin__token_is_set__includes_authorization_header(self, kubo_provider_with_token):
+        cid = CID("QmTvfdWcdo964nULYqsDtLfUV7Gj7Yrob8msaeVJZo58zc")
+
+        responses.add(
+            responses.POST,
+            "http://localhost:5001/api/v0/pin/add",
+            json={"Pins": [str(cid)]},
+            status=200,
+        )
+
+        kubo_provider_with_token.pin(cid)
+
+        assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["Authorization"] == "Bearer test_bearer_token"
+
+    @responses.activate
     def test_pin__request_fails__raises_pin_error(self, kubo_provider):
         cid = CID("QmTestCid123")
 
@@ -222,3 +276,12 @@ class TestKubo:
 
         with pytest.raises(PinError):
             kubo_provider.pin(cid)
+
+
+@pytest.mark.unit
+class TestFilebase:
+    def test_init__forwards_token_to_kubo(self):
+        provider = Filebase(host="https://filebase.example", rpc_port=5001, timeout=30, token="filebase_token")
+
+        assert provider.token == "filebase_token"
+        assert provider._headers() == {"Authorization": "Bearer filebase_token"}
