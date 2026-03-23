@@ -257,45 +257,35 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
 
 
 @pytest.mark.unit
-def test__set_epochs_range_to_collect_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
+def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
-    module.state = Mock(migrate=Mock(), log_progress=Mock())
-    module.get_frame_config = Mock(
-        return_value=FrameConfigFactory.build(
-            epochs_per_frame=4,
-            initial_epoch=0,
-            fast_lane_length_slots=0,
-        )
-    )
+    module.state = Mock(migrate=Mock())
+    module._check_compatibility = Mock(return_value=True)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module._get_web3_converter = Mock(return_value=Mock(frame_config=Mock(epochs_per_frame=4)))
+    module.get_blockstamp_for_report = Mock(return_value=None)
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=False)
     module.w3.performance.get_epochs_demand = Mock(return_value=None)
     module.w3.performance.post_epochs_demand = Mock()
 
-    module._set_epochs_range_to_collect(blockstamp)
+    execute_delay = module.execute_module(blockstamp)
 
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.migrate.assert_called_once_with(10, 20, 4)
-    module.state.log_progress.assert_called_once()
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
     module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
     module.w3.performance.post_epochs_demand.assert_called_once_with("CSPerformanceOracle", 10, 20)
 
 
 @pytest.mark.unit
-def test__set_epochs_range_to_collect_skips_post_when_demand_same(
-    module: CSPerformanceOracle, mock_chain_config: NoReturn
-):
+def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
-    module.state = Mock(migrate=Mock(), log_progress=Mock())
-    module.get_frame_config = Mock(
-        return_value=FrameConfigFactory.build(
-            epochs_per_frame=4,
-            initial_epoch=0,
-            fast_lane_length_slots=0,
-        )
-    )
+    module.state = Mock(migrate=Mock())
+    module._check_compatibility = Mock(return_value=True)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
+    module._get_web3_converter = Mock(return_value=Mock(frame_config=Mock(epochs_per_frame=4)))
+    module.get_blockstamp_for_report = Mock(return_value=None)
     module.w3 = Mock()
     demand_mock = Mock()
     demand_mock.from_epoch = 10
@@ -304,10 +294,10 @@ def test__set_epochs_range_to_collect_skips_post_when_demand_same(
     module.w3.performance.get_epochs_demand = Mock(return_value=demand_mock)
     module.w3.performance.post_epochs_demand = Mock()
 
-    module._set_epochs_range_to_collect(blockstamp)
+    execute_delay = module.execute_module(blockstamp)
 
+    assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.migrate.assert_called_once_with(10, 20, 4)
-    module.state.log_progress.assert_called_once()
     module.w3.performance.post_epochs_demand.assert_not_called()
 
 
@@ -470,7 +460,6 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
         call(EpochNumber(0)),
         call(EpochNumber(1)),
     ]
-    assert state.log_progress.call_count == 1
 
 
 @pytest.mark.unit
@@ -875,51 +864,56 @@ def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
 def test_execute_module_not_collected(module: CSPerformanceOracle):
     module._check_compatibility = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
-    module._set_epochs_range_to_collect = Mock()
     module._collect_data = Mock(return_value=False)
+    module._prepare_to_collect = Mock()
 
-    execute_delay = module.execute_module(
-        last_finalized_blockstamp=Mock(slot_number=100500),
-    )
+    last_finalized_blockstamp = Mock(slot_number=100500)
+    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+
+    module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
 @pytest.mark.unit
-def test_execute_module_skips_collecting_if_forward_compatible(module: CSPerformanceOracle):
+def test_execute_module_skips_collecting_if_not_compatible(module: CSPerformanceOracle):
     module._check_compatibility = Mock(return_value=False)
     module._collect_data = Mock(return_value=False)
+    module._prepare_to_collect = Mock()
 
-    execute_delay = module.execute_module(
-        last_finalized_blockstamp=Mock(slot_number=100500),
-    )
+    execute_delay = module.execute_module(last_finalized_blockstamp=Mock(slot_number=100500))
+
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+    module._prepare_to_collect.assert_not_called()
     module._collect_data.assert_not_called()
 
 
 @pytest.mark.unit
 def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
     module._check_compatibility = Mock(return_value=True)
-    module._set_epochs_range_to_collect = Mock()
-    module._collect_data = Mock(return_value=True)
+    module._collect_data = Mock()
     module.get_blockstamp_for_report = Mock(return_value=None)
+    module._prepare_to_collect = Mock()
 
-    execute_delay = module.execute_module(
-        last_finalized_blockstamp=Mock(slot_number=100500),
-    )
+    last_finalized_blockstamp = Mock(slot_number=100500)
+    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+
+    module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
+    module._collect_data.assert_not_called()
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
 
 @pytest.mark.unit
 def test_execute_module_processed(module: CSPerformanceOracle):
-    module._set_epochs_range_to_collect = Mock()
     module._collect_data = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=Mock(slot_number=100500))
     module.process_report = Mock()
     module._check_compatibility = Mock(return_value=True)
+    module._prepare_to_collect = Mock()
 
-    execute_delay = module.execute_module(
-        last_finalized_blockstamp=Mock(slot_number=100500),
-    )
+    last_finalized_blockstamp = Mock(slot_number=100500)
+    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+
+    module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
 
 
