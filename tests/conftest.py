@@ -16,6 +16,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
+    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
@@ -123,6 +124,7 @@ def configure_testnet_tests(request, monkeypatch):
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
         monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
+        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0x25561dee2f25d728c3da3d1fcc915d6a77f6ac0c')
 
         # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
         monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
@@ -173,6 +175,7 @@ def web3(monkeypatch) -> Generator[Web3]:
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
             'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
+            'delegation': lambda: Mock(spec=DelegationModule),
         }
     )
 
@@ -198,6 +201,7 @@ def web3_integration() -> Generator[Web3]:
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
             'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
+            'delegation': lambda: DelegationModule(w3, variables.DELEGATION_CONTRACT_ADDRESS),
         }
     )
 

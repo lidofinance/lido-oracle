@@ -1,4 +1,4 @@
-from src.providers.ipfs.kubo import Kubo
+from .kubo import Kubo
 
 
 class Filebase(Kubo):
