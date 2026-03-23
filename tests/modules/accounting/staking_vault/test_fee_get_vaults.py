@@ -90,7 +90,7 @@ class TestGetVaultsFees:
             pre_total_pooled_ether=Wei(0),
             pre_total_shares=0,
             frame_config=FrameConfig(initial_epoch=0, epochs_per_frame=1, fast_lane_length_slots=0),
-            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
             current_frame=FrameNumber(0),
         )
 
@@ -137,7 +137,7 @@ class TestGetVaultsFees:
             pre_total_pooled_ether=Wei(0),
             pre_total_shares=0,
             frame_config=FrameConfig(initial_epoch=3, epochs_per_frame=5, fast_lane_length_slots=0),
-            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
             current_frame=FrameNumber(0),
         )
 
@@ -187,7 +187,7 @@ class TestGetVaultsFees:
             pre_total_pooled_ether=Wei(0),
             pre_total_shares=0,
             frame_config=FrameConfig(initial_epoch=10, epochs_per_frame=5, fast_lane_length_slots=0),
-            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
             current_frame=FrameNumber(0),
         )
 

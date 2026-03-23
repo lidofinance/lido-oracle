@@ -6,7 +6,6 @@ from eth_typing import BlockNumber
 from web3 import Web3
 
 from src.metrics.logging import logging
-from src.utils.time import eip7805_float_seconds_to_int
 from src.variables import BLOCK_BATCH_SIZE_LIMIT
 
 
@@ -24,7 +23,7 @@ def _should_batch(count: int) -> bool:
 def get_block_timestamps(
     w3: Web3,
     block_numbers: set[BlockNumber],
-    seconds_per_slot: float,
+    seconds_per_slot: int,
 ) -> dict[BlockNumber, int]:
     """
     Fetch execution block timestamps for a set of block numbers.
@@ -97,7 +96,7 @@ def _calculate_timestamps(
     blocks: list[BlockNumber],
     first_ts: int,
     last_ts: int,
-    seconds_per_slot: float,
+    seconds_per_slot: int,
 ) -> list[int]:
     """
     Calculate timestamps for sorted blocks given known endpoint timestamps.
@@ -107,11 +106,11 @@ def _calculate_timestamps(
         return [first_ts] if len(blocks) == 1 else [first_ts, last_ts]
 
     # Check for missed slots: if block N is at time T, block N+k should be at T + k*slot_time
-    expected_last_ts = first_ts + (blocks[-1] - blocks[0]) * eip7805_float_seconds_to_int(seconds_per_slot)
+    expected_last_ts = first_ts + (blocks[-1] - blocks[0]) * seconds_per_slot
     if expected_last_ts == last_ts:
         # No missed slots: calculate all timestamps arithmetically
         base = blocks[0]
-        return [first_ts + (b - base) * eip7805_float_seconds_to_int(seconds_per_slot) for b in blocks]
+        return [first_ts + (b - base) * seconds_per_slot for b in blocks]
 
     # Missed slot(s) detected
     intermediates = blocks[1:-1]

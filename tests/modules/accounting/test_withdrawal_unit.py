@@ -12,7 +12,7 @@ from tests.factory.configs import OracleReportLimitsFactory
 
 @pytest.fixture
 def chain_config():
-    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0)
+    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
 
 
 @pytest.fixture

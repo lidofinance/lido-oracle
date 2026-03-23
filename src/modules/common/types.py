@@ -18,7 +18,7 @@ class ModuleExecuteDelay(Enum):
 @dataclass(frozen=True)
 class ChainConfig:
     slots_per_epoch: int
-    seconds_per_slot: float
+    seconds_per_slot: int
     genesis_time: int
 
 

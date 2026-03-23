@@ -5,7 +5,6 @@ from src.modules.oracles.accounting.types import BatchState
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.services.safe_border import SafeBorder
 from src.types import FinalizationBatches, ReferenceBlockStamp
-from src.utils.time import eip7805_float_seconds_to_int
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
 
@@ -51,7 +50,7 @@ class Withdrawal:
 
         withdrawable_until_epoch = self.safe_border_service.get_safe_border_epoch(is_bunker_mode)
         withdrawable_until_timestamp = self.chain_config.genesis_time + (
-            withdrawable_until_epoch * self.chain_config.slots_per_epoch * eip7805_float_seconds_to_int(self.chain_config.seconds_per_slot)
+            withdrawable_until_epoch * self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot
         )
 
         return FinalizationBatches(

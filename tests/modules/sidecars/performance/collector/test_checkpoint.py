@@ -50,7 +50,7 @@ def frame_config() -> FrameConfig:
 def chain_config() -> ChainConfig:
     return ChainConfigFactory.build(
         slots_per_epoch=32,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
         genesis_time=0,
     )
 

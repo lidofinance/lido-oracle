@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
@@ -17,7 +18,6 @@ from src.types import (
     ValidatorIndex,
 )
 from src.utils.dataclass import FromResponse, Nested
-from src.utils.time import ms_to_seconds, seconds_to_ms
 from src.utils.types import hex_str_to_bytes
 
 
@@ -28,21 +28,36 @@ class BeaconSpecResponse(Nested, FromResponse):
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
-    SECONDS_PER_SLOT: float = 0
+    SECONDS_PER_SLOT: int = 0
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
 
     def __post_init__(self):
+        """
+        Initialize missing slot timing fields with appropriate precision handling.
+
+        Consensus clients may provide either SECONDS_PER_SLOT (legacy) or SLOT_DURATION_MS
+        (per consensus-specs#4926). This method ensures both fields are populated.
+
+        while fractional slot durations are theoretically possible (12500ms = 12.5s),
+        all networks currently use exact 12.000s slots. The rounding prevents potential
+        "future timestamp" issues and maintains backward compatibility.
+
+        See: https://github.com/ethereum/consensus-specs/pull/4926
+        """
         super().__post_init__()
         if self.SLOT_DURATION_MS == 0 and self.SECONDS_PER_SLOT == 0:
             raise BeaconSpecResponse.NeitherSlotDurationFieldPresent(
                 "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
             )
         if self.SLOT_DURATION_MS == 0:
-            self.SLOT_DURATION_MS = seconds_to_ms(self.SECONDS_PER_SLOT)
+            self.SLOT_DURATION_MS = int(self.SECONDS_PER_SLOT * 1000)
         if self.SECONDS_PER_SLOT == 0:
-            self.SECONDS_PER_SLOT = ms_to_seconds(self.SLOT_DURATION_MS)
+            # Convert milliseconds to seconds with conservative floor rounding
+            # Protects against theoretical fractional slot durations
+            seconds_float = self.SLOT_DURATION_MS / 1000
+            self.SECONDS_PER_SLOT = int(math.floor(seconds_float))
 
 
 @dataclass

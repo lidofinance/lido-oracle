@@ -17,7 +17,7 @@ def get_events_in_past(
     contract_event: ContractEvent,
     to_blockstamp: ReferenceBlockStamp,
     for_slots: int,
-    seconds_per_slot: float,
+    seconds_per_slot: int,
     timestamp_field_name: str = 'timestamp',
 ):
     """

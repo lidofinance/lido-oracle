@@ -33,8 +33,8 @@ class TestBeaconSpecResponse:
         assert spec.SECONDS_PER_SLOT == 12.0
 
     @pytest.mark.unit
-    def test_with_slot_duration_ms_non_round__precise_float_conversion(self):
-        """When SLOT_DURATION_MS is not divisible by 1000, SECONDS_PER_SLOT uses precise float conversion."""
+    def test_with_slot_duration_ms_non_round__applies_floor_rounding(self):
+        """When SLOT_DURATION_MS is not divisible by 1000, SECONDS_PER_SLOT uses defensive floor rounding."""
         spec = BeaconSpecResponse(
             DEPOSIT_CHAIN_ID=1,
             SLOTS_PER_EPOCH=32,
@@ -44,7 +44,7 @@ class TestBeaconSpecResponse:
         )
 
         assert spec.SLOT_DURATION_MS == 11500
-        assert spec.SECONDS_PER_SLOT == 11.5  # 11500 / 1000
+        assert spec.SECONDS_PER_SLOT == 11  # 11.5 -> 11 (EIP-7805 floor rounding)
 
     @pytest.mark.unit
     def test_with_both_fields__keeps_as_is(self):

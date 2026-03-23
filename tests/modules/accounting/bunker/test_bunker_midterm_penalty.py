@@ -128,7 +128,7 @@ def test_is_high_midterm_slashing_penalty(
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
         genesis_time=0,
     )
     frame_config = FrameConfig(
@@ -217,7 +217,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
         genesis_time=0,
     )
     frame_config = FrameConfig(
@@ -515,7 +515,7 @@ def test_get_slashed_validators_with_impact_to_midterm_penalties(lido_validators
 def test_get_frame_cl_rebase_from_report_cl_rebase(report_cl_rebase, blockstamp, last_report_ref_slot, expected_result):
     chain_config = ChainConfig(
         slots_per_epoch=32,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
         genesis_time=0,
     )
     frame_config = FrameConfig(

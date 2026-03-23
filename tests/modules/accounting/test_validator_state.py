@@ -127,7 +127,7 @@ def validator_state(web3, lido_validators):
 
 @pytest.fixture
 def chain_config():
-    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0)
+    return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
 
 
 @pytest.mark.unit
@@ -158,7 +158,7 @@ def test_get_recently_requested_validators_by_operator(monkeypatch, web3, valida
         web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
         to_blockstamp=blockstamp,
         for_slots=exit_event_lookback_window,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
     )
 
 

@@ -24,7 +24,7 @@ def iterator(web3):
     return ValidatorExitIterator(
         web3,
         ReferenceBlockStampFactory.build(),
-        ChainConfig(slots_per_epoch=32, seconds_per_slot=12.0, genesis_time=0),
+        ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
     )
 
 

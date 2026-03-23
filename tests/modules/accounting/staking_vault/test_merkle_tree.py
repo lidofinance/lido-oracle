@@ -191,7 +191,7 @@ class TestDumpedTreeAndPublish:
             StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves)
         )
 
-        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12.0, genesis_time=0)
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=0)
 
         # Act
         dumped = StakingVaultsService.get_dumped_tree(
@@ -220,7 +220,7 @@ class TestDumpedTreeAndPublish:
             StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves)
         )
 
-        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12.0, genesis_time=100)
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
 
         # Act
         dumped = StakingVaultsService.get_dumped_tree(
@@ -252,7 +252,7 @@ class TestDumpedTreeAndPublish:
         service = StakingVaultsService(web3)
 
         tree = service.get_merkle_tree(StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves))
-        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12.0, genesis_time=0)
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=0)
 
         # Act
         cid = service.publish_tree(

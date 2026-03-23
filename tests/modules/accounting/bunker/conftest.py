@@ -258,7 +258,7 @@ def blockstamp():
 def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     c_conf = ChainConfig(
         slots_per_epoch=1,
-        seconds_per_slot=12.0,
+        seconds_per_slot=12,
         genesis_time=0,
     )
     b_conf = BunkerConfig(
