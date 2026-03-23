@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     volumes:
       - ipfs_data:/data/ipfs
+    ports:
+      - "127.0.0.1:5001:5001"
     command:
       - daemon
       - --migrate=true
