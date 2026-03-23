@@ -49,12 +49,11 @@ class SMPerformanceOracleError(Exception):
 class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     """
     Staking Module performance oracle collects performance of staking module node operators and creates a Merkle tree
-    of the resulting distribution of shares among the operators. The root of the tree is then submitted to the
-    module contract.
+    of the resulting distribution of shares among the operators. 
 
     The algorithm for calculating performance includes the following steps:
-        1. Collect all the attestation duties of the network validators for the frame.
-        2. Calculate the performance of each validator based on the attestations.
+        1. Collect duties of the network validators for the frame.
+        2. Calculate the performance of each validator based on their duties.
         3. Calculate the share of each node operator excluding underperforming validators.
     """
 
