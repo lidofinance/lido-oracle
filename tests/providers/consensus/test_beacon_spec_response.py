@@ -69,3 +69,29 @@ class TestBeaconSpecResponse:
 
         assert "Non-integer slot duration not supported: 12500ms (12.5s)" in str(exc_info.value)
         assert "Oracle requires whole-second slot durations" in str(exc_info.value)
+
+    @pytest.mark.unit
+    def test_unsupported_fractional_slot_duration_with_both_fields__raises_exception(self):
+        with pytest.raises(BeaconSpecResponse.UnsupportedSlotDuration):
+            BeaconSpecResponse(
+                DEPOSIT_CHAIN_ID=1,
+                SLOTS_PER_EPOCH=32,
+                DEPOSIT_CONTRACT_ADDRESS="0x123",
+                SLOTS_PER_HISTORICAL_ROOT=8192,
+                SLOT_DURATION_MS=12500,
+                SECONDS_PER_SLOT=12,
+            )
+
+    @pytest.mark.unit
+    def test_inconsistent_slot_duration_fields__raises_exception(self):
+        with pytest.raises(BeaconSpecResponse.InconsistentSlotDuration) as exc_info:
+            BeaconSpecResponse(
+                DEPOSIT_CHAIN_ID=1,
+                SLOTS_PER_EPOCH=32,
+                DEPOSIT_CONTRACT_ADDRESS="0x123",
+                SLOTS_PER_HISTORICAL_ROOT=8192,
+                SLOT_DURATION_MS=12000,
+                SECONDS_PER_SLOT=11,
+            )
+
+        assert "does not match" in str(exc_info.value)

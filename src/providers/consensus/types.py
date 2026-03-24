@@ -35,6 +35,9 @@ class BeaconSpecResponse(Nested, FromResponse):
     class UnsupportedSlotDuration(Exception):
         pass
 
+    class InconsistentSlotDuration(Exception):
+        pass
+
     def __post_init__(self):
         """
         Consensus clients may provide either SECONDS_PER_SLOT (legacy) or SLOT_DURATION_MS
@@ -53,16 +56,23 @@ class BeaconSpecResponse(Nested, FromResponse):
                 "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
             )
 
+        if self.SLOT_DURATION_MS != 0:
+            if self.SLOT_DURATION_MS % 1000 != 0:
+                raise BeaconSpecResponse.UnsupportedSlotDuration(
+                    f"Non-integer slot duration not supported: {self.SLOT_DURATION_MS}ms "
+                    f"({self.SLOT_DURATION_MS / 1000}s). Oracle requires whole-second slot durations."
+                )
+
+            if self.SECONDS_PER_SLOT != 0 and self.SLOT_DURATION_MS != self.SECONDS_PER_SLOT * 1000:
+                raise BeaconSpecResponse.InconsistentSlotDuration(
+                    f"Inconsistent slot duration fields: {self.SLOT_DURATION_MS=} "
+                    f"does not match {self.SECONDS_PER_SLOT=}."
+                )
+
         if self.SLOT_DURATION_MS == 0:
             self.SLOT_DURATION_MS = int(self.SECONDS_PER_SLOT * 1000)
 
         if self.SECONDS_PER_SLOT == 0:
-            if self.SLOT_DURATION_MS % 1000 != 0:
-                seconds_value = self.SLOT_DURATION_MS / 1000
-                raise BeaconSpecResponse.UnsupportedSlotDuration(
-                    f"Non-integer slot duration not supported: {self.SLOT_DURATION_MS}ms ({seconds_value}s). "
-                    f"Oracle requires whole-second slot durations. "
-                )
             self.SECONDS_PER_SLOT = self.SLOT_DURATION_MS // 1000
 
 
