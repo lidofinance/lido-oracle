@@ -95,7 +95,7 @@ Services and responsibilities:
 - `csm-oracle` - the actual oracle module:
   - reads from EL/CL/Keys API (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
   - queries performance data via `PERFORMANCE_COLLECTOR_URI` (in compose it points to `http://performance-web:9020/`)
-  - publishes artifacts to IPFS (via `LIDO_IPFS_*` / Pinata / Storacha / Kubo settings)
+  - publishes artifacts to IPFS (via `LIDO_IPFS_*` / Pinata / Filebase / Kubo settings)
 
 Data flow (simplified):
 
@@ -227,9 +227,6 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | True                | `/app/pintata_secret`          |
 | `PINATA_DEDICATED_GATEWAY_URL`                         | URL of the dedicated Pinata gateway (required for Pinata provider, fallback to public gateway if dedicated fails)                                                        | Staking Module only | `https://gateway.pinata.cloud` |
 | `PINATA_DEDICATED_GATEWAY_TOKEN`                       | Token for accessing dedicated Pinata gateway (required for Pinata provider)                                                                                              | Staking Module only | `gAT_abc123...`                |
-| `STORACHA_AUTH_SECRET`                                 | Secret for Storacha IPFS provider                                                                                                                                        | True                | `uMGVabc...`                   |
-| `STORACHA_AUTHORIZATION`                               | Authorization for Storacha IPFS provider                                                                                                                                 | True                | `uMGVabc...`                   |
-| `STORACHA_SPACE_DID`                                   | Space DID for Storacha IPFS provider                                                                                                                                     | True                | `did:key:z6Mkabc...`           |
 | `LIDO_IPFS_HOST`                                       | Host to access Lido IPFS cluster                                                                                                                                         | True                | `https://ipfs.lido.fi`         |
 | `LIDO_IPFS_TOKEN`                                      | Bearer token for Lido IPFS cluster authentication                                                                                                                        | True                | `eyJhbG...`                    |
 | `FILEBASE_IPFS_HOST`                                   | Host to access Filebase IPFS endpoint                                                                                                                                    | False               | `https://rpc.filebase.io`      |

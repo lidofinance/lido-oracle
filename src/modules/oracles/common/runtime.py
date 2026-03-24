@@ -9,7 +9,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
+from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -176,22 +176,7 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
 
     WARNING: Yields order here used for CID selection fallback when quorum
     consensus fails. Do not change order without considering impact.
-
-    Storacha has highest priority because it's the only provider where we control
-    the entire content addressing process. While other providers receive raw content
-    and handle CAR/UnixFS assembly on their side (potentially with different
-    implementations), Storacha receives our locally-assembled CAR files, ensuring
-    the returned CID matches our own CAR conversion logic. This makes consensus
-    more reliable when providers disagree on CID calculation.
     """
-    if variables.STORACHA_AUTH_SECRET and variables.STORACHA_AUTHORIZATION and variables.STORACHA_SPACE_DID:
-        yield Storacha(
-            variables.STORACHA_AUTH_SECRET,
-            variables.STORACHA_AUTHORIZATION,
-            variables.STORACHA_SPACE_DID,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-        )
-
     if variables.LIDO_IPFS_HOST and variables.LIDO_IPFS_TOKEN:
         yield LidoIPFS(
             variables.LIDO_IPFS_HOST,
