@@ -258,6 +258,15 @@ class DutiesDB:
         with self.get_session() as session:
             return session.get(EpochsDemand, consumer)
 
+    def count_stored_epochs_in_range(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> int:
+        if from_epoch > to_epoch:
+            raise ValueError("Invalid epoch range")
+
+        with self.get_session() as session:
+            return session.exec(
+                select(func.count()).select_from(Duty).where(col(Duty.epoch).between(from_epoch, to_epoch))
+            ).one()
+
     def get_epochs_demands(self) -> list[EpochsDemand]:
         with self.get_session() as session:
             return list(session.exec(select(EpochsDemand)).all())

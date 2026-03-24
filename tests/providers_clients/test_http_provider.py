@@ -5,7 +5,7 @@ import pytest
 from requests import Response
 
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
-from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any
+from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any, data_is_int
 
 
 @pytest.mark.unit
@@ -30,7 +30,7 @@ def test_no_providers():
 @pytest.mark.unit
 def test_all_fallbacks_ok():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
-    provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params, stream, **_: (host, endpoint)
+    provider._get_without_fallbacks = Mock(return_value=('http://localhost:1', 'test'))
     assert provider._get('test') == ('http://localhost:1', 'test')
     assert len(provider.get_all_providers()) == 2
 
@@ -111,7 +111,25 @@ def test_custom_error_provided():
         def call(self):
             return self._get('invalid_url')
 
-    provider = TestProvider('http://example.com/', 1, 1, 1)
+    provider = TestProvider(['http://example.com/'], 1, 1, 1)
+    provider.session.get = Mock(side_effect=Exception("boom"))
 
     with pytest.raises(CustomError):
         provider.call()
+
+
+@pytest.mark.unit
+def test_data_is_int_accepts_int():
+    data_is_int(1, {}, endpoint="test")
+
+
+@pytest.mark.unit
+def test_data_is_int_rejects_bool():
+    with pytest.raises(ValueError, match="Expected int response"):
+        data_is_int(True, {}, endpoint="test")
+
+
+@pytest.mark.unit
+def test_data_is_int_rejects_non_int():
+    with pytest.raises(ValueError, match="Expected int response"):
+        data_is_int("1", {}, endpoint="test")
