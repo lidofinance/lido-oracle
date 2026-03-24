@@ -24,9 +24,56 @@ from src.utils.types import hex_str_to_bytes
 class BeaconSpecResponse(Nested, FromResponse):
     DEPOSIT_CHAIN_ID: int
     SLOTS_PER_EPOCH: int
-    SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
+    SLOT_DURATION_MS: int = 0
+    SECONDS_PER_SLOT: int = 0
+
+    class NeitherSlotDurationFieldPresent(Exception):
+        pass
+
+    class UnsupportedSlotDuration(Exception):
+        pass
+
+    class InconsistentSlotDuration(Exception):
+        pass
+
+    def __post_init__(self):
+        """
+        Consensus clients may provide either SECONDS_PER_SLOT (legacy) or SLOT_DURATION_MS
+        (per consensus-specs#4926). This method ensures both fields are populated.
+
+        Raises UnsupportedSlotDuration for fractional slot durations (e.g., 12500ms = 12.5s).
+        While SLOT_DURATION_MS technically enables sub-second precision, fractional slot
+        durations are extremely unlikely in practice - all networks use whole seconds.
+        Oracle explicitly rejects them to prevent silent timing calculation errors.
+
+        See: https://github.com/ethereum/consensus-specs/pull/4926
+        """
+        super().__post_init__()
+        if self.SLOT_DURATION_MS == 0 and self.SECONDS_PER_SLOT == 0:
+            raise BeaconSpecResponse.NeitherSlotDurationFieldPresent(
+                "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
+            )
+
+        if self.SLOT_DURATION_MS != 0:
+            if self.SLOT_DURATION_MS % 1000 != 0:
+                raise BeaconSpecResponse.UnsupportedSlotDuration(
+                    f"Non-integer slot duration not supported: {self.SLOT_DURATION_MS}ms "
+                    f"({self.SLOT_DURATION_MS / 1000}s). Oracle requires whole-second slot durations."
+                )
+
+            if self.SECONDS_PER_SLOT != 0 and self.SLOT_DURATION_MS != self.SECONDS_PER_SLOT * 1000:
+                raise BeaconSpecResponse.InconsistentSlotDuration(
+                    f"Inconsistent slot duration fields: {self.SLOT_DURATION_MS=} "
+                    f"does not match {self.SECONDS_PER_SLOT=}."
+                )
+
+        if self.SLOT_DURATION_MS == 0:
+            self.SLOT_DURATION_MS = int(self.SECONDS_PER_SLOT * 1000)
+
+        if self.SECONDS_PER_SLOT == 0:
+            self.SECONDS_PER_SLOT = self.SLOT_DURATION_MS // 1000
 
 
 @dataclass

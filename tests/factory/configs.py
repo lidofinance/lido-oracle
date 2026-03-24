@@ -40,6 +40,7 @@ class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
 
 
 class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
+    SLOT_DURATION_MS = 12000
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
