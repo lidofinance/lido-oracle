@@ -33,16 +33,18 @@ class BeaconSpecResponse(Nested, FromResponse):
     class NeitherSlotDurationFieldPresent(Exception):
         pass
 
+    class UnsupportedSlotDuration(Exception):
+        pass
+
     def __post_init__(self):
         """
-        Initialize missing slot timing fields with appropriate precision handling.
-
         Consensus clients may provide either SECONDS_PER_SLOT (legacy) or SLOT_DURATION_MS
         (per consensus-specs#4926). This method ensures both fields are populated.
 
-        while fractional slot durations are theoretically possible (12500ms = 12.5s),
-        all networks currently use exact 12.000s slots. The rounding prevents potential
-        "future timestamp" issues and maintains backward compatibility.
+        Raises UnsupportedSlotDuration for fractional slot durations (e.g., 12500ms = 12.5s).
+        While SLOT_DURATION_MS technically enables sub-second precision, fractional slot
+        durations are extremely unlikely in practice - all networks use whole seconds.
+        Oracle explicitly rejects them to prevent silent timing calculation errors.
 
         See: https://github.com/ethereum/consensus-specs/pull/4926
         """
@@ -51,13 +53,18 @@ class BeaconSpecResponse(Nested, FromResponse):
             raise BeaconSpecResponse.NeitherSlotDurationFieldPresent(
                 "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
             )
+
         if self.SLOT_DURATION_MS == 0:
             self.SLOT_DURATION_MS = int(self.SECONDS_PER_SLOT * 1000)
+
         if self.SECONDS_PER_SLOT == 0:
-            # Convert milliseconds to seconds with conservative floor rounding
-            # Protects against theoretical fractional slot durations
-            seconds_float = self.SLOT_DURATION_MS / 1000
-            self.SECONDS_PER_SLOT = int(math.floor(seconds_float))
+            if self.SLOT_DURATION_MS % 1000 != 0:
+                seconds_value = self.SLOT_DURATION_MS / 1000
+                raise BeaconSpecResponse.UnsupportedSlotDuration(
+                    f"Non-integer slot duration not supported: {self.SLOT_DURATION_MS}ms ({seconds_value}s). "
+                    f"Oracle requires whole-second slot durations. "
+                )
+            self.SECONDS_PER_SLOT = self.SLOT_DURATION_MS // 1000
 
 
 @dataclass
