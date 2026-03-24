@@ -9,7 +9,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
+from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -205,6 +205,14 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
             dedicated_gateway_url=variables.PINATA_DEDICATED_GATEWAY_URL,
             dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
+        )
+
+    if variables.FILEBASE_IPFS_HOST and variables.FILEBASE_IPFS_TOKEN:
+        yield Filebase(
+            variables.FILEBASE_IPFS_HOST,
+            443,
+            token=variables.FILEBASE_IPFS_TOKEN,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
 
     if variables.KUBO_HOST:
