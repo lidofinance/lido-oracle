@@ -56,7 +56,7 @@ export PGPASSWORD="$ADMIN_PASSWORD"
 
 # Function to run SQL command
 run_sql() {
-    psql -h "$DB_HOST" -p "$DB_PORT" -U "$ADMIN_USER" -d postgres -tAc "$1"
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$ADMIN_USER" -d template1 -tAc "$1"
 }
 
 # Check if user exists
@@ -79,7 +79,7 @@ if user_exists; then
 else
     log_info "Creating user '$DB_USER'..."
     run_sql "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD'"
-    log_info "User '$DB_USER' created successfully"
+    log_info "User $DB_USER created successfully"
 fi
 
 # Create database if not exists
@@ -88,7 +88,7 @@ if db_exists; then
 else
     log_info "Creating database '$DB_NAME' with owner '$DB_USER'..."
     run_sql "CREATE DATABASE $DB_NAME OWNER $DB_USER"
-    log_info "Database '$DB_NAME' created successfully"
+    log_info "Database $DB_NAME created successfully"
 fi
 
 # Grant privileges
@@ -96,7 +96,6 @@ log_info "Granting privileges..."
 run_sql "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER"
 
 # Connect to the new database and grant schema privileges
-export PGPASSWORD="$ADMIN_PASSWORD"
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$ADMIN_USER" -d "$DB_NAME" -c "GRANT ALL ON SCHEMA public TO $DB_USER"
 
 log_info "Database initialization completed successfully!"

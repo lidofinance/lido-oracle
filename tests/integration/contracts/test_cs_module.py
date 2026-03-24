@@ -1,6 +1,5 @@
 import pytest
 from eth_typing import ChecksumAddress
-from web3.exceptions import ContractLogicError
 
 from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
 
@@ -20,7 +19,6 @@ def test_cs_module(cs_module_contract, caplog):
 
 @pytest.mark.integration
 @pytest.mark.mainnet
-@pytest.mark.xfail(raises=ContractLogicError, reason="CSMv2 is not yet live")
 def test_cs_module_v2(cs_module_contract, caplog):
     check_contract(
         cs_module_contract,

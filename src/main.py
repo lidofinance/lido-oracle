@@ -36,6 +36,7 @@ def main(module: OracleModuleName):
 
         return collector_entrypoint.run()
 
+    # TODO: this function can be splitted or simplified or whatever.
     errors = variables.check_all_required_variables(module)
     variables.raise_from_errors(errors)
 
@@ -58,8 +59,6 @@ def main(module: OracleModuleName):
         from src.modules.oracles.staking_modules.curated import entrypoint as cm_entrypoint
 
         return cm_entrypoint.run()
-
-    raise ValueError(f'Unknown module {module}')
 
 
 if __name__ == '__main__':

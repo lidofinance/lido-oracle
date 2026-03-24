@@ -65,6 +65,7 @@ ipython = "^9.0"
 conventional-pre-commit = "^4.0.0"
 types-gunicorn = "^23.0.0.20251031"
 mutmut = "^2.5.1"
+httpx = "^0.28.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

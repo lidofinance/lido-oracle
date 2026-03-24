@@ -1,9 +1,11 @@
-from time import time
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 
-from sqlalchemy import ARRAY, Boolean, Column, Integer, SmallInteger, delete, desc
+from pydantic import PostgresDsn
+from sqlalchemy import ARRAY, Boolean, Column, DateTime, Integer, SmallInteger, asc, delete, desc, exists
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql import func
+from sqlalchemy.types import JSON
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
 from src import variables
@@ -12,10 +14,14 @@ from src.types import EpochNumber
 from src.utils.range import sequence
 
 
+def get_datetime_utc() -> datetime:
+    return datetime.now(UTC)
+
+
 class Duty(SQLModel, table=True):
     __tablename__: ClassVar[str] = "duties"
 
-    epoch: int = Field(primary_key=True)
+    epoch: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=False))
     attestations: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
     proposals_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
     proposals_flags: list[bool] = Field(default_factory=list, sa_column=Column(ARRAY(Boolean()), nullable=False))
@@ -29,7 +35,18 @@ class EpochsDemand(SQLModel, table=True):
     consumer: str = Field(primary_key=True)
     from_epoch: int
     to_epoch: int
-    updated_at: int
+    updated_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
+
+
+class Settings(SQLModel, table=True):
+    __tablename__: ClassVar[str] = "settings"
+
+    key: str = Field(primary_key=True)
+    value: Any = Field(sa_column=Column(JSON, nullable=False))
+
+
+RETENTION_EPOCHS_KEY = "retention_epochs"
+RETENTION_EPOCHS_DEFAULT = 225 * 30 * 6
 
 
 class DutiesDB:
@@ -39,16 +56,15 @@ class DutiesDB:
         connect_timeout: int | None = None,
         statement_timeout_ms: int | None = None,
     ):
-        self._statement_timeout_ms = statement_timeout_ms
-        self.engine = self._build_engine(connect_timeout)
+        self.engine = self._build_engine(connect_timeout, statement_timeout_ms)
         self._setup_database()
 
-    def _build_engine(self, connect_timeout: int | None) -> Engine:
+    def _build_engine(self, connect_timeout: int | None, statement_timeout_ms: int | None) -> Engine:
         connect_args: dict[str, Any] = {}
         if connect_timeout:
             connect_args["connect_timeout"] = connect_timeout
-        if self._statement_timeout_ms is not None:
-            connect_args["options"] = f"-c statement_timeout={self._statement_timeout_ms}"
+        if statement_timeout_ms is not None:
+            connect_args["options"] = f"-c statement_timeout={statement_timeout_ms}"
 
         return create_engine(
             self._get_database_url(),
@@ -63,19 +79,53 @@ class DutiesDB:
     @staticmethod
     def _get_database_url() -> str:
         """Get PostgreSQL database URL from environment variables"""
-        host = variables.PERFORMANCE_DB_HOST
-        port = variables.PERFORMANCE_DB_PORT
-        name = variables.PERFORMANCE_DB_NAME
-        user = variables.PERFORMANCE_DB_USER
-        password = variables.PERFORMANCE_DB_PASSWORD
-        return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+        return str(
+            PostgresDsn.build(
+                scheme="postgresql",
+                username=variables.PERFORMANCE_DB_USER,
+                password=variables.PERFORMANCE_DB_PASSWORD,
+                host=variables.PERFORMANCE_DB_HOST,
+                port=variables.PERFORMANCE_DB_PORT,
+                path=variables.PERFORMANCE_DB_NAME,
+            )
+        )
 
     def _setup_database(self) -> None:
         SQLModel.metadata.create_all(self.engine)
+        self._seed_settings()
+
+    def _seed_settings(self) -> None:
+        with self.get_session() as session:
+            existing = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if not existing:
+                session.add(Settings(key=RETENTION_EPOCHS_KEY, value=RETENTION_EPOCHS_DEFAULT))
+                session.commit()
 
     def get_session(self) -> Session:
-        session = Session(self.engine, expire_on_commit=False)
-        return session
+        # Keep model attributes available after commit when objects are returned outside this context.
+        return Session(self.engine, expire_on_commit=False)
+
+    def get_retention_epochs(self) -> int:
+        with self.get_session() as session:
+            setting = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if setting is None:
+                raise ValueError(f"'{RETENTION_EPOCHS_KEY}' setting not found in database")
+            if not isinstance(setting.value, int):
+                raise TypeError(f"'{RETENTION_EPOCHS_KEY}' setting expected an int, got {type(setting.value).__name__}")
+            if setting.value <= 0:
+                raise ValueError(f"'{RETENTION_EPOCHS_KEY}' must be positive, got {setting.value}")
+            return setting.value
+
+    def set_retention_epochs(self, value: int) -> None:
+        if value <= 0:
+            raise ValueError("retention_epochs must be positive")
+        with self.get_session() as session:
+            setting = session.get(Settings, RETENTION_EPOCHS_KEY)
+            if setting:
+                setting.value = value
+            else:
+                session.add(Settings(key=RETENTION_EPOCHS_KEY, value=value))
+            session.commit()
 
     def store_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> EpochsDemand:
         with self.get_session() as session:
@@ -83,21 +133,20 @@ class DutiesDB:
             if demand:
                 demand.from_epoch = from_epoch
                 demand.to_epoch = to_epoch
-                demand.updated_at = int(time())
+                demand.updated_at = get_datetime_utc()
             else:
                 demand = EpochsDemand(
                     consumer=consumer,
                     from_epoch=from_epoch,
                     to_epoch=to_epoch,
-                    updated_at=int(time()),
                 )
                 session.add(demand)
             session.commit()
             return demand
 
-    def delete_demand(self, consumer: str) -> None:
+    def delete_demand(self, demand: EpochsDemand) -> None:
         with self.get_session() as session:
-            session.exec(delete(EpochsDemand).where(col(EpochsDemand.consumer) == consumer))
+            session.delete(demand)
             session.commit()
 
     def store_epoch(
@@ -107,9 +156,8 @@ class DutiesDB:
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
     ) -> None:
-        # TODO: test that store and get are consistent
         self._store_data(epoch, att_misses, proposals, syncs)
-        self._auto_prune(epoch)
+        self._prune(epoch)
 
     def _store_data(
         self,
@@ -118,11 +166,11 @@ class DutiesDB:
         proposals: list[ProposalDuty],
         syncs: list[SyncDuty],
     ) -> None:
-        att_list: list[int] = [int(v) for v in att_misses] if att_misses else []
-        prop_vids: list[int] = [int(p.validator_index) for p in proposals] if proposals else []
-        prop_flags: list[bool] = [bool(p.is_proposed) for p in proposals] if proposals else []
-        sync_vids: list[int] = [int(s.validator_index) for s in syncs] if syncs else []
-        sync_misses: list[int] = [int(s.missed_count) for s in syncs] if syncs else []
+        att_list: list[int] = list(att_misses)
+        prop_vids: list[int] = [p.validator_index for p in proposals]
+        prop_flags: list[bool] = [p.is_proposed for p in proposals]
+        sync_vids: list[int] = [s.validator_index for s in syncs]
+        sync_misses: list[int] = [s.missed_count for s in syncs]
 
         with self.get_session() as session:
             duty = session.get(Duty, epoch)
@@ -144,29 +192,24 @@ class DutiesDB:
                 session.add(duty)
             session.commit()
 
-    def _auto_prune(self, current_epoch: EpochNumber) -> None:
-        if variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS <= 0:
-            return
-        threshold = int(current_epoch) - variables.PERFORMANCE_COLLECTOR_DB_RETENTION_EPOCHS
-        if threshold <= 0:
+    def _prune(self, current_epoch: EpochNumber) -> None:
+        retention = self.get_retention_epochs()
+        max_stored_epoch = self.max_epoch()
+        anchor_epoch = max_stored_epoch if max_stored_epoch is not None else current_epoch
+        min_epoch_to_keep = anchor_epoch - retention + 1
+        if min_epoch_to_keep <= 0:
             return
 
         with self.get_session() as session:
-            session.exec(delete(Duty).where(col(Duty.epoch) < threshold))
+            session.exec(delete(Duty).where(col(Duty.epoch) < min_epoch_to_keep))
             session.commit()
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
-        if int(from_epoch) > int(to_epoch):
+        if from_epoch > to_epoch:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            stmt = (
-                select(func.count())
-                .select_from(Duty)
-                .where(  # pylint: disable=not-callable
-                    (col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch)
-                )
-            )
+            stmt = select(func.count()).select_from(Duty).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch)
             count = session.exec(stmt).one()
             return count == (to_epoch - from_epoch + 1)
 
@@ -175,12 +218,9 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            present_duties = session.exec(
-                select(Duty.epoch)
-                .where((col(Duty.epoch) >= from_epoch), (col(Duty.epoch) <= to_epoch))
-                .order_by(col(Duty.epoch))
+            present = session.exec(
+                select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch).distinct()
             ).all()
-            present = {EpochNumber(int(epoch)) for epoch in present_duties}
 
         return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
 
@@ -193,27 +233,26 @@ class DutiesDB:
             return session.get(Duty, epoch)
 
     def has_epoch(self, epoch: EpochNumber) -> bool:
-        return self.get_epoch_data(epoch) is not None
+        with self.get_session() as session:
+            return session.exec(select(exists().where(col(Duty.epoch) == epoch))).one()
 
     def min_epoch(self) -> EpochNumber | None:
         with self.get_session() as session:
-            result = session.exec(select(Duty.epoch).order_by(col(Duty.epoch)).limit(1)).first()
-            return EpochNumber(int(result)) if result else None
+            result = session.exec(select(Duty.epoch).order_by(asc(col(Duty.epoch))).limit(1)).first()
+            return EpochNumber(result) if result else None
 
     def max_epoch(self) -> EpochNumber | None:
         with self.get_session() as session:
             result = session.exec(select(Duty.epoch).order_by(desc(col(Duty.epoch))).limit(1)).first()
-            return EpochNumber(int(result)) if result else None
+            return EpochNumber(result) if result else None
 
     def epochs_count(self) -> int:
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(Duty)  # pylint: disable=not-callable
-            return int(session.exec(stmt).one())
+            return session.exec(select(func.count()).select_from(Duty)).one()
 
     def demands_count(self) -> int:
         with self.get_session() as session:
-            stmt = select(func.count()).select_from(EpochsDemand)  # pylint: disable=not-callable
-            return int(session.exec(stmt).one())
+            return session.exec(select(func.count()).select_from(EpochsDemand)).one()
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         with self.get_session() as session:
@@ -223,6 +262,6 @@ class DutiesDB:
         with self.get_session() as session:
             return list(session.exec(select(EpochsDemand)).all())
 
-    def get_epochs_demands_max_updated_at(self) -> int | None:
+    def get_epochs_demands_max_updated_at(self) -> datetime | None:
         with self.get_session() as session:
             return session.exec(select(func.max(EpochsDemand.updated_at))).one()

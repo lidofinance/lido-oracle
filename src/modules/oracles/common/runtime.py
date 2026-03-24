@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
+def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = web3_cls(
         FallbackProviderModule(
@@ -46,6 +46,14 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
+
+    logger.info({'msg': 'Initialize DataBus telemetry module.'})
+    telemetry_data_bus = TelemetryDataBus(
+        variables.TELEMETRY_DATA_BUS_RPC,
+        variables.DATA_BUS_ADDRESS,
+        module_name,
+        web3,
+    )
 
     logger.info({'msg': 'Initialize consensus client.'})
     cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
@@ -67,6 +75,7 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
         'delegation': lambda: delegation,
         'cc': lambda: cc,
         'kac': lambda: kac,
+        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
 
     web3.attach_modules(modules)
@@ -75,23 +84,14 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
 
 
 def build_oracle_web3(module_name: str) -> Web3:
-    web3 = _build_web3_base(Web3)
+    web3 = _build_web3_base(Web3, module_name)
 
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
-
-    logger.info({'msg': 'Initialize DataBus telemetry module.'})
-    telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
-    )
 
     modules: dict[str, Any] = {
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'ipfs': lambda: ipfs,
-        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 
@@ -103,7 +103,7 @@ def build_oracle_web3(module_name: str) -> Web3:
 
 
 def build_staking_module_web3(module_name: str) -> Web3StakingModule:
-    web3 = _build_web3_base(Web3StakingModule)
+    web3 = _build_web3_base(Web3StakingModule, module_name)
 
     if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
         raise ValueError("PERFORMANCE_COLLECTOR_URI is required")
@@ -112,18 +112,11 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
-    telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
-    )
 
     modules: dict[str, Any] = {
         'staking_module': StakingModuleContracts,
         'performance': lambda: performance,
         'ipfs': lambda: ipfs,
-        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 

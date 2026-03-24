@@ -2,6 +2,7 @@ import logging
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -33,8 +34,9 @@ class PerformanceCollector(DaemonModule):
     Continuously collects performance data from Consensus Layer into db for the given epoch range.
     """
 
-    # Timestamp of the last epochs demand update
-    last_epochs_demand_update: int | None = None
+    # Datetime of the last epochs demand update
+    last_epochs_demand_update: datetime | None = None
+    last_demands_count: int = 0
 
     def __init__(self, cc: ConsensusClient):
         super().__init__(cc=cc)
@@ -42,7 +44,8 @@ class PerformanceCollector(DaemonModule):
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
         )
-        self.last_epochs_demand_update = self._get_epochs_demand_max_updated_at()
+        self.last_epochs_demand_update = self.db.get_epochs_demands_max_updated_at()
+        self.last_demands_count = self.db.demands_count()
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:
@@ -50,7 +53,7 @@ class PerformanceCollector(DaemonModule):
         try:
             yield
         except DecoratorTimeoutError as error:
-            logger.error({'msg': 'Performance collector do not respond.', 'error': str(error)})
+            logger.error({'msg': 'Performance collector does not respond.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="timeout").inc()
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
@@ -121,9 +124,8 @@ class PerformanceCollector(DaemonModule):
             # Reset base cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
-            if self._new_epochs_range_demand_appeared():
-                self._update_demand_metrics()
-                logger.info({"msg": "New epochs demand is found during processing"})
+            if self._has_epochs_demand_changed():
+                logger.info({"msg": "Epochs demand change detected during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
         logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
@@ -142,12 +144,10 @@ class PerformanceCollector(DaemonModule):
         min_epoch_in_db = self.db.min_epoch()
         max_epoch_in_db = self.db.max_epoch()
 
-        if min_epoch_in_db and max_available_epoch_to_check < min_epoch_in_db:
-            raise ValueError(
-                "Max available epoch to check is lower than the minimum epoch in the DB. CL node is not synced"
-            )
+        if min_epoch_in_db and min_epoch_in_db > max_available_epoch_to_check:
+            raise ValueError("DB has data for a not‑yet‑finalised epoch. CL node is not synced.")
 
-        start_epoch = EpochNumber(max_available_epoch_to_check)
+        start_epoch = EpochNumber(min_epoch_in_db if min_epoch_in_db is not None else max_available_epoch_to_check)
         end_epoch = EpochNumber(max_available_epoch_to_check)
 
         epochs_demand = self.db.get_epochs_demands()
@@ -165,7 +165,7 @@ class PerformanceCollector(DaemonModule):
                     }
                 )
                 # Remove from the DB just in case
-                self.db.delete_demand(demand.consumer)
+                self.db.delete_demand(demand)
                 # There is no sense to lower start_epoch because the demand is already satisfied (data is in the DB)
                 continue
             start_epoch = EpochNumber(min(start_epoch, demand.from_epoch))
@@ -196,14 +196,15 @@ class PerformanceCollector(DaemonModule):
 
         return start_epoch, end_epoch
 
-    def _new_epochs_range_demand_appeared(self) -> bool:
-        max_updated_at = self._get_epochs_demand_max_updated_at()
-        updated = max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
-        if updated:
+    def _has_epochs_demand_changed(self) -> bool:
+        max_updated_at = self.db.get_epochs_demands_max_updated_at()
+        count = self.db.demands_count()
+        changed = count != self.last_demands_count or (
+            max_updated_at is not None and self.last_epochs_demand_update != max_updated_at
+        )
+        if changed:
             self.last_epochs_demand_update = max_updated_at
+            self.last_demands_count = count
+            self._update_demand_metrics()
             return True
         return False
-
-    def _get_epochs_demand_max_updated_at(self) -> int | None:
-        max_updated_at = self.db.get_epochs_demands_max_updated_at()
-        return int(max_updated_at) if max_updated_at is not None else None
