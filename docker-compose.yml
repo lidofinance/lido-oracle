@@ -25,12 +25,11 @@ services:
   # ---------------------------------------------------------------------------
 
   postgres:
-    image: postgres:15
+    image: postgres:16
     container_name: staking-module-oracle-postgres
     environment:
       POSTGRES_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
       POSTGRES_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
-      POSTGRES_DB: postgres
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -45,7 +44,7 @@ services:
   # One-time database initialization (creates user and database)
   # For external PostgreSQL: set PERFORMANCE_DB_HOST to your external host
   init-db:
-    image: postgres:15
+    image: postgres:16
     container_name: staking-module-oracle-init-db
     profiles: ["init"]
     depends_on:
@@ -56,7 +55,7 @@ services:
       PERFORMANCE_DB_ADMIN_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
       PERFORMANCE_DB_ADMIN_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
     volumes:
-      - ./scripts:/scripts:ro
+      - ./scripts/init_performance_db.sh:/scripts/init_performance_db.sh:ro
     entrypoint: ["/bin/bash", "/scripts/init_performance_db.sh"]
     restart: "no"
 
@@ -131,12 +130,8 @@ services:
       PINATA_JWT: ${PINATA_JWT:-}
       PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
       PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
-      STORACHA_AUTH_SECRET: ${STORACHA_AUTH_SECRET:-}
-      STORACHA_AUTHORIZATION: ${STORACHA_AUTHORIZATION:-}
-      STORACHA_SPACE_DID: ${STORACHA_SPACE_DID:-}
       KUBO_HOST: ${KUBO_HOST:-}
       KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
-      KUBO_GATEWAY_PORT: ${KUBO_GATEWAY_PORT:-8080}
       HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
       HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
       IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
@@ -172,20 +167,16 @@ services:
       PINATA_JWT: ${PINATA_JWT:-}
       PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
       PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
-      STORACHA_AUTH_SECRET: ${STORACHA_AUTH_SECRET:-}
-      STORACHA_AUTHORIZATION: ${STORACHA_AUTHORIZATION:-}
-      STORACHA_SPACE_DID: ${STORACHA_SPACE_DID:-}
       KUBO_HOST: ${KUBO_HOST:-}
       KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
-      KUBO_GATEWAY_PORT: ${KUBO_GATEWAY_PORT:-8080}
       HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
       HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
       IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
       PROMETHEUS_PORT: 9000
       HEALTHCHECK_SERVER_PORT: 9010
     ports:
-      - "${CSM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
-      - "${CSM_ORACLE_HEALTH_PORT:-9012}:9010"
+      - "${CM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
+      - "${CM_ORACLE_HEALTH_PORT:-9012}:9010"
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults

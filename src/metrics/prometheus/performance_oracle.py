@@ -17,6 +17,7 @@ PERFORMANCE_ORACLE_TARGET_R_EPOCH = Gauge(
     namespace=PROMETHEUS_PREFIX,
 )
 
+# XXX: What's reason to have this metric since we can have multiple ranges anyway.
 PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME = Gauge(
     "performance_oracle_last_range_check_unixtime",
     "Unix timestamp of the last required-range availability check",

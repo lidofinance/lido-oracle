@@ -1,11 +1,13 @@
-from typing import Annotated
+from datetime import datetime
 
-from fastapi import Path, Query
-from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.types import EpochNumber
 from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
+
+
+# PostgreSQL INTEGER max value (4 bytes, signed)
+PG_INTEGER_MAX = 2_147_483_647
 
 
 class ConsumerParam(BaseModel):
@@ -24,31 +26,31 @@ class EpochRangeBase(BaseModel):
     from_epoch: EpochNumber
     to_epoch: EpochNumber
 
-    @field_validator("from_epoch", "to_epoch", mode="before")
-    def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
-        if int(value) < 0:
+    @field_validator("from_epoch", "to_epoch")
+    @classmethod
+    def validate_epoch(cls, value: EpochNumber) -> EpochNumber:
+        if value < 0:
             raise ValueError("epoch must be non-negative")
+        if value > PG_INTEGER_MAX:
+            raise ValueError(f"epoch must not exceed {PG_INTEGER_MAX}")
         return value
 
     @model_validator(mode="after")
     def validate_epoch_bounds(self):
-        model_fields = type(self).model_fields
-        from_label = model_fields["from_epoch"].alias or "from_epoch"
-        to_label = model_fields["to_epoch"].alias or "to_epoch"
         if self.from_epoch > self.to_epoch:
-            raise ValueError(f"'{from_label}' must be <= '{to_label}'")
+            raise ValueError("start epoch must be less than or equal to the end one")
         return self
 
 
-class EpochRangeQuery(EpochRangeBase):
+class EpochRangeParam(EpochRangeBase):
     from_epoch: EpochNumber = Field(..., alias="from")
     to_epoch: EpochNumber = Field(..., alias="to")
 
 
-class LimitedEpochRangeQuery(EpochRangeQuery):
+class LimitedEpochRangeParam(EpochRangeParam):
     @model_validator(mode="after")
     def validate_range_size(self):
-        range_size = int(self.to_epoch) - int(self.from_epoch) + 1
+        range_size = self.to_epoch - self.from_epoch + 1
         if range_size > PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE:
             raise ValueError(
                 "Requested epoch range is too large; maximum allowed size is "
@@ -57,58 +59,31 @@ class LimitedEpochRangeQuery(EpochRangeQuery):
         return self
 
 
-class EpochPath(BaseModel):
+class EpochParam(BaseModel):
     epoch: EpochNumber
 
-    @field_validator("epoch", mode="before")
-    def epoch_not_negative(cls, value: EpochNumber) -> EpochNumber:
-        if int(value) < 0:
+    @field_validator("epoch")
+    @classmethod
+    def validate_epoch(cls, value: EpochNumber) -> EpochNumber:
+        if value < 0:
             raise ValueError("epoch must be non-negative")
+        if value > PG_INTEGER_MAX:
+            raise ValueError(f"epoch must not exceed {PG_INTEGER_MAX}")
         return value
 
 
-class EpochsDemandRequest(ConsumerParam, EpochRangeBase):
+class EpochsDemandParam(ConsumerParam, EpochRangeBase):
     pass
 
 
 class EpochsDemandResponse(ConsumerParam, EpochRangeBase):
-    updated_at: int
+    updated_at: datetime | None
     model_config = ConfigDict(from_attributes=True)
 
 
-def parse_epoch_range_query(
-    from_epoch: Annotated[EpochNumber, Query(..., alias="from")],
-    to_epoch: Annotated[EpochNumber, Query(..., alias="to")],
-) -> EpochRangeQuery:
-    try:
-        return EpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
-    except ValidationError as error:
-        raise RequestValidationError(error.errors()) from error
+class RetentionEpochsParam(BaseModel):
+    retention_epochs: int = Field(..., gt=0)
 
 
-def parse_limited_epoch_range_query(
-    from_epoch: Annotated[EpochNumber, Query(..., alias="from")],
-    to_epoch: Annotated[EpochNumber, Query(..., alias="to")],
-) -> LimitedEpochRangeQuery:
-    try:
-        return LimitedEpochRangeQuery.model_validate({"from_epoch": from_epoch, "to_epoch": to_epoch})
-    except ValidationError as error:
-        raise RequestValidationError(error.errors()) from error
-
-
-def parse_consumer_path(
-    consumer: Annotated[str, Path(...)],
-) -> ConsumerParam:
-    try:
-        return ConsumerParam.model_validate({"consumer": consumer})
-    except ValidationError as error:
-        raise RequestValidationError(error.errors()) from error
-
-
-def parse_epoch_path(
-    epoch: Annotated[EpochNumber, Path(...)],
-) -> EpochPath:
-    try:
-        return EpochPath.model_validate({"epoch": epoch})
-    except ValidationError as error:
-        raise RequestValidationError(error.errors()) from error
+class RetentionEpochsResponse(BaseModel):
+    retention_epochs: int

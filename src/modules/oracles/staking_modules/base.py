@@ -1,6 +1,5 @@
 import logging
 from itertools import batched
-from time import time
 
 from hexbytes import HexBytes
 
@@ -49,12 +48,11 @@ class SMPerformanceOracleError(Exception):
 class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     """
     Staking Module performance oracle collects performance of staking module node operators and creates a Merkle tree
-    of the resulting distribution of shares among the operators. The root of the tree is then submitted to the
-    module contract.
+    of the resulting distribution of shares among the operators.
 
     The algorithm for calculating performance includes the following steps:
-        1. Collect all the attestation duties of the network validators for the frame.
-        2. Calculate the performance of each validator based on the attestations.
+        1. Collect duties of the network validators for the frame.
+        2. Calculate the performance of each validator based on their duties.
         3. Calculate the share of each node operator excluding underperforming validators.
     """
 
@@ -82,6 +80,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
 
+    # TODO: Do we really need to remove the demand, let's say for the case we have a bug in the oracle module but not in
+    # the collector.
     def shutdown(self) -> None:
         performance_client = getattr(self.w3, "performance", None)
         if performance_client is None:
@@ -117,7 +117,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self._set_epochs_range_to_collect(last_finalized_blockstamp)
+        self._prepare_to_collect(last_finalized_blockstamp)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
@@ -131,21 +131,21 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return ModuleExecuteDelay.NEXT_SLOT
 
     @duration_meter()
-    def _set_epochs_range_to_collect(self, blockstamp: BlockStamp):
-        converter = self._get_web3_converter(blockstamp)
-
+    def _prepare_to_collect(self, blockstamp: BlockStamp):
         l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
+        converter = self._get_web3_converter(blockstamp)
         self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
-        self.state.log_progress()
+        self._post_epochs_demand(l_epoch, r_epoch)
 
-        is_range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
-        PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set(time())
-        if is_range_available:
+    def _post_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
+        range_available = self._check_range_availability(l_epoch, r_epoch)
+        if range_available:
             PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(0)
             logger.info(
                 {"msg": "Performance data range is already available", "start_epoch": l_epoch, "end_epoch": r_epoch}
             )
             return
+
         PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
 
         current_demand = self.w3.performance.get_epochs_demand(self.consumer)
@@ -153,14 +153,14 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if current_epochs_range != (l_epoch, r_epoch):
             logger.info(
                 {
-                    "msg": f"Updating {self.consumer} epochs demand for Performance Collector",
-                    "old": current_epochs_range,
-                    "new": (l_epoch, r_epoch),
+                    "msg": "Posting epochs demand for Performance Collector",
+                    "consumer": self.consumer,
+                    "old_range": current_epochs_range,
+                    "new_range": (l_epoch, r_epoch),
                 }
             )
             self.w3.performance.post_epochs_demand(self.consumer, l_epoch, r_epoch)
 
-    @duration_meter()
     def _collect_data(self) -> bool:
         logger.info({"msg": "Collecting data for the report from Performance Collector"})
 
@@ -168,8 +168,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
         if not self.state.is_fulfilled:
             for l_epoch, r_epoch in self.state.frames:
-                is_data_range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
-                if not is_data_range_available:
+                range_available = self._check_range_availability(l_epoch, r_epoch)
+                if not range_available:
                     logger.warning(
                         {
                             "msg": "Performance data range is not available yet",
@@ -184,6 +184,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             self._fulfill_state()
 
         return self.state.is_fulfilled
+
+    def _check_range_availability(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
+        PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set_to_current_time()
+        return self.w3.performance.is_range_available(l_epoch, r_epoch)
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -256,11 +260,11 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
         self.state.validate(l_epoch, r_epoch)
 
+    @duration_meter()
     def _fulfill_state(self):  # noqa: C901
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
-        self.state.ensure_initialized()
         batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
 
         logger.info(
@@ -283,13 +287,14 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             )
 
             for epochs_batch in batched(sequence(l_epoch, r_epoch), batch_size, strict=False):
+                start_epoch, end_epoch = epochs_batch[0], epochs_batch[-1]
                 unprocessed_epochs = self.state.unprocessed_epochs
                 if not any(epoch in unprocessed_epochs for epoch in epochs_batch):
                     logger.debug(
                         {
                             "msg": "Batch epochs are already processed",
-                            "start_epoch": epochs_batch[0],
-                            "end_epoch": epochs_batch[-1],
+                            "start_epoch": start_epoch,
+                            "end_epoch": end_epoch,
                         }
                     )
                     continue
@@ -297,41 +302,42 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                 logger.info(
                     {
                         "msg": "Requesting performance data batch from collector",
-                        "start_epoch": epochs_batch[0],
-                        "end_epoch": epochs_batch[-1],
+                        "start_epoch": start_epoch,
+                        "end_epoch": end_epoch,
                         "total_epochs": len(epochs_batch),
                     }
                 )
-                epochs_data = self.w3.performance.get_epochs_data(epochs_batch[0], epochs_batch[-1])
-                epochs_data_by_epoch = {int(duty.epoch): duty for duty in epochs_data}
+
+                duties = self.w3.performance.get_epochs_data(start_epoch, end_epoch)
+                duties_by_epoch = {duty.epoch: duty for duty in duties}
 
                 for epoch in epochs_batch:
                     if epoch not in unprocessed_epochs:
                         logger.debug({"msg": f"Epoch {epoch} is already processed"})
                         continue
 
-                    epoch_data = epochs_data_by_epoch.get(int(epoch))
+                    epoch_data = duties_by_epoch.get(int(epoch))
                     if epoch_data is None:
                         raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 
                     (
-                        misses_raw,
-                        props_vids,
+                        misses,
+                        proposers,
                         props_flags,
                         syncs_vids,
                         syncs_misses,
                     ) = (
-                        [ValidatorIndex(vid) for vid in epoch_data.attestations],
+                        set(ValidatorIndex(vid) for vid in epoch_data.attestations),  # XXX: set for performance reasons
                         [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
                         epoch_data.proposals_flags,  # proposed or not status
                         [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
                         epoch_data.syncs_misses,  # count of missed blocks in sync duties
                     )
 
-                    if len(props_vids) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
+                    if len(proposers) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
                         raise ValueError(
                             f"Epoch {epoch} data is corrupted: "
-                            f"{len(props_vids)=}, {len(props_flags)=}, "
+                            f"{len(proposers)=}, {len(props_flags)=}, "
                             f"{len(syncs_vids)=}, {len(syncs_misses)=}"
                         )
 
@@ -339,48 +345,44 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         {
                             "msg": "Performance data received",
                             "epoch": epoch,
-                            "misses_count": len(misses_raw),
-                            "proposals_count": len(props_vids),
+                            "misses_count": len(misses),
+                            "proposals_count": len(proposers),
                             "sync_duties_count": len(syncs_vids),
                         }
                     )
 
-                    misses = set(misses_raw)
                     for validator in validators:
                         missed_att = validator.index in misses
-                        included_att = validator.index not in misses
-                        is_active = is_active_validator(validator, epoch)
-                        if not is_active:
+                        if not is_active_validator(validator, epoch):
                             if missed_att:
                                 raise ValueError(
                                     f"Validator {validator.index} missed attestation "
                                     f"in epoch {epoch}, but was not active"
                                 )
                             continue
-                        self.state.save_att_duty(EpochNumber(epoch), validator.index, included=included_att)
+                        self.state.save_att_duty(epoch, validator.index, included=not missed_att)
 
                     blocks_in_epoch = 0
 
-                    for i, vid in enumerate(props_vids):
+                    for i, vid in enumerate(proposers):
                         proposed = props_flags[i]
-                        self.state.save_prop_duty(EpochNumber(epoch), ValidatorIndex(vid), included=bool(proposed))
-                        blocks_in_epoch += proposed
+                        self.state.save_prop_duty(epoch, vid, included=proposed)
+                        blocks_in_epoch += int(proposed)
 
                     if blocks_in_epoch:
                         for i, vid in enumerate(syncs_vids):
-                            vid = ValidatorIndex(vid)
                             s_misses = syncs_misses[i]
-                            s_fulfilled = max(0, blocks_in_epoch - s_misses)
+                            s_fulfilled = max(0, blocks_in_epoch - s_misses)  # XXX: when it's the case?
+                            # TODO: Update the State API, the tight loop is not needed here.
                             for _ in range(s_fulfilled):
-                                self.state.save_sync_duty(EpochNumber(epoch), vid, included=True)
+                                self.state.save_sync_duty(epoch, vid, included=True)
                             for _ in range(s_misses):
-                                self.state.save_sync_duty(EpochNumber(epoch), vid, included=False)
+                                self.state.save_sync_duty(epoch, vid, included=False)
 
-                    self.state.add_processed_epoch(EpochNumber(epoch))
+                    self.state.add_processed_epoch(epoch)
                     unprocessed_epochs.discard(epoch)
                 # No need to commit the state on every epoch, it's enough to commit it once per batch.
                 self.state.commit()
-                self.state.log_progress()
 
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:

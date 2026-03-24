@@ -15,10 +15,12 @@ from src.utils.slot import get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     ConsensusClientModule,
+    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
     TransactionUtils,
 )
 from src.web3py.types import Web3
@@ -41,10 +43,17 @@ def web3():
     cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
+    delegation = DelegationModule(web3, variables.DELEGATION_CONTRACT_ADDRESS)
+    telemetry_data_bus = TelemetryDataBus(
+        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, 'checks', web3,
+    )
+
     web3.attach_modules(
         {
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
+            'delegation': lambda: delegation,
+            'telemetry_data_bus': lambda: telemetry_data_bus,
             'cc': lambda: cc,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
         }

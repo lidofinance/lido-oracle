@@ -48,9 +48,6 @@ jobs:
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
           LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
           LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
-          STORACHA_AUTH_SECRET: ${{ secrets.STORACHA_AUTH_SECRET }}
-          STORACHA_AUTHORIZATION: ${{ secrets.STORACHA_AUTHORIZATION }}
-          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
 
   linters:
     runs-on: ubuntu-latest

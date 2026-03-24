@@ -3,6 +3,7 @@ from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
 from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
+    data_is_bool,
     data_is_list,
 )
 from src.types import EpochNumber
@@ -25,27 +26,24 @@ class PerformanceClient(HTTPProvider):
         data, _ = self._get(
             self.API_EPOCHS_CHECK,
             query_params={'from': from_epoch, 'to': to_epoch},
+            validate_response=data_is_bool,
         )
-        return bool(data)
+        return data
 
     def get_epoch_data(self, epoch: EpochNumber) -> Duty | None:
-        data, _ = self._get(
-            self.API_EPOCHS_DATA + f"/{epoch}",
-        )
+        data, _ = self._get(self.API_EPOCHS_DATA + f"/{epoch}")
         return Duty.model_validate(data) if data else None
 
-    def get_epochs_data(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> list[Duty]:
+    def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
         data, _ = self._get(
             self.API_EPOCHS_DATA,
-            query_params={'from': l_epoch, 'to': r_epoch},
+            query_params={'from': from_epoch, 'to': to_epoch},
             validate_response=data_is_list,
         )
-        return [Duty.model_validate(item) for item in data] if data else []
+        return [Duty.model_validate(item) for item in data]
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
-        data, _ = self._get(
-            self.API_EPOCHS_DEMAND + f"/{consumer}",
-        )
+        data, _ = self._get(self.API_EPOCHS_DEMAND + f"/{consumer}")
         return EpochsDemand.model_validate(data) if data else None
 
     def post_epochs_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> None:
@@ -55,6 +53,4 @@ class PerformanceClient(HTTPProvider):
         )
 
     def delete_epochs_demand(self, consumer: str) -> None:
-        self._delete(
-            self.API_EPOCHS_DEMAND + f"/{consumer}",
-        )
+        self._delete(self.API_EPOCHS_DEMAND + f"/{consumer}")

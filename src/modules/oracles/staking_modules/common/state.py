@@ -74,6 +74,7 @@ type Frame = tuple[EpochNumber, EpochNumber]
 type StateData = dict[Frame, NetworkDuties]
 
 
+# TODO: State class can be simplified now and become totaly in-memory due to introducing the performance collector.
 class State:
     # pylint: disable=too-many-public-methods
 
@@ -211,9 +212,6 @@ class State:
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
-
-    def log_progress(self) -> None:
-        logger.info({"msg": f"Processed {len(self._processed_epochs)} of {len(self._epochs_to_process)} epochs"})
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
         if self.version != STAKING_MODULE_STATE_VERSION:

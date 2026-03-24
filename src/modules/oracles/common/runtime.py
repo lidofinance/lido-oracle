@@ -9,12 +9,13 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.ipfs import IPFSProvider, Kubo, LidoIPFS, Pinata, Storacha
+from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
+    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 W3 = TypeVar("W3", bound=Web3Base)
 
 
-def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
+def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
     logger.info({'msg': 'Initialize multi web3 provider.'})
     web3 = web3_cls(
         FallbackProviderModule(
@@ -45,6 +46,14 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)
+
+    logger.info({'msg': 'Initialize DataBus telemetry module.'})
+    telemetry_data_bus = TelemetryDataBus(
+        variables.TELEMETRY_DATA_BUS_RPC,
+        variables.DATA_BUS_ADDRESS,
+        module_name,
+        web3,
+    )
 
     logger.info({'msg': 'Initialize consensus client.'})
     cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
@@ -58,10 +67,15 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
 
     check_providers_chain_ids(web3, cc, kac)
 
+    logger.info({'msg': 'Initialize delegation module.'})
+    delegation = DelegationModule(web3, variables.DELEGATION_CONTRACT_ADDRESS)
+
     modules: dict[str, Any] = {
         'transaction': TransactionUtils,
+        'delegation': lambda: delegation,
         'cc': lambda: cc,
         'kac': lambda: kac,
+        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
 
     web3.attach_modules(modules)
@@ -70,23 +84,14 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3]) -> W3:
 
 
 def build_oracle_web3(module_name: str) -> Web3:
-    web3 = _build_web3_base(Web3)
+    web3 = _build_web3_base(Web3, module_name)
 
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
-
-    logger.info({'msg': 'Initialize DataBus telemetry module.'})
-    telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
-    )
 
     modules: dict[str, Any] = {
         'lido_contracts': LidoContracts,
         'lido_validators': LidoValidatorsProvider,
         'ipfs': lambda: ipfs,
-        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 
@@ -98,7 +103,7 @@ def build_oracle_web3(module_name: str) -> Web3:
 
 
 def build_staking_module_web3(module_name: str) -> Web3StakingModule:
-    web3 = _build_web3_base(Web3StakingModule)
+    web3 = _build_web3_base(Web3StakingModule, module_name)
 
     if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
         raise ValueError("PERFORMANCE_COLLECTOR_URI is required")
@@ -107,18 +112,11 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
     ipfs = IPFS(web3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS)
 
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
-    telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC,
-        variables.DATA_BUS_ADDRESS,
-        module_name,
-        web3,
-    )
 
     modules: dict[str, Any] = {
         'staking_module': StakingModuleContracts,
         'performance': lambda: performance,
         'ipfs': lambda: ipfs,
-        'telemetry_data_bus': lambda: telemetry_data_bus,
     }
     web3.attach_modules(modules)
 
@@ -171,22 +169,7 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
 
     WARNING: Yields order here used for CID selection fallback when quorum
     consensus fails. Do not change order without considering impact.
-
-    Storacha has highest priority because it's the only provider where we control
-    the entire content addressing process. While other providers receive raw content
-    and handle CAR/UnixFS assembly on their side (potentially with different
-    implementations), Storacha receives our locally-assembled CAR files, ensuring
-    the returned CID matches our own CAR conversion logic. This makes consensus
-    more reliable when providers disagree on CID calculation.
     """
-    if variables.STORACHA_AUTH_SECRET and variables.STORACHA_AUTHORIZATION and variables.STORACHA_SPACE_DID:
-        yield Storacha(
-            variables.STORACHA_AUTH_SECRET,
-            variables.STORACHA_AUTHORIZATION,
-            variables.STORACHA_SPACE_DID,
-            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
-        )
-
     if variables.LIDO_IPFS_HOST and variables.LIDO_IPFS_TOKEN:
         yield LidoIPFS(
             variables.LIDO_IPFS_HOST,
@@ -202,10 +185,17 @@ def ipfs_providers() -> Iterator[IPFSProvider]:
             dedicated_gateway_token=variables.PINATA_DEDICATED_GATEWAY_TOKEN,
         )
 
+    if variables.FILEBASE_IPFS_HOST and variables.FILEBASE_IPFS_TOKEN:
+        yield Filebase(
+            variables.FILEBASE_IPFS_HOST,
+            443,
+            token=variables.FILEBASE_IPFS_TOKEN,
+            timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
+        )
+
     if variables.KUBO_HOST:
         yield Kubo(
             variables.KUBO_HOST,
             variables.KUBO_RPC_PORT,
-            variables.KUBO_GATEWAY_PORT,
             timeout=variables.HTTP_REQUEST_TIMEOUT_IPFS,
         )
