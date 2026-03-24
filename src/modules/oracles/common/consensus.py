@@ -97,7 +97,8 @@ class ConsensusModule[W3: Web3Base](ABC):
                 'Contract chain config is not compatible with Beacon chain.\n'
                 f'Contract config: {config}\n'
                 f'Beacon chain config: {genesis_time=}, '
-                f'slot_duration_ms={cc_config.SLOT_DURATION_MS}, {cc_config.SLOTS_PER_EPOCH=}'
+                f'seconds_per_slot={cc_config.SECONDS_PER_SLOT}, slot_duration_ms={cc_config.SLOT_DURATION_MS}, '
+                f'{cc_config.SLOTS_PER_EPOCH=}'
             )
 
     # ----- Web3 data requests -----
