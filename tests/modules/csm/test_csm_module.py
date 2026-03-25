@@ -914,6 +914,94 @@ class BuildReportTestParam:
             ),
             id="non_empty_prev_report_and_no_new_distribution",
         ),
+        pytest.param(
+            BuildReportTestParam(
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100)],
+                    strikes_tree_root=HexBytes(b"OLD_STRIKES_ROOT"),
+                    strikes_tree_cid=CID("QmOLD_STRIKES"),
+                    strikes={},
+                ),
+                curr_distribution=Mock(
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=5,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 5}),
+                        total_rebate=1,
+                        strikes={
+                            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+                        },
+                        logs=Logs(frames=[Mock()]),
+                    )
+                ),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(b"NEW_STRIKES_ROOT"),
+                curr_strikes_tree_cid=CID("QmNEW_STRIKES"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_rewards_tree_call_args=(
+                    ({NodeOperatorId(0): 5},),
+                ),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes(b"NEW_TREE_ROOT"),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    5,
+                    1,
+                    HexBytes(b"NEW_STRIKES_ROOT"),
+                    CID("QmNEW_STRIKES"),
+                ),
+            ),
+            id="new_strikes_tree_published",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100)],
+                    strikes_tree_root=HexBytes(b"SAME_STRIKES_ROOT"),
+                    strikes_tree_cid=CID("QmOLD_STRIKES"),
+                    strikes={},
+                ),
+                curr_distribution=Mock(
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=5,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 5}),
+                        total_rebate=1,
+                        strikes={
+                            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+                        },
+                        logs=Logs(frames=[Mock()]),
+                    )
+                ),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(b"SAME_STRIKES_ROOT"),
+                curr_strikes_tree_cid=CID("QmOLD_STRIKES"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_rewards_tree_call_args=(
+                    ({NodeOperatorId(0): 5},),
+                ),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes(b"NEW_TREE_ROOT"),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    5,
+                    1,
+                    HexBytes(b"SAME_STRIKES_ROOT"),
+                    CID("QmOLD_STRIKES"),
+                ),
+            ),
+            id="same_strikes_tree_reuses_cid",
+        ),
     ],
 )
 @pytest.mark.unit
@@ -937,6 +1025,41 @@ def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
     assert module._make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
     assert module._publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
+
+
+@pytest.mark.unit
+def test_build_report_raises_on_inconsistent_strikes_tree(module: CSPerformanceOracle):
+    """Strikes CID matches last report but root differs — should raise ValueError."""
+    last_report = Mock(
+        rewards_tree_root=HexBytes(ZERO_HASH),
+        rewards_tree_cid=None,
+        rewards=[],
+        strikes_tree_root=HexBytes(b"OLD_STRIKES_ROOT"),
+        strikes_tree_cid=CID("QmOLD_STRIKES"),
+        strikes={},
+    )
+    distribution = Mock(
+        spec=Distribution,
+        total_rewards=0,
+        total_rewards_map=defaultdict(int),
+        total_rebate=0,
+        strikes={
+            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+        },
+        logs=Logs(frames=[Mock()]),
+    )
+
+    module._validate_state = Mock()
+    module.report_contract.get_consensus_version = Mock(return_value=1)
+    module._calculate_distribution = Mock(return_value=(distribution, last_report))
+    module._make_rewards_tree = Mock()
+    module._make_strikes_tree = Mock(return_value=Mock(root=HexBytes(b"DIFFERENT_ROOT")))
+    # _publish_tree returns CID that matches last report's strikes CID, but root differs
+    module._publish_tree = Mock(return_value=CID("QmOLD_STRIKES"))
+    module._publish_log = Mock(return_value=CID("QmLOG"))
+
+    with pytest.raises(ValueError, match="Invalid strikes tree built"):
+        module.build_report(Mock(ref_slot=100500))
 
 
 @pytest.mark.unit
