@@ -145,6 +145,27 @@ def test_calculate_frames_raises_error_for_insufficient_epochs():
 
 
 @pytest.mark.unit
+def test_range_returns_first_and_last_epoch():
+    state = State("test_oracle")
+    state.data = {(0, 31): NetworkDuties(), (32, 63): NetworkDuties()}
+    assert state.range == (0, 63)
+
+
+@pytest.mark.unit
+def test_range_single_frame():
+    state = State("test_oracle")
+    state.data = {(10, 41): NetworkDuties()}
+    assert state.range == (10, 41)
+
+
+@pytest.mark.unit
+def test_range_raises_error_when_no_frames():
+    state = State("test_oracle")
+    with pytest.raises(InvalidState, match="Frames are not set"):
+        _ = state.range
+
+
+@pytest.mark.unit
 def test_clear_resets_state_to_empty():
     state = State("test_oracle")
     state.data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})}

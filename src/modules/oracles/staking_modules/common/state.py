@@ -167,6 +167,13 @@ class State:
         return list(self.data.keys())
 
     @property
+    def range(self) -> tuple[EpochNumber, EpochNumber]:
+        frames = self.frames
+        if not frames:
+            raise InvalidState("Frames are not set; call migrate() before calling")
+        return frames[0][0], frames[-1][-1]
+
+    @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
         if not self._epochs_to_process:
             raise InvalidState("Epochs to process are not set; call migrate() before processing")

@@ -1,4 +1,8 @@
 import logging
+import sys
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from itertools import batched
 
 from hexbytes import HexBytes
@@ -35,6 +39,7 @@ from src.types import (
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.range import sequence
 from src.utils.validator_state import is_active_validator
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3StakingModule
 
 
@@ -43,6 +48,32 @@ logger = logging.getLogger(__name__)
 
 class SMPerformanceOracleError(Exception):
     """Unrecoverable error in staking module performance oracle"""
+
+
+@dataclass
+class ThrottledTelemetry:
+    interval_seconds: int
+    send_callback: Callable[[TelemetryEventId, dict], bool]
+    last_sent_at: float | None = None
+    last_payload: dict | None = None
+
+    @property
+    def elapsed_since_last_send(self) -> float:
+        if self.last_sent_at is None:
+            return sys.float_info.max
+        return time.monotonic() - self.last_sent_at
+
+    def send(self, payload: dict, *, ignore_cooldown: bool = False):
+        if payload == self.last_payload:
+            return
+
+        interval_elapsed = self.elapsed_since_last_send >= self.interval_seconds
+        if not (ignore_cooldown or interval_elapsed):
+            return
+
+        self.last_sent_at = time.monotonic()
+        self.last_payload = payload
+        self.send_callback(TelemetryEventId.DIAGNOSTIC, payload)
 
 
 class SMPerformanceOracle(OracleModule[Web3StakingModule]):
@@ -70,6 +101,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         self.consumer = self.__class__.__name__
         self.report_contract = w3.staking_module.oracle
         self.state = State.load(self.consumer)
+        self.collector_telemetry = ThrottledTelemetry(
+            interval_seconds=variables.TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS,
+            send_callback=self._try_send_telemetry,
+        )
         super().__init__(w3)
 
     def refresh_contracts(self):
@@ -167,27 +202,34 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         self.state.ensure_initialized()
 
         if not self.state.is_fulfilled:
-            for l_epoch, r_epoch in self.state.frames:
-                range_available = self._check_range_availability(l_epoch, r_epoch)
-                if not range_available:
-                    logger.warning(
-                        {
-                            "msg": "Performance data range is not available yet",
-                            "start_epoch": l_epoch,
-                            "end_epoch": r_epoch,
-                        }
-                    )
-                    return False
-                logger.info(
-                    {"msg": "Performance data range is available", "start_epoch": l_epoch, "end_epoch": r_epoch}
+            l_epoch, r_epoch = self.state.range
+            range_available = self._check_range_availability(l_epoch, r_epoch)
+            if not range_available:
+                logger.warning(
+                    {
+                        "msg": "Performance data range is not available yet",
+                        "start_epoch": l_epoch,
+                        "end_epoch": r_epoch,
+                    }
                 )
+                return False
+            logger.info({"msg": "Performance data range is available", "start_epoch": l_epoch, "end_epoch": r_epoch})
             self._fulfill_state()
 
         return self.state.is_fulfilled
 
     def _check_range_availability(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
         PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set_to_current_time()
-        return self.w3.performance.is_range_available(l_epoch, r_epoch)
+        range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
+        self.collector_telemetry.send(
+            {
+                "l_epoch": l_epoch,
+                "r_epoch": r_epoch,
+                "ready": self.w3.performance.get_stored_epochs_count(l_epoch, r_epoch),
+            },
+            ignore_cooldown=range_available,
+        )
+        return range_available
 
     @lru_cache(maxsize=1)
     @duration_meter()
