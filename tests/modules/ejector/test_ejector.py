@@ -21,13 +21,43 @@ from src.providers.consensus.types import (
     BeaconStateView,
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModuleId
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, Wei
+from src.web3py.extensions.lido_validators import (
+    ExtendedLidoValidator,
+    NodeOperatorId,
+    StakingModuleId,
+)
 from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory
+
+
+def build_extended_validator(**kwargs) -> ExtendedLidoValidator:
+    lido_validator = LidoValidatorFactory.build(**kwargs)
+    return ExtendedLidoValidator(
+        index=lido_validator.index,
+        balance=lido_validator.balance,
+        validator=lido_validator.validator,
+        lido_id=lido_validator.lido_id,
+        pending_topups=[],
+        consolidating_as_source=None,
+        consolidating_as_target=[],
+    )
+
+
+def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs) -> ExtendedLidoValidator:
+    lido_validator = LidoValidatorFactory.build_with_balance(balance, meb, **kwargs)
+    return ExtendedLidoValidator(
+        index=lido_validator.index,
+        balance=lido_validator.balance,
+        validator=lido_validator.validator,
+        lido_id=lido_validator.lido_id,
+        pending_topups=[],
+        consolidating_as_source=None,
+        consolidating_as_target=[],
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -121,9 +151,6 @@ class SimpleIterator:
     def __next__(self):
         return next(self.iter)
 
-    def get_remaining_forced_validators(self):
-        pass
-
 
 class TestGetValidatorsToEject:
     @pytest.mark.unit
@@ -138,17 +165,17 @@ class TestGetValidatorsToEject:
         ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=100)
         ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(return_value=1)
 
-        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(1))
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
-        ejector._get_total_el_balance = Mock(return_value=50)
+        ejector._get_total_el_balance = Mock(return_value=Wei(50))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
-        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=10)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(10))
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
         with monkeypatch.context() as m:
             ejector.get_consensus_version = Mock(return_value=3)
             val_iter = iter(SimpleIterator([]))
-            val_iter.get_remaining_forced_validators = Mock(return_value=[])
             m.setattr(
                 ejector_module.ValidatorExitIterator,
                 "__iter__",
@@ -167,32 +194,32 @@ class TestGetValidatorsToEject:
     ):
         ejector.get_chain_config = Mock(return_value=chain_config)
         ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=200)
-        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=1)
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(1))
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
-        ejector._get_total_el_balance = Mock(return_value=100)
+        ejector._get_total_el_balance = Mock(return_value=Wei(100))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
 
-        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=0)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
-        ejector._get_predicted_withdrawable_balance = Mock(return_value=50)
+        ejector._get_predicted_withdrawable_balance = Mock(return_value=Wei(50))
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
         validators = [
-            ((StakingModuleId(0), NodeOperatorId(1)), LidoValidatorFactory.build()),
-            ((StakingModuleId(0), NodeOperatorId(3)), LidoValidatorFactory.build()),
-            ((StakingModuleId(0), NodeOperatorId(5)), LidoValidatorFactory.build()),
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator()),
+            ((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator()),
+            ((StakingModuleId(0), NodeOperatorId(5)), build_extended_validator()),
         ]
 
         with monkeypatch.context() as m:
             ejector.get_consensus_version = Mock(return_value=3)
             val_iter = iter(SimpleIterator(validators[:2]))
-            val_iter.get_remaining_forced_validators = Mock(return_value=validators[2:])
             m.setattr(
                 ejector_module.ValidatorExitIterator,
                 "__iter__",
                 Mock(return_value=val_iter),
             )
             result = ejector.get_validators_to_eject(ref_blockstamp)
-            assert result == [validators[0], *validators[2:]], "Unexpected validators to eject"
+            assert [v[1].index for v in result] == [validators[0][1].index], "Unexpected validators to eject"
 
 
 @pytest.mark.unit
@@ -237,8 +264,8 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
+            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(MIN_ACTIVATION_BALANCE)])),
             ref_blockstamp,
-            [LidoValidatorFactory.build_with_balance(MIN_ACTIVATION_BALANCE)] * 1,
         )
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
@@ -258,8 +285,8 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
+            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(129e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
             ref_blockstamp,
-            [LidoValidatorFactory.build_with_balance(129e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
         )
         assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
@@ -279,8 +306,8 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
+            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
             ref_blockstamp,
-            [LidoValidatorFactory.build_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
         )
         assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
@@ -300,8 +327,8 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
+            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
             ref_blockstamp,
-            [LidoValidatorFactory.build_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)] * 1,
         )
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + 3 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
@@ -361,10 +388,10 @@ def test_get_withdrawable_lido_validators_balance(
 ) -> None:
     ejector.w3.lido_validators.get_active_lido_validators = Mock(
         return_value=[
-            LidoValidatorFactory.build(balance="0"),
-            LidoValidatorFactory.build(balance="0"),
-            LidoValidatorFactory.build(balance="31"),
-            LidoValidatorFactory.build(balance="42"),
+            build_extended_validator(balance="0"),
+            build_extended_validator(balance="0"),
+            build_extended_validator(balance="31"),
+            build_extended_validator(balance="42"),
         ]
     )
 
@@ -382,26 +409,29 @@ def test_get_withdrawable_lido_validators_balance(
         ejector.w3.lido_validators.get_active_lido_validators.assert_called_once()
 
 
+from src.utils.validator_balance import get_predictable_balance
+
+
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
-    validator = LidoValidatorFactory.build_with_balance(Gwei(0))
-    result = ejector._get_predicted_withdrawable_balance(validator)
+    validator = build_extended_validator_with_balance(Gwei(0))
+    result = get_predictable_balance(validator)
     assert result == 0, "Expected zero"
 
-    validator = LidoValidatorFactory.build_with_balance(Gwei(42))
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == 42 * GWEI_TO_WEI, "Expected validator's balance in gwei"
+    validator = build_extended_validator_with_balance(Gwei(42))
+    result = get_predictable_balance(validator)
+    assert result == 42, "Expected validator's balance in gwei"
 
-    validator = LidoValidatorFactory.build_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == MAX_EFFECTIVE_BALANCE * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE"
+    validator = build_extended_validator_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
+    result = get_predictable_balance(validator)
+    assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
 
-    validator = LidoValidatorFactory.build_with_balance(
+    validator = build_extended_validator_with_balance(
         Gwei(MAX_EFFECTIVE_BALANCE + 1),
         meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
     )
-    result = ejector._get_predicted_withdrawable_balance(validator)
-    assert result == (MAX_EFFECTIVE_BALANCE + 1) * GWEI_TO_WEI, "Expect MAX_EFFECTIVE_BALANCE + 1"
+    result = get_predictable_balance(validator)
+    assert result == (MAX_EFFECTIVE_BALANCE + 1), "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
 @pytest.mark.unit
