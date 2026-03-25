@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 from json_stream import requests as json_stream_requests  # type: ignore
 from json_stream.base import TransientStreamingJSONObject  # type: ignore
 from prometheus_client import Histogram
-from requests import JSONDecodeError, Session
+from requests import JSONDecodeError, Response, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -166,7 +166,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
-                response = self.session.get(
+                response = self._make_get_request(
                     self._urljoin(host, complete_endpoint if path_params else endpoint),
                     params=query_params,
                     timeout=self.request_timeout,
@@ -434,6 +434,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         validate_response(data, meta, endpoint=endpoint)  # type: ignore[arg-type]
         return data, meta  # type: ignore[return-value]
+
+    def _make_get_request(self, url: str, **kwargs) -> Response:
+        return self.session.get(url, **kwargs)
 
     def get_all_providers(self) -> list[str]:
         return self.hosts

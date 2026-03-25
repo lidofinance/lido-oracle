@@ -115,3 +115,22 @@ def test_custom_error_provided():
 
     with pytest.raises(CustomError):
         provider.call()
+
+
+@pytest.mark.unit
+def test_make_get_request_delegates_to_session():
+    provider = HTTPProvider(['http://localhost:1'], 5 * 60, 1, 1)
+    mock_response = Mock()
+    provider.session.get = Mock(return_value=mock_response)
+
+    result = provider._make_get_request('http://localhost:1/api', params={'a': 'b'}, timeout=30)
+
+    provider.session.get.assert_called_once_with('http://localhost:1/api', params={'a': 'b'}, timeout=30)
+    assert result is mock_response
+
+
+@pytest.mark.unit
+def test_make_get_request_not_overridden_in_kapi():
+    from src.providers.keys.client import KeysAPIClient
+
+    assert '_make_get_request' not in KeysAPIClient.__dict__
