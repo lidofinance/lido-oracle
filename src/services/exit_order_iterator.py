@@ -274,7 +274,8 @@ class ValidatorExitIterator:
         self.exit_limit_in_gwei = Gwei(
             self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
                 self.blockstamp.block_hash,
-            ).max_balance_exit_requested_per_report_in_eth * 10**9
+            ).max_balance_exit_requested_per_report_in_eth
+            * 10**9
         )
 
     # --- Iterator ---

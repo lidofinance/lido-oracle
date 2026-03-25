@@ -12,7 +12,6 @@ from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     ExtendedLidoValidator,
-    LidoValidator,
     NodeOperator,
     StakingModule,
 )

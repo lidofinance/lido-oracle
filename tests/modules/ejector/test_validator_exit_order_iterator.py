@@ -1,12 +1,11 @@
-from types import MethodType
 from unittest.mock import Mock
 
 import pytest
 
 from src.modules.common.types import ChainConfig
+from src.services.exit_order_iterator import NodeOperatorStats, ValidatorExitIterator
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
-from src.web3py.extensions.lido_validators import NodeOperatorLimitMode, StakingModule, NodeOperator
+from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import ExtendedLidoValidatorFactory
 
@@ -71,9 +70,7 @@ def make_node_operator(no_id, sm, total_dep=0, target=0, limit_mode=NodeOperator
 def test_get_filter_non_exitable_validators(iterator):
     gid1 = (StakingModuleId(1), NodeOperatorId(1))
     gid2 = (StakingModuleId(1), NodeOperatorId(2))
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
-        return_value={gid1: [1], gid2: [-1]}
-    )
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid1: [1], gid2: [-1]})
     filt = iterator.get_can_request_exit_predicate(gid1)
     assert not filt(ExtendedLidoValidatorFactory.build(index=1))
     filt = iterator.get_can_request_exit_predicate(gid2)
@@ -88,12 +85,17 @@ def test_eject_validator(iterator):
 
     iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
     iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
-    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={
-        gid11: [ExtendedLidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)]
-    })
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={
+            gid11: [
+                ExtendedLidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+                for _ in range(3)
+            ]
+        }
+    )
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
-    iterator._setup_cm_data = Mock() # Skip contract call
+    iterator._setup_cm_data = Mock()  # Skip contract call
 
     iterator._prepare_data_structure()
     iterator._calculate_lido_stats()
@@ -114,34 +116,53 @@ def test_eject_validator(iterator):
 #     ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(200 * 32 * 10**9))
 #     ms2 = StakingModuleStats(staking_module=sm2, predictable_balance=Gwei(200 * 32 * 10**9))
 #
-#     nos1 = NodeOperatorStats(node_operator=no1, module_stats=ms1, predictable_validators=100, force_exit_to=50, soft_exit_to=25)
-#     nos2 = NodeOperatorStats(node_operator=no2, module_stats=ms2, predictable_validators=2000, force_exit_to=50, soft_exit_to=25)
+#     nos1 = NodeOperatorStats(
+#         node_operator=no1, module_stats=ms1, predictable_validators=100, force_exit_to=50, soft_exit_to=25
+#     )
+#     nos2 = NodeOperatorStats(
+#         node_operator=no2, module_stats=ms2, predictable_validators=2000, force_exit_to=50, soft_exit_to=25
+#     )
 #
 #     iterator.exitable_validators = {
 #         (sm1.id, no1.id): [Mock(index=10, balance=Gwei(32 * 10**9))],
 #         (sm2.id, no2.id): [Mock(index=20, balance=Gwei(32 * 10**9))],
 #     }
 
-    # deviation = (10000 * 200 / 1000) - 1500 = 2000 - 1500 = 500
-    # res = (force_exit_to - predictable_validators, soft_exit_to - predictable_validators, -deviation, -predictable_validators, validator_index)
-    # res2 = iterator._no_predicate(nos2)
-    # assert res2[0] == 50 - 2000
-    # assert res2[1] == 25 - 2000
-    # assert res2[2] == -500
-    # assert res2[3] == -2000
-    # assert res2[4] == 20
+# deviation = (10000 * 200 / 1000) - 1500 = 2000 - 1500 = 500
+# res = (
+#     force_exit_to - predictable_validators, soft_exit_to - predictable_validators,
+#     -deviation, -predictable_validators, validator_index
+# )
+# res2 = iterator._no_predicate(nos2)
+# assert res2[0] == 50 - 2000
+# assert res2[1] == 25 - 2000
+# assert res2[2] == -500
+# assert res2[3] == -2000
+# assert res2[4] == 20
 
 
 @pytest.mark.unit
 def test_no_force_and_soft_predicate(iterator):
     sm = make_staking_module(1)
+
     def make_stats(id_val, force, soft, pred):
-        return NodeOperatorStats(node_operator=make_node_operator(id_val, sm), module_stats=Mock(), force_exit_to=force, soft_exit_to=soft, predictable_validators=pred)
+        return NodeOperatorStats(
+            node_operator=make_node_operator(id_val, sm),
+            module_stats=Mock(),
+            force_exit_to=force,
+            soft_exit_to=soft,
+            predictable_validators=pred,
+        )
 
     nos = [make_stats(1, 10, 20, 20), make_stats(2, 5, 0, 5), make_stats(3, None, 20, 100), make_stats(4, 0, None, 4)]
 
     sorted_f = sorted(nos, key=lambda x: -iterator._no_force_predicate(x))
-    assert [n.node_operator.id for n in sorted_f] == [NodeOperatorId(1), NodeOperatorId(4), NodeOperatorId(2), NodeOperatorId(3)]
+    assert [n.node_operator.id for n in sorted_f] == [
+        NodeOperatorId(1),
+        NodeOperatorId(4),
+        NodeOperatorId(2),
+        NodeOperatorId(3),
+    ]
 
     sorted_s = sorted(nos, key=lambda x: -iterator._no_soft_predicate(x))
     assert [n.node_operator.id for n in sorted_s][:2] == [NodeOperatorId(3), NodeOperatorId(2)]
@@ -152,7 +173,9 @@ def test_no_force_and_soft_predicate(iterator):
 #     def make_stats_small(id_val, sm_id, balance):
 #         sm = make_staking_module(sm_id)
 #         ms = StakingModuleStats(staking_module=sm, predictable_balance=Gwei(balance * 10**9))
-#         return NodeOperatorStats(node_operator=make_node_operator(id_val, sm), module_stats=ms, predictable_validators=1)
+#         return NodeOperatorStats(
+#             node_operator=make_node_operator(id_val, sm), module_stats=ms, predictable_validators=1
+#         )
 #
 #     nos = [
 #         make_stats_small(1, 1, 1000), # 10000 // 1000 = 10

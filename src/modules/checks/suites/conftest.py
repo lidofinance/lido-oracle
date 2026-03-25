@@ -45,7 +45,10 @@ def web3():
 
     delegation = DelegationModule(web3, variables.DELEGATION_CONTRACT_ADDRESS)
     telemetry_data_bus = TelemetryDataBus(
-        variables.TELEMETRY_DATA_BUS_RPC, variables.DATA_BUS_ADDRESS, 'checks', web3,
+        variables.TELEMETRY_DATA_BUS_RPC,
+        variables.DATA_BUS_ADDRESS,
+        'checks',
+        web3,
     )
 
     web3.attach_modules(

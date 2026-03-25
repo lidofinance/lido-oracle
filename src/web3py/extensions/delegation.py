@@ -40,10 +40,7 @@ class DelegationModule(Module):
                 ),
             )
 
-            logger.info({
-                'msg': 'DelegationModule initialized with contract',
-                'delegation_address': delegation_address
-            })
+            logger.info({'msg': 'DelegationModule initialized with contract', 'delegation_address': delegation_address})
 
             self._validate_delegation_setup()
         else:
@@ -69,11 +66,9 @@ class DelegationModule(Module):
         encoded = contract.encode_abi(target_contract_call.fn_name, target_contract_call.args)
         calldata = bytes.fromhex(encoded[2:])
 
-        logger.debug({
-            'msg': 'Wrapping call for delegation',
-            'target': target_address,
-            'calldata_length': len(calldata)
-        })
+        logger.debug(
+            {'msg': 'Wrapping call for delegation', 'target': target_address, 'calldata_length': len(calldata)}
+        )
 
         return self.delegation_contract.execute(target_address, calldata)
 
@@ -92,8 +87,7 @@ class DelegationModule(Module):
 
         if current_delegatee == '0x0000000000000000000000000000000000000000':
             raise DelegationModule.NotConfiguredError(
-                f"Delegation contract has no delegatee assigned. "
-                f"Admin must call assignDelegate({oracle_address})"
+                f"Delegation contract has no delegatee assigned. Admin must call assignDelegate({oracle_address})"
             )
 
         if current_delegatee.lower() != oracle_address.lower():
@@ -105,10 +99,12 @@ class DelegationModule(Module):
 
         admin_address = self.delegation_contract.get_admin()
 
-        logger.info({
-            'msg': 'Delegation contract validation passed',
-            'delegatee': current_delegatee,
-            'oracle_account': oracle_address,
-            'admin': admin_address,
-            'delegation_contract': self.delegation_contract.address
-        })
+        logger.info(
+            {
+                'msg': 'Delegation contract validation passed',
+                'delegatee': current_delegatee,
+                'oracle_account': oracle_address,
+                'admin': admin_address,
+                'delegation_contract': self.delegation_contract.address,
+            }
+        )

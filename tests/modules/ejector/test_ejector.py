@@ -22,6 +22,7 @@ from src.providers.consensus.types import (
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, Wei
+from src.utils.validator_balance import get_predictable_balance
 from src.web3py.extensions.lido_validators import (
     ExtendedLidoValidator,
     NodeOperatorId,
@@ -31,7 +32,7 @@ from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
-from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory
 
 
 def build_extended_validator(**kwargs) -> ExtendedLidoValidator:
@@ -47,7 +48,9 @@ def build_extended_validator(**kwargs) -> ExtendedLidoValidator:
     )
 
 
-def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs) -> ExtendedLidoValidator:
+def build_extended_validator_with_balance(
+    balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs
+) -> ExtendedLidoValidator:
     lido_validator = LidoValidatorFactory.build_with_balance(balance, meb, **kwargs)
     return ExtendedLidoValidator(
         index=lido_validator.index,
@@ -285,7 +288,11 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
-            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(129e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
+            Gwei(
+                sum(
+                    v.balance for v in [build_extended_validator_with_balance(129e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)]
+                )
+            ),
             ref_blockstamp,
         )
         assert result == ref_blockstamp.ref_epoch + 10_000 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
@@ -306,7 +313,11 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
-            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
+            Gwei(
+                sum(
+                    v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)]
+                )
+            ),
             ref_blockstamp,
         )
         assert result == ref_blockstamp.ref_epoch + 10_000 + 4 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
@@ -327,7 +338,11 @@ class TestPredictedWithdrawableEpoch:
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
-            Gwei(sum(v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)])),
+            Gwei(
+                sum(
+                    v.balance for v in [build_extended_validator_with_balance(512e9, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)]
+                )
+            ),
             ref_blockstamp,
         )
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + 3 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
@@ -407,9 +422,6 @@ def test_get_withdrawable_lido_validators_balance(
 
         ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
         ejector.w3.lido_validators.get_active_lido_validators.assert_called_once()
-
-
-from src.utils.validator_balance import get_predictable_balance
 
 
 @pytest.mark.unit

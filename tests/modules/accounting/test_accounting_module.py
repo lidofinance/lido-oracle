@@ -779,7 +779,9 @@ def test_get_node_operator_balances(accounting: Accounting, ref_bs: ReferenceBlo
     new_deposit = Mock(amount=32_000_000_000)
 
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={gid: [validator]})
-    accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(return_value={module_address: module})
+    accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
+        return_value={module_address: module}
+    )
     accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={'key1': (lido_key, [new_deposit])})
 
     sm_ids, active_balances, pending_balances = accounting._get_balances_by_modules(ref_bs)
