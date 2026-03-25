@@ -15,8 +15,8 @@ from src.constants import (
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import Gwei
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
+from src.types import Gwei, NodeOperatorId, StakingModuleId
+from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
@@ -47,13 +47,13 @@ class LidoKeyFactory(Web3DataclassFactory[LidoKey]):
 
 
 class StakingModuleFactory(Web3DataclassFactory[StakingModule]):
-    id: int = Use(lambda x: next(x), count(1))
+    id: StakingModuleId = Use(lambda x: StakingModuleId(next(x)), count(1))
     name: str = faker.name
 
 
 class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
-    index: str = Use(lambda x: next(x), count(1))
-    balance: str = Use(lambda x: x, random.randrange(1, 10**9))
+    index: int = Use(lambda x: next(x), count(1))
+    balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
 
     @classmethod
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
@@ -121,5 +121,22 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
         )
 
 
+class ExtendedLidoValidatorFactory(Web3DataclassFactory[ExtendedLidoValidator]):
+    index: int = Use(lambda x: next(x), count(1))
+    balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
+    pending_topups: list = []
+    consolidating_as_source: Any = None
+    consolidating_as_target: list = []
+
+    @classmethod
+    def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
+        return cls.build(
+            validator=ValidatorStateFactory.build(
+                activation_epoch=faker.pyint(max_value=max_value - 1), effective_balance=Gwei(32 * 10**9)
+            ),
+            **kwargs,
+        )
+
+
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
-    id: int = Use(lambda x: next(x), count(1))
+    id: NodeOperatorId = Use(lambda x: NodeOperatorId(next(x)), count(1))
