@@ -1,4 +1,3 @@
-
 from multiformats import CID
 
 class PBLink:

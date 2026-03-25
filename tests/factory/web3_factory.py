@@ -7,6 +7,8 @@ from hexbytes import HexBytes
 from polyfactory import BaseFactory
 from polyfactory.field_meta import FieldMeta, Null
 
+from src.types import NodeOperatorId, StakingModuleId
+
 
 class Web3DataclassFactory[T](BaseFactory[T]):
     """Dataclass base factory"""
@@ -72,4 +74,6 @@ class Web3DataclassFactory[T](BaseFactory[T]):
             HexStr: lambda: HexBytes(faker.binary(length=20)).hex(),
             HexBytes: lambda: HexBytes(faker.binary(length=64)),
             int | None: lambda: None,
+            NodeOperatorId: lambda: NodeOperatorId(faker.unique.pyint(min_value=1, max_value=10000)),
+            StakingModuleId: lambda: StakingModuleId(faker.unique.pyint(min_value=1, max_value=10000)),
         }

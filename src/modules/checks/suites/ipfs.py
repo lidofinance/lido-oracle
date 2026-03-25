@@ -11,7 +11,11 @@ from src.providers.ipfs import Filebase, LidoIPFS, Pinata
 from src.utils.car.converter import DEFAULT_CHUNK_SIZE
 
 
-REQUIRED_PROVIDERS = (Filebase, Pinata, LidoIPFS, )
+REQUIRED_PROVIDERS = (
+    Filebase,
+    Pinata,
+    LidoIPFS,
+)
 
 SMALL_CONTENT_SIZE = DEFAULT_CHUNK_SIZE - 1000
 LARGE_CONTENT_SIZE = int(DEFAULT_CHUNK_SIZE * 3.5)

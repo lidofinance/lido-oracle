@@ -1,10 +1,9 @@
 import logging
 
+from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
-from src.modules.oracles.accounting.types import StakingFeeAggregateDistribution
 from src.providers.execution.base_interface import ContractInterface
-from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 from src.variables import EL_REQUESTS_BATCH_SIZE
@@ -70,7 +69,7 @@ class StakingRouterContract(ContractInterface):
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(StakingModule.from_response)
-    def get_staking_modules(self, block_identifier: BlockIdentifier = 'latest') -> list[StakingModule]:
+    def get_staking_modules(self, block_identifier: BlockIdentifier) -> list[StakingModule]:
         """
         Returns all registered staking modules
         """
@@ -86,21 +85,6 @@ class StakingRouterContract(ContractInterface):
         )
         return response
 
-    def get_staking_fee_aggregate_distribution(
-        self, block_identifier: BlockIdentifier = 'latest'
-    ) -> StakingFeeAggregateDistribution:
-        """
-        Returns all registered staking modules
-        """
-        response = self.functions.getStakingFeeAggregateDistribution().call(block_identifier=block_identifier)
-
-        logger.info(
-            {
-                'msg': 'Call `getStakingFeeAggregateDistribution()`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
-        response = named_tuple_to_dataclass(response, StakingFeeAggregateDistribution)
-        return response
+    def get_staking_modules_by_address(self, block_identifier: BlockIdentifier) -> dict[ChecksumAddress, StakingModule]:
+        staking_modules = self.get_staking_modules(block_identifier)
+        return {module.staking_module_address: module for module in staking_modules}

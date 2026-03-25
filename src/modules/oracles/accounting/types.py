@@ -96,25 +96,21 @@ class AccountingProcessingState:
 
 @dataclass
 class OracleReportLimits:
-    exited_validators_per_day_limit: int
-    appeared_validators_per_day_limit: int
+    exited_eth_amount_per_day_limit: int
+    appeared_eth_amount_per_day_limit: int
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
-    max_validator_exit_requests_per_report: int
+    max_balance_exit_requested_per_report_in_eth: int
+    max_effective_balance_weight_wc_type_01: int
+    max_effective_balance_weight_wc_type_02: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int
     max_positive_token_rebase: int
-    initial_slashing_amount_p_wei: int | None = None
-    inactivity_penalties_amount_p_wei: int | None = None
-    cl_balance_oracles_error_upper_bp_limit: int | None = None
-
-    @classmethod
-    def from_response(cls, **kwargs) -> Self:
-        # Compatability breaking rename. `churn_validators_per_day_limit` was split into:
-        # exited_validators_per_day_limit and appeared_validators_per_day_limit
-        # Unpack structure by order
-        return cls(*kwargs.values())  # pylint: disable=no-value-for-parameter
+    max_cl_balance_decrease_bp: int
+    cl_balance_oracles_error_upper_bp_limit: int
+    consolidation_eth_amount_per_day_limit: int
+    exited_validator_eth_amount_limit: int
 
 
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]

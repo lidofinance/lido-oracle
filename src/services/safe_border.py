@@ -1,6 +1,8 @@
 import math
 from collections.abc import Iterable
 
+from eth_typing import HexStr
+
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
@@ -185,7 +187,7 @@ class SafeBorder(Web3Converter):
         start_frame = self.get_frame_by_epoch(EpochNumber(start_epoch))
         end_frame = self.get_frame_by_epoch(EpochNumber(end_epoch))
 
-        slashed_pubkeys = set(v.validator.pubkey for v in validators)
+        slashed_pubkeys: set[HexStr] = {HexStr(v.validator.pubkey) for v in validators}
 
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
@@ -201,7 +203,7 @@ class SafeBorder(Web3Converter):
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[HexStr]) -> bool:
         """
         Returns True if there are any slashed validators for the frame for the given validators;
         since the slashed flag is permanent, we only need to examine the last slot in the frame.

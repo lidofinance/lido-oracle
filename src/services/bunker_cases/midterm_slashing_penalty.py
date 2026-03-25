@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from collections.abc import Sequence
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
@@ -11,7 +12,7 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator
+from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class MidtermSlashingPenalty:
         blockstamp: ReferenceBlockStamp,
         web3_converter: Web3Converter,
         all_validators: list[Validator],
-        lido_validators: list[LidoValidator],
+        lido_validators: list[ExtendedLidoValidator],
         slashings: list[Gwei],
         current_report_cl_rebase: Gwei,
         last_report_ref_slot: SlotNumber,
@@ -33,8 +34,8 @@ class MidtermSlashingPenalty:
         """
         Check if there is a high midterm slashing penalty in the future frames.
 
-        If current report CL rebase contains more than one frame, we should calculate the CL rebase for only one frame
-        and compare max midterm penalty with calculated for one frame CL rebase
+        If the current report CL rebase contains more than one frame, we should calculate the CL rebase
+        for only one frame and compare max midterm penalty with calculated for one frame CL rebase
         because we assume that reports in the future can be "per-frame" as normal reports.
         So we need to understand can we avoid negative CL rebase because of slashings in the future or not
         """
@@ -46,7 +47,9 @@ class MidtermSlashingPenalty:
 
         # Put all Lido slashed validators to future frames by midterm penalty epoch
         future_frames_lido_validators = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-            blockstamp.ref_epoch, web3_converter, lido_validators
+            blockstamp.ref_epoch,
+            web3_converter,
+            lido_validators,
         )
 
         # If no one Lido in current not withdrawn slashed validators
@@ -54,7 +57,7 @@ class MidtermSlashingPenalty:
         if not future_frames_lido_validators:
             return False
 
-        # We should calculate total balance for each midterm penalty epoch and
+        # We should calculate the total balance for each midterm penalty epoch and
         # make projection based on the current state of the chain
         total_balance = calculate_total_active_effective_balance(all_validators, blockstamp.ref_epoch)
 
@@ -80,12 +83,12 @@ class MidtermSlashingPenalty:
         validators: list[Validator], ref_epoch: EpochNumber
     ) -> list[Validator]:
         """
-        Get slashed validators which have impact on midterm penalties
+        Get slashed validators which have an impact on midterm penalties
 
         The original condition by which we filter validators is as follows:
         ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < latest_possible_slashed_epoch <= ref_epoch
 
-        But could be simplified to: ref_epoch < withdrawable_epoch
+        But it could be simplified to: ref_epoch < withdrawable_epoch
 
         1) ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < latest_possible_slashed_epoch
            since slashed epoch couldn't be in the future
@@ -131,7 +134,7 @@ class MidtermSlashingPenalty:
     def get_lido_validators_with_future_midterm_epoch(
         ref_epoch: EpochNumber,
         web3_converter: Web3Converter,
-        lido_validators: list[LidoValidator],
+        lido_validators: Sequence[LidoValidator],
     ) -> SlashedValidatorsFrameBuckets:
         """
         Put validators to frame buckets by their midterm penalty epoch to calculate penalties impact in each frame
