@@ -509,8 +509,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
-        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(int(l_epoch))
-        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(int(r_epoch))
+        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(l_epoch)
+        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
 
         logger.info({"msg": "Epochs range for the report", "l_epoch": l_epoch, "r_epoch": r_epoch})
 
