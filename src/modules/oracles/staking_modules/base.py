@@ -359,9 +359,9 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         logger.debug({"msg": f"Epoch {epoch} is already processed"})
                         continue
 
-                    epoch_data = duties_by_epoch.get(int(epoch))
+                    epoch_data = duties_by_epoch.get(epoch)
                     if epoch_data is None:
-                        raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
+                        raise ValueError(f"Epoch {epoch} is missing in data received from Performance Collector")
 
                     (
                         misses,
