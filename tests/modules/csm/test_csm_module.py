@@ -941,9 +941,7 @@ class BuildReportTestParam:
                 curr_strikes_tree_root=HexBytes(b"NEW_STRIKES_ROOT"),
                 curr_strikes_tree_cid=CID("QmNEW_STRIKES"),
                 curr_log_cid=CID("QmLOG"),
-                expected_make_rewards_tree_call_args=(
-                    ({NodeOperatorId(0): 5},),
-                ),
+                expected_make_rewards_tree_call_args=(({NodeOperatorId(0): 5},),),
                 expected_func_result=(
                     1,
                     100500,
@@ -985,9 +983,7 @@ class BuildReportTestParam:
                 curr_strikes_tree_root=HexBytes(b"SAME_STRIKES_ROOT"),
                 curr_strikes_tree_cid=CID("QmOLD_STRIKES"),
                 curr_log_cid=CID("QmLOG"),
-                expected_make_rewards_tree_call_args=(
-                    ({NodeOperatorId(0): 5},),
-                ),
+                expected_make_rewards_tree_call_args=(({NodeOperatorId(0): 5},),),
                 expected_func_result=(
                     1,
                     100500,
