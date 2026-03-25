@@ -13,7 +13,7 @@ def test_staking_router(staking_router_contract, caplog):
         [
             (
                 'get_staking_modules',
-                None,
+                ('latest',),
                 lambda response: check_value_type(response, list)
                 and map(lambda sm: check_value_type(sm, StakingModule), response),
             ),
