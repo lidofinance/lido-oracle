@@ -65,6 +65,25 @@ def test_load_returns_new_instance_if_file_not_found(state_file_path: Path):
 
 
 @pytest.mark.unit
+def test_load_patches_oracle_name_on_old_cache_without_it(state_file_path: Path):
+    """Old cache without _oracle_name gets patched with the provided name."""
+    state = State("test_oracle")
+    state.data = {
+        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})
+        ),
+    }
+    del state._oracle_name
+    with open(state_file_path, "wb") as f:
+        pickle.dump(state, f)
+
+    loaded = State.load("test_oracle")
+    assert loaded.oracle_name == "test_oracle"
+    assert loaded._oracle_name == "test_oracle"
+    assert not loaded.is_empty
+
+
+@pytest.mark.unit
 def test_load_returns_new_instance_if_empty_object(state_file_path: Path):
     with open(state_file_path, "wb") as f:
         pickle.dump(None, f)

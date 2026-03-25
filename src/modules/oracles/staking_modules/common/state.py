@@ -117,28 +117,47 @@ class State:
     def load(cls, oracle_name: str) -> Self:
         """Used to restore the object from the persistent storage"""
 
-        obj: Self | None = None
+        obj = cls.try_read(oracle_name)
+        if obj is None:
+            return cls(oracle_name)
+
+        oracle_name_read = getattr(obj, "_oracle_name", oracle_name)
+        if oracle_name_read != oracle_name:
+            logger.warning(
+                {"msg": f"Cache oracle name mismatch: {oracle_name_read} != {oracle_name}. Creating new state."}
+            )
+            return cls(oracle_name)
+
+        # Set oracle_name for backward compatibility with old cache files
+        obj._oracle_name = oracle_name
+
+        return obj
+
+    @classmethod
+    def try_read(cls, oracle_name: str) -> Self | None:
+        """Try to read and unpickle a cached state from disk. Returns None on any failure."""
+
         file = cls.file(oracle_name)
+
         try:
-            with file.open(mode="rb") as f:
-                obj = pickle.load(f)
-                print({"msg": "Read object from pickle file"})
-                if not obj:
-                    raise ValueError("Got empty object")
-                # Ensure loaded object has the correct oracle_name
-                # pylint: disable=protected-access
-                if obj._oracle_name != oracle_name:
-                    logger.warning(
-                        {"msg": f"Cache oracle name mismatch: {obj._oracle_name} != {oracle_name}. Creating new state."}
-                    )
-                    return cls(oracle_name)
-                # Set oracle_name for backward compatibility with old cache files
-                obj._oracle_name = oracle_name
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.info({"msg": f"Unable to restore {cls.__name__} instance from {file.absolute()}", "error": str(e)})
-        else:
-            logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
-        return obj or cls(oracle_name)
+            stream = file.open(mode="rb")
+        except OSError as e:
+            logger.info({"msg": f"Cache file not found: {file.absolute()}", "error": str(e)})
+            return None
+
+        try:
+            with stream:
+                obj = pickle.load(stream)
+        except Exception as e:
+            logger.info({"msg": f"Failed to unpickle {cls.__name__} from {file.absolute()}", "error": str(e)})
+            return None
+
+        if not obj:
+            logger.info({"msg": f"Got empty object from {file.absolute()}"})
+            return None
+
+        logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
+        return obj
 
     def commit(self) -> None:
         with self.buffer.open(mode="wb") as f:
