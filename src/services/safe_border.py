@@ -187,7 +187,7 @@ class SafeBorder(Web3Converter):
         start_frame = self.get_frame_by_epoch(EpochNumber(start_epoch))
         end_frame = self.get_frame_by_epoch(EpochNumber(end_epoch))
 
-        slashed_pubkeys = set(v.validator.pubkey for v in validators)
+        slashed_pubkeys: set[HexStr] = {HexStr(v.validator.pubkey) for v in validators}
 
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries

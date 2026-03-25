@@ -261,7 +261,7 @@ class ConsensusClient(HTTPProvider):
         return self.get_state_view(blockstamp).pending_consolidations
 
     def get_validators_by_indexes(self, blockstamp: BlockStamp) -> dict[int, Validator]:
-        return {index: validator for index, validator in self.get_state_view(blockstamp).indexed_validators}
+        return {validator.index: validator for validator in self.get_state_view(blockstamp).indexed_validators}
 
     def get_validator_state(self, state_id: SlotNumber, validator_id: int) -> Validator:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"""

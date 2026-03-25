@@ -31,7 +31,7 @@ from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import get_predictable_full_balance, get_predictable_sweep
+from src.utils.validator_balance import get_predictable_balance, get_predictable_full_balance, get_predictable_sweep
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -182,7 +182,7 @@ class Ejector(OracleModule[Web3]):
         for gid, next_validator in validators_iterator:
             validators_to_eject.append((gid, next_validator))
 
-            val_balance = self._get_predictable_validator_balance(next_validator)
+            val_balance = get_predictable_balance(next_validator)
 
             total_balance_to_eject_gwei += val_balance
 

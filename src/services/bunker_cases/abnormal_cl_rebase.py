@@ -16,7 +16,7 @@ from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
-from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
+from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
 
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class AbnormalClRebase:
     all_validators: list[Validator]
-    lido_validators: list[LidoValidator]
+    lido_validators: list[ExtendedLidoValidator]
     lido_keys: list[LidoKey]
 
     def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
@@ -37,7 +37,7 @@ class AbnormalClRebase:
         self,
         blockstamp: ReferenceBlockStamp,
         all_validators: list[Validator],
-        lido_validators: list[LidoValidator],
+        lido_validators: list[ExtendedLidoValidator],
         current_report_cl_rebase: Gwei,
     ) -> bool:
         """
@@ -183,24 +183,22 @@ class AbnormalClRebase:
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
         )[0]
 
-        ref_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
+        ref_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
 
-        prev_lido_balance_with_vault = self._get_lido_validators_balance_with_vault(
-            prev_blockstamp, prev_lido_validators
-        )
+        prev_balance_with_vault = self._get_lido_validators_balance_with_vault(prev_blockstamp, prev_lido_validators)
 
-        # Raw CL rebase is calculated as difference between reference and previous Lido validators' balances
-        # Without accounting withdrawals from WithdrawalVault
-        raw_cl_rebase = ref_lido_balance_with_vault - prev_lido_balance_with_vault
+        # Raw CL rebase is calculated as the difference between reference and previous Lido validators' balances
+        # Without accounting for withdrawals from WithdrawalVault
+        raw_cl_rebase = ref_balance_with_vault - prev_balance_with_vault
 
-        # We should account validators who have been appeared between blocks
+        # We should account for validators who have been appeared between blocks
         validators_count_diff_in_gwei = AbnormalClRebase.calculate_validators_count_diff_in_gwei(
             prev_lido_validators, self.lido_validators
         )
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
-        # Finally, we can calculate corrected CL rebase
+        # Finally, we can calculate a corrected CL rebase
         cl_rebase = Gwei(raw_cl_rebase - validators_count_diff_in_gwei + withdrawn_from_vault)
 
         logger.info(
@@ -216,7 +214,9 @@ class AbnormalClRebase:
         return cl_rebase
 
     def _get_lido_validators_balance_with_vault(
-        self, blockstamp: BlockStamp, lido_validators: list[LidoValidator]
+        self,
+        blockstamp: BlockStamp,
+        lido_validators: Sequence[LidoValidator | ExtendedLidoValidator],
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance

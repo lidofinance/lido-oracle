@@ -181,7 +181,7 @@ class Distribution:
 
         logger.info({"msg": f"Network performance in {frame=}: {network_perf=}"})
 
-        for (_, no_id), validators in operators_to_validators.items():
+        for no_id, validators in operators_to_validators.items():
             active_validators = [v for v in validators if self.state.data[frame].attestations[v.index].assigned > 0]
             if not active_validators:
                 logger.info({"msg": f"No active validators for {no_id=} in the frame. Skipping"})
@@ -226,7 +226,7 @@ class Distribution:
         )
         distributed_rewards = sum(rewards_distribution_map.values())
         # All rewards to distribute should not be rebated if no duties were assigned to validators or
-        # all validators were below threshold.
+        # all validators were below the threshold.
         rebate_to_protocol = 0 if not distributed_rewards else rewards_to_distribute - distributed_rewards
 
         for no_id, no_rewards in rewards_distribution_map.items():

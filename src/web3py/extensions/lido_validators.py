@@ -6,13 +6,12 @@ from typing import TYPE_CHECKING
 
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
-from web3.types import Gwei
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
 from src.providers.keys.types import LidoKey
 from src.services.deposit_signature_verification import is_valid_deposit_signature
-from src.types import BlockStamp, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
+from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
@@ -130,7 +129,7 @@ class ConsolidationRequest(PendingConsolidation):
 @dataclass
 class ExtendedLidoValidator(LidoValidator):
     pending_topups: list[PendingDeposit]
-    consolidating_as_source: ConsolidationRequest
+    consolidating_as_source: ConsolidationRequest | None
     consolidating_as_target: list[ConsolidationRequest]
 
 
@@ -163,7 +162,7 @@ class LidoValidatorsProvider(Module):
             req = ConsolidationRequest(
                 source_index=consolidation.source_index,
                 target_index=consolidation.target_index,
-                amount=min(source_validator.balance, get_max_effective_balance(source_validator.validator)),
+                amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)

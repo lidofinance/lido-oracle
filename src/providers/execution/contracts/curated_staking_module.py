@@ -5,6 +5,7 @@ from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
+from src.types import NodeOperatorId
 from src.variables import EL_REQUESTS_BATCH_SIZE
 
 
@@ -14,7 +15,12 @@ logger = logging.getLogger(__name__)
 class CuratedStakingModuleContract(ContractInterface):
     abi_path = './assets/CuratedStakingModule.json'
 
-    def get_node_operator_weight(self, operator_ids: list[int], block_identifier: BlockIdentifier) -> list[int]:
+    def get_node_operator_weight(
+        self,
+        operator_ids: list[NodeOperatorId],
+        block_identifier: BlockIdentifier,
+    ) -> list[int]:
+
         response: list[int] = []
 
         while node_operators_batch := list(islice(iter(operator_ids), EL_REQUESTS_BATCH_SIZE)):

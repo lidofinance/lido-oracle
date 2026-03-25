@@ -37,4 +37,4 @@ def get_predictable_sweep(validator: ExtendedLidoValidator) -> Gwei:
 
     effective_balance = min(predictable_full_balance, max_effective_balance)
 
-    return predictable_full_balance - effective_balance
+    return Gwei(predictable_full_balance - effective_balance)

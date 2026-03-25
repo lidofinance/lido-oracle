@@ -81,7 +81,7 @@ class ValidatorExitIterator:
     | V       | Highest deviation from the exit share limit or the biggest by balance |                                                       |                        |
     | V       |                                                                       | Highest rate weight to effective balance              |                        |
     | V       |                                                                       |                                                       | Lowest validator index |
-    """
+    """  # noqa: E501
 
     max_current_exit_balance: Gwei
     exit_limit_in_gwei: Gwei
@@ -271,11 +271,10 @@ class ValidatorExitIterator:
             self.node_operators_stats[(sm_id, lido_key.operatorIndex)].predictable_balance += predictable_balance
 
     def _get_report_limits(self):
-        self.exit_limit_in_gwei = (
+        self.exit_limit_in_gwei = Gwei(
             self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
                 self.blockstamp.block_hash,
-            ).max_balance_exit_requested_per_report_in_eth
-            * 10**9
+            ).max_balance_exit_requested_per_report_in_eth * 10**9
         )
 
     # --- Iterator ---

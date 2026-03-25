@@ -43,6 +43,16 @@ class Gwei(int):
             return Gwei(int.__add__(int(other), self))
         return NotImplemented
 
+    def __sub__(self, other) -> Gwei:
+        if isinstance(other, (int, Gwei)):
+            return Gwei(int.__sub__(self, int(other)))
+        return NotImplemented
+
+    def __rsub__(self, other) -> Gwei:
+        if isinstance(other, (int, Gwei)):
+            return Gwei(int.__sub__(int(other), self))
+        return NotImplemented
+
 
 ValidatorIndex = NewType('ValidatorIndex', int)
 CommitteeIndex = NewType('CommitteeIndex', int)
