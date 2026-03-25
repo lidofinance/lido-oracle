@@ -11,6 +11,7 @@ from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
+    ExtendedLidoValidator,
     LidoValidator,
     NodeOperator,
     StakingModule,
@@ -42,6 +43,9 @@ def lido_validators(web3):
         priority_exit_share_threshold=0,
         max_deposits_per_block=0,
         min_deposit_block_distance=0,
+        withdrawal_credentials_type=0,
+        validators_balance_gwei=Gwei(0),
+        pending_balance_gwei=Gwei(0),
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
@@ -74,7 +78,7 @@ def lido_validators(web3):
     )
 
     def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
-        return LidoValidator(
+        return ExtendedLidoValidator(
             lido_id=LidoKey(
                 key=pubkey,
                 depositSignature="",
@@ -98,6 +102,9 @@ def lido_validators(web3):
                     ),
                 )
             ),
+            pending_topups=[],
+            consolidating_as_source=None,
+            consolidating_as_target=[],
         )
 
     web3.lido_validators.get_lido_validators_by_node_operators = Mock(
