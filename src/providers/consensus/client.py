@@ -71,9 +71,12 @@ class ConsensusClient(HTTPProvider):
 
     def __init__(self, host: str, *, timeout: int) -> None:
         super().__init__([host], request_timeout=timeout, retry_total=3, retry_backoff_factor=3)
+        self._init_session_manager(host)
+
+    def _init_session_manager(self, uri: str) -> None:
         self.session_manager = HTTPSessionManagerProxy(
             chain_id=1,
-            uri=host,
+            uri=uri,
             network='beacon',
             layer='cl',
         )

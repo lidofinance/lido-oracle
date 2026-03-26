@@ -20,3 +20,4 @@ class ConsensusClientModule(ConsensusClient, Module):
             HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
         )
         super(Module, self).__init__()
+        self._init_session_manager(hosts[0] if hosts else '')
