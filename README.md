@@ -17,6 +17,8 @@ cp .env.example .env
 # 3. Check environment
 docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 
+# TODO deside how to use dockercomposes
+# maybe split with side-car and oracle docker composes?
 # 4. Run the Oracle (dry mode by default)
 docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
 
@@ -86,12 +88,14 @@ Work is divided into frames (~28 days / 6300 epochs):
 For Staking Module oracles, `docker-compose.yml` describes a small local stack with Postgres + two “performance” sidecars.
 This is meant as a reference deployment layout (not a full production guide).
 
+# TODO commands, bot services (container commands)
 Services and responsibilities:
 
 - `postgres` - stores performance/attestation-related data (volume-backed).
 - `init-db` - one-shot initialization that creates the database/user schema in Postgres (runs `scripts/init_performance_db.sh`).
 - `performance-collector` - periodically pulls data from the Consensus client (`CONSENSUS_CLIENT_URI`) and writes it to Postgres.
 - `performance-web` - reads Postgres and exposes an HTTP API.
+# TODO cm-oracle also
 - `csm-oracle` - the actual oracle module:
   - reads from EL/CL/Keys API (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
   - queries performance data via `PERFORMANCE_COLLECTOR_URI` (in compose it points to `http://performance-web:9020/`)
@@ -105,6 +109,7 @@ Data flow (simplified):
 
 ## Machine requirements
 
+# TODO update 
 For each Oracle module:
 - vCPUs - 1
 - Memory - 8 GB
@@ -115,6 +120,7 @@ For each Oracle module:
 
 ## Dependencies
 
+# TODO check different nodes
 ### Execution Client Node
 
 Requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) node with 2 weeks of history.
@@ -173,6 +179,7 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    If everything is ok, you will see that all required checks are passed
    and your environment is ready to run the oracle.
 
+# TODO extend this part with csm or detailed guide how start up everything
 ## Run the oracle
 1. By default, the oracle runs in *dry mode*. It means that it will not send any transactions to the Ethereum network.
     To run Oracle in *production mode*, set `MEMBER_PRIV_KEY` or `MEMBER_PRIV_KEY_FILE` environment variable:
@@ -266,6 +273,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `DATA_BUS_ADDRESS`                                     | Address of the DataBus contract for telemetry reporting                                                                                                                  | False               | `0x37De961D6bb5865867aDd416be07189D2Dd960e6` |
 
 ### Mainnet variables
+# TODO add CM address
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
 > STAKING_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
@@ -275,7 +283,8 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 Check out our [delegation guide](docs/delegation.md) for setting up oracle with a delegation contract.
 
 ### Alerts
-
+# TODO Move all alerts (from docs) to alerts.yml.
+# Add missing alerts to alerts.md
 Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager configuration examples.
 
 ### Metrics
@@ -346,6 +355,7 @@ Check out our [development setup guide](docs/development.md).
 ## Testing
 Check out our [testing guide](docs/testing.md).
 
+# TOOD update release flow
 ## Release flow
 
 To create new release:

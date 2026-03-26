@@ -1,3 +1,5 @@
+# TODO ask to deliver build-json.file to repr build
+
 # Reproducible Builds (experimental)
 
 This document outlines the process for creating reproducible Docker builds for the Lido Oracle. 

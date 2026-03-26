@@ -63,7 +63,7 @@ class Pinata(IPFSProvider):
     def _fetch_from_public_gateway(self, cid: CID) -> bytes:
         url = urljoin(self.PUBLIC_GATEWAY, f'/ipfs/{cid}')
         try:
-            resp = requests.get(url, timeout=self.timeout)
+            resp = requests.get(url, timeout=self.timeout, headers={"Accept": "application/octet-stream"})
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})

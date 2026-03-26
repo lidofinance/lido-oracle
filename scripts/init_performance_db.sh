@@ -1,3 +1,9 @@
+# TODO SideCars not in same docker compose file?
+       #	- Should it be different machines even
+       #	- How reuse KAPI postgres
+
+# TODO write full guide how to start up whole setup with KAPI
+
 #!/bin/bash
 #
 # Script to initialize the Performance database.

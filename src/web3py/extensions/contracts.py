@@ -150,6 +150,7 @@ class LidoContracts(Module):
             ),
         )
 
+    # TODO remove cached property and move to _load_contract
     @cached_property
     def accounting(self) -> AccountingContract:
         return cast(

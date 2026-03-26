@@ -104,6 +104,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                     "consumer": self.consumer,
                 }
             )
+        # TODO why no general exception
         except (ConnectionError, TimeoutError, OSError) as error:
             logger.warning(
                 {
@@ -316,7 +317,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         logger.debug({"msg": f"Epoch {epoch} is already processed"})
                         continue
 
+                    # TODO remove int cast
                     epoch_data = duties_by_epoch.get(int(epoch))
+
+                    # TODO move this sanity check to Provider client
                     if epoch_data is None:
                         raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
 

@@ -341,6 +341,7 @@ class Accounting(OracleModule[Web3]):
 
         return batches, FinalizationShareRate(share_rate)
 
+    # Add lru_cache here
     def simulate_full_rebase(self, blockstamp: ReferenceBlockStamp) -> ReportSimulationResults:
         """Simulate a full oracle report rebase, including execution layer rewards."""
         el_rewards = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
