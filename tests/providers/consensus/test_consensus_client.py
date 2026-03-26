@@ -31,25 +31,49 @@ def consensus_client(request):
 @pytest.mark.unit
 def test_session_manager_init_params():
     client = ConsensusClient(['http://localhost:5051'], 30)
-    assert client.session_manager._chain_id == '1'
-    assert client.session_manager._network == 'beacon'
-    assert client.session_manager._layer == 'cl'
-    assert client.session_manager._uri == 'http://localhost:5051'
+    sm = client._session_managers['http://localhost:5051']
+    assert sm._chain_id == '1'
+    assert sm._network == 'beacon'
+    assert sm._layer == 'cl'
+    assert sm._uri == 'http://localhost:5051'
+
+
+@pytest.mark.unit
+def test_session_manager_per_host():
+    """One session_manager is created per host with the correct URI label."""
+    client = ConsensusClient(['http://host1:5051', 'http://host2:5051'], 30)
+    assert set(client._session_managers.keys()) == {'http://host1:5051', 'http://host2:5051'}
+    assert client._session_managers['http://host1:5051']._uri == 'http://host1:5051'
+    assert client._session_managers['http://host2:5051']._uri == 'http://host2:5051'
 
 
 @pytest.mark.unit
 def test_make_get_request_uses_session_manager_timed_call():
-    """_make_get_request routes through session_manager._timed_call for metrics."""
+    """_make_get_request routes through the matching session_manager._timed_call."""
     client = ConsensusClient(['http://localhost:5051'], 30)
     mock_response = Mock()
-    client.session_manager._timed_call = Mock(return_value=mock_response)
+    client._session_managers['http://localhost:5051']._timed_call = Mock(return_value=mock_response)
 
-    result = client._make_get_request('http://localhost:5051/eth/v1/beacon/genesis', timeout=30)
+    result = client._make_get_request('http://localhost:5051', 'eth/v1/beacon/genesis', timeout=30)
 
-    client.session_manager._timed_call.assert_called_once_with(
+    client._session_managers['http://localhost:5051']._timed_call.assert_called_once_with(
         client.session.get, 'http://localhost:5051/eth/v1/beacon/genesis', timeout=30
     )
     assert result is mock_response
+
+
+@pytest.mark.unit
+def test_make_get_request_uses_correct_session_manager_per_host():
+    """Each fallback host uses its own session_manager for accurate metric labels."""
+    client = ConsensusClient(['http://host1:5051', 'http://host2:5051'], 30)
+    mock_response = Mock()
+    client._session_managers['http://host1:5051']._timed_call = Mock(return_value=mock_response)
+    client._session_managers['http://host2:5051']._timed_call = Mock(return_value=mock_response)
+
+    client._make_get_request('http://host2:5051', 'eth/v1/beacon/genesis')
+
+    client._session_managers['http://host1:5051']._timed_call.assert_not_called()
+    client._session_managers['http://host2:5051']._timed_call.assert_called_once()
 
 
 @pytest.mark.unit
@@ -59,9 +83,9 @@ def test_make_get_request_uses_provider_session():
     mock_response = Mock()
     mock_response.status_code = 200
     client.session.get = Mock(return_value=mock_response)
-    client.session_manager._timed_call = Mock(side_effect=lambda fn, *a, **kw: fn(*a, **kw))
+    client._session_managers['http://localhost:5051']._timed_call = Mock(side_effect=lambda fn, *a, **kw: fn(*a, **kw))
 
-    client._make_get_request('http://localhost:5051/eth/v1/beacon/genesis')
+    client._make_get_request('http://localhost:5051', 'eth/v1/beacon/genesis')
 
     client.session.get.assert_called_once()
 
@@ -78,9 +102,9 @@ def test_session_manager_metrics_recorded():
         mock_response.status_code = 200
         mock_response.headers = {}
         client.session.get = Mock(return_value=mock_response)
-
         client._make_get_request(
-            'http://localhost:5051/eth/v1/beacon/genesis',
+            'http://localhost:5051',
+            'eth/v1/beacon/genesis',
             timeout=30,
         )
 

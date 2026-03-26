@@ -167,7 +167,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         with self.PROMETHEUS_HISTOGRAM.time() as t:
             try:
                 response = self._make_get_request(
-                    self._urljoin(host, complete_endpoint if path_params else endpoint),
+                    host,
+                    complete_endpoint if path_params else endpoint,
                     params=query_params,
                     timeout=self.request_timeout,
                     stream=stream,
@@ -435,8 +436,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         validate_response(data, meta, endpoint=endpoint)  # type: ignore[arg-type]
         return data, meta  # type: ignore[return-value]
 
-    def _make_get_request(self, url: str, **kwargs) -> Response:
-        return self.session.get(url, **kwargs)
+    def _make_get_request(self, host: str, endpoint: str, **kwargs) -> Response:
+        return self.session.get(self._urljoin(host, endpoint), **kwargs)
 
     def get_all_providers(self) -> list[str]:
         return self.hosts

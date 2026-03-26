@@ -73,19 +73,17 @@ class ConsensusClient(HTTPProvider):
         super().__init__(
             hosts, request_timeout=timeout, retry_total=retry_total, retry_backoff_factor=retry_backoff_factor
         )
-        self._init_session_manager(hosts[0] if hosts else '')
+        self._init_session_managers(hosts)
 
+    def _init_session_managers(self, hosts: list[str]) -> None:
+        self._session_managers = {
+            host: HTTPSessionManagerProxy(chain_id=1, uri=host, network='beacon', layer='cl')
+            for host in hosts
+        }
 
-    def _init_session_manager(self, uri: str) -> None:
-        self.session_manager = HTTPSessionManagerProxy(
-            chain_id=1,
-            uri=uri,
-            network='beacon',
-            layer='cl',
-        )
-
-    def _make_get_request(self, url: str, **kwargs):
-        return self.session_manager._timed_call(self.session.get, url, **kwargs)
+    def _make_get_request(self, host: str, endpoint: str, **kwargs):
+        session_manager = self._session_managers.get(host) or next(iter(self._session_managers.values()))
+        return session_manager._timed_call(self.session.get, self._urljoin(host, endpoint), **kwargs)
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""

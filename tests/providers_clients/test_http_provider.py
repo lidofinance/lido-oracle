@@ -123,7 +123,7 @@ def test_make_get_request_delegates_to_session():
     mock_response = Mock()
     provider.session.get = Mock(return_value=mock_response)
 
-    result = provider._make_get_request('http://localhost:1/api', params={'a': 'b'}, timeout=30)
+    result = provider._make_get_request('http://localhost:1', 'api', params={'a': 'b'}, timeout=30)
 
     provider.session.get.assert_called_once_with('http://localhost:1/api', params={'a': 'b'}, timeout=30)
     assert result is mock_response
