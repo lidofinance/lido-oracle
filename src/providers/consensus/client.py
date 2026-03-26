@@ -69,9 +69,12 @@ class ConsensusClient(HTTPProvider):
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
     API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
 
-    def __init__(self, host: str, *, timeout: int) -> None:
-        super().__init__([host], request_timeout=timeout, retry_total=3, retry_backoff_factor=3)
-        self._init_session_manager(host)
+    def __init__(self, hosts: list[str], timeout: int, retry_total: int = 3, retry_backoff_factor: int = 3) -> None:
+        super().__init__(
+            hosts, request_timeout=timeout, retry_total=retry_total, retry_backoff_factor=retry_backoff_factor
+        )
+        self._init_session_manager(hosts[0] if hosts else '')
+
 
     def _init_session_manager(self, uri: str) -> None:
         self.session_manager = HTTPSessionManagerProxy(

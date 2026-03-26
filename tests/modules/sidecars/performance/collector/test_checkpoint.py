@@ -62,7 +62,7 @@ def converter(frame_config: FrameConfig, chain_config: ChainConfig) -> Web3Conve
 
 @pytest.fixture
 def consensus_client():
-    return ConsensusClient('http://localhost/', timeout=5 * 60)
+    return ConsensusClient(['http://localhost/'], 5 * 60)
 
 
 @pytest.fixture

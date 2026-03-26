@@ -22,7 +22,7 @@ from tests.factory.blockstamp import BlockStampFactory
 def consensus_client(request):
     params = getattr(request, 'param', {})
     rpc_endpoint = params.get('endpoint', variables.CONSENSUS_CLIENT_URI[0])
-    return ConsensusClient(rpc_endpoint, timeout=10)
+    return ConsensusClient([rpc_endpoint], 10)
 
 
 # --- Unit tests for HTTPSessionManagerProxy integration ---
@@ -30,7 +30,7 @@ def consensus_client(request):
 
 @pytest.mark.unit
 def test_session_manager_init_params():
-    client = ConsensusClient('http://localhost:5051', timeout=30)
+    client = ConsensusClient(['http://localhost:5051'], 30)
     assert client.session_manager._chain_id == '1'
     assert client.session_manager._network == 'beacon'
     assert client.session_manager._layer == 'cl'
@@ -40,7 +40,7 @@ def test_session_manager_init_params():
 @pytest.mark.unit
 def test_make_get_request_uses_session_manager_timed_call():
     """_make_get_request routes through session_manager._timed_call for metrics."""
-    client = ConsensusClient('http://localhost:5051', timeout=30)
+    client = ConsensusClient(['http://localhost:5051'], 30)
     mock_response = Mock()
     client.session_manager._timed_call = Mock(return_value=mock_response)
 
@@ -55,7 +55,7 @@ def test_make_get_request_uses_session_manager_timed_call():
 @pytest.mark.unit
 def test_make_get_request_uses_provider_session():
     """_make_get_request passes self.session.get to _timed_call, preserving retry strategy."""
-    client = ConsensusClient('http://localhost:5051', timeout=30)
+    client = ConsensusClient(['http://localhost:5051'], 30)
     mock_response = Mock()
     mock_response.status_code = 200
     client.session.get = Mock(return_value=mock_response)
@@ -72,7 +72,7 @@ def test_session_manager_metrics_recorded():
     registry = CollectorRegistry()
     w3_metrics.init_metrics(registry=registry)
     try:
-        client = ConsensusClient('http://localhost:5051', timeout=30)
+        client = ConsensusClient(['http://localhost:5051'], 30)
 
         mock_response = Mock()
         mock_response.status_code = 200
