@@ -227,11 +227,20 @@ class MidtermSlashingPenalty:
         Slashings is a ring buffer on epochs.
         @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
+
+        Note: The +1 offset (report_ref_epoch + 1) is required because process_slashings() in the consensus
+        spec uses sum(state.slashings) which includes ALL epochs, including the current epoch. Therefore,
+        when predicting future penalties, we must preserve slashing data from report_ref_epoch since it
+        will be included in the penalty calculation at midterm_penalty_epoch. We only exclude subsequent
+        epochs (report_ref_epoch + 1) through (midterm_penalty_epoch - 1) that become obsolete.
+
+        @see https://github.com/ethereum/consensus-specs/blob/622f109098e6453fb9dcd261eda22d57a47cae34/specs/phase0/beacon-chain.md?plain=1#L1762
         """
 
         if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
             raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
-        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)}
+        # Start from report_ref_epoch + 1 to preserve current epoch slashing data
+        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch + 1, midterm_penalty_epoch)}
 
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
