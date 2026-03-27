@@ -437,16 +437,18 @@ def test_cut_slashings_no_obsolete_indexes():
 
 
 @pytest.mark.unit
-def test_cut_slashings_all_removed():
+def test_cut_slashings__full_cycle_later__returns_empty_array():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     report_ref_epoch = 1
-    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Covers all indices except report_ref_epoch
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Exactly one full cycle later
 
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
-    # Fixed: With corrected logic, slashing data from report_ref_epoch (index 1) is preserved
-    expected = [slashings[report_ref_epoch % EPOCHS_PER_SLASHINGS_VECTOR]]  # Only element at index 1 remains
-    assert result == expected, f"Expected {expected}, but got {result}"
+    # With report_ref_epoch=1, midterm_penalty_epoch=1+8192=8193:
+    # Since midterm_penalty_epoch - report_ref_epoch = 8192 >= EPOCHS_PER_SLASHINGS_VECTOR,
+    # data from report_ref_epoch will be overwritten by the time penalty is applied
+    # range(1, 8193) covers all indices, expected result = empty array
+    assert result == [], f"Expected [], but got {result}"
 
 
 @pytest.mark.unit
@@ -651,3 +653,22 @@ def test_cut_slashings__almost_full_cycle_range__preserves_two_elements():
     assert len(result) == 2
     assert Gwei(99) in result
     assert Gwei(100) in result
+
+
+@pytest.mark.unit
+def test_cut_slashings__midterm_penalty_after_full_cycle__excludes_overwritten_data():
+    """Test that data from report_ref_epoch is excluded when midterm_penalty_epoch is a full cycle later"""
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 100
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Exactly one full cycle later
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=100, midterm_penalty_epoch=100+8192=8292:
+    # At epoch 8292, slashings[100] will be overwritten with data from epoch 8292
+    # So data from epoch 100 should NOT be preserved in the prediction
+    # range(101, 8292) covers all indices in the circular buffer
+    # Expected result: empty array (all data is obsolete when covering full cycle)
+    assert len(result) == 0
+    # Verify that report_ref_epoch data is NOT preserved (would be bug if present)
+    assert Gwei(100) not in result
