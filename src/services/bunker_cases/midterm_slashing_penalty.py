@@ -243,12 +243,11 @@ class MidtermSlashingPenalty:
 
         if midterm_penalty_epoch - report_ref_epoch >= EPOCHS_PER_SLASHINGS_VECTOR:
             # Data from report_ref_epoch will be overwritten in circular buffer by midterm_penalty_epoch
-            start_epoch = report_ref_epoch
-        else:
-            # Data from report_ref_epoch will still be valid at midterm_penalty_epoch
-            start_epoch = report_ref_epoch + 1
+            # All indexes are obsolete when covering full buffer or more
+            return []
 
-        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(start_epoch, midterm_penalty_epoch)}
+        # Data from report_ref_epoch will still be valid at midterm_penalty_epoch
+        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch + 1, midterm_penalty_epoch)}
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
     @staticmethod

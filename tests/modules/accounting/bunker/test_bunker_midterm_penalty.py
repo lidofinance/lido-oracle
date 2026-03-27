@@ -407,7 +407,7 @@ def test_cut_slashings_basic():
 
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
-    # Fixed: Start from report_ref_epoch + 1 to preserve current epoch slashing data
+    # Start from report_ref_epoch + 1 to preserve current epoch slashing data
     expected_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch + 1, midterm_penalty_epoch)}
     # Verify that report_ref_epoch slashing data is preserved
     assert report_ref_epoch % EPOCHS_PER_SLASHINGS_VECTOR not in expected_indexes
