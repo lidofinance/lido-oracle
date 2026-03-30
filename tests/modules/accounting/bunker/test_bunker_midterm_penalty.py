@@ -440,14 +440,14 @@ def test_cut_slashings_no_obsolete_indexes():
 def test_cut_slashings__full_cycle_later__returns_empty_array():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     report_ref_epoch = 1
-    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Exactly one full cycle later
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR + 1  # More than full cycle later
 
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
-    # With report_ref_epoch=1, midterm_penalty_epoch=1+8192=8193:
-    # Since midterm_penalty_epoch - report_ref_epoch = 8192 >= EPOCHS_PER_SLASHINGS_VECTOR,
+    # With report_ref_epoch=1, midterm_penalty_epoch=1+8192+1=8194:
+    # Since midterm_penalty_epoch - report_ref_epoch = 8193 > EPOCHS_PER_SLASHINGS_VECTOR,
     # data from report_ref_epoch will be overwritten by the time penalty is applied
-    # range(1, 8193) covers all indices, expected result = empty array
+    # Expected result = empty array (all data is obsolete when exceeding full cycle)
     assert result == [], f"Expected [], but got {result}"
 
 
@@ -656,8 +656,7 @@ def test_cut_slashings__almost_full_cycle_range__preserves_two_elements():
 
 
 @pytest.mark.unit
-def test_cut_slashings__midterm_penalty_after_full_cycle__excludes_overwritten_data():
-    """Test that data from report_ref_epoch is excluded when midterm_penalty_epoch is a full cycle later"""
+def test_cut_slashings__equal_to_full_cycle__preserves_current_bucket():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     report_ref_epoch = 100
     midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Exactly one full cycle later
@@ -665,10 +664,10 @@ def test_cut_slashings__midterm_penalty_after_full_cycle__excludes_overwritten_d
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
     # With report_ref_epoch=100, midterm_penalty_epoch=100+8192=8292:
-    # At epoch 8292, slashings[100] will be overwritten with data from epoch 8292
-    # So data from epoch 100 should NOT be preserved in the prediction
-    # range(101, 8292) covers all indices in the circular buffer
-    # Expected result: empty array (all data is obsolete when covering full cycle)
-    assert len(result) == 0
-    # Verify that report_ref_epoch data is NOT preserved (would be bug if present)
-    assert Gwei(100) not in result
+    # Since API returns post-state, data from epoch 100 is STILL VALID when difference = EPOCHS_PER_SLASHINGS_VECTOR
+    # At epoch 8292, slashings[100] contains data from epoch 100, not yet overwritten
+    # range(101, 8292) covers indices {101, 102, ..., 8191, 0, 1, ..., 99} - excludes index 100
+    # Expected result: only slashings[100] remains (1 element)
+    assert len(result) == 1
+    # Verify that report_ref_epoch data is preserved (as per post-state API behavior)
+    assert Gwei(100) in result

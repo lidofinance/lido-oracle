@@ -228,12 +228,11 @@ class MidtermSlashingPenalty:
         @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
 
-        Note: The start epoch logic handles circular buffer overwrites. When midterm_penalty_epoch is
-        less than one full cycle (EPOCHS_PER_SLASHINGS_VECTOR) after report_ref_epoch, we start from
-        report_ref_epoch + 1 so the report_ref_epoch bucket is preserved in the simulated slashing sum.
-        Once the prediction is a full cycle or more ahead, that ring-buffer slot will already be
-        overwritten by the time process_slashings() runs, so we start from report_ref_epoch and exclude
-        it as obsolete data.
+        Note: The epoch filtering logic handles circular buffer overwrites. We always start from
+        report_ref_epoch + 1 to preserve the report_ref_epoch bucket in the simulated slashing sum.
+        When the prediction is more than a full cycle ahead (difference > EPOCHS_PER_SLASHINGS_VECTOR),
+        all current slashing data will be overwritten by the time process_slashings() runs, so we
+        return an empty array as no current data is relevant.
 
         @see https://github.com/ethereum/consensus-specs/blob/622f109098e6453fb9dcd261eda22d57a47cae34/specs/phase0/beacon-chain.md?plain=1#L1762
         """
@@ -241,9 +240,11 @@ class MidtermSlashingPenalty:
         if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
             raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
 
-        if midterm_penalty_epoch - report_ref_epoch >= EPOCHS_PER_SLASHINGS_VECTOR:
+        if midterm_penalty_epoch - report_ref_epoch > EPOCHS_PER_SLASHINGS_VECTOR:
             # Data from report_ref_epoch will be overwritten in circular buffer by midterm_penalty_epoch
-            # All indexes are obsolete when covering full buffer or more
+            # Use strict inequality: API returns post-state, so data from report_ref_epoch is still valid
+            # when difference equals EPOCHS_PER_SLASHINGS_VECTOR, only overwritten when difference
+            # > EPOCHS_PER_SLASHINGS_VECTOR
             return []
 
         # Data from report_ref_epoch will still be valid at midterm_penalty_epoch
