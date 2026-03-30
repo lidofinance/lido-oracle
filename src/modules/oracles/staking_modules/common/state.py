@@ -74,11 +74,6 @@ class State:
 
     """
     Processing state of a staking module performance oracle frame.
-
-    During the module startup the state object is being either `load`'ed from the filesystem or being created as a
-    new object with no data in it. During epochs processing aggregates in `data` are being updated and eventually the
-    state is `commit`'ed back to the filesystem.
-
     The state can be migrated to be used for another frame's report by calling the `migrate` method.
     """
 
@@ -88,8 +83,6 @@ class State:
     _processed_epochs: set[EpochNumber]
 
     _version: int
-
-    EXTENSION = ".pkl"
 
     def __init__(self) -> None:
         self.data = {}
