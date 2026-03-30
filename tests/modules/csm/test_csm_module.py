@@ -434,7 +434,7 @@ def test__collect_data_handles_range_availability(
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=case.range_available)
     module._fulfill_state = Mock()
-    state = Mock(frames=case.frames, range=case.expect_range_call)
+    state = Mock(frames=case.frames, frame_range=case.expect_range_call)
     type(state).is_fulfilled = PropertyMock(side_effect=case.is_fulfilled_side_effect)
     module.state = state
 

@@ -202,7 +202,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         self.state.ensure_initialized()
 
         if not self.state.is_fulfilled:
-            l_epoch, r_epoch = self.state.range
+            l_epoch, r_epoch = self.state.frame_range
             range_available = self._check_range_availability(l_epoch, r_epoch)
             if not range_available:
                 logger.warning(

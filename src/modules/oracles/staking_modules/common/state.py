@@ -167,11 +167,11 @@ class State:
         return list(self.data.keys())
 
     @property
-    def range(self) -> tuple[EpochNumber, EpochNumber]:
+    def frame_range(self) -> tuple[EpochNumber, EpochNumber]:
         frames = self.frames
         if not frames:
             raise InvalidState("Frames are not set; call migrate() before calling")
-        return frames[0][0], frames[-1][-1]
+        return min(frames)[0], max(frames)[-1]
 
     @property
     def unprocessed_epochs(self) -> set[EpochNumber]:
