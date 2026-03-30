@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal, cast
 
-import gunicorn.app.base
+import uvicorn
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.params import Body
 from pydantic import BaseModel
@@ -27,12 +27,7 @@ from src.variables import (
     PERFORMANCE_WEB_SERVER_API_PORT,
     PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
     PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
-    PERFORMANCE_WEB_SERVER_KEEPALIVE,
-    PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
     PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
-    PERFORMANCE_WEB_SERVER_TIMEOUT,
-    PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
-    PERFORMANCE_WEB_SERVER_WORKERS,
 )
 
 
@@ -174,30 +169,10 @@ app.include_router(api_v1)
 
 
 def serve():
-    class StandaloneApplication(gunicorn.app.base.BaseApplication):
-        def __init__(self, app, options=None):
-            self.options = options or {}
-            self.application = app
-            super().__init__()
-
-        def init(self, parser, opts, args): ...
-
-        def load_config(self):
-            for key, value in self.options.items():
-                if key in self.cfg.settings and value is not None:
-                    self.cfg.set(key.lower(), value)
-
-        def load(self):
-            return self.application
-
-    options = {
-        'bind': f'{PERFORMANCE_WEB_SERVER_API_HOST}:{PERFORMANCE_WEB_SERVER_API_PORT}',
-        'workers': PERFORMANCE_WEB_SERVER_WORKERS,
-        'worker_class': 'uvicorn.workers.UvicornWorker',
-        'worker_connections': PERFORMANCE_WEB_SERVER_WORKER_CONNECTIONS,
-        'max_requests': PERFORMANCE_WEB_SERVER_MAX_REQUESTS,
-        'timeout': PERFORMANCE_WEB_SERVER_TIMEOUT,
-        'keepalive': PERFORMANCE_WEB_SERVER_KEEPALIVE,
-    }
-
-    StandaloneApplication(app, options).run()
+    uvicorn.run(
+        app,
+        host=PERFORMANCE_WEB_SERVER_API_HOST,
+        port=PERFORMANCE_WEB_SERVER_API_PORT,
+        workers=1,
+        limit_max_requests=None,
+    )

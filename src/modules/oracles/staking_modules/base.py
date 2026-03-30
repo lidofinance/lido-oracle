@@ -5,7 +5,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import batched
 
-from bases.encoding import block
 from hexbytes import HexBytes
 
 from src import variables
