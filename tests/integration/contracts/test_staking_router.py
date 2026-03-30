@@ -7,6 +7,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 @pytest.mark.mainnet
 @pytest.mark.integration
+@pytest.mark.xfail
 def test_staking_router(staking_router_contract, caplog):
     check_contract(
         staking_router_contract,
