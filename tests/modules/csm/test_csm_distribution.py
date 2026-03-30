@@ -1499,7 +1499,7 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
     v_idx7.validator.effective_balance = MIN_ACTIVATION_BALANCE * 3
     v_idx8.validator.effective_balance = MIN_ACTIVATION_BALANCE * 2
     v_idx10.validator.effective_balance = MIN_ACTIVATION_BALANCE * 2
-    v_idx9.validator.effective_balance = MIN_ACTIVATION_BALANCE * 65
+    v_idx9.validator.effective_balance = MIN_ACTIVATION_BALANCE * 64
     v_idx6.validator.effective_balance = MIN_ACTIVATION_BALANCE * 64
 
     # Same perfect duties for all

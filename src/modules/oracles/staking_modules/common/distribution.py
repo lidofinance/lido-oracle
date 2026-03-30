@@ -294,6 +294,8 @@ class Distribution:
             #    The rest 15 participation shares should be counted for the protocol's rebate.
             #
             val_effective_balance = max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance)
+            if val_effective_balance > MAX_EFFECTIVE_BALANCE_ELECTRA:
+                raise ValueError(f"Unexpected effective balance value, {validator.validator=}")
             participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
             #
             # Due to CL rewarding process, validators are getting rewards in proportion to their effective balance:
