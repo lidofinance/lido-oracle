@@ -45,16 +45,6 @@ def test_init(module: CSPerformanceOracle):
     assert module
 
 
-@pytest.mark.unit
-def test_shutdown_calls_cleanup(module: CSPerformanceOracle):
-    module.w3.performance = Mock()
-    module.w3.performance.get_epochs_demand = Mock(return_value=Mock())
-    module.w3.performance.delete_epochs_demand = Mock()
-    module.shutdown()
-    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
-    module.w3.performance.delete_epochs_demand.assert_called_once_with("CSPerformanceOracle")
-
-
 # Static functions you were dreaming of for so long.
 
 

@@ -116,39 +116,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
 
-    # TODO: Do we really need to remove the demand, let's say for the case we have a bug in the oracle module but not in
-    # the collector.
-    def shutdown(self) -> None:
-        performance_client = getattr(self.w3, "performance", None)
-        if performance_client is None:
-            logger.debug(
-                {
-                    "msg": "Performance client is not attached, skipping demand cleanup",
-                    "consumer": self.consumer,
-                }
-            )
-            return
-        try:
-            demand = performance_client.get_epochs_demand(self.consumer)
-            if not demand:
-                logger.info({"msg": "No demand on shutdown", "consumer": self.consumer})
-                return
-            performance_client.delete_epochs_demand(self.consumer)
-            logger.info(
-                {
-                    "msg": "Cleared Performance Collector demand on shutdown",
-                    "consumer": self.consumer,
-                }
-            )
-        except (ConnectionError, TimeoutError, OSError) as error:
-            logger.warning(
-                {
-                    "msg": "Unexpected error during Performance Collector demand cleanup",
-                    "consumer": self.consumer,
-                    "error": str(error),
-                }
-            )
-
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
