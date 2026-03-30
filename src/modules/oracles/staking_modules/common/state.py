@@ -155,17 +155,17 @@ class State:
                 return epoch_range
         raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
 
-    def save_att_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+    def save_att_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
         frame = self.find_frame(epoch)
-        self.data[frame].attestations[val_index].add_duty(included)
+        self.data[frame].attestations[val_index].merge(duty)
 
-    def save_prop_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+    def save_prop_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
         frame = self.find_frame(epoch)
-        self.data[frame].proposals[val_index].add_duty(included)
+        self.data[frame].proposals[val_index].merge(duty)
 
-    def save_sync_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, included: bool) -> None:
+    def save_sync_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
         frame = self.find_frame(epoch)
-        self.data[frame].syncs[val_index].add_duty(included)
+        self.data[frame].syncs[val_index].merge(duty)
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)

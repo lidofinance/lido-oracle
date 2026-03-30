@@ -124,7 +124,7 @@ def test_increment_att_duty_adds_duty_correctly():
     state.data = {
         frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_att_duty(duty_epoch, ValidatorIndex(1), True)
+    state.save_att_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].attestations[ValidatorIndex(1)].included == 6
 
@@ -137,7 +137,7 @@ def test_increment_prop_duty_adds_duty_correctly():
     state.data = {
         frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(1), True)
+    state.save_prop_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].proposals[ValidatorIndex(1)].included == 6
 
@@ -150,7 +150,7 @@ def test_increment_sync_duty_adds_duty_correctly():
     state.data = {
         frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(1), True)
+    state.save_sync_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].syncs[ValidatorIndex(1)].included == 6
 
@@ -163,7 +163,7 @@ def test_increment_att_duty_creates_new_validator_entry():
     state.data = {
         frame: NetworkDuties(),
     }
-    state.save_att_duty(duty_epoch, ValidatorIndex(2), True)
+    state.save_att_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].attestations[ValidatorIndex(2)].assigned == 1
     assert state.data[frame].attestations[ValidatorIndex(2)].included == 1
 
@@ -176,7 +176,7 @@ def test_increment_prop_duty_creates_new_validator_entry():
     state.data = {
         frame: NetworkDuties(),
     }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(2), True)
+    state.save_prop_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].proposals[ValidatorIndex(2)].assigned == 1
     assert state.data[frame].proposals[ValidatorIndex(2)].included == 1
 
@@ -189,7 +189,7 @@ def test_increment_sync_duty_creates_new_validator_entry():
     state.data = {
         frame: NetworkDuties(),
     }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(2), True)
+    state.save_sync_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
     assert state.data[frame].syncs[ValidatorIndex(2)].assigned == 1
     assert state.data[frame].syncs[ValidatorIndex(2)].included == 1
 
@@ -202,7 +202,7 @@ def test_increment_att_duty_handles_non_included_duty():
     state.data = {
         frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_att_duty(duty_epoch, ValidatorIndex(1), False)
+    state.save_att_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
     assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].attestations[ValidatorIndex(1)].included == 5
 
@@ -215,7 +215,7 @@ def test_increment_prop_duty_handles_non_included_duty():
     state.data = {
         frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(1), False)
+    state.save_prop_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
     assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].proposals[ValidatorIndex(1)].included == 5
 
@@ -228,7 +228,7 @@ def test_increment_sync_duty_handles_non_included_duty():
     state.data = {
         frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
     }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(1), False)
+    state.save_sync_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
     assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
     assert state.data[frame].syncs[ValidatorIndex(1)].included == 5
 
@@ -237,21 +237,21 @@ def test_increment_sync_duty_handles_non_included_duty():
 def test_increment_att_duty_raises_error_for_out_of_range_epoch():
     state = State()
     with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_att_duty(EpochNumber(32), ValidatorIndex(1), True)
+        state.save_att_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
 
 
 @pytest.mark.unit
 def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
     state = State()
     with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_prop_duty(EpochNumber(32), ValidatorIndex(1), True)
+        state.save_prop_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
 
 
 @pytest.mark.unit
 def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
     state = State()
     with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_sync_duty(EpochNumber(32), ValidatorIndex(1), True)
+        state.save_sync_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
 
 
 @pytest.mark.unit

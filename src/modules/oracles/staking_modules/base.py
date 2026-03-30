@@ -22,7 +22,7 @@ from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import State
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
@@ -372,13 +372,21 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                                     f"in epoch {epoch}, but was not active"
                                 )
                             continue
-                        self.state.save_att_duty(epoch, validator.index, included=not missed_att)
+                        self.state.save_att_duty(
+                            epoch,
+                            validator.index,
+                            DutyAccumulator(assigned=1, included=int(not missed_att)),
+                        )
 
                     blocks_in_epoch = 0
 
                     for i, vid in enumerate(proposers):
                         proposed = props_flags[i]
-                        self.state.save_prop_duty(epoch, vid, included=proposed)
+                        self.state.save_prop_duty(
+                            epoch,
+                            vid,
+                            DutyAccumulator(assigned=1, included=int(proposed)),
+                        )
                         blocks_in_epoch += int(proposed)
 
                     if blocks_in_epoch:
@@ -390,11 +398,11 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                                     f"{s_misses=} > {blocks_in_epoch=}"
                                 )
                             s_fulfilled = blocks_in_epoch - s_misses
-                            # TODO: Update the State API, the tight loop is not needed here.
-                            for _ in range(s_fulfilled):
-                                self.state.save_sync_duty(epoch, vid, included=True)
-                            for _ in range(s_misses):
-                                self.state.save_sync_duty(epoch, vid, included=False)
+                            self.state.save_sync_duty(
+                                epoch,
+                                vid,
+                                DutyAccumulator(assigned=blocks_in_epoch, included=s_fulfilled),
+                            )
 
                     self.state.add_processed_epoch(epoch)
                     unprocessed_epochs.discard(epoch)

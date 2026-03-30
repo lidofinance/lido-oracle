@@ -14,6 +14,7 @@ from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
 from src.modules.oracles.staking_modules.common.distribution import Distribution
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
@@ -500,27 +501,23 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
     assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), validator_a.index, included=False),
-        call(EpochNumber(0), validator_b.index, included=True),
-        call(EpochNumber(1), validator_a.index, included=True),
-        call(EpochNumber(1), validator_b.index, included=True),
+        call(EpochNumber(0), validator_a.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(0), validator_b.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), validator_a.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), validator_b.index, DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=3, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=3, included=0)),
     ]
     assert state.add_processed_epoch.call_args_list == [
         call(EpochNumber(0)),
@@ -597,7 +594,9 @@ def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceO
         module._fulfill_state()
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
-    state.save_prop_duty.assert_called_once_with(EpochNumber(0), ValidatorIndex(int(validator.index)), included=True)
+    state.save_prop_duty.assert_called_once_with(
+        EpochNumber(0), ValidatorIndex(int(validator.index)), DutyAccumulator(assigned=1, included=1)
+    )
     state.save_sync_duty.assert_not_called()
     state.add_processed_epoch.assert_not_called()
 
@@ -653,24 +652,24 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 2)
     assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), active_all.index, included=True),
-        call(EpochNumber(0), exit_early.index, included=False),
-        call(EpochNumber(1), active_all.index, included=False),
-        call(EpochNumber(1), active_late.index, included=True),
-        call(EpochNumber(2), active_all.index, included=True),
-        call(EpochNumber(2), active_late.index, included=True),
+        call(EpochNumber(0), active_all.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), exit_early.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), active_all.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), active_late.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), active_all.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), active_late.index, DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=False),
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
     ]
     state.add_processed_epoch.assert_has_calls([call(EpochNumber(0)), call(EpochNumber(1)), call(EpochNumber(2))])
 
