@@ -47,7 +47,7 @@ def test_init(module: CSPerformanceOracle):
 
 @pytest.mark.unit
 def test_shutdown_calls_cleanup(module: CSPerformanceOracle):
-    module.w3 = Mock()
+    module.w3.performance = Mock()
     module.w3.performance.get_epochs_demand = Mock(return_value=Mock())
     module.w3.performance.delete_epochs_demand = Mock()
     module.shutdown()
