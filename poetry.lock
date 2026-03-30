@@ -4678,52 +4678,6 @@ typing-extensions = ">=3.7.4"
 mypy = ["mypy (>=1.0)"]
 
 [[package]]
-name = "types-gevent"
-version = "25.9.0.20251228"
-description = "Typing stubs for gevent"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "types_gevent-25.9.0.20251228-py3-none-any.whl", hash = "sha256:e2e225af4fface9241c16044983eb2fc3993f2d13d801f55c2932848649b7f2f"},
-    {file = "types_gevent-25.9.0.20251228.tar.gz", hash = "sha256:423ef9891d25c5a3af236c3e9aace4c444c86ff773fe13ef22731bc61d59abef"},
-]
-
-[package.dependencies]
-types-greenlet = "*"
-types-psutil = ">=7.2.0"
-
-[[package]]
-name = "types-greenlet"
-version = "3.3.0.20251206"
-description = "Typing stubs for greenlet"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "types_greenlet-3.3.0.20251206-py3-none-any.whl", hash = "sha256:8d11041c0b0db545619e8c8a1266aa4aaa4ebeae8ae6b4b7049917a6045a5590"},
-    {file = "types_greenlet-3.3.0.20251206.tar.gz", hash = "sha256:3e1ab312ab7154c08edc2e8110fbf00d9920323edc1144ad459b7b0052063055"},
-]
-
-[[package]]
-name = "types-gunicorn"
-version = "23.0.0.20251031"
-description = "Typing stubs for gunicorn"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "types_gunicorn-23.0.0.20251031-py3-none-any.whl", hash = "sha256:7063608ae564baa6acbdc06e2d8f77f6dd39002c6535bfd22b2488d0a5accfe6"},
-    {file = "types_gunicorn-23.0.0.20251031.tar.gz", hash = "sha256:bec773f6b9608339bd3ff69ab00fe9d0edf8a15cfb652f7199abf491be134212"},
-]
-
-[package.dependencies]
-types-gevent = "*"
-
-[[package]]
 name = "types-protobuf"
 version = "6.32.1.20260221"
 description = "Typing stubs for protobuf"
@@ -4734,19 +4688,6 @@ markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\"
 files = [
     {file = "types_protobuf-6.32.1.20260221-py3-none-any.whl", hash = "sha256:da7cdd947975964a93c30bfbcc2c6841ee646b318d3816b033adc2c4eb6448e4"},
     {file = "types_protobuf-6.32.1.20260221.tar.gz", hash = "sha256:6d5fb060a616bfb076cbb61b4b3c3969f5fc8bec5810f9a2f7e648ee5cbcbf6e"},
-]
-
-[[package]]
-name = "types-psutil"
-version = "7.2.2.20260130"
-description = "Typing stubs for psutil"
-optional = false
-python-versions = ">=3.9"
-groups = ["dev"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "types_psutil-7.2.2.20260130-py3-none-any.whl", hash = "sha256:15523a3caa7b3ff03ac7f9b78a6470a59f88f48df1d74a39e70e06d2a99107da"},
-    {file = "types_psutil-7.2.2.20260130.tar.gz", hash = "sha256:15b0ab69c52841cf9ce3c383e8480c620a4d13d6a8e22b16978ebddac5590950"},
 ]
 
 [[package]]
@@ -5236,4 +5177,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "e284758cc2287e9bd0859a9d9a84278b19d07b7e0e9b2c3278fc52a937b12fcc"
+content-hash = "9af87f806b2e91a9b4efab9d9f43193689d262be553fc49c9e4db12dbe1e4c6a"

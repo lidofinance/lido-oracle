@@ -63,7 +63,6 @@ eth-tester = {version = "^0.13.0b1", extras = ["py-evm"]}
 pre-commit = "3.8"
 ipython = "^9.0"
 conventional-pre-commit = "^4.0.0"
-types-gunicorn = "^23.0.0.20251031"
 mutmut = "^2.5.1"
 httpx = "^0.28.0"
 
