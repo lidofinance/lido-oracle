@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class TelemetryEventId(Enum):
     ORACLE_REPORT = Web3.keccak(text="OracleReport")
     ORACLE_STARTUP = Web3.keccak(text="OracleStartup")
+    DIAGNOSTIC = Web3.keccak(text="Diagnostic")
 
 
 class TelemetryDataBus(Module):

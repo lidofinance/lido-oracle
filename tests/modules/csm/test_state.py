@@ -145,6 +145,30 @@ def test_calculate_frames_raises_error_for_insufficient_epochs():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "frames, expected",
+    [
+        pytest.param(((10, 41),), (10, 41), id="single-frame"),
+        pytest.param(((0, 31), (32, 63)), (0, 63), id="sorted-frames"),
+        pytest.param(((32, 63), (0, 31)), (0, 63), id="unsorted-two-frames"),
+        pytest.param(((64, 95), (32, 63), (0, 31)), (0, 95), id="reverse-three-frames"),
+        pytest.param(((32, 63), (64, 95), (0, 31)), (0, 95), id="mixed-three-frames"),
+    ],
+)
+def test_range_returns_expected_bounds(frames, expected):
+    state = State("test_oracle")
+    state.data = {frame: NetworkDuties() for frame in frames}
+    assert state.frame_range == expected
+
+
+@pytest.mark.unit
+def test_range_raises_error_when_no_frames():
+    state = State("test_oracle")
+    with pytest.raises(InvalidState, match="Frames are not set"):
+        _ = state.frame_range
+
+
+@pytest.mark.unit
 def test_clear_resets_state_to_empty():
     state = State("test_oracle")
     state.data = {(0, 31): defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})}

@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
-from src.providers.http_provider import data_is_bool, data_is_list
+from src.providers.http_provider import data_is_bool, data_is_int, data_is_list
 from src.providers.performance.client import PerformanceClient, PerformanceClientError
 from src.types import EpochNumber
 
@@ -121,6 +121,29 @@ def test_get_epochs_demand_returns_none_for_empty(client: PerformanceClient):
     result = client.get_epochs_demand("csm")
 
     assert result is None
+
+
+@pytest.mark.unit
+def test_get_stored_epochs_count_returns_count(client: PerformanceClient):
+    raw = 5
+    client._get = Mock(return_value=(raw, {}))
+
+    result = client.get_stored_epochs_count(EpochNumber(10), EpochNumber(20))
+
+    assert result == 5
+    client._get.assert_called_once_with(
+        "v1/epochs/stored-count",
+        query_params={"from": 10, "to": 20},
+        validate_response=data_is_int,
+    )
+
+
+@pytest.mark.unit
+def test_get_stored_epochs_count_raises_on_non_int(client: PerformanceClient):
+    client._get = Mock(side_effect=ValueError("Expected int response from v1/epochs/stored-count"))
+
+    with pytest.raises(ValueError, match="Expected int response"):
+        client.get_stored_epochs_count(EpochNumber(10), EpochNumber(20))
 
 
 @pytest.mark.unit
