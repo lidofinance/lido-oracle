@@ -71,9 +71,10 @@ class ThrottledTelemetry:
         if not (ignore_cooldown or interval_elapsed):
             return
 
-        self.last_sent_at = time.monotonic()
-        self.last_payload = payload
-        self.send_callback(TelemetryEventId.DIAGNOSTIC, payload)
+        sent = self.send_callback(TelemetryEventId.DIAGNOSTIC, payload)
+        if sent:
+            self.last_sent_at = time.monotonic()
+            self.last_payload = payload
 
 
 class SMPerformanceOracle(OracleModule[Web3StakingModule]):

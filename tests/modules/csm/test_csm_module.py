@@ -364,6 +364,22 @@ def test_check_range_availability_sends_changed_payload_when_ready(module: CSPer
     )
 
 
+@pytest.mark.unit
+def test_check_range_availability_retries_same_payload_if_previous_send_failed(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=True)
+    module.w3.performance.get_stored_epochs_count = Mock(return_value=3)
+    module.collector_telemetry.send_callback = Mock(side_effect=[False, True])
+    module.collector_telemetry.interval_seconds = 60
+
+    first_result = module._check_range_availability(EpochNumber(10), EpochNumber(20))
+    second_result = module._check_range_availability(EpochNumber(10), EpochNumber(20))
+
+    assert first_result is True
+    assert second_result is True
+    assert module.collector_telemetry.send_callback.call_count == 2
+
+
 @pytest.fixture()
 def mock_frame_config(module: CSPerformanceOracle):
     module.get_frame_config = Mock(
