@@ -101,7 +101,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             raise ValueError("CONSENSUS_VERSION is not defined")
         self.consumer = self.__class__.__name__
         self.report_contract = w3.staking_module.oracle
-        self.state = State.load(self.consumer)
+        self.state = State()
         self.collector_telemetry = ThrottledTelemetry(
             interval_seconds=variables.TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS,
             send_callback=self._try_send_telemetry,
@@ -393,8 +393,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
                     self.state.add_processed_epoch(epoch)
                     unprocessed_epochs.discard(epoch)
-                # No need to commit the state on every epoch, it's enough to commit it once per batch.
-                self.state.commit()
 
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:

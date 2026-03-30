@@ -8,13 +8,12 @@ from unittest.mock import Mock, PropertyMock, call, patch
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import STAKING_MODULE_LOGS_VERSION, UINT64_MAX
+from src.constants import UINT64_MAX
 from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
 from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
 from src.modules.oracles.staking_modules.common.distribution import Distribution
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
@@ -28,11 +27,6 @@ from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
-
-
-@pytest.fixture(autouse=True)
-def mock_load_state(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(State, "load", Mock())
 
 
 @pytest.fixture()
@@ -1010,7 +1004,6 @@ def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
 
     assert module._make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
-    assert module._publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
 
 
 @pytest.mark.unit

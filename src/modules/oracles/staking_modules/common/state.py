@@ -1,15 +1,10 @@
 import logging
-import os
-import pickle
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import batched
-from pathlib import Path
 from typing import Self
 
-from src import variables
-from src.constants import STAKING_MODULE_STATE_VERSION
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -74,7 +69,6 @@ type Frame = tuple[EpochNumber, EpochNumber]
 type StateData = dict[Frame, NetworkDuties]
 
 
-# TODO: State class can be simplified now and become totaly in-memory due to introducing the performance collector.
 class State:
     # pylint: disable=too-many-public-methods
 
@@ -94,16 +88,13 @@ class State:
     _processed_epochs: set[EpochNumber]
 
     _version: int
-    _oracle_name: str
 
     EXTENSION = ".pkl"
 
-    def __init__(self, oracle_name: str) -> None:
+    def __init__(self) -> None:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-        self._version = STAKING_MODULE_STATE_VERSION
-        self._oracle_name = oracle_name
 
     @property
     def version(self) -> int | None:
@@ -112,66 +103,6 @@ class State:
     @property
     def oracle_name(self) -> str:
         return getattr(self, "_oracle_name", "unknown")
-
-    @classmethod
-    def load(cls, oracle_name: str) -> Self:
-        """Used to restore the object from the persistent storage"""
-
-        obj = cls.try_read(oracle_name)
-        if obj is None:
-            return cls(oracle_name)
-
-        oracle_name_read = getattr(obj, "_oracle_name", oracle_name)
-        if oracle_name_read != oracle_name:
-            logger.warning(
-                {"msg": f"Cache oracle name mismatch: {oracle_name_read} != {oracle_name}. Creating new state."}
-            )
-            return cls(oracle_name)
-
-        # Set oracle_name for backward compatibility with old cache files
-        obj._oracle_name = oracle_name
-
-        return obj
-
-    @classmethod
-    def try_read(cls, oracle_name: str) -> Self | None:
-        """Try to read and unpickle a cached state from disk. Returns None on any failure."""
-
-        file = cls.file(oracle_name)
-
-        try:
-            stream = file.open(mode="rb")
-        except OSError as e:
-            logger.info({"msg": f"Cache file not found: {file.absolute()}", "error": str(e)})
-            return None
-
-        try:
-            with stream:
-                obj = pickle.load(stream)
-        except Exception as e:
-            logger.info({"msg": f"Failed to unpickle {cls.__name__} from {file.absolute()}", "error": str(e)})
-            return None
-
-        if not obj:
-            logger.info({"msg": f"Got empty object from {file.absolute()}"})
-            return None
-
-        logger.info({"msg": f"{cls.__name__} read from {file.absolute()}"})
-        return obj
-
-    def commit(self) -> None:
-        with self.buffer.open(mode="wb") as f:
-            pickle.dump(self, f)
-
-        os.replace(self.buffer, self.file(self._oracle_name))
-
-    @classmethod
-    def file(cls, oracle_name: str) -> Path:
-        return variables.CACHE_PATH / Path(f"{oracle_name}_cache").with_suffix(cls.EXTENSION)
-
-    @property
-    def buffer(self) -> Path:
-        return self.file(self._oracle_name).with_suffix(".buf")
 
     @property
     def is_empty(self) -> bool:
@@ -240,16 +171,6 @@ class State:
         self._processed_epochs.add(epoch)
 
     def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
-        if self.version != STAKING_MODULE_STATE_VERSION:
-            if self.version is not None:
-                logger.warning(
-                    {
-                        "msg": f"Cache was built with version={self.version}. "
-                        f"Discarding data to migrate to cache version={STAKING_MODULE_STATE_VERSION}"
-                    }
-                )
-            self.clear()
-
         new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         if self.frames == new_frames:
             logger.info({"msg": "No need to migrate duties data cache"})
@@ -258,11 +179,9 @@ class State:
 
         self.find_frame.cache_clear()
         self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-        self._version = STAKING_MODULE_STATE_VERSION
-        self.commit()
 
     def _migrate_frames_data(self, new_frames: list[Frame]):
-        logger.info({"msg": f"Migrating duties data cache: {self.frames=} -> {new_frames=}"})
+        logger.info({"msg": f"Migrating duties data: {self.frames=} -> {new_frames=}"})
         new_data: StateData = {}
         for frame in new_frames:
             new_data[frame] = NetworkDuties()
@@ -280,7 +199,7 @@ class State:
         for frame in self.frames:
             if frame in consumed:
                 continue
-            logger.warning({"msg": f"Invalidating frame duties data cache: {frame}"})
+            logger.warning({"msg": f"Invalidating frame duties data: {frame}"})
             self._processed_epochs -= set(sequence(*frame))
         self.data = new_data
 
