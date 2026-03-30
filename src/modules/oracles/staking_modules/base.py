@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import batched
 
+from bases.encoding import block
 from hexbytes import HexBytes
 
 from src import variables
@@ -384,7 +385,12 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                     if blocks_in_epoch:
                         for i, vid in enumerate(syncs_vids):
                             s_misses = syncs_misses[i]
-                            s_fulfilled = max(0, blocks_in_epoch - s_misses)  # XXX: when it's the case?
+                            if s_misses > blocks_in_epoch:
+                                raise ValueError(
+                                    f"Inconsistent sync committee duties data: index={i}, {vid=}, "
+                                    f"{s_misses=} > {blocks_in_epoch=}"
+                                )
+                            s_fulfilled = blocks_in_epoch - s_misses
                             # TODO: Update the State API, the tight loop is not needed here.
                             for _ in range(s_fulfilled):
                                 self.state.save_sync_duty(epoch, vid, included=True)

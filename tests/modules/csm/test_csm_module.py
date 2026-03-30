@@ -473,8 +473,8 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
             Duty(
                 epoch=1,
                 attestations=[],
-                proposals_vids=[int(validator_b.index)],
-                proposals_flags=[True],
+                proposals_vids=[int(validator_b.index), int(validator_a.index), int(validator_b.index)],
+                proposals_flags=[True, True, True],
                 syncs_vids=[int(validator_a.index), int(validator_b.index)],
                 syncs_misses=[2, 3],
             ),
@@ -509,10 +509,13 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
         call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
         call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
         call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=True),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
     ]
     assert state.save_sync_duty.call_args_list == [
         call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
         call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=True),
         call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
         call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
         call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
@@ -558,6 +561,44 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
     state.save_att_duty.assert_not_called()
+    state.add_processed_epoch.assert_not_called()
+
+
+@pytest.mark.unit
+def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                attestations=[],
+                proposals_vids=[int(validator.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(validator.index)],
+                syncs_misses=[2],
+            ),
+        ]
+    )
+
+    state = Mock()
+    state.frames = [(0, 0)]
+    state.unprocessed_epochs = {0}
+    state.save_att_duty = Mock()
+    state.save_prop_duty = Mock()
+    state.save_sync_duty = Mock()
+    state.add_processed_epoch = Mock()
+    state.log_progress = Mock()
+    module.state = state
+
+    with pytest.raises(ValueError, match="Inconsistent sync committee duties data"):
+        module._fulfill_state()
+
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
+    state.save_prop_duty.assert_called_once_with(EpochNumber(0), ValidatorIndex(int(validator.index)), included=True)
+    state.save_sync_duty.assert_not_called()
     state.add_processed_epoch.assert_not_called()
 
 
