@@ -101,8 +101,8 @@ class OracleReportLimits:
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
     max_balance_exit_requested_per_report_in_eth: int
-    max_effective_balance_weight_wc_type_01: int
-    max_effective_balance_weight_wc_type_02: int
+    max_effective_balance_weight_wc_type01: int
+    max_effective_balance_weight_wc_type02: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int

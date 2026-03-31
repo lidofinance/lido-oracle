@@ -55,7 +55,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         2. Calculate the performance of each validator based on their duties.
         3. Calculate the share of each node operator excluding underperforming validators.
     """
-
+    # TODO: Move to OracleModule level
     COMPATIBLE_CONTRACT_VERSION: int = 0
     COMPATIBLE_CONSENSUS_VERSION: int = 0
 

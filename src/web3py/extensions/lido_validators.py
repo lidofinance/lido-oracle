@@ -66,8 +66,6 @@ class StakingModule(FromResponse):
     withdrawal_credentials_type: int
     # Total staking module validators balance
     validators_balance_gwei: Gwei
-    # Total staking module in-fly balance
-    pending_balance_gwei: Gwei
 
     def __hash__(self):
         return hash(self.id)
@@ -128,6 +126,8 @@ class ConsolidationRequest(PendingConsolidation):
 
 @dataclass
 class ExtendedLidoValidator(LidoValidator):
+    # ToDo unify with LidoValidator
+    # Write logic that verifies that pending_topups are initialized
     pending_topups: list[PendingDeposit]
     consolidating_as_source: ConsolidationRequest | None
     consolidating_as_target: list[ConsolidationRequest]
@@ -146,8 +146,6 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[ExtendedLidoValidator]:
-        lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
-
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
         for deposit in self.w3.cc.get_pending_deposits(blockstamp):
             deposits_by_pubkey.setdefault(deposit.pubkey, []).append(deposit)
@@ -162,10 +160,14 @@ class LidoValidatorsProvider(Module):
             req = ConsolidationRequest(
                 source_index=consolidation.source_index,
                 target_index=consolidation.target_index,
+                # TODO: add comment that in Lido we are going to consolidate only small validators, so no additional balance will come here
                 amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
+
+        # TODO: move to bottom
+        lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
 
         return [
             ExtendedLidoValidator(
@@ -209,40 +211,45 @@ class LidoValidatorsProvider(Module):
 
         # Validate there are no frontrun
         for pending_deposit in pending_deposits:
-            if pending_deposit.pubkey in pending_keys:
-                # In case we already had a valid pending deposit for the key
-                if pending_deposit.pubkey in pending_validators:
-                    pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
-                    continue
+            # ToDo: refactor
+            if pending_deposit.pubkey not in pending_keys:
+                continue
 
-                # If there already were valid validator with wrong wc
-                if pending_deposit.pubkey in invalid_keys:
-                    continue
+            # In case we already had a valid pending deposit for the key
+            if pending_deposit.pubkey in pending_validators:
+                pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
+                continue
 
-                # In case if this is the first possibly valid pending deposit for the key
-                if is_valid_deposit_signature(
-                    pubkey=hex_str_to_bytes(pending_deposit.pubkey),
-                    withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
-                    amount=pending_deposit.amount,
-                    signature=hex_str_to_bytes(pending_deposit.signature),
-                    genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
-                    # Fork-agnostic domain since deposits are valid across forks
-                    # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
-                ):
-                    lido_key = pending_keys[pending_deposit.pubkey]
+            # If there already were valid validator with wrong wc
+            if pending_deposit.pubkey in invalid_keys:
+                continue
 
-                    if pending_deposit.withdrawal_credentials in lido_wc_list:
-                        # Lido WC
-                        pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
-                    else:
-                        # Possible frontrun attack
-                        invalid_keys.add(pending_deposit.pubkey)
-                        logger.warning(
-                            {
-                                'msg': 'Ignoring key. Possible front run attack',
-                                'value': pending_deposit.pubkey,
-                            }
-                        )
+            # In case if this is the first possibly valid pending deposit for the key
+            if not is_valid_deposit_signature(
+                pubkey=hex_str_to_bytes(pending_deposit.pubkey),
+                withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
+                amount=pending_deposit.amount,
+                signature=hex_str_to_bytes(pending_deposit.signature),
+                genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
+                # Fork-agnostic domain since deposits are valid across forks
+                # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
+            ):
+                continue
+
+            lido_key = pending_keys[pending_deposit.pubkey]
+
+            if pending_deposit.withdrawal_credentials in lido_wc_list:
+                # Lido WC
+                pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
+            else:
+                # Possible frontrun attack
+                invalid_keys.add(pending_deposit.pubkey)
+                logger.warning(
+                    {
+                        'msg': 'Ignoring key. Possible front run attack',
+                        'value': pending_deposit.pubkey,
+                    }
+                )
 
         return pending_validators
 
@@ -286,7 +293,7 @@ class LidoValidatorsProvider(Module):
                 )
             else:
                 pending_lido_keys.append(key)
-
+        # TODO: add comment that pending_lido_keys could contain validators deposited after ref_slot
         return lido_validators, pending_lido_keys
 
     @lru_cache(maxsize=1)

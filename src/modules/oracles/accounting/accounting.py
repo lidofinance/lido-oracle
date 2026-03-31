@@ -287,17 +287,20 @@ class Accounting(OracleModule[Web3]):
         Calculate active and pending balances by modules.
         Balances are aggregated for all modules returned by `_get_no_active_balance`.
         """
+        # TODO initialize all modules at begin
+        sm_by_address = self.w3.lido_contracts.staking_router.get_staking_modules_by_address(blockstamp.block_hash)
+
+        module_stats: dict[StakingModuleId, dict[str, int]] = {
+            sm_by_address[module.staking_module_address].id: {'active': 0, 'pending': 0} for module in sm_by_address.values()
+        }
+
         validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-
-        module_stats: dict[StakingModuleId, dict[str, int]] = defaultdict(lambda: {'active': 0, 'pending': 0})
-
         for (module_id, _), validators in validators_by_no.items():
             for validator in validators:
                 module_stats[module_id]['active'] += validator.balance
                 module_stats[module_id]['pending'] += sum(deposit.amount for deposit in validator.pending_topups)
 
         pending_validators = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
-        sm_by_address = self.w3.lido_contracts.staking_router.get_staking_modules_by_address(blockstamp.block_hash)
         for lido_key, pending_deposits in pending_validators.values():
             module_id = sm_by_address[lido_key.moduleAddress].id
             module_stats[module_id]['pending'] += sum(deposit.amount for deposit in pending_deposits)

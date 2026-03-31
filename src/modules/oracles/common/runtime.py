@@ -136,6 +136,7 @@ def run_oracle_module(module: OracleModule):
         logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
 
     try:
+        # ToDo: Let's remove this?
         # Convert termination signals to SystemExit so regular cleanup in
         # `finally` still runs during process shutdown.
         with graceful_shutdown_signal_handlers():

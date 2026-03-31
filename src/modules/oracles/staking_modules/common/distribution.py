@@ -131,6 +131,7 @@ class Distribution:
             last_finalized_slot_number=blockstamp.slot_number,
         )
 
+    # TODO wrong typings
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:
         module_address = StakingModuleAddress(self.w3.staking_module.module.address)
         kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)

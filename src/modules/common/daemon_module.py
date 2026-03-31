@@ -77,6 +77,7 @@ class DaemonModule(ABC):
                 cycle_result = CycleResult.SUCCESS
         finally:
             CYCLE_COUNT.labels(result=cycle_result.value).inc()
+            # ToDo check if we need this metric
             LAST_CYCLE_TIMESTAMP.labels(result=cycle_result.value).set(time.time())
 
     @staticmethod

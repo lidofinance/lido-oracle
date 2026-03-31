@@ -9,6 +9,7 @@ from src.utils.dataclass import FromResponse
 
 @dataclass
 class LidoKey(FromResponse):
+    # ToDo: make snake_case
     key: HexStr
     depositSignature: HexStr
     operatorIndex: NodeOperatorId
