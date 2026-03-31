@@ -70,12 +70,7 @@ type StateData = dict[Frame, NetworkDuties]
 
 
 class State:
-    # pylint: disable=too-many-public-methods
-
-    """
-    Processing state of a staking module performance oracle frame.
-    The state can be migrated to be used for another frame's report by calling the `migrate` method.
-    """
+    """Processing state of a staking module performance oracle frame"""
 
     data: StateData
 
@@ -87,13 +82,25 @@ class State:
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
 
+    def init(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
+        if not self.is_empty:
+            raise InvalidState("State is already initialized")
+
+        new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        logger.info({"msg": f"Initializing state, {new_frames=}"})
+        new_data: StateData = {}
+        for frame in new_frames:
+            new_data[frame] = NetworkDuties()
+        self.data = new_data
+        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+
     @property
     def is_empty(self) -> bool:
         return not self.data and not self._epochs_to_process and not self._processed_epochs
 
     def ensure_initialized(self) -> None:
         if self.is_empty or not self._epochs_to_process or not self.frames:
-            raise InvalidState("State is not initialized; call migrate() before processing")
+            raise InvalidState("State is not initialized; call init() before processing")
 
     @property
     def frames(self) -> list[Frame]:
@@ -103,7 +110,7 @@ class State:
     def frame_range(self) -> tuple[EpochNumber, EpochNumber]:
         frames = self.frames
         if not frames:
-            raise InvalidState("Frames are not set; call migrate() before calling")
+            raise InvalidState("Frames are not set; call init() before calling")
         return min(frames)[0], max(frames)[-1]
 
     @property
@@ -126,6 +133,7 @@ class State:
 
     def clear(self) -> None:
         self.data = {}
+        self.find_frame.cache_clear()
         self._epochs_to_process = tuple()
         self._processed_epochs.clear()
         assert self.is_empty
@@ -152,40 +160,6 @@ class State:
 
     def add_processed_epoch(self, epoch: EpochNumber) -> None:
         self._processed_epochs.add(epoch)
-
-    def migrate(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
-        new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
-        if self.frames == new_frames:
-            logger.info({"msg": "No need to migrate duties data cache"})
-            return
-        self._migrate_frames_data(new_frames)
-
-        self.find_frame.cache_clear()
-        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
-
-    def _migrate_frames_data(self, new_frames: list[Frame]):
-        logger.info({"msg": f"Migrating duties data: {self.frames=} -> {new_frames=}"})
-        new_data: StateData = {}
-        for frame in new_frames:
-            new_data[frame] = NetworkDuties()
-
-        def overlaps(a: Frame, b: Frame):
-            return a[0] <= b[0] and a[1] >= b[1]
-
-        consumed = []
-        for new_frame in new_frames:
-            for frame_to_consume in self.frames:
-                if overlaps(new_frame, frame_to_consume):
-                    if frame_to_consume in consumed:
-                        raise InvalidState("Frame duplicate")
-                    consumed.append(frame_to_consume)
-                    new_data[new_frame].merge(self.data[frame_to_consume])
-        for frame in self.frames:
-            if frame in consumed:
-                continue
-            logger.warning({"msg": f"Invalidating frame duties data: {frame}"})
-            self._processed_epochs -= set(sequence(*frame))
-        self.data = new_data
 
     def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
         if not self.is_fulfilled:

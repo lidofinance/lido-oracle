@@ -1,4 +1,5 @@
 from collections import defaultdict
+from unittest.mock import Mock
 
 import pytest
 
@@ -270,228 +271,63 @@ def test_add_processed_epoch_does_not_duplicate_epochs():
 
 
 @pytest.mark.unit
-def test_migrate_no_migration_needed():
+def test_init():
     state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(),
-    }
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 63))
-    state.migrate(EpochNumber(0), EpochNumber(63), 32)
+    state._calculate_frames = Mock(side_effect=state._calculate_frames)
 
-    assert state.frames == [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(63))]
-    assert state._epochs_to_process == tuple(EpochNumber(e) for e in sequence(0, 63))
-
-
-@pytest.mark.unit
-def test_migrate_migrates_data():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-    }
-    state.migrate(EpochNumber(0), EpochNumber(63), 64)
+    state.init(EpochNumber(0), EpochNumber(63), 64)
 
     assert state.data == {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-        ),
+        (EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
     }
     assert state.frames == [(EpochNumber(0), EpochNumber(63))]
     assert state._epochs_to_process == tuple(EpochNumber(e) for e in sequence(0, 63))
+    state._calculate_frames.assert_called_once_with(tuple(sequence(0, 63)), 64)
 
 
 @pytest.mark.unit
-def test_migrate_invalidates_unmigrated_frames():
+def test_init_multiple_frames():
     state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-        ),
-    }
-    state.migrate(EpochNumber(0), EpochNumber(31), 32)
+    state._calculate_frames = Mock(side_effect=state._calculate_frames)
+
+    state.init(EpochNumber(0), EpochNumber(127), 64)
 
     assert state.data == {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(),
+        (EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
+        (EpochNumber(64), EpochNumber(127)): NetworkDuties(attestations={}, proposals={}, syncs={}),
     }
-    assert state._processed_epochs == set()
-    assert state.frames == [(EpochNumber(0), EpochNumber(31))]
-    assert state._epochs_to_process == tuple(EpochNumber(e) for e in sequence(0, 31))
+    assert state.frames == [(EpochNumber(0), EpochNumber(63)), (EpochNumber(64), EpochNumber(127))]
+    state._calculate_frames.assert_called_once_with(tuple(sequence(0, 127)), 64)
 
 
 @pytest.mark.unit
-def test_migrate_discards_unmigrated_frame():
+def test_reinit_after_clear():
     state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-        (EpochNumber(64), EpochNumber(95)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 25)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 25)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 25)}),
-        ),
-    }
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 95))
-    state.migrate(EpochNumber(0), EpochNumber(63), 32)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-    }
-    assert state._processed_epochs == set(EpochNumber(e) for e in sequence(0, 63))
-    assert state.frames == [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(63))]
-    assert state._epochs_to_process == tuple(EpochNumber(e) for e in sequence(0, 63))
+    state.init(EpochNumber(0), EpochNumber(63), 64)
+    state.clear()
+    state.init(EpochNumber(0), EpochNumber(63), 64)
+    assert state.data == {(EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={})}
+    assert state.frames == [(EpochNumber(0), EpochNumber(63))]
 
 
 @pytest.mark.unit
-def test_migrate_frames_data_creates_new_data_correctly():
+def test_clear_then_init_resets_find_frame_cache():
     state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-    }
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 20))
+    state.init(EpochNumber(0), EpochNumber(63), 64)
+    assert state.find_frame(EpochNumber(10)) == (EpochNumber(0), EpochNumber(63))
 
-    new_frames: list[Frame] = [(EpochNumber(0), EpochNumber(63))]
-    state._migrate_frames_data(new_frames)
+    state.clear()
+    state.init(EpochNumber(0), EpochNumber(63), 32)
 
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-        ),
-    }
-    assert state._processed_epochs == set(EpochNumber(e) for e in sequence(0, 20))
+    assert state.find_frame(EpochNumber(10)) == (EpochNumber(0), EpochNumber(31))
 
 
 @pytest.mark.unit
-def test_migrate_frames_data_handles_no_migration():
+def test_init_raises_if_already_initialized():
     state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-    }
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 20))
-
-    new_frames: list[Frame] = [(EpochNumber(0), EpochNumber(31))]
-    state._migrate_frames_data(new_frames)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-    }
-    assert state._processed_epochs == set(EpochNumber(e) for e in sequence(0, 20))
-
-
-@pytest.mark.unit
-def test_migrate_frames_data_handles_partial_migration():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-    }
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 20))
-
-    new_frames: list[Frame] = [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(95))]
-    state._migrate_frames_data(new_frames)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(10, 5)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(10, 5)}),
-        ),
-        (EpochNumber(32), EpochNumber(95)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(20, 15)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(20, 15)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(20, 15)}),
-        ),
-    }
-    assert state._processed_epochs == set(EpochNumber(e) for e in sequence(0, 20))
-
-
-@pytest.mark.unit
-def test_migrate_frames_data_handles_no_data():
-    state = State()
-    state.data = {frame: NetworkDuties() for frame in state.frames}
-
-    new_frames: list[Frame] = [(EpochNumber(0), EpochNumber(31))]
-    state._migrate_frames_data(new_frames)
-
-    assert state.data == {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-
-
-@pytest.mark.unit
-def test_migrate_frames_data_handles_wider_old_frame():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(30, 20)}),
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(30, 20)}),
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(30, 20)}),
-        ),
-    }
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 20))
-
-    new_frames: list[Frame] = [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(63))]
-    state._migrate_frames_data(new_frames)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(),
-        (EpochNumber(32), EpochNumber(63)): NetworkDuties(),
-    }
-    assert state._processed_epochs == set()
+    state.init(EpochNumber(0), EpochNumber(127), 64)
+    with pytest.raises(InvalidState, match="initialized"):
+        state.init(EpochNumber(0), EpochNumber(127), 64)
 
 
 @pytest.mark.unit

@@ -259,7 +259,7 @@ def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain
     execute_delay = module.execute_module(blockstamp)
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.init.assert_called_once_with(10, 20, 4)
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
     module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
     module.w3.performance.post_epochs_demand.assert_called_once_with(module.consumer, 10, 20)
@@ -284,7 +284,7 @@ def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformance
     execute_delay = module.execute_module(blockstamp)
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.init.assert_called_once_with(10, 20, 4)
     module.w3.performance.post_epochs_demand.assert_not_called()
 
 

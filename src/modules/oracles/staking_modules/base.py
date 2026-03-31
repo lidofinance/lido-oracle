@@ -139,9 +139,11 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     @duration_meter()
     def _prepare_to_collect(self, blockstamp: BlockStamp):
         l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
-        converter = self._get_web3_converter(blockstamp)
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self._post_epochs_demand(l_epoch, r_epoch)
+
+        converter = self._get_web3_converter(blockstamp)
+        self.state.clear()
+        self.state.init(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
 
     def _post_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
         range_available = self._check_range_availability(l_epoch, r_epoch)
