@@ -173,6 +173,12 @@ def serve():
         app,
         host=PERFORMANCE_WEB_SERVER_API_HOST,
         port=PERFORMANCE_WEB_SERVER_API_PORT,
+        # Multiple workers require different wiring to be able to start the processes. We don't need more than one
+        # worker for this application. A single thread can serve thousands of requests per seconds on laptop CPU, while
+        # we only need a fraction of that for the oracles.
         workers=1,
+        # The `limit_max_requests` parameter is a tricky one: it defines how many requests to serve before terminating
+        # the worker, meaning, let's say with this param set to 100, the web server would serve 100 requests and then
+        # exit. It exists to prevent excessive memory, growth which should be handled by other means.
         limit_max_requests=None,
     )
