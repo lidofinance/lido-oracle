@@ -93,6 +93,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     report_contract: CSFeeOracleContract
     state: State
+    consumer: HexAddress
+    collector_telemetry: ThrottledTelemetry
 
     def __init__(self, w3: Web3StakingModule):
         if self.COMPATIBLE_CONTRACT_VERSION == 0:
