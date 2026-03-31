@@ -329,22 +329,28 @@ class ConsensusModule[W3: Web3Base](ABC):
             # Even if report hash transaction was failed we have to check if we can report data for the current frame
             self._process_report_data(blockstamp, report_data, report_hash)
         finally:
-            self._send_telemetry(report_data, report_hash)
+            self._send_report_telemetry(report_data, report_hash)
 
-    def _send_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
+    def _send_report_telemetry(self, report_data: tuple, report_hash: HexBytes) -> None:
         if report_hash == self._last_sent_report_hash:
             logger.info({'msg': 'Telemetry already sent for this report hash. Skipping.'})
             return
 
-        try:
-            data = {
-                'report_hash': '0x' + report_hash.hex(),
-                'report': list(report_data),
-            }
-            self.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
+        data = {
+            'report_hash': '0x' + report_hash.hex(),
+            'report': list(report_data),
+        }
+        if self._try_send_telemetry(TelemetryEventId.ORACLE_REPORT, data):
             self._last_sent_report_hash = report_hash
+
+    def _try_send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> bool:
+        try:
+            self.w3.telemetry_data_bus.send_telemetry(event_id, data)
         except Exception:
             logger.warning({'msg': 'Failed to send telemetry to DataBus.'}, exc_info=True)
+            return False
+        else:
+            return True
 
     def _process_report_hash(self, blockstamp: ReferenceBlockStamp, report_hash: HexBytes) -> None:
         latest_blockstamp, member_info = self._get_latest_data()

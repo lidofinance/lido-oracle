@@ -28,33 +28,33 @@ class DelegationContract(ContractInterface):
         encoded_data = encode(['address', 'bytes'], [target_address, calldata])
 
         tx = self.functions.execute(encoded_data)
-        logger.info({
-            'msg': 'Build delegation execute transaction',
-            'target': target_address,
-            'calldata_length': len(calldata),
-            'to': self.address
-        })
+        logger.info(
+            {
+                'msg': 'Build delegation execute transaction',
+                'target': target_address,
+                'calldata_length': len(calldata),
+                'to': self.address,
+            }
+        )
         return tx
 
     def get_admin(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get current admin address"""
         response = self.functions.admin().call(block_identifier=block_identifier)
-        logger.info({
-            'msg': 'Call admin()',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address
-        })
+        logger.info(
+            {'msg': 'Call admin()', 'value': response, 'block_identifier': repr(block_identifier), 'to': self.address}
+        )
         return Web3.to_checksum_address(response)
 
     def get_delegatee(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get current delegatee address"""
         response = self.functions.delegatee().call(block_identifier=block_identifier)
-        logger.info({
-            'msg': 'Call delegatee()',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address
-        })
+        logger.info(
+            {
+                'msg': 'Call delegatee()',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Web3.to_checksum_address(response)
-

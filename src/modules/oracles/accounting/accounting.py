@@ -42,7 +42,6 @@ from src.types import (
     BlockStamp,
     FinalizationBatches,
     Gwei,
-    NodeOperatorGlobalIndex,
     ReferenceBlockStamp,
     StakingModuleId,
 )
@@ -255,14 +254,9 @@ class Accounting(OracleModule[Web3]):
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         """Calculate the total balance of all pending Lido validators on the Consensus Layer."""
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
-
-        pending_sum = 0
-
-        for _, pendings in lido_pending_balance_by_keys.values():
-            for pending in pendings:
-                pending_sum += pending.amount
-
-        return Gwei(pending_sum)
+        return Gwei(
+            sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
+        )
 
     def _get_newly_exited_validators_by_modules(
         self,
@@ -293,12 +287,20 @@ class Accounting(OracleModule[Web3]):
         Calculate active and pending balances by modules.
         Balances are aggregated for all modules returned by `_get_no_active_balance`.
         """
-        balances_by_no = self._get_no_active_balance(blockstamp)
+        validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
 
         module_stats: dict[StakingModuleId, dict[str, int]] = defaultdict(lambda: {'active': 0, 'pending': 0})
-        for (module_id, _), balance in balances_by_no.items():
-            module_stats[module_id]['active'] += balance['active']
-            module_stats[module_id]['pending'] += balance['pending']
+
+        for (module_id, _), validators in validators_by_no.items():
+            for validator in validators:
+                module_stats[module_id]['active'] += validator.balance
+                module_stats[module_id]['pending'] += sum(deposit.amount for deposit in validator.pending_topups)
+
+        pending_validators = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
+        sm_by_address = self.w3.lido_contracts.staking_router.get_staking_modules_by_address(blockstamp.block_hash)
+        for lido_key, pending_deposits in pending_validators.values():
+            module_id = sm_by_address[lido_key.moduleAddress].id
+            module_stats[module_id]['pending'] += sum(deposit.amount for deposit in pending_deposits)
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
@@ -307,43 +309,8 @@ class Accounting(OracleModule[Web3]):
             [Gwei(balance['pending']) for _, balance in items],
         )
 
-    @lru_cache(maxsize=1)
-    def _get_no_active_balance(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorGlobalIndex, dict[str, Gwei]]:
-        no_stats = defaultdict(
-            lambda: {
-                'active': Gwei(0),
-                'pending': Gwei(0),
-            }
-        )
-
-        validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-        keys_by_no = {}
-        for gid, validators in validators_by_no.items():
-            for validator in validators:
-                keys_by_no[validator.validator.pubkey] = gid
-                no_stats[gid]['active'] += validator.balance
-
-        modules_by_address = {
-            module.staking_module_address: module.id
-            for module in self.w3.lido_contracts.staking_router.get_staking_modules(blockstamp.block_hash)
-        }
-
-        # Calculate new deposits
-        pending_validators = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
-        for _, (lido_key, deposits) in pending_validators.items():
-            gid = (modules_by_address[lido_key.moduleAddress], lido_key.operatorIndex)
-            no_stats[gid]['pending'] += sum(deposit.amount for deposit in deposits)
-
-        # Calculate topups
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        for pending_deposit in pending_deposits:
-            if pending_deposit.pubkey in keys_by_no:
-                no_stats[keys_by_no[pending_deposit.pubkey]]['pending'] += pending_deposit.amount
-
-        return no_stats
-
     def get_shares_to_burn(self, blockstamp: ReferenceBlockStamp) -> Shares:
-        """Calculate total amount of shares requested to be burned (cover and non-cover)."""
+        """Calculate the total number of shares requested to be burned (cover and non-cover)."""
         shares_data = self.w3.lido_contracts.burner.get_shares_requested_to_burn(blockstamp.block_hash)
         return Shares(shares_data.cover_shares + shares_data.non_cover_shares)
 
@@ -489,7 +456,7 @@ class Accounting(OracleModule[Web3]):
         """
 
         vaults = self.staking_vaults.get_vaults(blockstamp.block_hash)
-        if len(vaults) == 0:
+        if not vaults:
             return VaultsTreeRoot(ZERO_HASH), VaultsTreeCid('')
 
         current_frame = self.get_frame_number_by_slot(blockstamp)

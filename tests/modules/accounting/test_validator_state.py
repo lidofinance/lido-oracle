@@ -11,7 +11,7 @@ from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
-    LidoValidator,
+    ExtendedLidoValidator,
     NodeOperator,
     StakingModule,
 )
@@ -42,6 +42,9 @@ def lido_validators(web3):
         priority_exit_share_threshold=0,
         max_deposits_per_block=0,
         min_deposit_block_distance=0,
+        withdrawal_credentials_type=0,
+        validators_balance_gwei=Gwei(0),
+        pending_balance_gwei=Gwei(0),
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
@@ -74,7 +77,7 @@ def lido_validators(web3):
     )
 
     def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
-        return LidoValidator(
+        return ExtendedLidoValidator(
             lido_id=LidoKey(
                 key=pubkey,
                 depositSignature="",
@@ -98,6 +101,9 @@ def lido_validators(web3):
                     ),
                 )
             ),
+            pending_topups=[],
+            consolidating_as_source=None,
+            consolidating_as_target=[],
         )
 
     web3.lido_validators.get_lido_validators_by_node_operators = Mock(
@@ -176,8 +182,9 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
         ref_slot=15392,
         ref_epoch=481,
     )
-    recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
-        blockstamp, chain_config
+    recently_requested_validators = validator_state.get_recently_requested_but_not_exiting_validators(
+        chain_config,
+        blockstamp,
     )
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 

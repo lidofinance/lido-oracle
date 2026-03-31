@@ -41,6 +41,9 @@ def test_get_lido_validators(web3):
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={})
 
     lido_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
 
@@ -59,6 +62,9 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={})
     web3.lido_contracts.lido.get_beacon_stat = Mock(
         return_value=BeaconStat(
             deposited_validators=10,
@@ -219,7 +225,7 @@ def test_merge_validators_with_keys():
     extra_keys = LidoKeyFactory.batch(2)
     all_keys = matching_keys + extra_keys
 
-    active, pending = LidoValidatorsProvider.merge_validators_with_keys(all_keys, validators)
+    active, pending = LidoValidatorsProvider.compute_lido_validators(all_keys, validators)
 
     assert len(active) == 3
     assert len(pending) == 2
@@ -229,7 +235,7 @@ def test_merge_validators_with_keys():
 
 @pytest.mark.unit
 def test_merge_validators_with_keys_empty():
-    active, pending = LidoValidatorsProvider.merge_validators_with_keys([], [])
+    active, pending = LidoValidatorsProvider.compute_lido_validators([], [])
     assert active == []
     assert pending == []
 
@@ -238,7 +244,7 @@ def test_merge_validators_with_keys_empty():
 def test_merge_validators_with_keys_all_pending():
     # Keys present in KAPI but no validators on CL yet
     keys = LidoKeyFactory.batch(3)
-    active, pending = LidoValidatorsProvider.merge_validators_with_keys(keys, [])
+    active, pending = LidoValidatorsProvider.compute_lido_validators(keys, [])
     assert active == []
     assert len(pending) == 3
 

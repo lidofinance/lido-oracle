@@ -14,7 +14,6 @@ from src.constants import (
 )
 from src.providers.consensus.types import Validator, ValidatorState
 from src.types import EpochNumber, Gwei
-from src.utils.units import gwei_to_wei
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:
@@ -109,13 +108,13 @@ def calculate_active_effective_balance_sum(validators: Sequence[Validator], ref_
     return Gwei(effective_balance_sum)
 
 
-def compute_activation_exit_epoch(ref_epoch: EpochNumber):
+def compute_activation_exit_epoch(ref_epoch: EpochNumber) -> EpochNumber:
     """
     Return the epoch during which validator activations and exits initiated in ``ref_epoch`` take effect.
 
     Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
     """
-    return ref_epoch + 1 + MAX_SEED_LOOKAHEAD
+    return EpochNumber(ref_epoch + 1 + MAX_SEED_LOOKAHEAD)
 
 
 # @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit
@@ -137,7 +136,3 @@ def get_max_effective_balance(validator: ValidatorState) -> Gwei:
     if has_compounding_withdrawal_credential(validator):
         return MAX_EFFECTIVE_BALANCE_ELECTRA
     return MIN_ACTIVATION_BALANCE
-
-
-def calculate_vault_validators_balances(validators: list[Validator]) -> int:
-    return sum(gwei_to_wei(validator.balance) for validator in validators)

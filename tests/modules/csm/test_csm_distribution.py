@@ -408,7 +408,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
         (
             100,
             {
-                (..., NodeOperatorId(1)): [
+                NodeOperatorId(1): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(1), validator=ValidatorStateFactory.build(slashed=False)
                     ),
@@ -471,7 +471,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
         (
             100,
             {
-                (..., NodeOperatorId(1)): [
+                NodeOperatorId(1): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(1), validator=ValidatorStateFactory.build(slashed=False, pubkey="0x01")
                     ),
@@ -549,7 +549,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
         (
             100,
             {
-                (..., NodeOperatorId(1)): [
+                NodeOperatorId(1): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(1),
                         validator=ValidatorStateFactory.build(
@@ -649,7 +649,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
             100,
             {
                 # Operator 1. One above threshold performance, one slashed
-                (..., NodeOperatorId(1)): [
+                NodeOperatorId(1): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(1),
                         validator=ValidatorStateFactory.build(
@@ -664,7 +664,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     ),
                 ],
                 # Operator 2. One above threshold performance, one below
-                (..., NodeOperatorId(2)): [
+                NodeOperatorId(2): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(3),
                         validator=ValidatorStateFactory.build(
@@ -679,7 +679,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     ),
                 ],
                 # Operator 3. All below threshold performance
-                (..., NodeOperatorId(3)): [
+                NodeOperatorId(3): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(5),
                         validator=ValidatorStateFactory.build(
@@ -688,7 +688,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     ),
                 ],
                 # Operator 4. No duties
-                (..., NodeOperatorId(4)): [
+                NodeOperatorId(4): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(6),
                         validator=ValidatorStateFactory.build(
@@ -697,7 +697,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     ),
                 ],
                 # Operator 5. All above threshold performance
-                (..., NodeOperatorId(5)): [
+                NodeOperatorId(5): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(7),
                         validator=ValidatorStateFactory.build(
@@ -900,7 +900,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
         (
             100,
             {
-                (..., NodeOperatorId(1)): [
+                NodeOperatorId(1): [
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(1), validator=ValidatorStateFactory.build(slashed=False)
                     ),
@@ -1522,7 +1522,7 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
     }
 
     operators_to_validators = {
-        (..., NodeOperatorId(1)): [v_idx10, v_idx7, v_idx5, v_idx8, v_idx9, v_idx6],
+        NodeOperatorId(1): [v_idx10, v_idx7, v_idx5, v_idx8, v_idx9, v_idx6],
     }
 
     distribution._calculate_distribution_in_frame(frame, blockstamp, Wei(300), operators_to_validators, log)

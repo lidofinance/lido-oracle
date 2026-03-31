@@ -321,7 +321,7 @@ Special metrics for accounting oracle:
 | accounting_is_bunker          | Is bunker mode enabled                             |                  |
 | accounting_balance_gwei       | CL and EL balances                                 | type             |
 | accounting_exited_validators  | Reported exited validators count for each operator | module_id, no_id |
-| accounting_vaults_total_value | Reported exited validators count for each operator | module_id, no_id |
+| accounting_vaults_total_value | Total balance for all vaults                       |                  |
 
 Special metrics for ejector oracle:
 

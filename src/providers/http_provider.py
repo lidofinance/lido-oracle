@@ -56,6 +56,11 @@ def data_is_list(data: Any, meta: dict, *, endpoint: str):
         raise ValueError(f"Expected list response from {endpoint}")
 
 
+def data_is_int(data: Any, meta: dict, *, endpoint: str):
+    if not isinstance(data, int) or isinstance(data, bool):
+        raise ValueError(f"Expected int response from {endpoint}")
+
+
 def data_is_transient_dict(data: Any, meta: dict, *, endpoint: str):
     if not isinstance(data, TransientStreamingJSONObject):
         raise ValueError(f"Expected mapping response from {endpoint}")

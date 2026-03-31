@@ -370,7 +370,7 @@ def test_calculate_cl_rebase_between_blocks(
 
     monkeypatch.setattr(
         LidoValidatorsProvider,
-        "merge_validators_with_keys",
+        "compute_lido_validators",
         Mock(return_value=(prev_lido_validators, [])),
     )
     abnormal_case.lido_validators = curr_lido_validators

@@ -192,6 +192,24 @@ class TestDemands:
         assert response.status_code == 422
 
 
+class TestStoredEpochsCount:
+    def test_returns_stored_epochs_count(self, client, mock_db):
+        mock_db.count_stored_epochs_in_range.return_value = 5
+        response = client.get("/v1/epochs/stored-count", params={"from": 10, "to": 20})
+        assert response.status_code == 200
+        assert response.json() == 5
+
+    def test_allows_large_range(self, client, mock_db):
+        mock_db.count_stored_epochs_in_range.return_value = 0
+        response = client.get("/v1/epochs/stored-count", params={"from": 0, "to": 100000})
+        assert response.status_code == 200
+        assert response.json() == 0
+
+    def test_rejects_invalid_range(self, client):
+        response = client.get("/v1/epochs/stored-count", params={"from": 20, "to": 10})
+        assert response.status_code == 422
+
+
 class TestSetDemand:
     def test_creates_demand(self, client, mock_db):
         mock_db.get_retention_epochs.return_value = 1000

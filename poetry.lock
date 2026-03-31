@@ -3472,7 +3472,7 @@ version = "8.0.0"
 description = "py-ecc: Elliptic curve crypto in python including secp256k1, alt_bn128, and bls12_381"
 optional = false
 python-versions = "<4,>=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
 files = [
     {file = "py_ecc-8.0.0-py3-none-any.whl", hash = "sha256:c0b2dfc4bde67a55122a392591a10e851a986d5128f680628c80b405f7663e13"},
@@ -5258,4 +5258,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "f1e5705d328da6efc4f1e79ccdad53997d2322212cfc99b365ec9673bea0b325"
+content-hash = "eb372adf91f5b7c9595969ca3b930714509d2548953f49b7bbceccb704aeadc9"

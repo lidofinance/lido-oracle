@@ -16,6 +16,7 @@ from src.providers.consensus.types import (
     BlockHeaderResponseData,
     BlockRootResponse,
     GenesisResponse,
+    PendingConsolidation,
     PendingDeposit,
     ProposerDuties,
     SlotAttestationCommittee,
@@ -276,6 +277,12 @@ class ConsensusClient(HTTPProvider):
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
 
+    def get_pending_consolidations(self, blockstamp: BlockStamp) -> list[PendingConsolidation]:
+        return self.get_state_view(blockstamp).pending_consolidations
+
+    def get_validators_by_indexes(self, blockstamp: BlockStamp) -> dict[int, Validator]:
+        return {validator.index: validator for validator in self.get_state_view(blockstamp).indexed_validators}
+
     def get_validator_state(self, state_id: SlotNumber, validator_id: int) -> Validator:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"""
         data, _ = self._get(
@@ -300,7 +307,7 @@ class ConsensusClient(HTTPProvider):
         """
         Prysm can't return validators by state root if it is old enough, but it can return them via slot number.
 
-        raise error immediately if this is prysm specific exception
+        Raise the error immediately if this is a prysm specific exception
         """
         last_error = errors[-1]
         if isinstance(last_error, NotOkResponse) and self.PRYSM_STATE_NOT_FOUND_ERROR in last_error.text:
