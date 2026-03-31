@@ -18,5 +18,6 @@ class ConsensusClientModule(ConsensusClient, Module):
             HTTP_REQUEST_TIMEOUT_CONSENSUS,
             HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
             HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
+            chain_id=w3.eth.chain_id,
         )
         super(Module, self).__init__()
