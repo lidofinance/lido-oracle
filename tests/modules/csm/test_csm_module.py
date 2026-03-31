@@ -2,10 +2,11 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Literal, NoReturn
+from typing import Literal, NoReturn, cast
 from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
@@ -286,6 +287,45 @@ def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformance
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.init.assert_called_once_with(10, 20, 4)
     module.w3.performance.post_epochs_demand.assert_not_called()
+
+
+@pytest.mark.unit
+def test_refresh_contracts_deletes_old_demand_when_address_changes(module: CSPerformanceOracle):
+    old_consumer = module.consumer
+    new_consumer = cast(HexAddress, "0x00000000000000000000000000000000000000bb")
+
+    new_oracle = Mock(address=new_consumer)
+    module.w3 = Mock()
+    module.w3.staking_module.reload_contracts = Mock()
+    module.w3.staking_module.oracle = new_oracle
+    module.w3.performance.delete_epochs_demand = Mock()
+    module.state = Mock(clear=Mock())
+
+    module.refresh_contracts()
+
+    module.w3.staking_module.reload_contracts.assert_called_once()
+    module.w3.performance.delete_epochs_demand.assert_called_once_with(old_consumer)
+    assert module.report_contract is new_oracle
+    assert module.consumer == new_consumer
+    module.state.clear.assert_called_once()
+
+
+@pytest.mark.unit
+def test_refresh_contracts_keeps_demand_when_address_unchanged(module: CSPerformanceOracle):
+    same_consumer = module.consumer
+
+    same_oracle = Mock(address=same_consumer)
+    module.w3 = Mock()
+    module.w3.staking_module.reload_contracts = Mock()
+    module.w3.staking_module.oracle = same_oracle
+    module.w3.performance.delete_epochs_demand = Mock()
+    module.state = Mock(clear=Mock())
+
+    module.refresh_contracts()
+
+    module.w3.performance.delete_epochs_demand.assert_not_called()
+    assert module.consumer == same_consumer
+    module.state.clear.assert_called_once()
 
 
 @pytest.mark.unit

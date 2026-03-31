@@ -112,9 +112,12 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         super().__init__(w3)
 
     def refresh_contracts(self):
+        old_consumer = self.consumer
         self.w3.staking_module.reload_contracts()
         self.report_contract = self.w3.staking_module.oracle
         self.consumer = self.report_contract.address
+        if self.consumer != old_consumer:
+            self.w3.performance.delete_epochs_demand(old_consumer)
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
