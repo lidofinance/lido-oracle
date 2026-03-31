@@ -177,6 +177,6 @@ def serve():
         workers=PERFORMANCE_WEB_SERVER_WORKERS,
         # The `limit_max_requests` parameter is a tricky one: it defines how many requests to serve before terminating
         # the worker, meaning, let's say with this param set to 100, the web server would serve 100 requests and then
-        # exit. It exists to prevent excessive memory, growth which should be handled by other means.
+        # exit. It exists to prevent excessive memory growth which should be handled by other means.
         limit_max_requests=None,
     )
