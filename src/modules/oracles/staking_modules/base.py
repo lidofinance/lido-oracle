@@ -114,6 +114,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def refresh_contracts(self):
         self.w3.staking_module.reload_contracts()
         self.report_contract = self.w3.staking_module.oracle
+        self.consumer = self.report_contract.address
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
