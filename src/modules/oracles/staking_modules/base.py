@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import batched
 
+from eth_typing.evm import HexAddress
 from hexbytes import HexBytes
 
 from src import variables
@@ -101,8 +102,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             raise ValueError("CONTRACT_VERSION is not defined")
         if self.COMPATIBLE_CONSENSUS_VERSION == 0:
             raise ValueError("CONSENSUS_VERSION is not defined")
-        self.consumer = self.__class__.__name__
         self.report_contract = w3.staking_module.oracle
+        self.consumer = self.report_contract.address
         self.state = State()
         self.collector_telemetry = ThrottledTelemetry(
             interval_seconds=variables.TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS,

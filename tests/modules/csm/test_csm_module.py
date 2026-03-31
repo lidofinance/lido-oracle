@@ -261,8 +261,8 @@ def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.migrate.assert_called_once_with(10, 20, 4)
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
-    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
-    module.w3.performance.post_epochs_demand.assert_called_once_with("CSPerformanceOracle", 10, 20)
+    module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
+    module.w3.performance.post_epochs_demand.assert_called_once_with(module.consumer, 10, 20)
 
 
 @pytest.mark.unit
