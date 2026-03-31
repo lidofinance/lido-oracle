@@ -6,6 +6,7 @@ from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
+from src.utils.validator_state import get_max_effective_balance
 from src.types import (
     BlockHash,
     BlockRoot,
@@ -187,6 +188,12 @@ class ValidatorState(Nested, FromResponse):
     activation_epoch: EpochNumber
     exit_epoch: EpochNumber
     withdrawable_epoch: EpochNumber
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.effective_balance > get_max_effective_balance(self):
+            raise ValueError(f"Validator {self} has invalid effective balance")
 
 
 @dataclass
