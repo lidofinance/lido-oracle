@@ -82,20 +82,10 @@ class State:
     _epochs_to_process: tuple[EpochNumber, ...]
     _processed_epochs: set[EpochNumber]
 
-    _version: int
-
     def __init__(self) -> None:
         self.data = {}
         self._epochs_to_process = tuple()
         self._processed_epochs = set()
-
-    @property
-    def version(self) -> int | None:
-        return getattr(self, "_version", None)
-
-    @property
-    def oracle_name(self) -> str:
-        return getattr(self, "_oracle_name", "unknown")
 
     @property
     def is_empty(self) -> bool:
@@ -186,7 +176,8 @@ class State:
         for new_frame in new_frames:
             for frame_to_consume in self.frames:
                 if overlaps(new_frame, frame_to_consume):
-                    assert frame_to_consume not in consumed
+                    if frame_to_consume in consumed:
+                        raise ValueError("Frame duplicate")
                     consumed.append(frame_to_consume)
                     new_data[new_frame].merge(self.data[frame_to_consume])
         for frame in self.frames:
