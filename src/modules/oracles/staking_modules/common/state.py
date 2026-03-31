@@ -175,9 +175,9 @@ class State:
         consumed = []
         for new_frame in new_frames:
             for frame_to_consume in self.frames:
-                if overlaps(new_frame, frame_to_consume):
-                    if frame_to_consume in consumed:
-                        raise ValueError("Frame duplicate")
+                if overlaps(new_frame, frame_to_consume) and frame_to_consume in consumed:
+                    raise InvalidState("Frame duplicate")
+                elif overlaps(new_frame, frame_to_consume):
                     consumed.append(frame_to_consume)
                     new_data[new_frame].merge(self.data[frame_to_consume])
         for frame in self.frames:

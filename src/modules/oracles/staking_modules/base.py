@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import batched
 
-from eth_typing.evm import HexAddress
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 
 from src import variables
@@ -224,7 +224,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             else:
                 strikes_cid = self._publish_tree(strikes_tree)
             if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
-                raise ValueError(f"Invalid strikes tree built: {strikes_cid=}, {strikes_tree_root=}")
+                raise SMPerformanceOracleError(f"Invalid strikes tree built: {strikes_cid=}, {strikes_tree_root=}")
         else:
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
@@ -333,7 +333,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
                     epoch_data = duties_by_epoch.get(epoch)
                     if epoch_data is None:
-                        raise ValueError(f"Epoch {epoch} is missing in data received from Performance Collector")
+                        raise SMPerformanceOracleError(f"Epoch {epoch} is missing in data received from Performance Collector")
 
                     (
                         misses,
@@ -350,7 +350,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                     )
 
                     if len(proposers) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
-                        raise ValueError(
+                        raise SMPerformanceOracleError(
                             f"Epoch {epoch} data is corrupted: "
                             f"{len(proposers)=}, {len(props_flags)=}, "
                             f"{len(syncs_vids)=}, {len(syncs_misses)=}"
@@ -370,7 +370,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         missed_att = validator.index in misses
                         if not is_active_validator(validator, epoch):
                             if missed_att:
-                                raise ValueError(
+                                raise SMPerformanceOracleError(
                                     f"Validator {validator.index} missed attestation "
                                     f"in epoch {epoch}, but was not active"
                                 )
@@ -396,7 +396,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         for i, vid in enumerate(syncs_vids):
                             s_misses = syncs_misses[i]
                             if s_misses > blocks_in_epoch:
-                                raise ValueError(
+                                raise SMPerformanceOracleError(
                                     f"Inconsistent sync committee duties data: index={i}, {vid=}, "
                                     f"{s_misses=} > {blocks_in_epoch=}"
                                 )
