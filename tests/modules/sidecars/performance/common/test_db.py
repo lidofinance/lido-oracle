@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from src import variables
-from src.modules.sidecars.performance.common.db import RETENTION_EPOCHS_DEFAULT, DutiesDB, Duty, EpochsDemand, Settings
+from src.modules.sidecars.performance.common.db import (
+    RETENTION_EPOCHS_DEFAULT,
+    DutiesDB,
+    Duty,
+    EpochsDemand,
+    Settings,
+)
 from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
 from src.types import EpochNumber
 
@@ -438,6 +444,19 @@ class TestGetDemands:
 
         assert result == demands
         assert len(result) == 2
+
+    def test_count_stored_epochs_in_range(self, db, mock_session):
+        mock_session.exec.return_value.one.return_value = 7
+
+        result = db.count_stored_epochs_in_range(EpochNumber(10), EpochNumber(20))
+
+        assert result == 7
+        mock_session.exec.assert_called_once()
+
+    def test_count_stored_epochs_in_range_invalid_range(self, db, mock_session):
+        with pytest.raises(ValueError, match='Invalid epoch range'):
+            db.count_stored_epochs_in_range(EpochNumber(20), EpochNumber(10))
+        mock_session.exec.assert_not_called()
 
     def test_get_epochs_demands_max_updated_at(self, db, mock_session):
         mock_session.exec.return_value.one.return_value = 500

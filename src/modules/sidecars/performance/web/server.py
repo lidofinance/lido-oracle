@@ -105,6 +105,11 @@ def epochs_data(epoch_range: Annotated[LimitedEpochRangeParam, Query()], db: DBD
     return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
 
 
+@api_v1.get("/epochs/stored-count", response_model=int)
+def stored_epochs_count(epoch_range: Annotated[EpochRangeParam, Query()], db: DBDep):
+    return db.count_stored_epochs_in_range(epoch_range.from_epoch, epoch_range.to_epoch)
+
+
 @api_v1.get("/epochs/{epoch}", response_model=Duty | None)
 def epoch_data(epoch_param: Annotated[EpochParam, Path()], db: DBDep):
     return db.get_epoch_data(epoch_param.epoch)

@@ -4,6 +4,7 @@ from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
     data_is_bool,
+    data_is_int,
     data_is_list,
 )
 from src.types import EpochNumber
@@ -20,6 +21,7 @@ class PerformanceClient(HTTPProvider):
     API_PREFIX = 'v1'
     API_EPOCHS_CHECK = f'{API_PREFIX}/check-epochs'
     API_EPOCHS_DATA = f'{API_PREFIX}/epochs'
+    API_EPOCHS_STORED_COUNT = f'{API_EPOCHS_DATA}/stored-count'
     API_EPOCHS_DEMAND = f'{API_PREFIX}/demands'
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
@@ -45,6 +47,14 @@ class PerformanceClient(HTTPProvider):
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         data, _ = self._get(self.API_EPOCHS_DEMAND + f"/{consumer}")
         return EpochsDemand.model_validate(data) if data else None
+
+    def get_stored_epochs_count(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> int:
+        data, _ = self._get(
+            self.API_EPOCHS_STORED_COUNT,
+            query_params={'from': from_epoch, 'to': to_epoch},
+            validate_response=data_is_int,
+        )
+        return data
 
     def post_epochs_demand(self, consumer: str, from_epoch: EpochNumber, to_epoch: EpochNumber) -> None:
         self._post(

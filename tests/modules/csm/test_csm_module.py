@@ -1,4 +1,5 @@
 import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal, NoReturn
@@ -23,6 +24,7 @@ from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.utils.types import hex_str_to_bytes
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
@@ -45,7 +47,7 @@ def test_init(module: CSPerformanceOracle):
 
 @pytest.mark.unit
 def test_shutdown_calls_cleanup(module: CSPerformanceOracle):
-    module.w3 = Mock()
+    module.w3.performance = Mock()
     module.w3.performance.get_epochs_demand = Mock(return_value=Mock())
     module.w3.performance.delete_epochs_demand = Mock()
     module.shutdown()
@@ -301,6 +303,83 @@ def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformance
     module.w3.performance.post_epochs_demand.assert_not_called()
 
 
+@pytest.mark.unit
+def test_check_range_availability_sends_initial_diagnostic(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=False)
+    module.w3.performance.get_stored_epochs_count = Mock(return_value=3)
+    module.collector_telemetry.send_callback = Mock(return_value=True)
+    module.collector_telemetry.interval_seconds = 60
+
+    with patch.object(time, 'monotonic', return_value=1000.0):
+        result = module._check_range_availability(EpochNumber(10), EpochNumber(20))
+
+    assert result is False
+    module.collector_telemetry.send_callback.assert_called_once_with(
+        TelemetryEventId.DIAGNOSTIC,
+        {
+            "l_epoch": 10,
+            "r_epoch": 20,
+            "ready": 3,
+        },
+    )
+
+
+@pytest.mark.unit
+def test_check_range_availability_skips_same_payload_even_after_interval(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=False)
+    module.w3.performance.get_stored_epochs_count = Mock(return_value=3)
+    module.collector_telemetry.send_callback = Mock(return_value=True)
+    module.collector_telemetry.interval_seconds = 60
+
+    with patch.object(time, 'monotonic', side_effect=[1000.0, 1061.0]):
+        module._check_range_availability(EpochNumber(10), EpochNumber(20))
+        module._check_range_availability(EpochNumber(10), EpochNumber(20))
+
+    module.collector_telemetry.send_callback.assert_called_once()
+    assert module.w3.performance.get_stored_epochs_count.call_count == 2
+
+
+@pytest.mark.unit
+def test_check_range_availability_sends_changed_payload_when_ready(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=True)
+    module.w3.performance.get_stored_epochs_count = Mock(side_effect=[3, 4])
+    module.collector_telemetry.send_callback = Mock(return_value=True)
+    module.collector_telemetry.interval_seconds = 60
+
+    with patch.object(time, 'monotonic', side_effect=[1000.0, 1001.0, 1001.0]):
+        module._check_range_availability(EpochNumber(10), EpochNumber(20))
+        module._check_range_availability(EpochNumber(10), EpochNumber(20))
+
+    assert module.collector_telemetry.send_callback.call_count == 2
+    assert module.collector_telemetry.send_callback.call_args_list[1] == call(
+        TelemetryEventId.DIAGNOSTIC,
+        {
+            "l_epoch": 10,
+            "r_epoch": 20,
+            "ready": 4,
+        },
+    )
+
+
+@pytest.mark.unit
+def test_check_range_availability_retries_same_payload_if_previous_send_failed(module: CSPerformanceOracle):
+    module.w3 = Mock()
+    module.w3.performance.is_range_available = Mock(return_value=True)
+    module.w3.performance.get_stored_epochs_count = Mock(return_value=3)
+    module.collector_telemetry.send_callback = Mock(side_effect=[False, True])
+    module.collector_telemetry.interval_seconds = 60
+
+    first_result = module._check_range_availability(EpochNumber(10), EpochNumber(20))
+    second_result = module._check_range_availability(EpochNumber(10), EpochNumber(20))
+
+    assert first_result is True
+    assert second_result is True
+    assert module.collector_telemetry.send_callback.call_count == 2
+
+
 @pytest.fixture()
 def mock_frame_config(module: CSPerformanceOracle):
     module.get_frame_config = Mock(
@@ -371,7 +450,7 @@ def test__collect_data_handles_range_availability(
     module.w3 = Mock()
     module.w3.performance.is_range_available = Mock(return_value=case.range_available)
     module._fulfill_state = Mock()
-    state = Mock(frames=case.frames)
+    state = Mock(frames=case.frames, frame_range=case.expect_range_call)
     type(state).is_fulfilled = PropertyMock(side_effect=case.is_fulfilled_side_effect)
     module.state = state
 
