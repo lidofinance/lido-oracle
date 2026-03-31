@@ -136,6 +136,7 @@ def test_make_get_request_not_overridden_in_kapi():
 
     assert '_make_get_request' not in KeysAPIClient.__dict__
 
+
 @pytest.mark.unit
 def test_data_is_int_accepts_int():
     data_is_int(1, {}, endpoint="test")
