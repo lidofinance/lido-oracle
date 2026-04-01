@@ -12,8 +12,7 @@ from src.variables import (
 class ConsensusClientModule(ConsensusClient, Module):
     def __init__(self, hosts: list[str], w3: Web3):
         self.w3 = w3
-        ConsensusClient.__init__(
-            self,
+        super().__init__(
             hosts,
             HTTP_REQUEST_TIMEOUT_CONSENSUS,
             HTTP_REQUEST_RETRY_COUNT_CONSENSUS,

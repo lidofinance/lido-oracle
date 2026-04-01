@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Any, Literal, cast
 
+from requests import Response
 from web3_multi_provider import HTTPSessionManagerProxy
 
 from src import variables
@@ -84,7 +85,7 @@ class ConsensusClient(HTTPProvider):
             for host in hosts
         }
 
-    def _make_get_request(self, host: str, endpoint: str, **kwargs):
+    def _make_get_request(self, host: str, endpoint: str, **kwargs) -> Response:
         session_manager = self._session_managers.get(host) or next(iter(self._session_managers.values()))
         return session_manager._timed_call(self.session.get, self._urljoin(host, endpoint), **kwargs)
 
