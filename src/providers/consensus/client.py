@@ -81,8 +81,7 @@ class ConsensusClient(HTTPProvider):
 
     def _init_session_managers(self, hosts: list[str], chain_id: int) -> None:
         self._session_managers = {
-            host: HTTPSessionManagerProxy(chain_id=chain_id, uri=host, network='beacon', layer='cl')
-            for host in hosts
+            host: HTTPSessionManagerProxy(chain_id=chain_id, uri=host, network='beacon', layer='cl') for host in hosts
         }
 
     def _make_get_request(self, host: str, endpoint: str, **kwargs) -> Response:
