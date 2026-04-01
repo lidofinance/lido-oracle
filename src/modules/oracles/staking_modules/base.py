@@ -2,6 +2,7 @@ import logging
 import sys
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from itertools import batched
 
@@ -117,7 +118,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         self.report_contract = self.w3.staking_module.oracle
         self.consumer = self.report_contract.address
         if self.consumer != old_consumer:
-            self.w3.performance.delete_epochs_demand(old_consumer)
+            with suppress(self.w3.performance.PROVIDER_EXCEPTION):
+                self.w3.performance.delete_epochs_demand(old_consumer)
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
