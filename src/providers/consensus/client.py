@@ -1,6 +1,9 @@
 from http import HTTPStatus
 from typing import Any, Literal, cast
 
+from requests import Response
+from web3_multi_provider import HTTPSessionManagerProxy
+
 from src import variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
@@ -67,6 +70,23 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
     API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
+
+    def __init__(
+        self, hosts: list[str], timeout: int, retry_total: int = 3, retry_backoff_factor: int = 3, chain_id: int = 1
+    ) -> None:
+        super().__init__(
+            hosts, request_timeout=timeout, retry_total=retry_total, retry_backoff_factor=retry_backoff_factor
+        )
+        self._init_session_managers(hosts, chain_id)
+
+    def _init_session_managers(self, hosts: list[str], chain_id: int) -> None:
+        self._session_managers = {
+            host: HTTPSessionManagerProxy(chain_id=chain_id, uri=host, network='beacon', layer='cl') for host in hosts
+        }
+
+    def _make_get_request(self, host: str, endpoint: str, **kwargs) -> Response:
+        session_manager = self._session_managers.get(host) or next(iter(self._session_managers.values()))
+        return session_manager._timed_call(self.session.get, self._urljoin(host, endpoint), **kwargs)
 
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
