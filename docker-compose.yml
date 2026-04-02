@@ -90,6 +90,7 @@ services:
     restart: unless-stopped
     container_name: staking-module-oracle-performance-web
     command: ["-m", "src.main", "performance_web_server"]
+    cpus: 1.0
     depends_on:
       postgres:
         condition: service_healthy

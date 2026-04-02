@@ -120,18 +120,6 @@ def patch_csm_contract_load(monkeypatch):
     yield
 
 
-@pytest.fixture(autouse=True)
-def set_cache_path(monkeypatch, testrun_path):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "CACHE_PATH",
-            Path(testrun_path),
-        )
-        logger.info(f"TESTRUN Set CACHE_PATH to {testrun_path}")
-        yield
-
-
 @pytest.fixture(scope='session')
 def testruns_folder_path():
     return Path("./testruns")

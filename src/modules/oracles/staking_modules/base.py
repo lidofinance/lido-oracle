@@ -2,9 +2,11 @@ import logging
 import sys
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from itertools import batched
 
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 
 from src import variables
@@ -22,7 +24,7 @@ from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import State
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
@@ -93,15 +95,17 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     report_contract: CSFeeOracleContract
     state: State
+    consumer: HexAddress
+    collector_telemetry: ThrottledTelemetry
 
     def __init__(self, w3: Web3StakingModule):
         if self.COMPATIBLE_CONTRACT_VERSION == 0:
             raise ValueError("CONTRACT_VERSION is not defined")
         if self.COMPATIBLE_CONSENSUS_VERSION == 0:
             raise ValueError("CONSENSUS_VERSION is not defined")
-        self.consumer = self.__class__.__name__
         self.report_contract = w3.staking_module.oracle
-        self.state = State.load(self.consumer)
+        self.consumer = self.report_contract.address
+        self.state = State()
         self.collector_telemetry = ThrottledTelemetry(
             interval_seconds=variables.TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS,
             send_callback=self._try_send_telemetry,
@@ -109,45 +113,17 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         super().__init__(w3)
 
     def refresh_contracts(self):
+        old_consumer = self.consumer
         self.w3.staking_module.reload_contracts()
         self.report_contract = self.w3.staking_module.oracle
+        self.consumer = self.report_contract.address
+        if self.consumer != old_consumer:
+            with suppress(self.w3.performance.PROVIDER_EXCEPTION):
+                self.w3.performance.delete_epochs_demand(old_consumer)
         self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
-
-    # TODO: Do we really need to remove the demand, let's say for the case we have a bug in the oracle module but not in
-    # the collector.
-    def shutdown(self) -> None:
-        performance_client = getattr(self.w3, "performance", None)
-        if performance_client is None:
-            logger.debug(
-                {
-                    "msg": "Performance client is not attached, skipping demand cleanup",
-                    "consumer": self.consumer,
-                }
-            )
-            return
-        try:
-            demand = performance_client.get_epochs_demand(self.consumer)
-            if not demand:
-                logger.info({"msg": "No demand on shutdown", "consumer": self.consumer})
-                return
-            performance_client.delete_epochs_demand(self.consumer)
-            logger.info(
-                {
-                    "msg": "Cleared Performance Collector demand on shutdown",
-                    "consumer": self.consumer,
-                }
-            )
-        except (ConnectionError, TimeoutError, OSError) as error:
-            logger.warning(
-                {
-                    "msg": "Unexpected error during Performance Collector demand cleanup",
-                    "consumer": self.consumer,
-                    "error": str(error),
-                }
-            )
 
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         if not self._check_compatibility(last_finalized_blockstamp):
@@ -169,9 +145,11 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     @duration_meter()
     def _prepare_to_collect(self, blockstamp: BlockStamp):
         l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
-        converter = self._get_web3_converter(blockstamp)
-        self.state.migrate(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
         self._post_epochs_demand(l_epoch, r_epoch)
+
+        converter = self._get_web3_converter(blockstamp)
+        self.state.clear()
+        self.state.init(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
 
     def _post_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
         range_available = self._check_range_availability(l_epoch, r_epoch)
@@ -253,6 +231,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                 strikes_cid = last_report.strikes_tree_cid
             else:
                 strikes_cid = self._publish_tree(strikes_tree)
+            if (strikes_cid == last_report.strikes_tree_cid) != (strikes_tree_root == last_report.strikes_tree_root):
+                raise ValueError(f"Invalid strikes tree built: {strikes_cid=}, {strikes_tree_root=}")
         else:
             strikes_tree_root = HexBytes(ZERO_HASH)
             strikes_cid = None
@@ -359,9 +339,9 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         logger.debug({"msg": f"Epoch {epoch} is already processed"})
                         continue
 
-                    epoch_data = duties_by_epoch.get(int(epoch))
+                    epoch_data = duties_by_epoch.get(epoch)
                     if epoch_data is None:
-                        raise ValueError(f"Epoch {epoch} is missing in Performance Collector")
+                        raise ValueError(f"Epoch {epoch} is missing in data received from Performance Collector")
 
                     (
                         misses,
@@ -403,29 +383,40 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                                     f"in epoch {epoch}, but was not active"
                                 )
                             continue
-                        self.state.save_att_duty(epoch, validator.index, included=not missed_att)
+                        self.state.save_att_duty(
+                            epoch,
+                            validator.index,
+                            DutyAccumulator(assigned=1, included=int(not missed_att)),
+                        )
 
                     blocks_in_epoch = 0
 
                     for i, vid in enumerate(proposers):
                         proposed = props_flags[i]
-                        self.state.save_prop_duty(epoch, vid, included=proposed)
+                        self.state.save_prop_duty(
+                            epoch,
+                            vid,
+                            DutyAccumulator(assigned=1, included=int(proposed)),
+                        )
                         blocks_in_epoch += int(proposed)
 
                     if blocks_in_epoch:
                         for i, vid in enumerate(syncs_vids):
                             s_misses = syncs_misses[i]
-                            s_fulfilled = max(0, blocks_in_epoch - s_misses)  # XXX: when it's the case?
-                            # TODO: Update the State API, the tight loop is not needed here.
-                            for _ in range(s_fulfilled):
-                                self.state.save_sync_duty(epoch, vid, included=True)
-                            for _ in range(s_misses):
-                                self.state.save_sync_duty(epoch, vid, included=False)
+                            if s_misses > blocks_in_epoch:
+                                raise ValueError(
+                                    f"Inconsistent sync committee duties data: index={i}, {vid=}, "
+                                    f"{s_misses=} > {blocks_in_epoch=}"
+                                )
+                            s_fulfilled = blocks_in_epoch - s_misses
+                            self.state.save_sync_duty(
+                                epoch,
+                                vid,
+                                DutyAccumulator(assigned=blocks_in_epoch, included=s_fulfilled),
+                            )
 
                     self.state.add_processed_epoch(epoch)
                     unprocessed_epochs.discard(epoch)
-                # No need to commit the state on every epoch, it's enough to commit it once per batch.
-                self.state.commit()
 
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
@@ -507,8 +498,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
-        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(int(l_epoch))
-        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(int(r_epoch))
+        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(l_epoch)
+        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
 
         logger.info({"msg": "Epochs range for the report", "l_epoch": l_epoch, "r_epoch": r_epoch})
 

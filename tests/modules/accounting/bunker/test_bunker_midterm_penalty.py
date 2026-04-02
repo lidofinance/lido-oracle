@@ -30,6 +30,7 @@ def simple_validators(
     withdrawable_epoch=8192,
     exit_epoch=7892,
     effective_balance=DEFAULT_EFFECTIVE_BALANCE,
+    is_0x02=False,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
@@ -38,7 +39,7 @@ def simple_validators(
             balance=effective_balance,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
-                withdrawal_credentials='',
+                withdrawal_credentials='0x02' if is_0x02 else '0x01',
                 effective_balance=effective_balance,
                 slashed=slashed,
                 activation_eligibility_epoch=FAR_FUTURE_EPOCH,
@@ -352,11 +353,11 @@ def test_predict_midterm_penalty_in_frame(
 # 50% active validators with 2048 EB and the rest part with 32 EB
 half_electra = [
     *simple_validators(0, 250_000, effective_balance=MAX_EFFECTIVE_BALANCE),
-    *simple_validators(250_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
+    *simple_validators(250_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA, is_0x02=True),
 ]
 # 20% active validators with 2048 EB and the rest part with 32 EB
 part_electra = [
-    *simple_validators(0, 10_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
+    *simple_validators(0, 10_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA, is_0x02=True),
     *simple_validators(10_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE),
 ]
 

@@ -18,6 +18,7 @@ from src.types import (
 )
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
+from src.utils.validator_state import get_max_effective_balance
 
 
 @dataclass
@@ -187,6 +188,12 @@ class ValidatorState(Nested, FromResponse):
     activation_epoch: EpochNumber
     exit_epoch: EpochNumber
     withdrawable_epoch: EpochNumber
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.effective_balance > get_max_effective_balance(self):
+            raise ValueError(f"Validator {self} has invalid effective balance")
 
 
 @dataclass

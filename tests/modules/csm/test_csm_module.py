@@ -2,19 +2,20 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Literal, NoReturn
+from typing import Literal, NoReturn, cast
 from unittest.mock import Mock, PropertyMock, call, patch
 
 import pytest
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 
-from src.constants import STAKING_MODULE_LOGS_VERSION, UINT64_MAX
+from src.constants import UINT64_MAX
 from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
 from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
 from src.modules.oracles.staking_modules.common.distribution import Distribution
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import State
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
@@ -30,11 +31,6 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 
 
-@pytest.fixture(autouse=True)
-def mock_load_state(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(State, "load", Mock())
-
-
 @pytest.fixture()
 def module(web3):
     yield CSPerformanceOracle(web3)
@@ -43,16 +39,6 @@ def module(web3):
 @pytest.mark.unit
 def test_init(module: CSPerformanceOracle):
     assert module
-
-
-@pytest.mark.unit
-def test_shutdown_calls_cleanup(module: CSPerformanceOracle):
-    module.w3.performance = Mock()
-    module.w3.performance.get_epochs_demand = Mock(return_value=Mock())
-    module.w3.performance.delete_epochs_demand = Mock()
-    module.shutdown()
-    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
-    module.w3.performance.delete_epochs_demand.assert_called_once_with("CSPerformanceOracle")
 
 
 # Static functions you were dreaming of for so long.
@@ -274,10 +260,10 @@ def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain
     execute_delay = module.execute_module(blockstamp)
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.init.assert_called_once_with(10, 20, 4)
     module.w3.performance.is_range_available.assert_called_once_with(10, 20)
-    module.w3.performance.get_epochs_demand.assert_called_once_with("CSPerformanceOracle")
-    module.w3.performance.post_epochs_demand.assert_called_once_with("CSPerformanceOracle", 10, 20)
+    module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
+    module.w3.performance.post_epochs_demand.assert_called_once_with(module.consumer, 10, 20)
 
 
 @pytest.mark.unit
@@ -299,8 +285,47 @@ def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformance
     execute_delay = module.execute_module(blockstamp)
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module.state.migrate.assert_called_once_with(10, 20, 4)
+    module.state.init.assert_called_once_with(10, 20, 4)
     module.w3.performance.post_epochs_demand.assert_not_called()
+
+
+@pytest.mark.unit
+def test_refresh_contracts_deletes_old_demand_when_address_changes(module: CSPerformanceOracle):
+    old_consumer = module.consumer
+    new_consumer = cast(HexAddress, "0x00000000000000000000000000000000000000bb")
+
+    new_oracle = Mock(address=new_consumer)
+    module.w3 = Mock()
+    module.w3.staking_module.reload_contracts = Mock()
+    module.w3.staking_module.oracle = new_oracle
+    module.w3.performance.delete_epochs_demand = Mock()
+    module.state = Mock(clear=Mock())
+
+    module.refresh_contracts()
+
+    module.w3.staking_module.reload_contracts.assert_called_once()
+    module.w3.performance.delete_epochs_demand.assert_called_once_with(old_consumer)
+    assert module.report_contract is new_oracle
+    assert module.consumer == new_consumer
+    module.state.clear.assert_called_once()
+
+
+@pytest.mark.unit
+def test_refresh_contracts_keeps_demand_when_address_unchanged(module: CSPerformanceOracle):
+    same_consumer = module.consumer
+
+    same_oracle = Mock(address=same_consumer)
+    module.w3 = Mock()
+    module.w3.staking_module.reload_contracts = Mock()
+    module.w3.staking_module.oracle = same_oracle
+    module.w3.performance.delete_epochs_demand = Mock()
+    module.state = Mock(clear=Mock())
+
+    module.refresh_contracts()
+
+    module.w3.performance.delete_epochs_demand.assert_not_called()
+    assert module.consumer == same_consumer
+    module.state.clear.assert_called_once()
 
 
 @pytest.mark.unit
@@ -489,8 +514,8 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
             Duty(
                 epoch=1,
                 attestations=[],
-                proposals_vids=[int(validator_b.index)],
-                proposals_flags=[True],
+                proposals_vids=[int(validator_b.index), int(validator_a.index), int(validator_b.index)],
+                proposals_flags=[True, True, True],
                 syncs_vids=[int(validator_a.index), int(validator_b.index)],
                 syncs_misses=[2, 3],
             ),
@@ -516,24 +541,23 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
     assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), validator_a.index, included=False),
-        call(EpochNumber(0), validator_b.index, included=True),
-        call(EpochNumber(1), validator_a.index, included=True),
-        call(EpochNumber(1), validator_b.index, included=True),
+        call(EpochNumber(0), validator_a.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(0), validator_b.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), validator_a.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), validator_b.index, DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), included=True),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), included=False),
+        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=3, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=3, included=0)),
     ]
     assert state.add_processed_epoch.call_args_list == [
         call(EpochNumber(0)),
@@ -574,6 +598,46 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
     state.save_att_duty.assert_not_called()
+    state.add_processed_epoch.assert_not_called()
+
+
+@pytest.mark.unit
+def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                attestations=[],
+                proposals_vids=[int(validator.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(validator.index)],
+                syncs_misses=[2],
+            ),
+        ]
+    )
+
+    state = Mock()
+    state.frames = [(0, 0)]
+    state.unprocessed_epochs = {0}
+    state.save_att_duty = Mock()
+    state.save_prop_duty = Mock()
+    state.save_sync_duty = Mock()
+    state.add_processed_epoch = Mock()
+    state.log_progress = Mock()
+    module.state = state
+
+    with pytest.raises(ValueError, match="Inconsistent sync committee duties data"):
+        module._fulfill_state()
+
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
+    state.save_prop_duty.assert_called_once_with(
+        EpochNumber(0), ValidatorIndex(int(validator.index)), DutyAccumulator(assigned=1, included=1)
+    )
+    state.save_sync_duty.assert_not_called()
     state.add_processed_epoch.assert_not_called()
 
 
@@ -628,24 +692,24 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 2)
     assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), active_all.index, included=True),
-        call(EpochNumber(0), exit_early.index, included=False),
-        call(EpochNumber(1), active_all.index, included=False),
-        call(EpochNumber(1), active_late.index, included=True),
-        call(EpochNumber(2), active_all.index, included=True),
-        call(EpochNumber(2), active_late.index, included=True),
+        call(EpochNumber(0), active_all.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(0), exit_early.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), active_all.index, DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), active_late.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), active_all.index, DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), active_late.index, DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=True),
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
     ]
     assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), included=True),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), included=False),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), included=True),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), included=False),
+        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
+        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
+        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
     ]
     state.add_processed_epoch.assert_has_calls([call(EpochNumber(0)), call(EpochNumber(1)), call(EpochNumber(2))])
 
@@ -914,6 +978,90 @@ class BuildReportTestParam:
             ),
             id="non_empty_prev_report_and_no_new_distribution",
         ),
+        pytest.param(
+            BuildReportTestParam(
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100)],
+                    strikes_tree_root=HexBytes(b"OLD_STRIKES_ROOT"),
+                    strikes_tree_cid=CID("QmOLD_STRIKES"),
+                    strikes={},
+                ),
+                curr_distribution=Mock(
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=5,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 5}),
+                        total_rebate=1,
+                        strikes={
+                            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+                        },
+                        logs=Logs(frames=[Mock()]),
+                    )
+                ),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(b"NEW_STRIKES_ROOT"),
+                curr_strikes_tree_cid=CID("QmNEW_STRIKES"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_rewards_tree_call_args=(({NodeOperatorId(0): 5},),),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes(b"NEW_TREE_ROOT"),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    5,
+                    1,
+                    HexBytes(b"NEW_STRIKES_ROOT"),
+                    CID("QmNEW_STRIKES"),
+                ),
+            ),
+            id="new_strikes_tree_published",
+        ),
+        pytest.param(
+            BuildReportTestParam(
+                last_report=Mock(
+                    rewards_tree_root=HexBytes(b"OLD_TREE_ROOT"),
+                    rewards_tree_cid=CID("QmOLD_TREE"),
+                    rewards=[(NodeOperatorId(0), 100)],
+                    strikes_tree_root=HexBytes(b"SAME_STRIKES_ROOT"),
+                    strikes_tree_cid=CID("QmOLD_STRIKES"),
+                    strikes={},
+                ),
+                curr_distribution=Mock(
+                    return_value=Mock(
+                        spec=Distribution,
+                        total_rewards=5,
+                        total_rewards_map=defaultdict(int, {NodeOperatorId(0): 5}),
+                        total_rebate=1,
+                        strikes={
+                            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+                        },
+                        logs=Logs(frames=[Mock()]),
+                    )
+                ),
+                curr_rewards_tree_root=HexBytes(b"NEW_TREE_ROOT"),
+                curr_rewards_tree_cid=CID("QmNEW_TREE"),
+                curr_strikes_tree_root=HexBytes(b"SAME_STRIKES_ROOT"),
+                curr_strikes_tree_cid=CID("QmOLD_STRIKES"),
+                curr_log_cid=CID("QmLOG"),
+                expected_make_rewards_tree_call_args=(({NodeOperatorId(0): 5},),),
+                expected_func_result=(
+                    1,
+                    100500,
+                    HexBytes(b"NEW_TREE_ROOT"),
+                    CID("QmNEW_TREE"),
+                    CID("QmLOG"),
+                    5,
+                    1,
+                    HexBytes(b"SAME_STRIKES_ROOT"),
+                    CID("QmOLD_STRIKES"),
+                ),
+            ),
+            id="same_strikes_tree_reuses_cid",
+        ),
     ],
 )
 @pytest.mark.unit
@@ -936,7 +1084,41 @@ def test_build_report(module: CSPerformanceOracle, param: BuildReportTestParam):
 
     assert module._make_rewards_tree.call_args == param.expected_make_rewards_tree_call_args
     assert report == param.expected_func_result
-    assert module._publish_log.call_args[0][0]._ver == STAKING_MODULE_LOGS_VERSION
+
+
+@pytest.mark.unit
+def test_build_report_raises_on_inconsistent_strikes_tree(module: CSPerformanceOracle):
+    """Strikes CID matches last report but root differs — should raise ValueError."""
+    last_report = Mock(
+        rewards_tree_root=HexBytes(ZERO_HASH),
+        rewards_tree_cid=None,
+        rewards=[],
+        strikes_tree_root=HexBytes(b"OLD_STRIKES_ROOT"),
+        strikes_tree_cid=CID("QmOLD_STRIKES"),
+        strikes={},
+    )
+    distribution = Mock(
+        spec=Distribution,
+        total_rewards=0,
+        total_rewards_map=defaultdict(int),
+        total_rebate=0,
+        strikes={
+            (NodeOperatorId(0), HexBytes(b"0x00")): StrikesList([1]),
+        },
+        logs=Logs(frames=[Mock()]),
+    )
+
+    module._validate_state = Mock()
+    module.report_contract.get_consensus_version = Mock(return_value=1)
+    module._calculate_distribution = Mock(return_value=(distribution, last_report))
+    module._make_rewards_tree = Mock()
+    module._make_strikes_tree = Mock(return_value=Mock(root=HexBytes(b"DIFFERENT_ROOT")))
+    # _publish_tree returns CID that matches last report's strikes CID, but root differs
+    module._publish_tree = Mock(return_value=CID("QmOLD_STRIKES"))
+    module._publish_log = Mock(return_value=CID("QmLOG"))
+
+    with pytest.raises(ValueError, match="Invalid strikes tree built"):
+        module.build_report(Mock(ref_slot=100500))
 
 
 @pytest.mark.unit
