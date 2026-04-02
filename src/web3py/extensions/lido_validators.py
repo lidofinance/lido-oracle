@@ -66,6 +66,8 @@ class StakingModule(FromResponse):
     withdrawal_credentials_type: int
     # Total staking module validators balance
     validators_balance_gwei: Gwei
+    # Total staking module in-fly balance
+    pending_balance_gwei: Gwei
 
     def __hash__(self):
         return hash(self.id)
@@ -118,60 +120,24 @@ class NodeOperator(Nested):
 class LidoValidator(Validator):
     lido_id: LidoKey
 
-    def __init__(
-        self,
-        lido_id: LidoKey,
-        pending_topups: list[PendingDeposit] | None = None,
-        consolidating_as_source_initialized: bool = False,
-        consolidating_as_source: ConsolidationRequest | None = None,
-        consolidating_as_target: list[ConsolidationRequest] | None = None,
-        **kwargs,
-    ):
-        self.lido_id = lido_id
-
-        super().__init__(**kwargs)
-
-        self._pending_topups = pending_topups
-        self._consolidating_as_source = consolidating_as_source
-        self._consolidation_as_source_initialized = consolidating_as_source_initialized
-        self._consolidating_as_target = consolidating_as_target
-
-    # ----- Extended relations for LidoValidator -----
-    # These attributes track additional validator state from the consensus layer:
-    # - pending_topups: List of pending deposits that will top up this validator's balance
-    # - consolidating_as_source: Consolidation request where this validator is the source (donating balance)
-    # - consolidating_as_target: List of consolidation requests where this validator is the target (receiving balance)
-    # All these attributes must be explicitly initialized before access via their respective property setters.
-
-    @property
-    def pending_topups(self) -> list[PendingDeposit]:
-        if self._pending_topups is None:
-            raise RuntimeError("pending_topups has not been initialized")
-        return self._pending_topups
-
-    @property
-    def consolidating_as_source(self) -> ConsolidationRequest | None:
-        if not self._consolidation_as_source_initialized:
-            raise RuntimeError("consolidating_as_source has not been initialized")
-        return self._consolidating_as_source
-
-    @property
-    def consolidating_as_target(self) -> list[ConsolidationRequest]:
-        if self._consolidating_as_target is None:
-            raise RuntimeError("consolidating_as_target has not been initialized")
-        return self._consolidating_as_target
-
 
 @dataclass
 class ConsolidationRequest(PendingConsolidation):
     amount: Gwei
 
 
+@dataclass
+class ExtendedLidoValidator(LidoValidator):
+    pending_topups: list[PendingDeposit]
+    consolidating_as_source: ConsolidationRequest | None
+    consolidating_as_target: list[ConsolidationRequest]
+
+
 class CountOfKeysDiffersException(Exception):
     pass
 
 
-type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[ExtendedLidoValidator]]
 type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
 
@@ -179,7 +145,9 @@ class LidoValidatorsProvider(Module):
     w3: Web3
 
     @lru_cache(maxsize=1)
-    def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+    def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[ExtendedLidoValidator]:
+        lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
+
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
         for deposit in self.w3.cc.get_pending_deposits(blockstamp):
             deposits_by_pubkey.setdefault(deposit.pubkey, []).append(deposit)
@@ -194,19 +162,16 @@ class LidoValidatorsProvider(Module):
             req = ConsolidationRequest(
                 source_index=consolidation.source_index,
                 target_index=consolidation.target_index,
-                # only 0x01 validators will be consolidated, so all incoming excess balances will be swept
                 amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
 
-        lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
         return [
-            LidoValidator(
+            ExtendedLidoValidator(
                 **asdict(lido_validator),
                 pending_topups=deposits_by_pubkey.get(lido_validator.validator.pubkey, []),
                 consolidating_as_source=consolidation_by_source.get(lido_validator.index),
-                consolidating_as_source_initialized=True,
                 consolidating_as_target=consolidation_by_target.get(lido_validator.index, []),
             )
             for lido_validator in lido_validators
@@ -244,44 +209,40 @@ class LidoValidatorsProvider(Module):
 
         # Validate there are no frontrun
         for pending_deposit in pending_deposits:
-            if pending_deposit.pubkey not in pending_keys:
-                continue
+            if pending_deposit.pubkey in pending_keys:
+                # In case we already had a valid pending deposit for the key
+                if pending_deposit.pubkey in pending_validators:
+                    pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
+                    continue
 
-            # In case we already had a valid pending deposit for the key
-            if pending_deposit.pubkey in pending_validators:
-                pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
-                continue
+                # If there already were valid validator with wrong wc
+                if pending_deposit.pubkey in invalid_keys:
+                    continue
 
-            # If there already were valid validator with wrong wc
-            if pending_deposit.pubkey in invalid_keys:
-                continue
+                # In case if this is the first possibly valid pending deposit for the key
+                if is_valid_deposit_signature(
+                    pubkey=hex_str_to_bytes(pending_deposit.pubkey),
+                    withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
+                    amount=pending_deposit.amount,
+                    signature=hex_str_to_bytes(pending_deposit.signature),
+                    genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
+                    # Fork-agnostic domain since deposits are valid across forks
+                    # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
+                ):
+                    lido_key = pending_keys[pending_deposit.pubkey]
 
-            # In case if this is the first possibly valid pending deposit for the key
-            if not is_valid_deposit_signature(
-                pubkey=hex_str_to_bytes(pending_deposit.pubkey),
-                withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
-                amount=pending_deposit.amount,
-                signature=hex_str_to_bytes(pending_deposit.signature),
-                genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
-                # Fork-agnostic domain since deposits are valid across forks
-                # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
-            ):
-                continue
-
-            lido_key = pending_keys[pending_deposit.pubkey]
-
-            if pending_deposit.withdrawal_credentials in lido_wc_list:
-                # Lido WC
-                pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
-            else:
-                # Possible frontrun attack
-                invalid_keys.add(pending_deposit.pubkey)
-                logger.warning(
-                    {
-                        'msg': 'Ignoring key. Possible front run attack',
-                        'value': pending_deposit.pubkey,
-                    }
-                )
+                    if pending_deposit.withdrawal_credentials in lido_wc_list:
+                        # Lido WC
+                        pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
+                    else:
+                        # Possible frontrun attack
+                        invalid_keys.add(pending_deposit.pubkey)
+                        logger.warning(
+                            {
+                                'msg': 'Ignoring key. Possible front run attack',
+                                'value': pending_deposit.pubkey,
+                            }
+                        )
 
         return pending_validators
 

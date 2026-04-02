@@ -11,7 +11,7 @@ from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
-    LidoValidator,
+    ExtendedLidoValidator,
     NodeOperator,
     StakingModule,
 )
@@ -77,7 +77,7 @@ def lido_validators(web3):
     )
 
     def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
-        return LidoValidator(
+        return ExtendedLidoValidator(
             lido_id=LidoKey(
                 key=pubkey,
                 depositSignature="",

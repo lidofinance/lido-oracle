@@ -19,7 +19,7 @@ from src.types import Gwei, NodeOperatorGlobalIndex, NodeOperatorId, ReferenceBl
 from src.utils.validator_balance import get_predictable_balance
 from src.utils.validator_state import get_max_effective_balance, is_on_exit
 from src.web3py.extensions.lido_validators import (
-    LidoValidator,
+    ExtendedLidoValidator,
     NodeOperator,
     NodeOperatorLimitMode,
     StakingModule,
@@ -88,7 +88,7 @@ class ValidatorExitIterator:
     total_lido_predictable_balance: Gwei
     module_stats: dict[StakingModuleId, StakingModuleStats]
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
-    exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+    exitable_validators: dict[NodeOperatorGlobalIndex, list[ExtendedLidoValidator]]
 
     def __init__(
         self,
@@ -118,7 +118,7 @@ class ValidatorExitIterator:
         self.total_lido_predictable_balance = Gwei(0)
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
-        self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
+        self.exitable_validators: dict[NodeOperatorGlobalIndex, list[ExtendedLidoValidator]] = {}
 
     def _prepare_data_structure(self):
         self._prepare_module_stats()
@@ -280,7 +280,7 @@ class ValidatorExitIterator:
 
     # --- Iterator ---
     @duration_meter()
-    def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
+    def __next__(self) -> tuple[NodeOperatorGlobalIndex, ExtendedLidoValidator]:
         for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
             gid = (
                 node_operator.module_stats.staking_module.id,
@@ -291,7 +291,7 @@ class ValidatorExitIterator:
             if not self.exitable_validators[gid]:
                 continue
 
-            v: LidoValidator = self._eject_validator(gid)
+            v: ExtendedLidoValidator = self._eject_validator(gid)
             self.max_current_exit_balance += get_max_effective_balance(v.validator)
 
             if self.max_current_exit_balance > self.exit_limit_in_gwei:
@@ -314,7 +314,7 @@ class ValidatorExitIterator:
             self.blockstamp,
         )
 
-        def is_validator_exitable(validator: LidoValidator):
+        def is_validator_exitable(validator: ExtendedLidoValidator):
             """Returns True if the validator is exitable: not on exit and not requested to exit"""
             return (
                 not is_on_exit(validator)
@@ -324,7 +324,7 @@ class ValidatorExitIterator:
 
         return is_validator_exitable
 
-    def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
+    def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> ExtendedLidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
 
         exit_balance = get_predictable_balance(lido_validator)
