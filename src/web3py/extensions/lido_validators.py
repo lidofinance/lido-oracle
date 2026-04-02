@@ -150,7 +150,7 @@ class LidoValidator(Validator):
         return self._pending_topups
 
     @property
-    def consolidating_as_source(self) -> ConsolidationRequest:
+    def consolidating_as_source(self) -> ConsolidationRequest | None:
         if not self._consolidation_as_source_initialized:
             raise RuntimeError("consolidating_as_source has not been initialized")
         return self._consolidating_as_source

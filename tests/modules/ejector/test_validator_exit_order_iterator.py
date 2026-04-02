@@ -88,8 +88,7 @@ def test_eject_validator(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
-                for _ in range(3)
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
             ]
         }
     )

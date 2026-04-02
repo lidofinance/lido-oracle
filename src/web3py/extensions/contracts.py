@@ -1,5 +1,4 @@
 import logging
-from functools import cached_property
 from typing import cast
 
 from web3 import Web3

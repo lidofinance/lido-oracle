@@ -12,7 +12,7 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator, LidoValidator
+from src.web3py.extensions.lido_validators import LidoValidator
 
 
 logger = logging.getLogger(__name__)

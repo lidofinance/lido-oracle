@@ -48,9 +48,7 @@ def build_extended_validator(**kwargs) -> LidoValidator:
     )
 
 
-def build_extended_validator_with_balance(
-    balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs
-) -> LidoValidator:
+def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs) -> LidoValidator:
     lido_validator = LidoValidatorFactory.build_with_balance(balance, meb, **kwargs)
     return LidoValidator(
         index=lido_validator.index,

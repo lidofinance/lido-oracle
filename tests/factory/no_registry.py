@@ -16,7 +16,7 @@ from src.constants import (
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import LidoValidator, LidoValidator, NodeOperator, StakingModule
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
