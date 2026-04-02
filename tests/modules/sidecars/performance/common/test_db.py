@@ -9,6 +9,7 @@ from src.modules.sidecars.performance.common.db import (
     DutiesDB,
     Duty,
     EpochsDemand,
+    IncompleteEpochRangeError,
     Settings,
 )
 from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
@@ -511,3 +512,64 @@ class TestGetEpochsData:
         assert result == duties
         assert len(result) == 2
         mock_session.exec.assert_called_once()
+
+    def test_get_complete_epochs_data_returns_duties_when_range_is_complete(self, db):
+        duties = [
+            Duty(
+                epoch=10,
+                attestations=[1],
+                proposals_vids=[2],
+                proposals_flags=[True],
+                syncs_vids=[3],
+                syncs_misses=[0],
+            ),
+            Duty(
+                epoch=11,
+                attestations=[],
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+        ]
+        db.get_epochs_data = Mock(return_value=duties)
+
+        result = db.get_complete_epochs_data(EpochNumber(10), EpochNumber(11))
+
+        assert result == duties
+        db.get_epochs_data.assert_called_once_with(EpochNumber(10), EpochNumber(11))
+
+    def test_get_complete_epochs_data_raises_when_range_has_gaps(self, db):
+        db.get_epochs_data = Mock(
+            return_value=[
+                Duty(
+                    epoch=10,
+                    attestations=[],
+                    proposals_vids=[],
+                    proposals_flags=[],
+                    syncs_vids=[],
+                    syncs_misses=[],
+                ),
+                Duty(
+                    epoch=12,
+                    attestations=[],
+                    proposals_vids=[],
+                    proposals_flags=[],
+                    syncs_vids=[],
+                    syncs_misses=[],
+                ),
+                Duty(
+                    epoch=14,
+                    attestations=[],
+                    proposals_vids=[],
+                    proposals_flags=[],
+                    syncs_vids=[],
+                    syncs_misses=[],
+                ),
+            ]
+        )
+
+        with pytest.raises(IncompleteEpochRangeError, match="Incomplete epoch range"):
+            db.get_complete_epochs_data(EpochNumber(10), EpochNumber(15))
+
+        db.get_epochs_data.assert_called_once_with(EpochNumber(10), EpochNumber(15))

@@ -24,12 +24,10 @@ from src.modules.oracles.common.exceptions import (
     IsNotMemberException,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.common.runtime import run_oracle_module
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
@@ -132,42 +130,6 @@ def test_run_as_daemon(oracle):
         oracle.run_as_daemon()
 
     assert oracle.cycle_handler.call_count == 3
-
-
-@pytest.mark.unit
-def test_run_oracle_module__single_cycle__calls_shutdown(oracle: OracleModule, monkeypatch):
-    monkeypatch.setattr(variables, "DAEMON", False)
-    oracle.check_contract_configs = Mock()
-    oracle.cycle_handler = Mock()
-    oracle.shutdown = Mock()
-
-    with (
-        patch("src.modules.common.graceful_shutdown.signal.signal"),
-    ):
-        run_oracle_module(oracle)
-
-    oracle.check_contract_configs.assert_called_once()
-    oracle.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(TelemetryEventId.ORACLE_STARTUP)
-    oracle.cycle_handler.assert_called_once()
-    oracle.shutdown.assert_called_once()
-
-
-@pytest.mark.unit
-def test_run_oracle_module__daemon_exit__calls_shutdown(oracle: OracleModule, monkeypatch):
-    monkeypatch.setattr(variables, "DAEMON", True)
-    oracle.check_contract_configs = Mock()
-    oracle.run_as_daemon = Mock(side_effect=SystemExit(0))
-    oracle.shutdown = Mock()
-
-    with (
-        patch("src.modules.common.graceful_shutdown.signal.signal"),
-        pytest.raises(SystemExit, match="0"),
-    ):
-        run_oracle_module(oracle)
-
-    oracle.check_contract_configs.assert_called_once()
-    oracle.run_as_daemon.assert_called_once()
-    oracle.shutdown.assert_called_once()
 
 
 @pytest.mark.unit

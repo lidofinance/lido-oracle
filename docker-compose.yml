@@ -106,8 +106,50 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
 
   # ---------------------------------------------------------------------------
-  # Staking Module Oracles
+  # Oracle Services
   # ---------------------------------------------------------------------------
+
+  accounting-oracle:
+    build: .
+    container_name: accounting-oracle
+    command: ["-m", "src.main", "accounting"]
+    environment:
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${ACCOUNTING_ORACLE_PROMETHEUS_PORT:-9003}:9000"
+      - "${ACCOUNTING_ORACLE_HEALTH_PORT:-9013}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  ejector-oracle:
+    build: .
+    container_name: ejector-oracle
+    command: ["-m", "src.main", "ejector"]
+    environment:
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${EJECTOR_ORACLE_PROMETHEUS_PORT:-9004}:9000"
+      - "${EJECTOR_ORACLE_HEALTH_PORT:-9014}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
   csm-oracle:
     build: .

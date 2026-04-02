@@ -7,7 +7,6 @@ from web3_multi_provider.metrics import init_metrics
 from src import constants, variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
-from src.modules.common.graceful_shutdown import graceful_shutdown_signal_handlers
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
 from src.utils.exception import IncompatibleException
@@ -135,16 +134,10 @@ def run_oracle_module(module: OracleModule):
     except Exception:
         logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
 
-    try:
-        # Convert termination signals to SystemExit so regular cleanup in
-        # `finally` still runs during process shutdown.
-        with graceful_shutdown_signal_handlers():
-            if variables.DAEMON:
-                module.run_as_daemon()
-            else:
-                module.cycle_handler()
-    finally:
-        module.shutdown()
+    if variables.DAEMON:
+        module.run_as_daemon()
+    else:
+        module.cycle_handler()
 
 
 def check_providers_chain_ids(web3: Web3Base, cc: ConsensusClientModule, kac: KeysAPIClientModule):
