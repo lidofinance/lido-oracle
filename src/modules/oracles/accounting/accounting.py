@@ -200,11 +200,11 @@ class Accounting(OracleModule[Web3]):
         logger.info({'msg': 'Building the report', 'consensus_version': consensus_version})
 
         cl_balance = self._get_cl_validators_balance(blockstamp)
-        pending_balance = self._get_cl_pending_validators_balance(blockstamp)
+        cl_pending_balance = self._get_cl_pending_validators_balance(blockstamp)
 
         exit_sm_ids_list, exit_validators_count_list = self._get_newly_exited_validators_by_modules(blockstamp)
 
-        balance_sm_ids_list, validator_balance_by_sm, pending_balance_by_sm = self._get_balances_by_modules(blockstamp)
+        balance_sm_ids_list, validator_balance_by_sm = self._get_balances_by_modules(blockstamp)
 
         withdrawal_vault_balance = self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
         el_rewards_vault_balance = self.w3.lido_contracts.get_el_vault_balance(blockstamp)
@@ -220,12 +220,11 @@ class Accounting(OracleModule[Web3]):
             consensus_version=consensus_version,
             ref_slot=blockstamp.ref_slot,
             cl_validators_balance_gwei=cl_balance,
-            cl_pending_balance_gwei=pending_balance,
+            cl_pending_balance_gwei=cl_pending_balance,
             staking_module_ids_with_exited_validators=exit_sm_ids_list,
             count_exited_validators_by_staking_module=exit_validators_count_list,
             staking_module_ids_with_updated_balance=balance_sm_ids_list,
             validator_balances_gwei_by_staking_module=validator_balance_by_sm,
-            pending_balances_gwei_by_staking_module=pending_balance_by_sm,
             withdrawal_vault_balance=withdrawal_vault_balance,
             el_rewards_vault_balance=el_rewards_vault_balance,
             shares_requested_to_burn=shares_requested_to_burn,
@@ -279,35 +278,25 @@ class Accounting(OracleModule[Web3]):
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return [sm_id for sm_id, _ in items], [val_exits for _, val_exits in items]
 
-    def _get_balances_by_modules(
-        self,
-        blockstamp: ReferenceBlockStamp,
-    ) -> tuple[list[StakingModuleId], list[Gwei], list[Gwei]]:
+    def _get_balances_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[Gwei]]:
         """
         Calculate active and pending balances by modules.
         Balances are aggregated for all modules returned by `_get_no_active_balance`.
         """
         sm_by_address = self.w3.lido_contracts.staking_router.get_staking_modules_by_address(blockstamp.block_hash)
-        module_stats: dict[StakingModuleId, dict[str, int]] = {
-            sm_by_address[module.staking_module_address].id: {'active': 0, 'pending': 0} for module in sm_by_address.values()
+        module_stats: dict[StakingModuleId, Gwei] = {
+            sm_by_address[module.staking_module_address].id: Gwei(0) for module in sm_by_address.values()
         }
 
         validators_by_no = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         for (module_id, _), validators in validators_by_no.items():
             for validator in validators:
-                module_stats[module_id]['active'] += validator.balance
-                module_stats[module_id]['pending'] += sum(deposit.amount for deposit in validator.pending_topups)
-
-        pending_validators = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
-        for lido_key, pending_deposits in pending_validators.values():
-            module_id = sm_by_address[lido_key.moduleAddress].id
-            module_stats[module_id]['pending'] += sum(deposit.amount for deposit in pending_deposits)
+                module_stats[module_id] += validator.balance
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
             [sm_id for sm_id, _ in items],
-            [Gwei(balance['active']) for _, balance in items],
-            [Gwei(balance['pending']) for _, balance in items],
+            [balance for _, balance in items],
         )
 
     def get_shares_to_burn(self, blockstamp: ReferenceBlockStamp) -> Shares:

@@ -42,7 +42,6 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     staking_module_ids_with_updated_balance: list[StakingModuleId]
     validator_balances_gwei_by_staking_module: list[Gwei]
-    pending_balances_gwei_by_staking_module: list[Gwei]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
@@ -66,7 +65,6 @@ class ReportData:
             self.count_exited_validators_by_staking_module,
             self.staking_module_ids_with_updated_balance,
             self.validator_balances_gwei_by_staking_module,
-            self.pending_balances_gwei_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
