@@ -49,6 +49,14 @@ RETENTION_EPOCHS_KEY = "retention_epochs"
 RETENTION_EPOCHS_DEFAULT = 225 * 30 * 6
 
 
+class IncompleteEpochRangeError(ValueError):
+    def __init__(self, from_epoch: EpochNumber, to_epoch: EpochNumber, missing_epochs: list[EpochNumber]):
+        self.from_epoch = from_epoch
+        self.to_epoch = to_epoch
+        self.missing_epochs = missing_epochs
+        super().__init__(f"Incomplete epoch range [{from_epoch}, {to_epoch}]: missing epochs {missing_epochs}")
+
+
 class DutiesDB:
     def __init__(
         self,
@@ -223,6 +231,22 @@ class DutiesDB:
             ).all()
 
         return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
+
+    def get_complete_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
+        if from_epoch > to_epoch:
+            raise ValueError("Invalid epoch range")
+
+        duties = self.get_epochs_data(from_epoch, to_epoch)
+        expected_count = to_epoch - from_epoch + 1
+        if len(duties) == expected_count:
+            return duties
+
+        present_epochs = {EpochNumber(duty.epoch) for duty in duties}
+        missing_epochs = [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present_epochs]
+        if missing_epochs:
+            raise IncompleteEpochRangeError(from_epoch, to_epoch, missing_epochs)
+
+        return duties
 
     def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
         with self.get_session() as session:

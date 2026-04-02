@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from starlette.testclient import TestClient
 
-from src.modules.sidecars.performance.common.db import DutiesDB, Duty, EpochsDemand
+from src.modules.sidecars.performance.common.db import DutiesDB, Duty, EpochsDemand, IncompleteEpochRangeError
 from src.modules.sidecars.performance.web.server import app, get_db
 
 
@@ -110,7 +110,7 @@ class TestEpochsData:
                 syncs_misses=[],
             ),
         ]
-        mock_db.get_epochs_data.return_value = duties
+        mock_db.get_complete_epochs_data.return_value = duties
         response = client.get("/v1/epochs", params={"from": 10, "to": 11})
         assert response.status_code == 200
         data = response.json()
@@ -118,11 +118,24 @@ class TestEpochsData:
         assert data[0]["epoch"] == 10
         assert data[1]["epoch"] == 11
 
-    def test_returns_empty(self, client, mock_db):
-        mock_db.get_epochs_data.return_value = []
-        response = client.get("/v1/epochs", params={"from": 10, "to": 11})
-        assert response.status_code == 200
-        assert response.json() == []
+    def test_returns_409_when_range_has_gaps(self, client, mock_db):
+        mock_db.get_complete_epochs_data.side_effect = IncompleteEpochRangeError(
+            from_epoch=10,
+            to_epoch=15,
+            missing_epochs=[11, 13],
+        )
+
+        response = client.get("/v1/epochs", params={"from": 10, "to": 15})
+
+        assert response.status_code == 409
+        assert response.json() == {
+            "detail": {
+                "message": "Requested epoch range contains gaps",
+                "from_epoch": 10,
+                "to_epoch": 15,
+                "missing_epochs": [11, 13],
+            }
+        }
 
     def test_rejects_range_too_large(self, client):
         response = client.get("/v1/epochs", params={"from": 0, "to": 100000})
