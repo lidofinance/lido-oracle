@@ -24,7 +24,7 @@ from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContr
 from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, Wei
 from src.utils.validator_balance import get_predictable_balance
 from src.web3py.extensions.lido_validators import (
-    ExtendedLidoValidator,
+    LidoValidator,
     NodeOperatorId,
     StakingModuleId,
 )
@@ -35,9 +35,9 @@ from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
-def build_extended_validator(**kwargs) -> ExtendedLidoValidator:
+def build_extended_validator(**kwargs) -> LidoValidator:
     lido_validator = LidoValidatorFactory.build(**kwargs)
-    return ExtendedLidoValidator(
+    return LidoValidator(
         index=lido_validator.index,
         balance=lido_validator.balance,
         validator=lido_validator.validator,
@@ -48,11 +48,9 @@ def build_extended_validator(**kwargs) -> ExtendedLidoValidator:
     )
 
 
-def build_extended_validator_with_balance(
-    balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs
-) -> ExtendedLidoValidator:
+def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTIVE_BALANCE, **kwargs) -> LidoValidator:
     lido_validator = LidoValidatorFactory.build_with_balance(balance, meb, **kwargs)
-    return ExtendedLidoValidator(
+    return LidoValidator(
         index=lido_validator.index,
         balance=lido_validator.balance,
         validator=lido_validator.validator,
