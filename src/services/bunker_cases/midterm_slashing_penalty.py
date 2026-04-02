@@ -12,7 +12,7 @@ from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.validator_state import calculate_total_active_effective_balance
 from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator
+from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class MidtermSlashingPenalty:
         blockstamp: ReferenceBlockStamp,
         web3_converter: Web3Converter,
         all_validators: list[Validator],
-        lido_validators: list[LidoValidator],
+        lido_validators: list[ExtendedLidoValidator],
         slashings: list[Gwei],
         current_report_cl_rebase: Gwei,
         last_report_ref_slot: SlotNumber,
