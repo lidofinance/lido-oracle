@@ -8,7 +8,7 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from sqlmodel import select
 
-from src.modules.sidecars.performance.common.db import DutiesDB, Duty
+from src.modules.sidecars.performance.common.db import DutiesDB, Duty, IncompleteEpochRangeError
 from src.modules.sidecars.performance.web.metrics import attach_metrics
 from src.modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
 from src.modules.sidecars.performance.web.validation import (
@@ -98,7 +98,18 @@ def epochs_missing(epoch_range: Annotated[LimitedEpochRangeParam, Query()], db: 
 
 @api_v1.get("/epochs", response_model=list[Duty])
 def epochs_data(epoch_range: Annotated[LimitedEpochRangeParam, Query()], db: DBDep):
-    return db.get_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
+    try:
+        return db.get_complete_epochs_data(epoch_range.from_epoch, epoch_range.to_epoch)
+    except IncompleteEpochRangeError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Requested epoch range contains gaps",
+                "from_epoch": error.from_epoch,
+                "to_epoch": error.to_epoch,
+                "missing_epochs": error.missing_epochs,
+            },
+        ) from error
 
 
 @api_v1.get("/epochs/stored-count", response_model=int)

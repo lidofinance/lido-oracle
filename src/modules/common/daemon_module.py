@@ -110,10 +110,6 @@ class DaemonModule(ABC):
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
             self._slot_threshold = last_finalized_blockstamp.slot_number
 
-    def shutdown(self) -> None:
-        """Hook called when the module is shutting down."""
-        return None
-
     @abstractmethod
     def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
         """Executes module business logic for a given blockstamp"""

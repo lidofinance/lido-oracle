@@ -16,7 +16,7 @@ from src.constants import (
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator, NodeOperator, StakingModule
+from src.web3py.extensions.lido_validators import LidoValidator, LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
@@ -116,23 +116,6 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
                 withdrawal_credentials=(
                     ETH1_ADDRESS_WITHDRAWAL_PREFIX if meb == MAX_EFFECTIVE_BALANCE else COMPOUNDING_WITHDRAWAL_PREFIX
                 ),
-            ),
-            **kwargs,
-        )
-
-
-class ExtendedLidoValidatorFactory(Web3DataclassFactory[ExtendedLidoValidator]):
-    index: int = Use(lambda x: next(x), count(1))
-    balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
-    pending_topups: list = []
-    consolidating_as_source: Any = None
-    consolidating_as_target: list = []
-
-    @classmethod
-    def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
-        return cls.build(
-            validator=ValidatorStateFactory.build(
-                activation_epoch=faker.pyint(max_value=max_value - 1), effective_balance=Gwei(32 * 10**9)
             ),
             **kwargs,
         )

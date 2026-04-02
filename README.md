@@ -20,8 +20,15 @@ docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 # 4. Run the Oracle (dry mode by default)
 docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
 
-# 5. Run the Staking Module stack via docker compose
-#    (Postgres + performance sidecars + a specific oracle; see docker-compose.yml)
+# 5. Run an oracle via docker compose
+#    (`accounting` and `ejector` can run standalone;
+#     `csm` and `cm` also use Postgres + performance sidecars)
+
+# Accounting oracle
+docker compose up -d --build accounting-oracle
+
+# Exit bus oracle
+docker compose up -d --build ejector-oracle
 
 # CSM oracle stack
 docker compose up -d --build csm-oracle
@@ -88,26 +95,35 @@ This is meant as a reference deployment layout (not a full production guide).
 
 Services and responsibilities:
 
-- `postgres` - stores performance/attestation-related data (volume-backed).
-- `init-db` - one-shot initialization that creates the database/user schema in Postgres (runs `scripts/init_performance_db.sh`).
-- `performance-collector` - periodically pulls data from the Consensus client (`CONSENSUS_CLIENT_URI`) and writes it to Postgres.
-- `performance-web` - reads Postgres and exposes an HTTP API.
-- `csm-oracle` - the actual oracle module:
-  - reads from EL/CL/Keys API (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
-  - queries performance data via `PERFORMANCE_COLLECTOR_URI` (in compose it points to `http://performance-web:9020/`)
-  - publishes artifacts to IPFS (via `LIDO_IPFS_*` / Pinata / Filebase / Kubo settings)
+- `postgres` - persistent storage for performance and attestation data.
+- `init-db` - optional one-shot bootstrap for a local Postgres instance; creates the DB and user (`scripts/init_performance_db.sh`).
+- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres.
+- `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
+- `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
+- `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
+- `csm-oracle` / `cm-oracle` - staking-module reporters:
+  - read EL/CL/Keys API data (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
+  - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
+  - publish report artifacts to IPFS (`LIDO_IPFS_*`, Pinata, Filebase or Kubo)
 
 Data flow (simplified):
 
-`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` → `IPFS / chain`
+`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `cm-oracle` → `IPFS / chain`
+
+`Execution node` + `Consensus node` + `Keys API` → `accounting-oracle` / `ejector-oracle` → `chain`
 
 # Usage
 
 ## Machine requirements
 
-For each Oracle module:
+For each Oracle module (`accounting`, `ejector`, `csm`, `cm`):
 - vCPUs - 1
 - Memory - 8 GB
+
+For the shared Staking Module performance stack (`postgres` + `performance-collector` + `performance-web`):
+- Postgres - persistent SSD-backed storage
+- Performance Collector - 2 vCPUs, 8 GB memory
+- Performance Web - 1 vCPU, 2 GB memory
 
 [KAPI](https://github.com/lidofinance/lido-keys-api):
 - vCPU - 2
@@ -190,7 +206,21 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    docker run --env-file .env lidofinance/oracle:{tag} {type}
    ```
 
-   Replace `{tag}` with the image version and `{type}` with one of the two types of oracles: accounting or ejector.
+   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `cm`.
+
+   For `accounting` and `ejector`, set `LIDO_LOCATOR_ADDRESS`.
+   For `csm` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
+   If you use the reference compose stack, prefer:
+
+   ```bash
+   docker compose up -d accounting-oracle
+   # or
+   docker compose up -d ejector-oracle
+   # or
+   docker compose up -d csm-oracle
+   # or
+   docker compose up -d cm-oracle
+   ```
 
 > **Note**: of course, you can pass env variables without using `.env` file.
 > For example, you can run the container using the following command:
@@ -218,6 +248,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True                | `http://localhost:8545`        |
 | `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True                | `http://localhost:5052`        |
 | `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True                | `http://localhost:8080`        |
+| `PERFORMANCE_COLLECTOR_URI`                            | URI of the performance API used by `csm` and `cm`. Can be a comma-separated list                                                                                        | Staking Module only | `http://localhost:9020/`       |
 | `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True                | `0x1...`                       |
 | `STAKING_MODULE_ADDRESS`                               | Address of the Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
 | `DELEGATION_CONTRACT_ADDRESS`                          | Address of the delegation contract. When set, oracle calls are routed through this contract. See [delegation guide](docs/delegation.md)                                  | False               | `0x1...`                       |
@@ -245,6 +276,9 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False               | `300`                          |
 | `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False               | `5`                            |
 | `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False               | `12`                           |
+| `HTTP_REQUEST_TIMEOUT_PERFORMANCE`                     | Timeout for HTTP requests to the performance API                                                                                                                         | False               | `60`                           |
+| `HTTP_REQUEST_RETRY_COUNT_PERFORMANCE`                 | Total number of retries for the performance API                                                                                                                          | False               | `3`                            |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_PERFORMANCE` | Sleep before retrying a failed performance API request                                                                                                                 | False               | `2`                            |
 | `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False               | `120`                          |
 | `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False               | `300`                          |
 | `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False               | `300`                          |
@@ -255,8 +289,25 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False               | `3`                            |
 | `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False               | `50000000`                     |
 | `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False               | `100000000000`                 |
+| `PERFORMANCE_WEB_SERVER_API_PORT`                      | Port for the Performance Web HTTP API                                                                                                                                    | False               | `9020`                         |
+| `PERFORMANCE_WEB_SERVER_API_HOST`                      | Bind address for the Performance Web HTTP API                                                                                                                            | False               | `0.0.0.0`                      |
+| `PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT`         | Database connection timeout for Performance Web                                                                                                                          | False               | `30`                           |
+| `PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS`       | SQL statement timeout for Performance Web queries                                                                                                                        | False               | `10000`                        |
+| `PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE`               | Maximum epoch range accepted by the Performance Web API                                                                                                                  | False               | `225`                          |
+| `PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT`               | Request timeout for the Performance Web server                                                                                                                           | False               | `60`                           |
 | `PERFORMANCE_WEB_SERVER_WORKERS`                       | Number of worker processes for the Performance Web server                                                                                                                 | Staking Module only | `2`                            |
 | `PERFORMANCE_COLLECTOR_MAX_CONCURRENCY`                | Max count of dedicated workers for Performance Collector module                                                                                                          | False               | `2`                            |
+| `PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT`          | Database connection timeout for Performance Collector                                                                                                                    | False               | `30`                           |
+| `PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS`        | SQL statement timeout for Performance Collector writes                                                                                                                   | False               | `10000`                        |
+| `PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE`              | Number of epochs processed in one collector batch                                                                                                                        | False               | `100`                          |
+| `PERFORMANCE_DB_HOST`                                  | Host of the Postgres instance used by the performance stack                                                                                                              | False               | `localhost`                    |
+| `PERFORMANCE_DB_PORT`                                  | Port of the Postgres instance used by the performance stack                                                                                                              | False               | `5432`                         |
+| `PERFORMANCE_DB_NAME`                                  | Database name for the performance stack                                                                                                                                  | False               | `performance`                  |
+| `PERFORMANCE_DB_USER`                                  | Database user for the performance stack                                                                                                                                  | False               | `performance`                  |
+| `PERFORMANCE_DB_PASSWORD`                              | Database password for the performance stack                                                                                                                              | False               | `performance`                  |
+| `PERFORMANCE_DB_POOL_SIZE`                             | SQLAlchemy pool size for performance services                                                                                                                            | False               | `10`                           |
+| `PERFORMANCE_DB_MAX_OVERFLOW`                          | Extra DB connections allowed above the pool size                                                                                                                         | False               | `20`                           |
+| `PERFORMANCE_DB_POOL_RECYCLE_SECONDS`                  | Lifetime of pooled DB connections before recycle                                                                                                                         | False               | `3600`                         |
 | `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False               | `<api-key>`                    |
 | `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False               | `http://localhost:8080`        |
 | `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 100                                                                                                        | False               | `100`                          |
@@ -268,7 +319,12 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
 > STAKING_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> CS_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> CURATED_MODULE_ADDRESS=<mainnet curated module address>
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
+
+For direct `docker run`, use `STAKING_MODULE_ADDRESS`.
+For `docker compose`, `csm-oracle` reads `CS_MODULE_ADDRESS`, and `cm-oracle` reads `CURATED_MODULE_ADDRESS`.
 
 ### Delegation
 

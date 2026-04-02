@@ -26,7 +26,6 @@ from src.types import (
     NodeOperatorId,
     ReferenceBlockStamp,
     StakingModuleAddress,
-    StakingModuleId,
     ValidatorIndex,
 )
 from src.utils.slot import get_reference_blockstamp
@@ -134,9 +133,8 @@ class Distribution:
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:
         module_address = StakingModuleAddress(self.w3.staking_module.module.address)
         kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)
-        module_id = StakingModuleId(kapi['module']['id'])
 
-        no_validators = {}
+        no_validators: dict[NodeOperatorId, list[LidoValidator]] = {}
 
         # Make sure even empty NO will be presented in dict
         for operator in kapi['operators']:
@@ -144,8 +142,7 @@ class Distribution:
                 raise KAPIInconsistentData(
                     f"Invalid module address {operator['moduleAddress']} for module {module_address}"
                 )
-            global_id = (module_id, NodeOperatorId(int(operator['index'])))
-            no_validators[global_id] = []
+            no_validators[NodeOperatorId(int(operator['index']))] = []
 
         validators = self.w3.cc.get_validators(blockstamp)
         keys = {k.key: k for k in kapi['keys']}
@@ -155,8 +152,7 @@ class Distribution:
                 continue
             if lido_key.moduleAddress != module_address:
                 raise KAPIInconsistentData(f"Invalid key {lido_key.key} for module {module_address}")
-            global_id = (module_id, lido_key.operatorIndex)
-            no_validators[global_id].append(
+            no_validators[lido_key.operatorIndex].append(
                 LidoValidator(
                     lido_id=lido_key,
                     **asdict(validator),

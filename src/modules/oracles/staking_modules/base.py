@@ -90,19 +90,12 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         3. Calculate the share of each node operator excluding underperforming validators.
     """
 
-    COMPATIBLE_CONTRACT_VERSION: int = 0
-    COMPATIBLE_CONSENSUS_VERSION: int = 0
-
     report_contract: CSFeeOracleContract
     state: State
     consumer: HexAddress
     collector_telemetry: ThrottledTelemetry
 
     def __init__(self, w3: Web3StakingModule):
-        if self.COMPATIBLE_CONTRACT_VERSION == 0:
-            raise ValueError("CONTRACT_VERSION is not defined")
-        if self.COMPATIBLE_CONSENSUS_VERSION == 0:
-            raise ValueError("CONSENSUS_VERSION is not defined")
         self.report_contract = w3.staking_module.oracle
         self.consumer = self.report_contract.address
         self.state = State()

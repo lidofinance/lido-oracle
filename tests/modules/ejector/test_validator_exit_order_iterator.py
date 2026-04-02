@@ -7,7 +7,7 @@ from src.services.exit_order_iterator import NodeOperatorStats, ValidatorExitIte
 from src.types import Gwei, NodeOperatorId, StakingModuleId
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import ExtendedLidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory
 
 
 @pytest.fixture
@@ -72,9 +72,9 @@ def test_get_filter_non_exitable_validators(iterator):
     gid2 = (StakingModuleId(1), NodeOperatorId(2))
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid1: [1], gid2: [-1]})
     filt = iterator.get_can_request_exit_predicate(gid1)
-    assert not filt(ExtendedLidoValidatorFactory.build(index=1))
+    assert not filt(LidoValidatorFactory.build(index=1))
     filt = iterator.get_can_request_exit_predicate(gid2)
-    assert filt(ExtendedLidoValidatorFactory.build(index=1))
+    assert filt(LidoValidatorFactory.build(index=1))
 
 
 @pytest.mark.unit
@@ -88,7 +88,7 @@ def test_eject_validator(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                ExtendedLidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
                 for _ in range(3)
             ]
         }

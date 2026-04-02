@@ -120,24 +120,62 @@ class NodeOperator(Nested):
 class LidoValidator(Validator):
     lido_id: LidoKey
 
+    def __init__(
+        self,
+        pending_topups=None,
+        consolidation_as_source_initialized=False,
+        consolidating_as_source=None,
+        consolidating_as_target=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self._pending_topups = pending_topups
+        self._consolidating_as_source = consolidating_as_source
+        self.consolidation_as_source_initialized = consolidation_as_source_initialized
+        self._consolidating_as_target = consolidating_as_target
+
+    # ----- Extended relations for LidoValidator -----
+    # These attributes track additional validator state from the consensus layer:
+    # - pending_topups: List of pending deposits that will top up this validator's balance
+    # - consolidating_as_source: Consolidation request where this validator is the source (donating balance)
+    # - consolidating_as_target: List of consolidation requests where this validator is the target (receiving balance)
+    # All these attributes must be explicitly initialized before access via their respective property setters.
+
+    _pending_topups: list[PendingDeposit] | None = None
+    _consolidation_as_source_initialized: bool = False
+    _consolidating_as_source: ConsolidationRequest | None = None
+    _consolidating_as_target: list[ConsolidationRequest] | None = None
+
+    @property
+    def pending_topups(self) -> list[PendingDeposit]:
+        if self._pending_topups is None:
+            raise RuntimeError("pending_topups has not been initialized")
+        return self._pending_topups
+
+    @property
+    def consolidating_as_source(self) -> ConsolidationRequest:
+        if not self._consolidation_as_source_initialized:
+            raise RuntimeError("consolidating_as_source has not been initialized")
+        return self._consolidating_as_source
+
+    @property
+    def consolidating_as_target(self) -> list[ConsolidationRequest]:
+        if self._consolidating_as_target is None:
+            raise RuntimeError("consolidating_as_target has not been initialized")
+        return self._consolidating_as_target
+
 
 @dataclass
 class ConsolidationRequest(PendingConsolidation):
     amount: Gwei
 
 
-@dataclass
-class ExtendedLidoValidator(LidoValidator):
-    pending_topups: list[PendingDeposit]
-    consolidating_as_source: ConsolidationRequest | None
-    consolidating_as_target: list[ConsolidationRequest]
-
-
 class CountOfKeysDiffersException(Exception):
     pass
 
 
-type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[ExtendedLidoValidator]]
+type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
 
@@ -145,7 +183,7 @@ class LidoValidatorsProvider(Module):
     w3: Web3
 
     @lru_cache(maxsize=1)
-    def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[ExtendedLidoValidator]:
+    def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
 
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
@@ -168,10 +206,11 @@ class LidoValidatorsProvider(Module):
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
 
         return [
-            ExtendedLidoValidator(
+            LidoValidator(
                 **asdict(lido_validator),
                 pending_topups=deposits_by_pubkey.get(lido_validator.validator.pubkey, []),
                 consolidating_as_source=consolidation_by_source.get(lido_validator.index),
+                consolidating_as_source_initialized=True,
                 consolidating_as_target=consolidation_by_target.get(lido_validator.index, []),
             )
             for lido_validator in lido_validators

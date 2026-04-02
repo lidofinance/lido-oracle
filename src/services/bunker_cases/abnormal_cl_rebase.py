@@ -16,7 +16,7 @@ from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
-from src.web3py.extensions.lido_validators import ExtendedLidoValidator, LidoValidator, LidoValidatorsProvider
+from src.web3py.extensions.lido_validators import LidoValidator, LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
 
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class AbnormalClRebase:
     all_validators: list[Validator]
-    lido_validators: list[ExtendedLidoValidator]
+    lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
 
     def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
@@ -37,7 +37,7 @@ class AbnormalClRebase:
         self,
         blockstamp: ReferenceBlockStamp,
         all_validators: list[Validator],
-        lido_validators: list[ExtendedLidoValidator],
+        lido_validators: list[LidoValidator],
         current_report_cl_rebase: Gwei,
     ) -> bool:
         """
@@ -216,7 +216,7 @@ class AbnormalClRebase:
     def _get_lido_validators_balance_with_vault(
         self,
         blockstamp: BlockStamp,
-        lido_validators: Sequence[LidoValidator | ExtendedLidoValidator],
+        lido_validators: Sequence[LidoValidator],
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance
