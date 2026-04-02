@@ -132,6 +132,7 @@ class Distribution:
         )
 
     # TODO wrong typings
+    # TODO use `get_lido_validators_by_node_operators` func in lido_validators and filter results
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:
         module_address = StakingModuleAddress(self.w3.staking_module.module.address)
         kapi = self.w3.kac.get_used_module_operators_keys(module_address, blockstamp)

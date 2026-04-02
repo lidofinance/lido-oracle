@@ -172,6 +172,7 @@ class ValidatorExitIterator:
         )
         sm_type = sm_contract.get_type(self.blockstamp.block_hash)
 
+        # TODO
         if sm_type in []:
             self._setup_weights(staking_module_id, sm_contract, no_ids)
             self._setup_meta_connections(staking_module_id, sm_contract)
