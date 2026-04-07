@@ -1,17 +1,3 @@
-reproducible-build-oracle:
-	docker buildx rm oracle-buildkit || true
-	docker volume rm $(shell docker volume ls -q --filter name=buildx_buildkit_oracle-buildkit) || true
-	docker buildx create --name oracle-buildkit --use || true
-	docker buildx use oracle-buildkit
-	docker buildx build \
-		--platform linux/amd64 \
-		--build-arg SOURCE_DATE_EPOCH=0 \
-		--no-cache \
-		--output type=docker,name=oracle-reproducible-container:local,rewrite-timestamp=true \
-		-t oracle-reproducible-container:local \
-		.
-	docker image inspect oracle-reproducible-container:local --format 'Image hash: {{.Id}}'
-
 DEV_CONTAINER_NAME = oracle-dev-container
 DEV_IMAGE = lidofinance/oracle:dev
 DEV_WORKDIR = /app
@@ -90,3 +76,30 @@ install-pre-commit:
 	@echo 'fi' >> .git/hooks/pre-commit
 	@chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed successfully"
+
+generate-build-info:
+	@echo "Generating build-info.json..."
+	@VERSION=$$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/'); \
+	BRANCH=$$(git rev-parse --abbrev-ref HEAD); \
+	COMMIT=$$(git rev-parse --short HEAD); \
+	printf "{\n  \"version\": \"$$VERSION\",\n  \"branch\": \"$$BRANCH\",\n  \"commit\": \"$$COMMIT\"\n}" > build-info.json; \
+	echo "Generated build-info.json with version=$$VERSION, branch=$$BRANCH, commit=$$COMMIT"
+	@chmod 644 build-info.json
+	@echo "File contents:"
+	@cat build-info.json
+	@echo "File contents:"
+	@cat build-info.json
+
+reproducible-build-oracle: generate-build-info
+	docker buildx rm oracle-buildkit || true
+	docker volume rm $(shell docker volume ls -q --filter name=buildx_buildkit_oracle-buildkit) || true
+	docker buildx create --name oracle-buildkit --use || true
+	docker buildx use oracle-buildkit
+	docker buildx build \
+		--platform linux/amd64 \
+		--build-arg SOURCE_DATE_EPOCH=0 \
+		--no-cache \
+		--output type=docker,name=oracle-reproducible-container:local,rewrite-timestamp=true \
+		-t oracle-reproducible-container:local \
+		.
+	docker image inspect oracle-reproducible-container:local --format 'Image hash: {{.Id}}'
