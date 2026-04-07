@@ -87,8 +87,6 @@ generate-build-info:
 	@chmod 644 build-info.json
 	@echo "File contents:"
 	@cat build-info.json
-	@echo "File contents:"
-	@cat build-info.json
 
 reproducible-build-oracle: generate-build-info
 	docker buildx rm oracle-buildkit || true
