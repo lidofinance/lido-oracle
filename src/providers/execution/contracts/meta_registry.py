@@ -21,7 +21,7 @@ class SubNodeOperator:
 
 @dataclass
 class ExternalOperator:
-    data: bytes
+    data: bytes | bytearray | int | str
 
     def get_gid(self) -> NodeOperatorGlobalIndex:
         """

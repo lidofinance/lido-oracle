@@ -21,8 +21,9 @@ class CuratedStakingModuleContract(ContractInterface):
         block_identifier: BlockIdentifier,
     ) -> list[int]:
         response: list[int] = []
+        it = iter(operator_ids)
 
-        while node_operators_batch := list(islice(iter(operator_ids), EL_REQUESTS_BATCH_SIZE)):
+        while node_operators_batch := list(islice(it, EL_REQUESTS_BATCH_SIZE)):
             weights = self.functions.getOperatorsWeights(node_operators_batch).call(block_identifier=block_identifier)
             response.extend(weights)
 

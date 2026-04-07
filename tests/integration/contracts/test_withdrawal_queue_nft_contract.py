@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.oracles.accounting.types import BatchState, WithdrawalRequestStatus
-from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
+from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 
 @pytest.mark.mainnet
@@ -10,13 +10,13 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
     check_contract(
         withdrawal_queue_nft_contract,
         [
-            ('unfinalized_steth', None, check_is_instance_of(int)),
-            ('bunker_mode_since_timestamp', None, check_is_instance_of(int)),
-            ('get_last_finalized_request_id', None, check_is_instance_of(int)),
-            ('get_withdrawal_status', (1,), check_is_instance_of(WithdrawalRequestStatus)),
-            ('get_last_request_id', None, check_is_instance_of(int)),
-            ('is_paused', None, check_is_instance_of(bool)),
-            ('max_batches_length', None, check_is_instance_of(int)),
+            ('unfinalized_steth', None, make_checker(int)),
+            ('bunker_mode_since_timestamp', None, make_checker(int)),
+            ('get_last_finalized_request_id', None, make_checker(int)),
+            ('get_withdrawal_status', (1,), make_checker(WithdrawalRequestStatus)),
+            ('get_last_request_id', None, make_checker(int)),
+            ('is_paused', None, make_checker(bool)),
+            ('max_batches_length', None, make_checker(int)),
             (
                 'calculate_finalization_batches',
                 (
@@ -68,7 +68,7 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
                     ),
                     "latest",
                 ),
-                check_is_instance_of(BatchState),
+                make_checker(BatchState),
             ),
         ],
         caplog,

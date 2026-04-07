@@ -1,7 +1,7 @@
 import pytest
 
 from src.modules.oracles.accounting.types import OracleReportLimits
-from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
+from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 
 @pytest.mark.testnet
@@ -11,7 +11,7 @@ def test_oracle_report_sanity_checker(oracle_report_sanity_checker_contract, cap
     check_contract(
         oracle_report_sanity_checker_contract,
         [
-            ('get_oracle_report_limits', None, check_is_instance_of(OracleReportLimits)),
+            ('get_oracle_report_limits', None, make_checker(OracleReportLimits)),
         ],
         caplog,
     )

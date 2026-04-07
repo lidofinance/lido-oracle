@@ -1,6 +1,6 @@
 import pytest
 
-from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
+from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 
 @pytest.mark.mainnet
@@ -12,7 +12,7 @@ def test_burner(burner_contract, caplog):
             (
                 'get_shares_requested_to_burn',
                 None,
-                lambda r: check_is_instance_of(int)(r.cover_shares) and check_is_instance_of(int)(r.non_cover_shares),
+                lambda r: make_checker(int)(r.cover_shares) and make_checker(int)(r.non_cover_shares),
             ),
         ],
         caplog,
