@@ -2,7 +2,7 @@ import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
 from itertools import chain
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
@@ -16,6 +16,14 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
 from src.utils.validator_state import get_max_effective_balance
+
+
+class _Uninitialized:
+    def __repr__(self) -> str:
+        return "UNINITIALIZED"
+
+
+UNINITIALIZED: Final = _Uninitialized()
 
 
 logger = logging.getLogger(__name__)
@@ -122,8 +130,7 @@ class LidoValidator(Validator):
         self,
         lido_id: LidoKey,
         pending_topups: list[PendingDeposit] | None = None,
-        consolidating_as_source_initialized: bool = False,
-        consolidating_as_source: ConsolidationRequest | None = None,
+        consolidating_as_source: ConsolidationRequest | None | _Uninitialized = UNINITIALIZED,
         consolidating_as_target: list[ConsolidationRequest] | None = None,
         **kwargs,
     ):
@@ -133,7 +140,6 @@ class LidoValidator(Validator):
 
         self._pending_topups = pending_topups
         self._consolidating_as_source = consolidating_as_source
-        self._consolidation_as_source_initialized = consolidating_as_source_initialized
         self._consolidating_as_target = consolidating_as_target
 
     # ----- Extended relations for LidoValidator -----
@@ -151,7 +157,7 @@ class LidoValidator(Validator):
 
     @property
     def consolidating_as_source(self) -> ConsolidationRequest | None:
-        if not self._consolidation_as_source_initialized:
+        if isinstance(self._consolidating_as_source, _Uninitialized):
             raise RuntimeError("consolidating_as_source has not been initialized")
         return self._consolidating_as_source
 
@@ -206,7 +212,6 @@ class LidoValidatorsProvider(Module):
                 **asdict(lido_validator),
                 pending_topups=deposits_by_pubkey.get(lido_validator.validator.pubkey, []),
                 consolidating_as_source=consolidation_by_source.get(lido_validator.index),
-                consolidating_as_source_initialized=True,
                 consolidating_as_target=consolidation_by_target.get(lido_validator.index, []),
             )
             for lido_validator in lido_validators

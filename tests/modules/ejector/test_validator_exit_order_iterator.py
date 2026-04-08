@@ -111,12 +111,8 @@ def test_no_predicate(iterator):
     no1 = make_node_operator(1, sm1)
     no2 = make_node_operator(2, sm2)
 
-    ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(200 * 32 * 10**9))
     ms2 = StakingModuleStats(staking_module=sm2, predictable_balance=Gwei(200 * 32 * 10**9))
 
-    nos1 = NodeOperatorStats(
-        node_operator=no1, module_stats=ms1, predictable_validators=100, force_exit_to=50, soft_exit_to=25
-    )
     nos2 = NodeOperatorStats(
         node_operator=no2, module_stats=ms2, predictable_validators=2000, force_exit_to=50, soft_exit_to=25
     )

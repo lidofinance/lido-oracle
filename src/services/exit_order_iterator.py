@@ -5,11 +5,11 @@ from typing import cast
 from eth_typing import ChecksumAddress
 
 from src.constants import (
+    CURATED_V2_TYPE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     TOTAL_BASIS_POINTS,
-    CURATED_V2_TYPE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.common.types import ChainConfig

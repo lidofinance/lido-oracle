@@ -102,7 +102,6 @@ def lido_validators(web3):
                 )
             ),
             pending_topups=[],
-            consolidating_as_source_initialized=True,
             consolidating_as_source=consolidating_as_source,
             consolidating_as_target=[],
         )

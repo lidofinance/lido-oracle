@@ -16,7 +16,7 @@ from src.constants import (
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperator, StakingModule
+from src.web3py.extensions.lido_validators import UNINITIALIZED, LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
@@ -56,13 +56,14 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
     balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
 
     @classmethod
-    def build(cls, **kwargs: Any) -> "LidoValidator":
-        kwargs.setdefault("consolidating_as_source_initialized", True)
+    def build(cls, **kwargs: Any) -> LidoValidator:
+        kwargs.setdefault("consolidating_as_source", None)
         kwargs.setdefault("pending_topups", [])
         kwargs.setdefault("consolidating_as_target", [])
         obj = super().build(**kwargs)
         # polyfactory may discard unknown kwargs — ensure init flags are set
-        obj._consolidation_as_source_initialized = True
+        if obj._consolidating_as_source is UNINITIALIZED:
+            obj._consolidating_as_source = None
         if obj._pending_topups is None:
             obj._pending_topups = []
         if obj._consolidating_as_target is None:
