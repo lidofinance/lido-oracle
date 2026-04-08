@@ -70,7 +70,7 @@ class Ejector(OracleModule[Web3]):
     """
 
     COMPATIBLE_CONTRACT_VERSION = 3
-    COMPATIBLE_CONSENSUS_VERSION = 5
+    COMPATIBLE_CONSENSUS_VERSION = 4
 
     def __init__(self, w3: Web3):
         self.report_contract: ExitBusOracleContract = w3.lido_contracts.validators_exit_bus_oracle

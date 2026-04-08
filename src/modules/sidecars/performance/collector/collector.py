@@ -94,6 +94,7 @@ class PerformanceCollector(DaemonModule):
 
         epochs_range_to_process = self._define_epochs_to_process_range(finalized_epoch)
         if not epochs_range_to_process:
+            # TODO next epoch
             return ModuleExecuteDelay.NEXT_SLOT
         start_epoch, end_epoch = epochs_range_to_process
 
@@ -124,19 +125,23 @@ class PerformanceCollector(DaemonModule):
             # Reset base cycle timeout to avoid timeout errors during long checkpoints processing
             self._reset_cycle_timeout()
 
+            # Why do we need this
             if self._has_epochs_demand_changed():
                 logger.info({"msg": "Epochs demand change detected during processing"})
                 return ModuleExecuteDelay.NEXT_SLOT
 
         logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
 
+        # Next epoch?
         return ModuleExecuteDelay.NEXT_SLOT
 
     def _update_demand_metrics(self) -> None:
+        # TODO maybe pass as param count?
         PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT.set(self.db.demands_count())
 
     def _define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
         max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        # TODO recheck this sanity check. It works only for epoch 0 and 1
         if max_available_epoch_to_check < 0:
             logger.info({"msg": "No available epochs to process yet"})
             return None
@@ -144,9 +149,11 @@ class PerformanceCollector(DaemonModule):
         min_epoch_in_db = self.db.min_epoch()
         max_epoch_in_db = self.db.max_epoch()
 
+        # TODO why not max_epoch check?
         if min_epoch_in_db and min_epoch_in_db > max_available_epoch_to_check:
             raise ValueError("DB has data for a not‑yet‑finalised epoch. CL node is not synced.")
 
+        # TODO rename it to min_available epoch
         start_epoch = EpochNumber(min_epoch_in_db if min_epoch_in_db is not None else max_available_epoch_to_check)
         end_epoch = EpochNumber(max_available_epoch_to_check)
 
@@ -172,6 +179,7 @@ class PerformanceCollector(DaemonModule):
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
         if not missing_epochs:
+            # TODO weird sanity check
             if max_epoch_in_db is None:
                 raise ValueError("No missing epochs found but the DB is empty. Probably a logic error or corrupted DB.")
             start_epoch = EpochNumber(max_epoch_in_db + 1)

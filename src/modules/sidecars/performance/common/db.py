@@ -19,6 +19,7 @@ def get_datetime_utc() -> datetime:
 
 
 class Duty(SQLModel, table=True):
+    # TODO add doc string + field descriptions
     __tablename__: ClassVar[str] = "duties"
 
     epoch: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=False))
@@ -30,9 +31,11 @@ class Duty(SQLModel, table=True):
 
 
 class EpochsDemand(SQLModel, table=True):
+    # TODO add doc string + field descriptions
     __tablename__: ClassVar[str] = "epochs_demands"
 
     consumer: str = Field(primary_key=True)
+    # TODO no fields for this attrs, please define them
     from_epoch: int
     to_epoch: int
     updated_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
@@ -40,7 +43,8 @@ class EpochsDemand(SQLModel, table=True):
 
 class Settings(SQLModel, table=True):
     __tablename__: ClassVar[str] = "settings"
-
+    # TODO move id outside
+    # Set key as unique
     key: str = Field(primary_key=True)
     value: Any = Field(sa_column=Column(JSON, nullable=False))
 
@@ -213,6 +217,7 @@ class DutiesDB:
             session.commit()
 
     def is_range_available(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> bool:
+        # TODO Should be checked in webserver
         if from_epoch > to_epoch:
             raise ValueError("Invalid epoch range")
 
@@ -222,11 +227,13 @@ class DutiesDB:
             return count == (to_epoch - from_epoch + 1)
 
     def missing_epochs_in(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[EpochNumber]:
+        # TODO Should be checked in webserver
         if from_epoch > to_epoch:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
             present = session.exec(
+                # TODO why distinct
                 select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch).distinct()
             ).all()
 
