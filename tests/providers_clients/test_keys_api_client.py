@@ -207,7 +207,7 @@ class TestUnitKeysAPIClient:
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
             json={
-                'data': [{'key': '', 'used': True, 'operatorIndex': 0, 'moduleAddress': '', 'depositSignature': ''}],
+                'data': [{'index': 0, 'key': '', 'used': True, 'operatorIndex': 0, 'moduleAddress': '', 'depositSignature': ''}],
                 'meta': {'elBlockSnapshot': {'blockNumber': 0}},
             },
         )
@@ -284,7 +284,7 @@ class TestUnitKeysAPIClient:
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
             json={
-                'data': [{'key': '', 'used': False, 'operatorIndex': 0, 'moduleAddress': '', 'depositSignature': ''}],
+                'data': [{'index': 0, 'key': '', 'used': False, 'operatorIndex': 0, 'moduleAddress': '', 'depositSignature': ''}],
                 'meta': {'elBlockSnapshot': {'blockNumber': 0}},
             },
         )
@@ -303,6 +303,7 @@ class TestUnitKeysAPIClient:
             json={
                 'data': [
                     {
+                        'index': 0,
                         'key': '',
                         'used': True,
                         'operatorIndex': 0,
@@ -347,6 +348,7 @@ class TestUnitKeysAPIClient:
                 'data': {
                     'keys': [
                         {
+                            'index': 0,
                             'key': '',
                             'used': True,
                             'operatorIndex': 0,
@@ -401,6 +403,7 @@ class TestUnitKeysAPIClient:
                 'data': {
                     'keys': [
                         {
+                            'index': 0,
                             'key': '',
                             'used': False,
                             'operatorIndex': 0,
@@ -430,6 +433,7 @@ class TestUnitKeysAPIClient:
                 'data': {
                     'keys': [
                         {
+                            'index': 0,
                             'key': '',
                             'used': True,
                             'operatorIndex': 0,
