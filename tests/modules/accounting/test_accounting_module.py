@@ -736,19 +736,22 @@ def test_get_newly_exited_validators_by_modules_multi_operators(accounting: Acco
 
 @pytest.mark.unit
 def test_get_balances_by_modules(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    sm1 = Mock(staking_module_address='addr1', id=StakingModuleId(1))
+    sm2 = Mock(staking_module_address='addr2', id=StakingModuleId(2))
+    accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
+        return_value={'addr1': sm1, 'addr2': sm2}
+    )
     balances_by_no = {
-        (StakingModuleId(1), NodeOperatorId(0)): [Mock(balance=100, pending_topups=[Mock(amount=50)])],
-        (StakingModuleId(1), NodeOperatorId(1)): [Mock(balance=200, pending_topups=[Mock(amount=30)])],
-        (StakingModuleId(2), NodeOperatorId(0)): [Mock(balance=300, pending_topups=[Mock(amount=70)])],
+        (StakingModuleId(1), NodeOperatorId(0)): [Mock(balance=100)],
+        (StakingModuleId(1), NodeOperatorId(1)): [Mock(balance=200)],
+        (StakingModuleId(2), NodeOperatorId(0)): [Mock(balance=300)],
     }
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value=balances_by_no)
-    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
 
-    sm_ids, active_balances, pending_balances = accounting._get_balances_by_modules(ref_bs)
+    sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
     assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
-    assert active_balances == [Gwei(300), Gwei(300)]
-    assert pending_balances == [Gwei(80), Gwei(70)]
+    assert balances == [Gwei(300), Gwei(300)]
 
 
 # ---- get_node_operator_balances ----
@@ -760,35 +763,23 @@ def test_get_node_operator_balances(accounting: Accounting, ref_bs: ReferenceBlo
     module_id = StakingModuleId(1)
     operator_index = 0
     gid = (module_id, operator_index)
-    pubkey = '0xdeadbeef'
 
     validator = Mock()
-    validator.lido_id.module_address = module_address
-    validator.lido_id.operator_index = operator_index
-    validator.validator.pubkey = pubkey
     validator.balance = 100
-    validator.pending_topups = [Mock(amount=1_000_000_000)]
 
     module = Mock()
     module.staking_module_address = module_address
     module.id = module_id
 
-    lido_key = Mock()
-    lido_key.moduleAddress = module_address
-    lido_key.operatorIndex = operator_index
-    new_deposit = Mock(amount=32_000_000_000)
-
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={gid: [validator]})
     accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
         return_value={module_address: module}
     )
-    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={'key1': (lido_key, [new_deposit])})
 
-    sm_ids, active_balances, pending_balances = accounting._get_balances_by_modules(ref_bs)
+    sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
     assert sm_ids == [module_id]
-    assert active_balances == [Gwei(100)]
-    assert pending_balances == [Gwei(1_000_000_000 + 32_000_000_000)]
+    assert balances == [Gwei(100)]
 
 
 # ---- get_extra_data ----
@@ -907,7 +898,7 @@ def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     accounting._get_cl_validators_balance = Mock(return_value=Gwei(1000))
     accounting._get_cl_pending_validators_balance = Mock(return_value=Gwei(500))
     accounting._get_newly_exited_validators_by_modules = Mock(return_value=([StakingModuleId(1)], [5]))
-    accounting._get_balances_by_modules = Mock(return_value=([StakingModuleId(1)], [Gwei(1000)], [Gwei(500)]))
+    accounting._get_balances_by_modules = Mock(return_value=([StakingModuleId(1)], [Gwei(1000)]))
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(100))
     accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(200))
     accounting.get_shares_to_burn = Mock(return_value=Shares(10))
