@@ -133,7 +133,7 @@ class ValidatorExitIterator:
 
     def _prepare_node_operator_stats(self):
         sm_node_operators = self.w3.lido_validators.get_lido_node_operators_by_modules(self.blockstamp)
-        for sm_id, node_operators in sm_node_operators.items():
+        for _, node_operators in sm_node_operators.items():
             for node_operator in node_operators:
                 self.node_operators_stats[(node_operator.staking_module.id, node_operator.id)] = NodeOperatorStats(
                     node_operator=node_operator,
@@ -446,8 +446,8 @@ class ValidatorExitIterator:
     def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         """
         Returns a list of validators from NOs that are requested for forced exit.
-        This includes an additional scenario where enough validators have been ejected to fulfill the withdrawal requests,
-        but forced ejections are still necessary.
+        This includes an additional scenario where enough validators have been ejected
+        to fulfill the withdrawal requests, but forced ejections are still necessary.
         """
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 

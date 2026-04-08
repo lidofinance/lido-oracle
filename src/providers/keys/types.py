@@ -24,6 +24,7 @@ class LidoKey(FromResponse):
         lido_key.key = HexStr(lido_key.key.lower())  # pylint: disable=no-member
         return lido_key
 
+
 @dataclass
 class KeysApiStatus(FromResponse):
     app_version: str

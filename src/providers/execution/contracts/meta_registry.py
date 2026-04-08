@@ -7,7 +7,8 @@ from src.providers.execution.base_interface import ContractInterface
 from src.types import NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import Nested, FromResponse
+from src.utils.dataclass import FromResponse, Nested
+
 
 logger = logging.getLogger(__name__)
 
