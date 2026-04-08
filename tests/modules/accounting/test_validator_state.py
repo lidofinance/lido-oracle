@@ -80,10 +80,10 @@ def lido_validators(web3):
         return LidoValidator(
             lido_id=LidoKey(
                 key=pubkey,
-                depositSignature="",
-                operatorIndex=NodeOperatorId(-1),
+                deposit_signature="",
+                operator_index=NodeOperatorId(-1),
                 used=True,
-                moduleAddress="",
+                module_address="",
             ),
             **asdict(
                 Validator(

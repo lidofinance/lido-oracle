@@ -763,8 +763,8 @@ def test_get_node_operator_balances(accounting: Accounting, ref_bs: ReferenceBlo
     pubkey = '0xdeadbeef'
 
     validator = Mock()
-    validator.lido_id.moduleAddress = module_address
-    validator.lido_id.operatorIndex = operator_index
+    validator.lido_id.module_address = module_address
+    validator.lido_id.operator_index = operator_index
     validator.validator.pubkey = pubkey
     validator.balance = 100
     validator.pending_topups = [Mock(amount=1_000_000_000)]

@@ -41,10 +41,10 @@ class TestIntegrationKeysAPIClient:
         return self._is_valid_hex_format(value, self.BLS_SIGNATURE_PATTERN, self.BLS_SIGNATURE_SIZE)
 
     def _assert_lido_key(self, lido_key: LidoKey):
-        assert lido_key.operatorIndex >= 0
-        assert Web3.is_address(lido_key.moduleAddress)
+        assert lido_key.operator_index >= 0
+        assert Web3.is_address(lido_key.module_address)
         assert self._is_valid_bls_public_key(lido_key.key)
-        assert self._is_valid_bls_signature(lido_key.depositSignature)
+        assert self._is_valid_bls_signature(lido_key.deposit_signature)
 
     @pytest.fixture
     def keys_api_client(self):
@@ -105,8 +105,8 @@ class TestIntegrationKeysAPIClient:
     ):
         status = keys_api_client.get_status()
 
-        assert Version(status.appVersion) >= constants.ALLOWED_KAPI_VERSION
-        assert status.chainId == 1
+        assert Version(status.app_version) >= constants.ALLOWED_KAPI_VERSION
+        assert status.chain_id == 1
 
     def test_check_providers_consistency__mainnet(self, keys_api_client):
         chain_id = keys_api_client.check_providers_consistency()

@@ -4,12 +4,13 @@ from src.types import ValidatorIndex
 from src.utils.types import hex_str_to_bytes
 from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 
-
-DATA_FORMAT_LIST = 1
+# DATA_FORMAT_LIST = 1 - deprecated
+DATA_FORMAT_LIST_WITH_KEY_INDEX = 2
 
 MODULE_ID_LENGTH = 3
 NODE_OPERATOR_ID_LENGTH = 5
 VALIDATOR_INDEX_LENGTH = 8
+KEY_INDEX_LENGTH = 8
 VALIDATOR_PUB_KEY_LENGTH = 48
 
 
@@ -17,9 +18,10 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
     """
     Encodes report data for Exit Bus Contract into bytes.
 
-    MSB <------------------------------------------------------- LSB
-    |  3 bytes   |  5 bytes   |     8 bytes      |    48 bytes     |
-    |  moduleId  |  nodeOpId  |  validatorIndex  | validatorPubkey |
+
+    MSB <-------------------------------------------------------------------- LSB
+    |  3 bytes   |  5 bytes   |     8 bytes      |   8 bytes  |    48 bytes     |
+    |  moduleId  |  nodeOpId  |  validatorIndex  |  keyIndex  | validatorPubkey |
     """
     validators = sort_validators_to_eject(validators_to_eject)
 
@@ -29,6 +31,7 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
         result += module_id.to_bytes(MODULE_ID_LENGTH)
         result += op_id.to_bytes(NODE_OPERATOR_ID_LENGTH)
         result += validator.index.to_bytes(VALIDATOR_INDEX_LENGTH)
+        result += validator.lido_id.index.to_bytes(VALIDATOR_INDEX_LENGTH)
 
         pubkey_bytes = hex_str_to_bytes(HexStr(validator.validator.pubkey))
 
@@ -37,7 +40,7 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
 
         result += pubkey_bytes
 
-    return result, DATA_FORMAT_LIST
+    return result, DATA_FORMAT_LIST_WITH_KEY_INDEX
 
 
 def sort_validators_to_eject(

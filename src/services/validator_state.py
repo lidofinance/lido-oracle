@@ -72,15 +72,14 @@ class LidoValidatorStateService:
 
             def is_validator_recently_requested_but_not_exiting(
                 validator: LidoValidator,
-                global_index: NodeOperatorGlobalIndex = global_index,
+                gid: NodeOperatorGlobalIndex = global_index,
             ) -> bool:
                 # Validator is not exiting on CL and there is recent exit request event
                 return (
                     not is_on_exit(validator)
-                    and validator.index in recent_exit_requests[global_index]
-                    and
+                    and validator.index in recent_exit_requests[gid]
                     # In the case of consolidation validator is not exitable
-                    not validator.consolidating_as_source
+                    and validator.consolidating_as_source is not None
                 )
 
             validators_recently_requested_to_exit.extend(

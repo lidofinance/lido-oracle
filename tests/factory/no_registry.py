@@ -55,6 +55,8 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
     index: int = Use(lambda x: next(x), count(1))
     balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
 
+    _consolidation_as_source_initialized: bool = True
+
     @classmethod
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):
         return cls.build(

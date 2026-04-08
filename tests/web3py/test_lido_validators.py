@@ -189,7 +189,7 @@ def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
         return_value=[
             NodeOperatorFactory.build(
                 staking_module=StakingModuleFactory.build(
-                    staking_module_address=validator.lido_id.moduleAddress,
+                    staking_module_address=validator.lido_id.module_address,
                 ),
             ),
         ]

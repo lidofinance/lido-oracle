@@ -280,7 +280,7 @@ class Accounting(OracleModule[Web3]):
 
     def _get_balances_by_modules(self, blockstamp: ReferenceBlockStamp) -> tuple[list[StakingModuleId], list[Gwei]]:
         """
-        Calculate active and pending balances by modules.
+        Calculate active balances by modules.
         Balances are aggregated for all modules returned by `_get_no_active_balance`.
         """
         sm_by_address = self.w3.lido_contracts.staking_router.get_staking_modules_by_address(blockstamp.block_hash)

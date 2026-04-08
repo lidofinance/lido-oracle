@@ -13,7 +13,7 @@ from src.types import (
     Timestamp,
     ValidatorIndex,
 )
-from src.utils.abi import named_tuple_to_dataclass
+from src.utils.abi import named_tuple_to_dataclass, camel_to_snake
 
 
 class DecodeToDataclassException(Exception):
@@ -33,12 +33,24 @@ class Nested:
                 field_type = field.type.__args__[0]
                 if is_dataclass(field_type):
                     factory = self.__get_dataclass_factory(field_type)
+
+                    def transform(x):
+                        if is_dataclass(x):
+                            return x
+
+                        # Check if x is a namedtuple
+                        if hasattr(x, "_asdict") and hasattr(x, "_fields"):
+                            return named_tuple_to_dataclass(x, factory)
+
+                        return factory(**x)
+
                     setattr(
                         self,
                         field.name,
                         field.type.__origin__(
                             map(  # type: ignore[misc]
-                                lambda x: factory(**x) if not is_dataclass(x) else x, getattr(self, field.name)
+                                transform,
+                                getattr(self, field.name),
                             )
                         ),
                     )

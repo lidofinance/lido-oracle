@@ -344,8 +344,8 @@ class LidoValidatorsProvider(Module):
 
         for validator in merged_validators:
             global_no_id = (
-                staking_module_address[validator.lido_id.moduleAddress],
-                validator.lido_id.operatorIndex,
+                staking_module_address[validator.lido_id.module_address],
+                validator.lido_id.operator_index,
             )
 
             if global_no_id in no_validators:
