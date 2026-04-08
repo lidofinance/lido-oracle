@@ -44,7 +44,6 @@ def lido_validators(web3):
         min_deposit_block_distance=0,
         withdrawal_credentials_type=0,
         validators_balance_gwei=Gwei(0),
-        pending_balance_gwei=Gwei(0),
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
@@ -76,9 +75,10 @@ def lido_validators(web3):
         ]
     )
 
-    def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
+    def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0, consolidating_as_source=None):
         return LidoValidator(
             lido_id=LidoKey(
+                index=index,
                 key=pubkey,
                 deposit_signature="",
                 operator_index=NodeOperatorId(-1),
@@ -102,14 +102,15 @@ def lido_validators(web3):
                 )
             ),
             pending_topups=[],
-            consolidating_as_source=None,
+            consolidating_as_source_initialized=True,
+            consolidating_as_source=consolidating_as_source,
             consolidating_as_target=[],
         )
 
     web3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             (StakingModuleId(1), NodeOperatorId(0)): [
-                validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1'),  # Stuck
+                validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1', consolidating_as_source=Mock()),  # Stuck
                 validator(index=2, exit_epoch=30, pubkey='0x2'),
                 validator(index=3, exit_epoch=50, pubkey='0x3'),
                 validator(index=4, exit_epoch=TESTING_REF_EPOCH, pubkey='0x4'),
