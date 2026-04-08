@@ -32,7 +32,7 @@ def encode_data(validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoVal
         result += module_id.to_bytes(MODULE_ID_LENGTH)
         result += op_id.to_bytes(NODE_OPERATOR_ID_LENGTH)
         result += validator.index.to_bytes(VALIDATOR_INDEX_LENGTH)
-        result += validator.lido_id.index.to_bytes(VALIDATOR_INDEX_LENGTH)
+        result += validator.lido_id.index.to_bytes(KEY_INDEX_LENGTH)
 
         pubkey_bytes = hex_str_to_bytes(HexStr(validator.validator.pubkey))
 

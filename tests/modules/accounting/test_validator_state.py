@@ -110,7 +110,7 @@ def lido_validators(web3):
     web3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             (StakingModuleId(1), NodeOperatorId(0)): [
-                validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1', consolidating_as_source=Mock()),  # Stuck
+                validator(index=1, exit_epoch=FAR_FUTURE_EPOCH, pubkey='0x1'),  # Stuck
                 validator(index=2, exit_epoch=30, pubkey='0x2'),
                 validator(index=3, exit_epoch=50, pubkey='0x3'),
                 validator(index=4, exit_epoch=TESTING_REF_EPOCH, pubkey='0x4'),

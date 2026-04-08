@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterable
 import pytest
 
 from src.modules.oracles.ejector.data_encode import (
+    KEY_INDEX_LENGTH,
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,
     VALIDATOR_INDEX_LENGTH,
@@ -22,6 +23,7 @@ RECORD_LENGTH = sum(
         MODULE_ID_LENGTH,
         NODE_OPERATOR_ID_LENGTH,
         VALIDATOR_INDEX_LENGTH,
+        KEY_INDEX_LENGTH,
         VALIDATOR_PUB_KEY_LENGTH,
     ]
 )
@@ -79,6 +81,7 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
                 MODULE_ID_LENGTH,
                 NODE_OPERATOR_ID_LENGTH,
                 VALIDATOR_INDEX_LENGTH,
+                KEY_INDEX_LENGTH,
                 VALIDATOR_PUB_KEY_LENGTH,
             )
         )
@@ -86,7 +89,8 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
         assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
         assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
         assert int.from_bytes(chunks[2]) == _val.index, "Validator's index mismatch"
-        assert chunks[3] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
+        assert int.from_bytes(chunks[3]) == _val.lido_id.index, "Key index mismatch"
+        assert chunks[4] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
 
 
 @pytest.mark.unit

@@ -45,6 +45,7 @@ def build_extended_validator(**kwargs) -> LidoValidator:
         pending_topups=[],
         consolidating_as_source=None,
         consolidating_as_target=[],
+        consolidating_as_source_initialized=True,
     )
 
 
@@ -58,6 +59,7 @@ def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTI
         pending_topups=[],
         consolidating_as_source=None,
         consolidating_as_target=[],
+        consolidating_as_source_initialized=True,
     )
 
 
@@ -151,6 +153,9 @@ class SimpleIterator:
 
     def __next__(self):
         return next(self.iter)
+
+    def get_remaining_forced_validators(self):
+        return []
 
 
 class TestGetValidatorsToEject:

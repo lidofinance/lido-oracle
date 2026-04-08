@@ -55,7 +55,19 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
     index: int = Use(lambda x: next(x), count(1))
     balance: Gwei = Use(lambda x: Gwei(x), random.randrange(1, 10**9))
 
-    _consolidation_as_source_initialized: bool = True
+    @classmethod
+    def build(cls, **kwargs: Any) -> "LidoValidator":
+        kwargs.setdefault("consolidating_as_source_initialized", True)
+        kwargs.setdefault("pending_topups", [])
+        kwargs.setdefault("consolidating_as_target", [])
+        obj = super().build(**kwargs)
+        # polyfactory may discard unknown kwargs — ensure init flags are set
+        obj._consolidation_as_source_initialized = True
+        if obj._pending_topups is None:
+            obj._pending_topups = []
+        if obj._consolidating_as_target is None:
+            obj._consolidating_as_target = []
+        return obj
 
     @classmethod
     def build_with_activation_epoch_bound(cls, max_value: int, **kwargs: Any):

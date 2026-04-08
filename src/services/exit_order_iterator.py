@@ -9,7 +9,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     TOTAL_BASIS_POINTS,
-    СURATED_V2_TYPE,
+    CURATED_V2_TYPE,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.common.types import ChainConfig
@@ -228,7 +228,7 @@ class ValidatorExitIterator:
         )
         sm_type = sm_contract.get_type(self.blockstamp.block_hash)
 
-        if sm_type == СURATED_V2_TYPE:
+        if sm_type == CURATED_V2_TYPE:
             self._setup_weights(staking_module_id, sm_contract, no_ids)
             self._setup_meta_connections(staking_module_id, sm_contract)
 
@@ -451,26 +451,26 @@ class ValidatorExitIterator:
         """
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
-        for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
-            if self._no_force_predicate(no_stats) == 0:
-                # The current and all further NOs in the list have no forced validators to exit. Cycle done
-                return result
-
-            gid = (
-                no_stats.node_operator.staking_module.id,
-                no_stats.node_operator.id,
-            )
-
-            if self.exitable_validators[gid]:
-                v = self._eject_validator(gid)
-                self.max_current_exit_balance += get_max_effective_balance(v.validator)
-
-                if self.max_current_exit_balance > self.exit_limit_in_gwei:
+        while True:
+            for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
+                if self._no_force_predicate(no_stats) == 0:
+                    # The current and all further NOs in the list have no forced validators to exit. Cycle done
                     return result
 
-                result.append((gid, v))
-                break
+                gid = (
+                    no_stats.node_operator.staking_module.id,
+                    no_stats.node_operator.id,
+                )
 
+                if self.exitable_validators[gid]:
+                    v = self._eject_validator(gid)
+                    self.max_current_exit_balance += get_max_effective_balance(v.validator)
+
+                    if self.max_current_exit_balance > self.exit_limit_in_gwei:
+                        return result
+
+                    result.append((gid, v))
+                    break
             else:
                 break
 

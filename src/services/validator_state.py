@@ -79,7 +79,7 @@ class LidoValidatorStateService:
                     not is_on_exit(validator)
                     and validator.index in recent_exit_requests[gid]
                     # In the case of consolidation validator is not exitable
-                    and validator.consolidating_as_source is not None
+                    and validator.consolidating_as_source is None
                 )
 
             validators_recently_requested_to_exit.extend(
