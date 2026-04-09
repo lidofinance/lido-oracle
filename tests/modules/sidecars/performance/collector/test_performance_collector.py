@@ -228,9 +228,9 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = None
         mock_db.max_epoch.return_value = None
         mock_db.get_epochs_demands.return_value = []
-        mock_db.missing_epochs_in.return_value = [98]
+        mock_db.missing_epochs_in.return_value = [EpochNumber(98)]
 
-        assert performance_collector._define_epochs_to_process_range(finalized_epoch) == (98, 98)
+        assert performance_collector._define_epochs_to_process_range(finalized_epoch) == (EpochNumber(98), EpochNumber(98))
 
     @pytest.mark.unit
     def test_start_epoch_exceeds_max_available(self, performance_collector: PerformanceCollector, mock_db: Mock):
@@ -313,7 +313,7 @@ class TestExecuteModule:
         performance_collector._reset_cycle_timeout = Mock()
 
     @pytest.mark.unit
-    def test_returns_next_slot_when_no_epochs_to_process(
+    def test_returns_next_finalized_epoch_when_no_epochs_to_process(
         self, performance_collector: PerformanceCollector, converter: Mock
     ):
         converter.get_epoch_by_slot.return_value = 10
