@@ -228,11 +228,9 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = None
         mock_db.max_epoch.return_value = None
         mock_db.get_epochs_demands.return_value = []
-        mock_db.missing_epochs_in.return_value = []
+        mock_db.missing_epochs_in.return_value = [98]
 
-        # This should raise ValueError as per the logic
-        with pytest.raises(ValueError, match="No missing epochs found but the DB is empty"):
-            performance_collector._define_epochs_to_process_range(finalized_epoch)
+        assert performance_collector._define_epochs_to_process_range(finalized_epoch) == (98, 98)
 
     @pytest.mark.unit
     def test_start_epoch_exceeds_max_available(self, performance_collector: PerformanceCollector, mock_db: Mock):
@@ -323,7 +321,7 @@ class TestExecuteModule:
 
         result = performance_collector.execute_module(Mock())
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         cast(Mock, performance_collector._update_demand_metrics).assert_called_once_with()
         cast(Mock, performance_collector._define_epochs_to_process_range).assert_called_once_with(EpochNumber(9))
 
@@ -346,7 +344,7 @@ class TestExecuteModule:
         ):
             result = performance_collector.execute_module(blockstamp)
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         iterator_mock.assert_called_once_with(converter, start_epoch, end_epoch, EpochNumber(99))
         processor_mock.assert_called_once_with(
             performance_collector.cc,
@@ -359,7 +357,7 @@ class TestExecuteModule:
         assert cast(Mock, performance_collector._has_epochs_demand_changed).call_count == len(checkpoints)
 
     @pytest.mark.unit
-    def test_empty_checkpoints_returns_next_slot(self, performance_collector: PerformanceCollector):
+    def test_empty_checkpoints_returns_next_finalized_epoch(self, performance_collector: PerformanceCollector):
         """Test when FrameCheckpointsIterator yields no checkpoints"""
         performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
         performance_collector._has_epochs_demand_changed = Mock()
@@ -372,7 +370,7 @@ class TestExecuteModule:
         ):
             result = performance_collector.execute_module(Mock())
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         processor.exec.assert_not_called()
         cast(Mock, performance_collector._reset_cycle_timeout).assert_not_called()
         cast(Mock, performance_collector._has_epochs_demand_changed).assert_not_called()

@@ -3,6 +3,7 @@ import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
+from typing import cast
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -94,7 +95,7 @@ class PerformanceCollector(DaemonModule):
 
         epochs_range_to_process = self._define_epochs_to_process_range(finalized_epoch)
         if not epochs_range_to_process:
-            return ModuleExecuteDelay.NEXT_SLOT
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         start_epoch, end_epoch = epochs_range_to_process
 
         checkpoints = FrameCheckpointsIterator(
@@ -130,13 +131,15 @@ class PerformanceCollector(DaemonModule):
 
         logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
 
-        return ModuleExecuteDelay.NEXT_SLOT
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def _update_demand_metrics(self) -> None:
         PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT.set(self.db.demands_count())
 
     def _define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
-        max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        max_available_epoch_to_check = EpochNumber(
+            finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        )
         if max_available_epoch_to_check < 0:
             logger.info({"msg": "No available epochs to process yet"})
             return None
@@ -172,8 +175,7 @@ class PerformanceCollector(DaemonModule):
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
         if not missing_epochs:
-            if max_epoch_in_db is None:
-                raise ValueError("No missing epochs found but the DB is empty. Probably a logic error or corrupted DB.")
+            max_epoch_in_db = cast(EpochNumber, max_epoch_in_db)  # Can't be None here
             start_epoch = EpochNumber(max_epoch_in_db + 1)
         else:
             start_epoch = min(missing_epochs)
