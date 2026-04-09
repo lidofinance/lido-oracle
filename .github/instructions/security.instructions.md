@@ -1,3 +1,7 @@
+---
+applyTo: "{src/**/*.py,.github/workflows/**/*.yml,Dockerfile,docker-compose.yml,.env.example,README.md}"
+---
+
 # Security Review Instructions
 
 Focus on crypto, smart contract, and private key security patterns.
@@ -8,7 +12,7 @@ Focus on crypto, smart contract, and private key security patterns.
 - Check signature operations maintain cryptographic security standards
 
 ## Smart Contract Interactions
-- **REQUIRE**: Role checks (`has_role()`) before state-changing operations
+- **REQUIRE**: For state-changing operations, verify the code preserves existing membership/role/reportability checks before sending a transaction
 - Check transaction parameters use proper gas estimation (prevent DoS)
 - Ensure contract addresses are checksummed and validated against known deployments
 
@@ -19,6 +23,7 @@ Focus on crypto, smart contract, and private key security patterns.
 
 ## Web3 & API Security
 - Check HTTP timeouts prevent DoS (not too short/long)
-- Verify retry logic uses exponential backoff
+- Verify retry logic is bounded and does not create unsafe duplicate submissions or infinite retry loops
 - Ensure TLS verification enabled for external APIs
 - Validate input beyond type hints (addresses, CIDs, numeric bounds)
+- Flag workflow or Docker changes that might leak secrets into logs, images, cache layers, or generated files
