@@ -83,7 +83,8 @@ class TestTelemetryDataBus:
 
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
-    def test_send_telemetry__no_account__skips_send(self, mock_create_web3, mock_validate, web3, caplog):
+    def test_send_telemetry__no_account__skips_send(self, mock_create_web3, mock_validate, web3, caplog, monkeypatch):
+        monkeypatch.setattr(variables, 'ACCOUNT', None)
         mock_data_bus_w3 = Mock()
         mock_create_web3.return_value = mock_data_bus_w3
         mock_data_bus_w3.eth.contract.return_value = Mock()

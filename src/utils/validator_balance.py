@@ -1,9 +1,9 @@
 from src.types import Gwei
 from src.utils.validator_state import get_max_effective_balance
-from src.web3py.extensions.lido_validators import ExtendedLidoValidator
+from src.web3py.extensions.lido_validators import LidoValidator
 
 
-def get_predictable_full_balance(validator: ExtendedLidoValidator) -> Gwei:
+def get_predictable_full_balance(validator: LidoValidator) -> Gwei:
     """
     Calculates the total balance of a validator including pending deposits and consolidations.
     """
@@ -18,7 +18,7 @@ def get_predictable_full_balance(validator: ExtendedLidoValidator) -> Gwei:
     return total_balance
 
 
-def get_predictable_balance(validator: ExtendedLidoValidator) -> Gwei:
+def get_predictable_balance(validator: LidoValidator) -> Gwei:
     """
     Computes the effective validator balance, accounting for pending sweeps of any excess balance above the effective
     balance.
@@ -28,7 +28,7 @@ def get_predictable_balance(validator: ExtendedLidoValidator) -> Gwei:
     return min(predictable_full_balance, max_effective_balance)
 
 
-def get_predictable_sweep(validator: ExtendedLidoValidator) -> Gwei:
+def get_predictable_sweep(validator: LidoValidator) -> Gwei:
     """
     Computes the expected sweep payout for a validator, based on the excess balance above the effective balance.
     """

@@ -1050,8 +1050,8 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
     validator = ValidatorFactory.build(validator=ValidatorStateFactory.build())
     key = LidoKeyFactory.build(
         key=validator.validator.pubkey,
-        operatorIndex=NodeOperatorId(1),
-        moduleAddress=wrong_module_address,
+        operator_index=NodeOperatorId(1),
+        module_address=wrong_module_address,
     )
 
     w3 = Mock(

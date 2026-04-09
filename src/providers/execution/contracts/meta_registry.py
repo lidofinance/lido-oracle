@@ -7,7 +7,7 @@ from src.providers.execution.base_interface import ContractInterface
 from src.types import NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import Nested
+from src.utils.dataclass import FromResponse, Nested
 
 
 logger = logging.getLogger(__name__)
@@ -30,37 +30,22 @@ class ExternalOperator:
         - Byte 1: staking module id
         - Bytes 2-7: node operator id (6 bytes)
         """
-        data = self.data
-
-        # Convert to bytes if needed
-        if isinstance(data, int):
-            data_bytes = data.to_bytes(8, byteorder='big')
-        elif isinstance(data, (bytes, bytearray)):
-            data_bytes = bytes(data)
-        elif isinstance(data, str):
-            # Handle hex string
-            if data.startswith('0x'):
-                data = data[2:]
-            data_bytes = bytes.fromhex(data)
-        else:
-            data_bytes = bytes(data)
-
         # Ensure we have exactly 8 bytes
-        if len(data_bytes) != 8:
-            raise ValueError(f"Expected 8 bytes, got {len(data_bytes)}")
+        if len(self.data) != 8:
+            raise ValueError(f"Expected 8 bytes, got {len(self.data)}")
 
         # Parse the components
         # type_byte = data_bytes[0]  # Not used in return value
-        staking_module_id = StakingModuleId(data_bytes[1])
+        staking_module_id = StakingModuleId(self.data[1])
 
         # Node operator id is 6 bytes (bytes 2-7)
-        node_operator_id = NodeOperatorId(int.from_bytes(data_bytes[2:8], byteorder='big'))
+        node_operator_id = NodeOperatorId(int.from_bytes(self.data[2:8], byteorder='big'))
 
         return staking_module_id, node_operator_id
 
 
 @dataclass
-class OperatorGroup(Nested):
+class OperatorGroup(Nested, FromResponse):
     sub_node_operators: list[SubNodeOperator]
     external_operators: list[ExternalOperator]
 

@@ -160,7 +160,6 @@ class Ejector(OracleModule[Web3]):
     ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
         to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
         EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
-        logger.info({'msg': 'Calculate to withdraw amount.', 'value': to_withdraw_amount})
 
         # Get all balance available to use to fulfill on closes exit epoch
         predictable_el_balance = self._get_predicted_el_balance(Gwei(0), blockstamp)
@@ -190,6 +189,11 @@ class Ejector(OracleModule[Web3]):
 
             if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) > to_withdraw_amount:
                 break
+
+        forced_validators = validators_iterator.get_remaining_forced_validators()
+        if forced_validators:
+            logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
+            validators_to_eject.extend(forced_validators)
 
         logger.info(
             {
@@ -262,7 +266,10 @@ class Ejector(OracleModule[Web3]):
         result = Gwei(0)
 
         for v in lido_validators:
-            if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch) and v.consolidating_as_source is None:
+            if v.consolidating_as_source:
+                continue
+
+            if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
                 result += get_predictable_full_balance(v)
             else:
                 result += get_predictable_sweep(v)
@@ -337,14 +344,12 @@ class Ejector(OracleModule[Web3]):
         """
         Calculates the amount of ETH locked for depositing for a given epoches_number.
         """
-        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve(
-            blockstamp.block_hash
-        )  # getDepositsReserve
+        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve(blockstamp.block_hash)
 
         consensus_contract = cast(
             HashConsensusContract,
             self.w3.eth.contract(
-                address=self.report_contract.get_consensus_contract(blockstamp.block_hash),
+                address=self.w3.lido_contracts.accounting_oracle.get_consensus_contract(blockstamp.block_hash),
                 ContractFactoryClass=HashConsensusContract,
                 decode_tuples=True,
             ),

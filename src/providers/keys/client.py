@@ -97,7 +97,7 @@ class KeysAPIClient(HTTPProvider):
 
     def _get_chain_id_with_provider(self, provider_index: int) -> int:
         data, _ = self._get_without_fallbacks(self.hosts[provider_index], self.STATUS, validate_response=data_is_dict)
-        return KeysApiStatus.from_response(**data).chainId
+        return KeysApiStatus.from_response(**data).chain_id
 
     def _check_used_keys(self, keys: list[LidoKey]):
         keys_seen: dict[str, LidoKey] = {}

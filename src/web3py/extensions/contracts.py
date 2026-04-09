@@ -1,5 +1,4 @@
 import logging
-from functools import cached_property
 from typing import cast
 
 from web3 import Web3
@@ -150,9 +149,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def accounting(self) -> AccountingContract:
-        return cast(
+        self.accounting = cast(
             AccountingContract,
             self.w3.eth.contract(
                 address=self.lido_locator.accounting(),
@@ -161,9 +158,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def lazy_oracle(self) -> LazyOracleContract:
-        return cast(
+        self.lazy_oracle = cast(
             LazyOracleContract,
             self.w3.eth.contract(
                 address=self.lido_locator.lazy_oracle(),
@@ -172,9 +167,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def vault_hub(self) -> VaultHubContract:
-        return cast(
+        self.vault_hub = cast(
             VaultHubContract,
             self.w3.eth.contract(
                 address=self.lido_locator.vault_hub(),
