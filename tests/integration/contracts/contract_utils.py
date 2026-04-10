@@ -38,7 +38,7 @@ def check_contract(
     assert len(functions_spec) == len(log_with_call)
 
 
-def make_checker(type_: Any) -> Callable[[FuncArgs], None]:
+def make_checker(type_: Any) -> Callable[[FuncResp], None]:
     if type_ is Address or type_ is ChecksumAddress:
         return check_is_address
 
