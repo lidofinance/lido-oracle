@@ -245,6 +245,7 @@ class TestDefineEpochsToProcessRange:
         mock_db.get_epochs_demands.return_value = [
             EpochsDemand(consumer='consumer1', from_epoch=50, to_epoch=99, updated_at=UPDATED_AT)
         ]
+        mock_db.is_range_available.return_value = False
         mock_db.missing_epochs_in.return_value = []  # No gaps
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
