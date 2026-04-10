@@ -268,5 +268,5 @@ def meta_registry_contract(web3_provider_integration, curated_staking_module_con
     return get_contract(
         web3_provider_integration,
         MetaRegistryContract,
-        curated_staking_module_contract.get_metaregistry_address(block_identifier='latest'),
+        curated_staking_module_contract.get_meta_registry_address(block_identifier='latest'),
     )
