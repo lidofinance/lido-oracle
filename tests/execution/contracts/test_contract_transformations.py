@@ -586,28 +586,24 @@ class TestStakingRouterGetStakingModulesByAddress:
 
 
 # ---------------------------------------------------------------------------
-# CuratedStakingModuleContract.get_node_operator_weight — islice batching
-# NOTE: current implementation has a bug — iter(operator_ids) is recreated
-# each loop iteration, causing an infinite loop for non-empty input.
-# These tests document the expected behaviour; the non-empty cases will fail
-# until the bug is fixed.
+# CuratedStakingModuleContract.get_operator_weights — islice batching
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestCuratedStakingModuleGetNodeOperatorWeight:
+class TestCuratedStakingModuleGetOperatorWeights:
     def test_empty_returns_empty(self):
         contract = _mock_contract()
-        result = CuratedStakingModuleContract.get_node_operator_weight(contract, operator_ids=[], block_identifier=1000)
+        result = CuratedStakingModuleContract.get_operator_weights(contract, operator_ids=[], block_identifier=1000)
         assert result == []
-        contract.functions.getOperatorsWeights.assert_not_called()
+        contract.functions.getOperatorWeights.assert_not_called()
 
     def test_single_batch(self, monkeypatch):
         monkeypatch.setattr("src.providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 500)
         contract = _mock_contract()
-        contract.functions.getOperatorsWeights.return_value.call.return_value = [10, 20]
+        contract.functions.getOperatorWeights.return_value.call.return_value = [10, 20]
 
-        result = CuratedStakingModuleContract.get_node_operator_weight(
+        result = CuratedStakingModuleContract.get_operator_weights(
             contract, operator_ids=[NodeOperatorId(1), NodeOperatorId(2)], block_identifier=1000
         )
 
@@ -616,9 +612,9 @@ class TestCuratedStakingModuleGetNodeOperatorWeight:
     def test_multiple_batches(self, monkeypatch):
         monkeypatch.setattr("src.providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 2)
         contract = _mock_contract()
-        contract.functions.getOperatorsWeights.return_value.call.side_effect = [[10, 20], [30]]
+        contract.functions.getOperatorWeights.return_value.call.side_effect = [[10, 20], [30]]
 
-        result = CuratedStakingModuleContract.get_node_operator_weight(
+        result = CuratedStakingModuleContract.get_operator_weights(
             contract, operator_ids=[NodeOperatorId(1), NodeOperatorId(2), NodeOperatorId(3)], block_identifier=1000
         )
 
@@ -1013,8 +1009,8 @@ _OracleReportLimitsTuple = namedtuple(
         "annualBalanceIncreaseBpLimit",
         "simulatedShareRateDeviationBpLimit",
         "maxBalanceExitRequestedPerReportInEth",
-        "maxEffectiveBalanceWeightWcType_01",
-        "maxEffectiveBalanceWeightWcType_02",
+        "maxEffectiveBalanceWeightWCType01",
+        "maxEffectiveBalanceWeightWCType02",
         "maxItemsPerExtraDataTransaction",
         "maxNodeOperatorsPerExtraDataItem",
         "requestTimestampMargin",
@@ -1540,8 +1536,8 @@ class TestCuratedStakingModulePassThroughs:
         result = CuratedStakingModuleContract.get_type(contract, block_identifier="latest")
         assert result == b"curated-onchain-v1"
 
-    def test_get_metaregistry_address(self):
+    def test_get_meta_registry_address(self):
         contract = _mock_contract()
-        contract.functions.getMetaRegistry.return_value.call.return_value = _ADDR
-        result = CuratedStakingModuleContract.get_metaregistry_address(contract, block_identifier="latest")
+        contract.functions.META_REGISTRY.return_value.call.return_value = _ADDR
+        result = CuratedStakingModuleContract.get_meta_registry_address(contract, block_identifier="latest")
         assert result == _ADDR

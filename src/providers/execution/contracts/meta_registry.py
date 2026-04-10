@@ -29,17 +29,23 @@ class ExternalOperator:
         - Byte 0: type
         - Byte 1: staking module id
         - Bytes 2-7: node operator id (6 bytes)
+
+        Accepts bytes, bytearray, a big-endian int, or a hex string
+        (with or without a leading "0x").
         """
-        # Ensure we have exactly 8 bytes
-        if len(self.data) != 8:
-            raise ValueError(f"Expected 8 bytes, got {len(self.data)}")
+        if isinstance(self.data, int):
+            data_bytes: bytes = self.data.to_bytes(8, 'big')
+        elif isinstance(self.data, str):
+            hex_str = self.data[2:] if self.data.startswith('0x') else self.data
+            data_bytes = bytes.fromhex(hex_str)
+        else:
+            data_bytes = bytes(self.data)
 
-        # Parse the components
-        # type_byte = data_bytes[0]  # Not used in return value
-        staking_module_id = StakingModuleId(self.data[1])
+        if len(data_bytes) != 8:
+            raise ValueError(f"Expected 8 bytes, got {len(data_bytes)}")
 
-        # Node operator id is 6 bytes (bytes 2-7)
-        node_operator_id = NodeOperatorId(int.from_bytes(self.data[2:8], byteorder='big'))
+        staking_module_id = StakingModuleId(data_bytes[1])
+        node_operator_id = NodeOperatorId(int.from_bytes(data_bytes[2:8], byteorder='big'))
 
         return staking_module_id, node_operator_id
 

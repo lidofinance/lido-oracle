@@ -12,6 +12,7 @@ def test_hash_consensus_contract(hash_consensus_contract, caplog):
     members, _ = hash_consensus_contract.get_members()
     assert members, "Expected at least one committee member on mainnet"
     member_address = members[0]
+    caplog.clear()
 
     check_contract(
         hash_consensus_contract,

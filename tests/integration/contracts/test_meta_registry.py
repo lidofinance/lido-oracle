@@ -23,6 +23,7 @@ def test_meta_registry_get_operator_group(meta_registry_contract, caplog):
     count = meta_registry_contract.get_operator_groups_count(block_identifier='latest')
     if count == 0:
         pytest.skip("No operator groups on this network")
+    caplog.clear()
 
     check_contract(
         meta_registry_contract,
