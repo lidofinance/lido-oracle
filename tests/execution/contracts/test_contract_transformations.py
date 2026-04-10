@@ -64,6 +64,7 @@ from src.providers.execution.contracts.staking_router import StakingRouterContra
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
 from src.types import NodeOperatorId
+from src.web3py.extensions.lido_validators import StakingModule
 
 
 DUMMY_ADDRESS = cast(ChecksumAddress, "0x0000000000000000000000000000000000000000")
@@ -527,6 +528,94 @@ class TestStakingRouterGetAllNodeOperatorDigests:
 
         contract.functions.getNodeOperatorDigests.assert_any_call(3, 0, 2)
         contract.functions.getNodeOperatorDigests.assert_any_call(3, 2, 2)
+
+
+# ---------------------------------------------------------------------------
+# StakingRouterContract.get_staking_module — named_tuple_to_dataclass mapping
+# ---------------------------------------------------------------------------
+
+_StakingModuleTuple = namedtuple(
+    "StakingModule",
+    [
+        "id",
+        "stakingModuleAddress",
+        "stakingModuleFee",
+        "treasuryFee",
+        "stakeShareLimit",
+        "status",
+        "name",
+        "lastDepositAt",
+        "lastDepositBlock",
+        "exitedValidatorsCount",
+        "priorityExitShareThreshold",
+        "maxDepositsPerBlock",
+        "minDepositBlockDistance",
+        "withdrawalCredentialsType",
+        "validatorsBalanceGwei",
+    ],
+)
+
+
+@pytest.mark.unit
+class TestStakingRouterGetStakingModule:
+    def _make_raw(self, module_id=1):
+        return _StakingModuleTuple(
+            id=module_id,
+            stakingModuleAddress="0x" + "aa" * 20,
+            stakingModuleFee=500,
+            treasuryFee=500,
+            stakeShareLimit=10_000,
+            status=0,
+            name="curated",
+            lastDepositAt=1_700_000_000,
+            lastDepositBlock=18_000_000,
+            exitedValidatorsCount=10,
+            priorityExitShareThreshold=10_000,
+            maxDepositsPerBlock=150,
+            minDepositBlockDistance=25,
+            withdrawalCredentialsType=0,
+            validatorsBalanceGwei=32_000_000_000,
+        )
+
+    def test_returns_staking_module_dataclass(self):
+        contract = _mock_contract()
+        raw = self._make_raw(module_id=3)
+        contract.functions.getStakingModule.return_value.call.return_value = raw
+
+        result = StakingRouterContract.get_staking_module(contract, staking_module_id=3)
+
+        assert isinstance(result, StakingModule)
+        assert result.id == 3
+        assert result.staking_module_address == "0x" + "aa" * 20
+        assert result.staking_module_fee == 500
+        assert result.name == "curated"
+
+    def test_uses_default_block_identifier(self):
+        contract = _mock_contract()
+        raw = self._make_raw()
+        contract.functions.getStakingModule.return_value.call.return_value = raw
+
+        StakingRouterContract.get_staking_module(contract, staking_module_id=1)
+
+        contract.functions.getStakingModule.return_value.call.assert_called_once_with(block_identifier="latest")
+
+    def test_passes_custom_block_identifier(self):
+        contract = _mock_contract()
+        raw = self._make_raw()
+        contract.functions.getStakingModule.return_value.call.return_value = raw
+
+        StakingRouterContract.get_staking_module(contract, staking_module_id=1, block_identifier=12345)
+
+        contract.functions.getStakingModule.return_value.call.assert_called_once_with(block_identifier=12345)
+
+    def test_calls_correct_contract_function(self):
+        contract = _mock_contract()
+        raw = self._make_raw(module_id=7)
+        contract.functions.getStakingModule.return_value.call.return_value = raw
+
+        StakingRouterContract.get_staking_module(contract, staking_module_id=7)
+
+        contract.functions.getStakingModule.assert_called_once_with(7)
 
 
 # ---------------------------------------------------------------------------

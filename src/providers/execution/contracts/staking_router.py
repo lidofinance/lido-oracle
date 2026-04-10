@@ -68,7 +68,7 @@ class StakingRouterContract(ContractInterface):
 
         return [NodeOperator.from_response(no, module) for no in response]
 
-    def get_staking_module(self, staking_module_id: int, block_identifier: BlockIdentifier) -> StakingModule:
+    def get_staking_module(self, staking_module_id: int, block_identifier: BlockIdentifier = 'latest') -> StakingModule:
         """
         Returns the staking module for the given ID
         """
