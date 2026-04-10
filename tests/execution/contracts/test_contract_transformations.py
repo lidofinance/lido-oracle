@@ -126,30 +126,6 @@ class TestExternalOperatorGetGid:
         assert sm_id == 2
         assert no_id == 3
 
-    def test_bytearray_input(self):
-        data = bytearray(self._make_data(sm_id=1, no_id=7))
-        sm_id, no_id = ExternalOperator(data=data).get_gid()
-        assert sm_id == 1
-        assert no_id == 7
-
-    def test_int_input(self):
-        raw = int.from_bytes(self._make_data(sm_id=3, no_id=99), "big")
-        sm_id, no_id = ExternalOperator(data=raw).get_gid()
-        assert sm_id == 3
-        assert no_id == 99
-
-    def test_hex_string_without_prefix(self):
-        data = self._make_data(sm_id=2, no_id=5).hex()
-        sm_id, no_id = ExternalOperator(data=data).get_gid()
-        assert sm_id == 2
-        assert no_id == 5
-
-    def test_hex_string_with_0x_prefix(self):
-        data = "0x" + self._make_data(sm_id=4, no_id=10).hex()
-        sm_id, no_id = ExternalOperator(data=data).get_gid()
-        assert sm_id == 4
-        assert no_id == 10
-
     def test_invalid_length_raises(self):
         with pytest.raises(ValueError, match="Expected 8 bytes"):
             ExternalOperator(data=b"\x01\x02").get_gid()

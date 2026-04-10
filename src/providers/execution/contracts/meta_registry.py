@@ -21,7 +21,7 @@ class SubNodeOperator:
 
 @dataclass
 class ExternalOperator:
-    data: bytes | bytearray | int | str
+    data: bytes
 
     def get_gid(self) -> NodeOperatorGlobalIndex:
         """
@@ -33,19 +33,16 @@ class ExternalOperator:
         Accepts bytes, bytearray, a big-endian int, or a hex string
         (with or without a leading "0x").
         """
-        if isinstance(self.data, int):
-            data_bytes: bytes = self.data.to_bytes(8, 'big')
-        elif isinstance(self.data, str):
-            hex_str = self.data[2:] if self.data.startswith('0x') else self.data
-            data_bytes = bytes.fromhex(hex_str)
-        else:
-            data_bytes = bytes(self.data)
+        # Ensure we have exactly 8 bytes
+        if len(self.data) != 8:
+            raise ValueError(f"Expected 8 bytes, got {len(self.data)}")
 
-        if len(data_bytes) != 8:
-            raise ValueError(f"Expected 8 bytes, got {len(data_bytes)}")
+        # Parse the components
+        # type_byte = data_bytes[0]  # Not used in return value
+        staking_module_id = StakingModuleId(self.data[1])
 
-        staking_module_id = StakingModuleId(data_bytes[1])
-        node_operator_id = NodeOperatorId(int.from_bytes(data_bytes[2:8], byteorder='big'))
+        # Node operator id is 6 bytes (bytes 2-7)
+        node_operator_id = NodeOperatorId(int.from_bytes(self.data[2:8], byteorder='big'))
 
         return staking_module_id, node_operator_id
 
