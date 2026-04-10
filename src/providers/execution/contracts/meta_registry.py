@@ -29,9 +29,6 @@ class ExternalOperator:
         - Byte 0: type
         - Byte 1: staking module id
         - Bytes 2-7: node operator id (6 bytes)
-
-        Accepts bytes, bytearray, a big-endian int, or a hex string
-        (with or without a leading "0x").
         """
         # Ensure we have exactly 8 bytes
         if len(self.data) != 8:
