@@ -13,17 +13,16 @@ Lido Oracle is critical DeFi infrastructure processing tens of billions in stake
 - `performance_web_server`: sidecar API serving performance data to staking-module oracles
 
 ## Architecture Notes
-- Oracle code reads state from both Execution Layer and Consensus Layer, then builds deterministic frame-based reports for contracts
+- Oracle code reads state from Execution Layer, Consensus Layer, and Keys API (KAPI), then builds deterministic frame-based reports for contracts. CSM module additionally reads data from performance collector sidecars
 - `accounting` and `ejector` are the most safety-critical on-chain reporting paths; bugs here are higher severity than ordinary refactors
 - `csm` and `cm` depend on the performance sidecars plus IPFS publishing; review data freshness, consistency, and failure handling carefully
 - Be alert for bugs caused by mixing finalized reference state with latest-chain state or by moving side effects into the wrong reporting phase
 
-## Review Philosophy
-- Comment only with high confidence that a real issue exists or a materially safer/better implementation is available
+## Review Principles
+- Comment only with high confidence that a real issue exists or a materially safer implementation is available
 - Prioritize correctness, safety, protocol invariants, and missing validation over style nitpicks
-- Be concise and actionable: state the issue, why it matters, and the concrete fix
-- Prefer one issue per comment
-- If uncertain, stay silent instead of leaving speculative feedback
+- Explain why flagged issues are problematic, including protocol or security impact when relevant
+- Be concise and actionable: prefer one issue per comment and suggest the smallest safe fix
 
 ## Priority Review Areas
 
@@ -40,9 +39,3 @@ Lido Oracle is critical DeFi infrastructure processing tens of billions in stake
 ## Key Patterns
 - Secrets belong only in private env handling and must never be logged
 - Changes around `ref_slot`, finalized slots, report phases, bunker mode, or transaction sending deserve extra scrutiny
-
-## Review Approach
-- Explain WHY flagged issues are problematic
-- Focus on business logic correctness and safety
-- Reference protocol or security impact when relevant
-- Suggest the smallest safe fix

@@ -14,7 +14,7 @@ Focus on crypto, smart contract, and private key security patterns.
 ## Smart Contract Interactions
 - **REQUIRE**: For state-changing operations, verify the code preserves existing membership/role/reportability checks before sending a transaction
 - Check transaction parameters use proper gas estimation (prevent DoS)
-- Ensure contract addresses are checksummed and validated against known deployments
+- Ensure contract addresses are checksummed
 
 ## Environment Variable Security
 - New env vars must be categorized in `PRIVATE_ENV_VARS` vs `PUBLIC_ENV_VARS`
@@ -26,4 +26,5 @@ Focus on crypto, smart contract, and private key security patterns.
 - Verify retry logic is bounded and does not create unsafe duplicate submissions or infinite retry loops
 - Ensure TLS verification enabled for external APIs
 - Validate input beyond type hints (addresses, CIDs, numeric bounds)
+- Double check types in responses from different nodes; for strings, ensure consistent case handling (lowercase or verify case sensitivity requirements)
 - Flag workflow or Docker changes that might leak secrets into logs, images, cache layers, or generated files
