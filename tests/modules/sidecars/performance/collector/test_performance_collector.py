@@ -239,8 +239,10 @@ class TestDefineEpochsToProcessRange:
 
         # Setup DB
         mock_db.min_epoch.return_value = 50
-        mock_db.max_epoch.return_value = 99  # High max_epoch
-        mock_db.get_epochs_demands.return_value = []
+        mock_db.max_epoch.return_value = 98  # High max_epoch
+        mock_db.get_epochs_demands.return_value = [
+            EpochsDemand(consumer='consumer1', from_epoch=50, to_epoch=99, updated_at=UPDATED_AT)
+        ]
         mock_db.missing_epochs_in.return_value = []  # No gaps
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
@@ -251,12 +253,15 @@ class TestDefineEpochsToProcessRange:
     @pytest.mark.unit
     def test_cl_node_not_synced_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test when CL node is not synced (max_available < min_epoch_in_db)"""
-        finalized_epoch = EpochNumber(5)
+        finalized_epoch = EpochNumber(100)
 
-        # Setup DB where min_epoch is higher than what we can process
-        mock_db.min_epoch.return_value = 10  # min_epoch > max_available(3)
-        mock_db.max_epoch.return_value = 100
+        # Setup DB
+        mock_db.min_epoch.return_value = 50
+        mock_db.max_epoch.return_value = 99  # High max_epoch
+        mock_db.get_epochs_demands.return_value = []
+        mock_db.missing_epochs_in.return_value = []  # No gaps
 
+        # start_epoch would be 100, but max_available is 98, so should raise an error
         with pytest.raises(ValueError, match="CL node is not synced"):
             performance_collector._define_epochs_to_process_range(finalized_epoch)
 
