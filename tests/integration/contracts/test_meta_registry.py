@@ -6,6 +6,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 @pytest.mark.mainnet
 @pytest.mark.integration
+@pytest.mark.skip("Enable after srv3 upgrade")
 def test_meta_registry_contract(meta_registry_contract, caplog):
     check_contract(
         meta_registry_contract,
@@ -19,6 +20,7 @@ def test_meta_registry_contract(meta_registry_contract, caplog):
 
 @pytest.mark.mainnet
 @pytest.mark.integration
+@pytest.mark.skip("Enable after srv3 upgrade")
 def test_meta_registry_get_operator_group(meta_registry_contract, caplog):
     count = meta_registry_contract.get_operator_groups_count(block_identifier='latest')
     if count == 0:

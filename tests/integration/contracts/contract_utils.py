@@ -45,6 +45,10 @@ def make_checker(type_: Any) -> Callable[[FuncArgs], None]:
     if is_dataclass(type_):
         return lambda resp: check_dataclass_types(resp, type_)
 
+    # Unwrap NewType
+    while hasattr(type_, '__supertype__'):
+        type_ = type_.__supertype__
+
     return lambda resp: check_value_type(resp, type_)
 
 
