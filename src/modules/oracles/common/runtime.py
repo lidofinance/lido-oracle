@@ -61,7 +61,7 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
     kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
     logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().appVersion) < constants.ALLOWED_KAPI_VERSION:
+    if Version(kac.get_status().app_version) < constants.ALLOWED_KAPI_VERSION:
         raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
 
     check_providers_chain_ids(web3, cc, kac)

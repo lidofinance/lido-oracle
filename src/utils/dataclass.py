@@ -33,12 +33,14 @@ class Nested:
                 field_type = field.type.__args__[0]
                 if is_dataclass(field_type):
                     factory = self.__get_dataclass_factory(field_type)
+
                     setattr(
                         self,
                         field.name,
                         field.type.__origin__(
                             map(  # type: ignore[misc]
-                                lambda x: factory(**x) if not is_dataclass(x) else x, getattr(self, field.name)
+                                lambda x: self._transform(factory, x),
+                                getattr(self, field.name),
                             )
                         ),
                     )
@@ -68,6 +70,20 @@ class Nested:
             ValidatorIndex,
             CommitteeIndex,
         )
+
+    @staticmethod
+    def _transform(factory, x):
+        """
+        Tries to cast x to factory (some dataclass) type.
+        """
+        if is_dataclass(x):
+            return x
+
+        # Check if x is a namedtuple
+        if hasattr(x, "_asdict") and hasattr(x, "_fields"):
+            return named_tuple_to_dataclass(x, factory)
+
+        return factory(**x)
 
 
 @dataclass

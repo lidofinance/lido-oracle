@@ -8,7 +8,7 @@ from src.types import OperatorsValidatorCount, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.events import get_events_in_past
 from src.utils.validator_state import is_exited_validator, is_on_exit
-from src.web3py.extensions.lido_validators import ExtendedLidoValidator, NodeOperatorGlobalIndex
+from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
 from src.web3py.types import Web3
 
 
@@ -56,7 +56,7 @@ class LidoValidatorStateService:
         self,
         chain_config: ChainConfig,
         blockstamp: ReferenceBlockStamp,
-    ) -> list[ExtendedLidoValidator]:
+    ) -> list[LidoValidator]:
         """
         Returns the list of validators recently requested to exit (exit deadline slot in future).
         """
@@ -66,21 +66,20 @@ class LidoValidatorStateService:
             blockstamp,
         )
 
-        validators_recently_requested_to_exit: list[ExtendedLidoValidator] = []
+        validators_recently_requested_to_exit: list[LidoValidator] = []
 
         for global_index, validators in lido_validators_by_operator.items():
 
             def is_validator_recently_requested_but_not_exiting(
-                validator: ExtendedLidoValidator,
-                global_index: NodeOperatorGlobalIndex = global_index,
+                validator: LidoValidator,
+                gid: NodeOperatorGlobalIndex = global_index,
             ) -> bool:
                 # Validator is not exiting on CL and there is recent exit request event
                 return (
                     not is_on_exit(validator)
-                    and validator.index in recent_exit_requests[global_index]
-                    and
+                    and validator.index in recent_exit_requests[gid]
                     # In the case of consolidation validator is not exitable
-                    not validator.consolidating_as_source
+                    and validator.consolidating_as_source is None
                 )
 
             validators_recently_requested_to_exit.extend(

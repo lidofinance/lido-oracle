@@ -3,11 +3,11 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.common.types import ChainConfig
-from src.services.exit_order_iterator import NodeOperatorStats, ValidatorExitIterator
+from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from src.types import Gwei, NodeOperatorId, StakingModuleId
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import ExtendedLidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory
 
 
 @pytest.fixture
@@ -48,7 +48,6 @@ def make_staking_module(sm_id, threshold=10000):
         min_deposit_block_distance=0,
         withdrawal_credentials_type=0,
         validators_balance_gwei=Gwei(0),
-        pending_balance_gwei=Gwei(0),
     )
 
 
@@ -72,9 +71,9 @@ def test_get_filter_non_exitable_validators(iterator):
     gid2 = (StakingModuleId(1), NodeOperatorId(2))
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid1: [1], gid2: [-1]})
     filt = iterator.get_can_request_exit_predicate(gid1)
-    assert not filt(ExtendedLidoValidatorFactory.build(index=1))
+    assert not filt(LidoValidatorFactory.build(index=1))
     filt = iterator.get_can_request_exit_predicate(gid2)
-    assert filt(ExtendedLidoValidatorFactory.build(index=1))
+    assert filt(LidoValidatorFactory.build(index=1))
 
 
 @pytest.mark.unit
@@ -88,8 +87,7 @@ def test_eject_validator(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                ExtendedLidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
-                for _ in range(3)
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
             ]
         }
     )
@@ -105,40 +103,33 @@ def test_eject_validator(iterator):
     assert iterator.node_operators_stats[gid11].predictable_validators == 2
 
 
-# @pytest.mark.unit
-# def test_no_predicate(iterator):
-#     iterator.total_lido_predictable_balance = Gwei(1000 * 32 * 10**9)
-#     sm1 = make_staking_module(1, threshold=int(0.15 * 10000))
-#     sm2 = make_staking_module(2, threshold=int(0.15 * 10000))
-#     no1 = make_node_operator(1, sm1)
-#     no2 = make_node_operator(2, sm2)
-#
-#     ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(200 * 32 * 10**9))
-#     ms2 = StakingModuleStats(staking_module=sm2, predictable_balance=Gwei(200 * 32 * 10**9))
-#
-#     nos1 = NodeOperatorStats(
-#         node_operator=no1, module_stats=ms1, predictable_validators=100, force_exit_to=50, soft_exit_to=25
-#     )
-#     nos2 = NodeOperatorStats(
-#         node_operator=no2, module_stats=ms2, predictable_validators=2000, force_exit_to=50, soft_exit_to=25
-#     )
-#
-#     iterator.exitable_validators = {
-#         (sm1.id, no1.id): [Mock(index=10, balance=Gwei(32 * 10**9))],
-#         (sm2.id, no2.id): [Mock(index=20, balance=Gwei(32 * 10**9))],
-#     }
+@pytest.mark.unit
+def test_no_predicate(iterator):
+    iterator.total_lido_predictable_balance = Gwei(1000 * 32 * 10**9)
+    sm1 = make_staking_module(1, threshold=int(0.15 * 10000))
+    sm2 = make_staking_module(2, threshold=int(0.15 * 10000))
+    no1 = make_node_operator(1, sm1)
+    no2 = make_node_operator(2, sm2)
 
-# deviation = (10000 * 200 / 1000) - 1500 = 2000 - 1500 = 500
-# res = (
-#     force_exit_to - predictable_validators, soft_exit_to - predictable_validators,
-#     -deviation, -predictable_validators, validator_index
-# )
-# res2 = iterator._no_predicate(nos2)
-# assert res2[0] == 50 - 2000
-# assert res2[1] == 25 - 2000
-# assert res2[2] == -500
-# assert res2[3] == -2000
-# assert res2[4] == 20
+    ms2 = StakingModuleStats(staking_module=sm2, predictable_balance=Gwei(200 * 32 * 10**9))
+
+    nos2 = NodeOperatorStats(
+        node_operator=no2, module_stats=ms2, predictable_validators=2000, force_exit_to=50, soft_exit_to=25
+    )
+
+    iterator.exitable_validators = {
+        (sm1.id, no1.id): [Mock(index=10, balance=Gwei(32 * 10**9))],
+        (sm2.id, no2.id): [Mock(index=20, balance=Gwei(32 * 10**9))],
+    }
+
+    # predictable_balance > max_module_predictable_balance:
+    # (200 * 32e9) - (0.15 * 1000 * 32e9) = (200 - 150) * 32e9 = 50 * 32e9 = 1600000000000
+    res2 = iterator._no_predicate(nos2)
+    assert res2[0] == 50 - 2000
+    assert res2[1] == 25 - 2000
+    assert res2[2] == -(50 * 32 * 10**9)
+    assert res2[3] == 0
+    assert res2[4] == 20
 
 
 @pytest.mark.unit
@@ -194,6 +185,7 @@ def test_lowest_validators_index_predicate(iterator):
     sm = make_staking_module(1)
     no1 = make_node_operator(1, sm)
     no2 = make_node_operator(2, sm)
+    ms = StakingModuleStats(staking_module=sm)
     iterator.exitable_validators = {(sm.id, no1.id): [Mock(index=5)], (sm.id, no2.id): [Mock(index=10)]}
-    assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no1, Mock())) == 5
-    assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no2, Mock())) == 10
+    assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no1, ms)) == 5
+    assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no2, ms)) == 10

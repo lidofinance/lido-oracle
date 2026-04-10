@@ -139,20 +139,20 @@ def test_get_lido_validators_by_node_operator(web3):
         return_value=[
             LidoValidatorFactory.build(
                 lido_id=LidoKeyFactory.build(
-                    operatorIndex=1,
-                    moduleAddress=sm1.staking_module_address,
+                    operator_index=1,
+                    module_address=sm1.staking_module_address,
                 )
             ),
             LidoValidatorFactory.build(
                 lido_id=LidoKeyFactory.build(
-                    operatorIndex=1,
-                    moduleAddress=sm1.staking_module_address,
+                    operator_index=1,
+                    module_address=sm1.staking_module_address,
                 )
             ),
             LidoValidatorFactory.build(
                 lido_id=LidoKeyFactory.build(
-                    operatorIndex=1,
-                    moduleAddress=sm2.staking_module_address,
+                    operator_index=1,
+                    module_address=sm2.staking_module_address,
                 )
             ),
         ]
@@ -189,7 +189,7 @@ def test_get_lido_validators_by_node_operator_inconsistent(web3, caplog):
         return_value=[
             NodeOperatorFactory.build(
                 staking_module=StakingModuleFactory.build(
-                    staking_module_address=validator.lido_id.moduleAddress,
+                    staking_module_address=validator.lido_id.module_address,
                 ),
             ),
         ]

@@ -62,7 +62,6 @@ def test_process_report_main(consensus, caplog):
         count_exited_validators_by_staking_module=[7, 8],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -100,7 +99,6 @@ def test_process_report__not_allowed__sends_telemetry(consensus):
         count_exited_validators_by_staking_module=[6],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(7),
         el_rewards_vault_balance=Wei(8),
         shares_requested_to_burn=9,
@@ -136,7 +134,6 @@ def test_process_report__report_hash_raises__sends_telemetry(consensus):
         count_exited_validators_by_staking_module=[6],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(7),
         el_rewards_vault_balance=Wei(8),
         shares_requested_to_burn=9,
@@ -173,7 +170,6 @@ def test_process_report__same_hash_twice__skips_duplicate_telemetry(consensus, c
         count_exited_validators_by_staking_module=[6],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(7),
         el_rewards_vault_balance=Wei(8),
         shares_requested_to_burn=9,
@@ -208,7 +204,6 @@ def test_hash_calculations(consensus):
         count_exited_validators_by_staking_module=[7, 8],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -223,7 +218,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xb8224f0fc5c3c03b7c91ec1443804d308c19f6dfacb2c9222549dfad637b1701')
+    assert report_hash == HexBytes('0x709290380958ae308e6c7d53d568579c2f7eb4337bc94d08a16656322410403e')
 
 
 # ------ Process report hash -----------
@@ -354,7 +349,6 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
         count_exited_validators_by_staking_module=[7, 8],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -419,7 +413,6 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
         count_exited_validators_by_staking_module=[7, 8],
         staking_module_ids_with_updated_balance=[],
         validator_balances_gwei_by_staking_module=[],
-        pending_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,

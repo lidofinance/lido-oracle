@@ -42,7 +42,6 @@ class ReportData:
     count_exited_validators_by_staking_module: list[int]
     staking_module_ids_with_updated_balance: list[StakingModuleId]
     validator_balances_gwei_by_staking_module: list[Gwei]
-    pending_balances_gwei_by_staking_module: list[Gwei]
     withdrawal_vault_balance: Wei
     el_rewards_vault_balance: Wei
     shares_requested_to_burn: Shares
@@ -66,7 +65,6 @@ class ReportData:
             self.count_exited_validators_by_staking_module,
             self.staking_module_ids_with_updated_balance,
             self.validator_balances_gwei_by_staking_module,
-            self.pending_balances_gwei_by_staking_module,
             self.withdrawal_vault_balance,
             self.el_rewards_vault_balance,
             self.shares_requested_to_burn,
@@ -101,8 +99,8 @@ class OracleReportLimits:
     annual_balance_increase_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
     max_balance_exit_requested_per_report_in_eth: int
-    max_effective_balance_weight_wc_type_01: int
-    max_effective_balance_weight_wc_type_02: int
+    max_effective_balance_weight_wc_type01: int
+    max_effective_balance_weight_wc_type02: int
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int

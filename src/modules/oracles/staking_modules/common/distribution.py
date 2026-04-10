@@ -150,9 +150,9 @@ class Distribution:
             lido_key = keys.get(HexStr(validator.validator.pubkey))
             if not lido_key:
                 continue
-            if lido_key.moduleAddress != module_address:
+            if lido_key.module_address != module_address:
                 raise KAPIInconsistentData(f"Invalid key {lido_key.key} for module {module_address}")
-            no_validators[lido_key.operatorIndex].append(
+            no_validators[lido_key.operator_index].append(
                 LidoValidator(
                     lido_id=lido_key,
                     **asdict(validator),
