@@ -254,16 +254,15 @@ class TestDefineEpochsToProcessRange:
 
     @pytest.mark.unit
     def test_cl_node_not_synced_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
-        """Test when CL node is not synced (max_available < min_epoch_in_db)"""
+        """Test when CL node is not synced (max_epoch_in_db > max_available_epoch_to_check)"""
         finalized_epoch = EpochNumber(100)
 
-        # Setup DB
+        # Setup DB where max_epoch_in_db (99) > max_available_epoch_to_check (98)
         mock_db.min_epoch.return_value = 50
-        mock_db.max_epoch.return_value = 99  # High max_epoch
+        mock_db.max_epoch.return_value = 99
         mock_db.get_epochs_demands.return_value = []
-        mock_db.missing_epochs_in.return_value = []  # No gaps
+        mock_db.missing_epochs_in.return_value = []
 
-        # start_epoch would be 100, but max_available is 98, so should raise an error
         with pytest.raises(ValueError, match="CL node is not synced"):
             performance_collector._define_epochs_to_process_range(finalized_epoch)
 
