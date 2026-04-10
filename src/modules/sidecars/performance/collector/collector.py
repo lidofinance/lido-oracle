@@ -147,7 +147,7 @@ class PerformanceCollector(DaemonModule):
         min_epoch_in_db = self.db.min_epoch()
         max_epoch_in_db = self.db.max_epoch()
 
-        if max_epoch_in_db and max_epoch_in_db > max_available_epoch_to_check:
+        if max_epoch_in_db is not None and max_epoch_in_db > max_available_epoch_to_check:
             raise ValueError(
                 f"DB has data for epoch > {max_available_epoch_to_check} ({max_epoch_in_db=}). CL node is not synced."
             )
