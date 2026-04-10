@@ -250,7 +250,7 @@ class TestDefineEpochsToProcessRange:
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
-        # start_epoch would be 100, but max_available is 98, so should return None
+        # start_epoch = max_epoch_in_db + 1 = 99, but max_available is 98, so should return None
         assert result is None
 
     @pytest.mark.unit
