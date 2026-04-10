@@ -75,7 +75,9 @@ class TestDelegationModule:
         with pytest.raises(RuntimeError, match="Delegation is not enabled"):
             module.wrap_call_for_delegation(target_call)
 
-    def test_wrap_call_for_delegation__correct_encoding__returns_delegation_execute_call(self, mock_w3, mock_account, monkeypatch):
+    def test_wrap_call_for_delegation__correct_encoding__returns_delegation_execute_call(
+        self, mock_w3, mock_account, monkeypatch
+    ):
         # Arrange
         monkeypatch.setattr(variables, 'ACCOUNT', mock_account)
         mock_w3.eth.contract.return_value.get_delegatee.return_value = ORACLE_ADDRESS
@@ -105,8 +107,7 @@ class TestDelegationModule:
         # Assert
         expected_calldata = bytes.fromhex('abcdef123456')
         module.delegation_contract.execute.assert_called_once_with(
-            '0x1234567890123456789012345678901234567890',
-            expected_calldata
+            '0x1234567890123456789012345678901234567890', expected_calldata
         )
         assert result == mock_delegation_execute
 
