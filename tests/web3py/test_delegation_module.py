@@ -67,3 +67,49 @@ class TestDelegationModule:
 
         with pytest.raises(DelegationModule.DelegateMismatchError):
             DelegationModule(mock_w3, delegation_address=DUMMY_ADDRESS)
+
+    def test_wrap_call_for_delegation__disabled_delegation__raises_runtime_error(self, mock_w3):
+        module = DelegationModule(mock_w3, delegation_address=None)
+        target_call = Mock()
+
+        with pytest.raises(RuntimeError, match="Delegation is not enabled"):
+            module.wrap_call_for_delegation(target_call)
+
+    def test_wrap_call_for_delegation__correct_encoding__returns_delegation_execute_call(
+        self, mock_w3, mock_account, monkeypatch
+    ):
+        # Arrange
+        monkeypatch.setattr(variables, 'ACCOUNT', mock_account)
+        mock_w3.eth.contract.return_value.get_delegatee.return_value = ORACLE_ADDRESS
+        mock_w3.eth.contract.return_value.get_admin.return_value = DUMMY_ADDRESS
+
+        module = DelegationModule(mock_w3, delegation_address=DUMMY_ADDRESS)
+
+        # Mock target contract call
+        target_call = Mock()
+        target_call.address = '0x1234567890123456789012345678901234567890'
+        target_call.contract_abi = []
+        target_call.fn_name = 'testMethod'
+        target_call.args = [123, 'test']
+
+        # Mock contract for encoding
+        mock_target_contract = Mock()
+        mock_target_contract.encode_abi.return_value = '0xabcdef123456'
+        mock_w3.eth.contract.return_value = mock_target_contract
+
+        # Mock delegation contract execute method
+        mock_delegation_execute = Mock()
+        module.delegation_contract.execute.return_value = mock_delegation_execute
+
+        # Act
+        result = module.wrap_call_for_delegation(target_call)
+
+        # Assert
+        expected_calldata = bytes.fromhex('abcdef123456')
+        module.delegation_contract.execute.assert_called_once_with(
+            '0x1234567890123456789012345678901234567890', expected_calldata
+        )
+        assert result == mock_delegation_execute
+
+        # Verify encoding was called with correct parameters
+        mock_target_contract.encode_abi.assert_called_once_with('testMethod', [123, 'test'])
