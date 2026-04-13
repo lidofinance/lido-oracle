@@ -254,7 +254,7 @@ class TestDefineEpochsToProcessRange:
         assert result is None
 
     @pytest.mark.unit
-    def test_cl_node_not_synced_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
+    def test_define_epochs_to_process_range__db_has_epoch_greater_than_max_available__raises_value_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
         """Test raising when max_epoch_in_db exceeds max_available_epoch_to_check."""
         finalized_epoch = EpochNumber(100)
 
