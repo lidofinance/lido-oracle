@@ -3,7 +3,6 @@ import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import cast
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
@@ -177,7 +176,8 @@ class PerformanceCollector(DaemonModule):
 
         missing_epochs = self.db.missing_epochs_in(start_epoch, end_epoch)
         if not missing_epochs:
-            max_epoch_in_db = cast(EpochNumber, max_epoch_in_db)  # Can't be None here
+            if max_epoch_in_db is None:
+                raise ValueError("No missing epochs found but the DB is empty. Probably a logic error or corrupted DB.")
             start_epoch = EpochNumber(max_epoch_in_db + 1)
         else:
             start_epoch = min(missing_epochs)

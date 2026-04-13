@@ -228,12 +228,11 @@ class TestDefineEpochsToProcessRange:
         mock_db.min_epoch.return_value = None
         mock_db.max_epoch.return_value = None
         mock_db.get_epochs_demands.return_value = []
-        mock_db.missing_epochs_in.return_value = [EpochNumber(98)]
+        mock_db.missing_epochs_in.return_value = []
 
-        assert performance_collector._define_epochs_to_process_range(finalized_epoch) == (
-            EpochNumber(98),
-            EpochNumber(98),
-        )
+        # This should raise ValueError as per the logic
+        with pytest.raises(ValueError, match="No missing epochs found but the DB is empty"):
+            performance_collector._define_epochs_to_process_range(finalized_epoch)
 
     @pytest.mark.unit
     def test_start_epoch_exceeds_max_available(self, performance_collector: PerformanceCollector, mock_db: Mock):
