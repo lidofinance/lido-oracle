@@ -251,7 +251,7 @@ class Accounting(OracleModule[Web3]):
         return validator_balance_sum
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
-        """Calculate the total balance of all pending Lido validators on the Consensus Layer.
+        """Calculate the total pending balance on the Consensus Layer.
 
         Includes both new validators awaiting activation and pending top-up deposits for
         existing active validators. Top-ups must be included because they are not yet reflected
