@@ -21,21 +21,6 @@ Alert when the Oracle member account balance is critically low:
     description: "Account balance is less than 1 ETH. Address: {{ $labels.address }}: {{ $value }} ETH"
 ```
 
-### Outdated Consensus Layer Data
-
-Alert when the Oracle is processing stale CL data:
-
-```yaml
-- alert: OracleOutdatedCLData
-  expr: (lido_oracle_genesis_time + ignoring(state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-  for: 1h
-  labels:
-    severity: critical
-  annotations:
-    summary: "Outdated Consensus Layer HEAD slot"
-    description: "Processed by Oracle HEAD slot {{ $value }} too old"
-```
-
 ## Cycle Health Alerts
 
 These alerts monitor the Oracle's operational cycles using the `lido_oracle_cycle_count` and `lido_oracle_last_cycle_timestamp` metrics.
@@ -127,15 +112,6 @@ groups:
         annotations:
           summary: "Dangerously low account balance"
           description: "Account balance is less than 1 ETH. Address: {{ $labels.address }}: {{ $value }} ETH"
-
-      - alert: OracleOutdatedCLData
-        expr: (lido_oracle_genesis_time + ignoring(state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-        for: 1h
-        labels:
-          severity: critical
-        annotations:
-          summary: "Outdated Consensus Layer HEAD slot"
-          description: "Processed by Oracle HEAD slot {{ $value }} too old"
 
   - name: oracle-cycle-health
     rules:
