@@ -37,6 +37,7 @@ from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
+
 # Matches how distribution.py computes it: effective_balance // EFFECTIVE_BALANCE_INCREMENT
 PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INCREMENT
 

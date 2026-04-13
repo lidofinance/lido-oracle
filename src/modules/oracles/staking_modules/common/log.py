@@ -14,7 +14,7 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    # Not accurate value of rewards for the given validator.
+    # This is not an accurate reward value for the given validator.
     # The source of truth is `OperatorFrameSummary.distributed_rewards`.
     distributed_rewards: RewardsShares = 0
     performance: float = 0.0
@@ -36,7 +36,7 @@ class ValidatorFrameSummary:
 class OperatorFrameSummary:
     distributed_rewards: RewardsShares = 0
     # The value of performance coefficients (att, props, sync duties coefficients)
-    # for the given validator by Operator's type (Bond Curve ID).
+    # for the given operator by type (Bond Curve ID).
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
     validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(
         default_factory=lambda: defaultdict(ValidatorFrameSummary)
