@@ -230,9 +230,10 @@ class TestDefineEpochsToProcessRange:
         mock_db.get_epochs_demands.return_value = []
         mock_db.missing_epochs_in.return_value = [EpochNumber(98)]
 
-        assert performance_collector._define_epochs_to_process_range(
-            finalized_epoch
-        ) == (EpochNumber(98), EpochNumber(98))
+        assert performance_collector._define_epochs_to_process_range(finalized_epoch) == (
+            EpochNumber(98),
+            EpochNumber(98),
+        )
 
     @pytest.mark.unit
     def test_start_epoch_exceeds_max_available(self, performance_collector: PerformanceCollector, mock_db: Mock):
