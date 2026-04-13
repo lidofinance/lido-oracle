@@ -30,7 +30,7 @@ from src.modules.oracles.accounting.types import (
     VaultsTreeRoot,
 )
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, StakingModuleId
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, StakingModuleId
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -125,7 +125,7 @@ def test_get_cl_validators_balance(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_cl_pending_validators_balance(accounting: Accounting):
+def test_get_cl_pending_validators_balance__pending_new_validators__sums_all_deposits(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
 
     # Mock pending validators data structure
@@ -185,7 +185,7 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
         fee_distribution=ReportSimulationFeeDistribution(
             module_fee_recipients=[],
             module_ids=[],
-            module_shares_to_mint=0,
+            module_shares_to_mint=[0],
             treasury_shares_to_mint=0,
         ),
         principal_cl_balance=0,
@@ -529,10 +529,10 @@ def test_simulate_rebase_after_report(
             withdrawals_vault_transfer=Wei(0),
             el_rewards_vault_transfer=Wei(0),
             ether_to_finalize_wq=Wei(0),
-            shares_to_finalize_wq=0,
-            shares_to_burn_for_withdrawals=0,
-            total_shares_to_burn=0,
-            shares_to_mint_as_fees=0,
+            shares_to_finalize_wq=Shares(0),
+            shares_to_burn_for_withdrawals=Shares(0),
+            total_shares_to_burn=Shares(0),
+            shares_to_mint_as_fees=Shares(0),
             fee_distribution=ReportSimulationFeeDistribution(
                 module_fee_recipients=[],
                 module_ids=[],
@@ -620,7 +620,7 @@ def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accountin
 
     accounting.report_contract.get_processing_state = Mock(side_effect=ContractCustomError('0xcd0883ea', '0xcd0883ea'))
     accounting.get_initial_or_current_frame = Mock(
-        return_value=CurrentFrame(ref_slot=100, report_processing_deadline_slot=200)
+        return_value=CurrentFrame(ref_slot=SlotNumber(100), report_processing_deadline_slot=SlotNumber(200))
     )
     processing_state = accounting._get_processing_state(bs)
 
@@ -701,7 +701,7 @@ def test_get_finalization_data_zero_shares(accounting: Accounting):
         fee_distribution=ReportSimulationFeeDistribution(
             module_fee_recipients=[],
             module_ids=[],
-            module_shares_to_mint=0,
+            module_shares_to_mint=[0],
             treasury_shares_to_mint=0,
         ),
         principal_cl_balance=0,
@@ -727,11 +727,13 @@ def test_get_finalization_data_zero_shares(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_cl_pending_validators_balance_empty(accounting: Accounting):
+def test_get_cl_pending_validators_balance__no_pending_validators__returns_zero(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=[])
+
     balance = accounting._get_cl_pending_validators_balance(bs)
+
     assert balance == 0
 
 
