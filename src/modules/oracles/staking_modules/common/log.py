@@ -14,23 +14,18 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
-    """Per-validator performance and reward summary for a single reporting frame.
-
-    Captures the raw duty counts, performance metrics, and the resulting reward share
-    for one validator within a frame so that per-validator data can be logged and audited.
-    """
-
+    # Not accurate value of rewards for the given validator.
+    # The source of truth is `OperatorFrameSummary.distributed_rewards`.
     distributed_rewards: RewardsShares = 0
     performance: float = 0.0
-    # Minimum performance ratio required to be eligible for rewards in this frame.
+    # The value of performance threshold for the given validator by Operator's type (Bond Curve ID).
     threshold: float = 0.0
-    # Operator-configured fraction of rewards this validator key is eligible for (from CSParametersRegistry).
+    # The value of rewards share for the given validator by Operator's type (Bond Curve ID).
     rewards_share: float = 0.0
-    # Scales participation shares proportionally to effective balance
-    # (effective_balance // EFFECTIVE_BALANCE_INCREMENT; 32 for a standard 32 ETH validator).
+    # The value of `effective_balance // EFFECTIVE_BALANCE_INCREMENT`
+    # that used as multiplier in rewards distribution calculation.
     participation_share_multiplier: int = 0
     slashed: bool = False
-    # Number of consecutive below-threshold frames (used for strike-based ejection logic).
     strikes: int = 0
     attestation_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
     proposal_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
@@ -40,6 +35,8 @@ class ValidatorFrameSummary:
 @dataclass
 class OperatorFrameSummary:
     distributed_rewards: RewardsShares = 0
+    # The value of performance coefficients (att, props, sync duties coefficients)
+    # for the given validator by Operator's type (Bond Curve ID).
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
     validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(
         default_factory=lambda: defaultdict(ValidatorFrameSummary)
