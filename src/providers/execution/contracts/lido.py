@@ -91,4 +91,4 @@ class LidoContract(ContractInterface):
             }
         )
 
-        return response
+        return Wei(response)
