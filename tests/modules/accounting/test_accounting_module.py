@@ -142,7 +142,9 @@ def test_get_cl_pending_validators_balance(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_cl_pending_validators_balance_includes_topups(accounting: Accounting):
+def test_get_cl_pending_validators_balance__active_validators_with_pending_topups__includes_topups(
+    accounting: Accounting,
+):
     bs = ReferenceBlockStampFactory.build()
 
     pending_validators_data = {
