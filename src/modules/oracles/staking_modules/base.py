@@ -343,7 +343,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         syncs_vids,
                         syncs_misses,
                     ) = (
-                        set(ValidatorIndex(vid) for vid in epoch_data.attestations),  # XXX: set for performance reasons
+                        # XXX: set for performance reasons
+                        set(ValidatorIndex(vid) for vid in epoch_data.missed_attestation_vids),
                         [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
                         epoch_data.proposals_flags,  # proposed or not status
                         [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],

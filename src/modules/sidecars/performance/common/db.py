@@ -27,7 +27,7 @@ class Duty(SQLModel, table=True):
         description="Epoch number for which duty data is stored.",
         sa_column=Column(Integer, primary_key=True, autoincrement=False),
     )
-    attestations: list[int] = Field(
+    missed_attestation_vids: list[int] = Field(
         default_factory=list,
         description="Validator indices that missed attestation duties in this epoch.",
         sa_column=Column(ARRAY(Integer()), nullable=False),
@@ -223,7 +223,7 @@ class DutiesDB:
         with self.get_session() as session:
             duty = session.get(Duty, epoch)
             if duty:
-                duty.attestations = att_list
+                duty.missed_attestation_vids = att_list
                 duty.proposals_vids = prop_vids
                 duty.proposals_flags = prop_flags
                 duty.syncs_vids = sync_vids
@@ -231,7 +231,7 @@ class DutiesDB:
             else:
                 duty = Duty(
                     epoch=epoch,
-                    attestations=att_list,
+                    missed_attestation_vids=att_list,
                     proposals_vids=prop_vids,
                     proposals_flags=prop_flags,
                     syncs_vids=sync_vids,

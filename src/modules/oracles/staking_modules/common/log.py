@@ -21,7 +21,7 @@ class ValidatorFrameSummary:
     # The value of performance threshold for the given validator by Operator's type (Bond Curve ID).
     threshold: float = 0.0
     # The value of rewards share for the given validator by Operator's type (Bond Curve ID).
-    rewards_share: float = 0.0
+    reward_share: float = 0.0
     # The value of `effective_balance // EFFECTIVE_BALANCE_INCREMENT`
     # that used as multiplier in rewards distribution calculation.
     participation_share_multiplier: int = 0

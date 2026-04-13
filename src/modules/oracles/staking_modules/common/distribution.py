@@ -268,7 +268,7 @@ class Distribution:
         performance = perf_coeffs.calc_performance(duties)
 
         log_validator.threshold = threshold
-        log_validator.rewards_share = reward_share
+        log_validator.reward_share = reward_share
         log_validator.performance = performance
         log_validator.attestation_duty = duties.attestation
         if duties.proposal:
