@@ -14,12 +14,23 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
+    """Per-validator performance and reward summary for a single reporting frame.
+
+    Captures the raw duty counts, performance metrics, and the resulting reward share
+    for one validator within a frame so that per-validator data can be logged and audited.
+    """
+
     distributed_rewards: RewardsShares = 0
     performance: float = 0.0
+    # Minimum performance ratio required to be eligible for rewards in this frame.
     threshold: float = 0.0
+    # Operator-configured fraction of rewards this validator key is eligible for (from CSParametersRegistry).
     rewards_share: float = 0.0
+    # Scales participation shares proportionally to effective balance
+    # (effective_balance // EFFECTIVE_BALANCE_INCREMENT; 32 for a standard 32 ETH validator).
     participation_share_multiplier: int = 0
     slashed: bool = False
+    # Number of consecutive below-threshold frames (used for strike-based ejection logic).
     strikes: int = 0
     attestation_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
     proposal_duty: DutyAccumulator = field(default_factory=DutyAccumulator)

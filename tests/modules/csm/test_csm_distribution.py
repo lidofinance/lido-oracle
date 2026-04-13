@@ -37,6 +37,9 @@ from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
+# Matches how distribution.py computes it: effective_balance // EFFECTIVE_BALANCE_INCREMENT
+PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INCREMENT
+
 
 @pytest.mark.parametrize(
     (
@@ -456,7 +459,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 performance=0.6,
                                 threshold=0.5,
                                 rewards_share=1.0,
-                                participation_share_multiplier=32,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=6),
@@ -535,7 +538,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 performance=0.5,
                                 threshold=0.65,
                                 rewards_share=1.0,
-                                participation_share_multiplier=32,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=1,
                                 attestation_duty=DutyAccumulator(assigned=10, included=5),
@@ -624,7 +627,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 performance=0.0,
                                 threshold=0.0,
                                 rewards_share=1.0,
-                                participation_share_multiplier=32,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=0),
@@ -636,7 +639,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 performance=1.0,
                                 threshold=0.0,
                                 rewards_share=1.0,
-                                participation_share_multiplier=32,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=10),
@@ -811,7 +814,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
                                         proposal_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
@@ -833,7 +836,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
                                         sync_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
@@ -842,7 +845,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=0.12903225806451613,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         strikes=1,
                                         attestation_duty=DutyAccumulator(assigned=10, included=0),
                                         proposal_duty=DutyAccumulator(assigned=10, included=10),
@@ -860,7 +863,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=0.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         strikes=1,
                                         attestation_duty=DutyAccumulator(assigned=10, included=0),
                                     ),
@@ -882,7 +885,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=1.0,
                                         threshold=0.8842289719626168,
                                         rewards_share=1.0,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         slashed=False,
                                         strikes=0,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
@@ -893,7 +896,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         performance=1.0,
                                         threshold=0.7842289719626168,
                                         rewards_share=0.9,
-                                        participation_share_multiplier=32,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         slashed=False,
                                         strikes=0,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
