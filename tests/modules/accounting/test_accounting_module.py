@@ -134,10 +134,30 @@ def test_get_cl_pending_validators_balance(accounting: Accounting):
         'key2': ('wc2', [Mock(amount=3000)]),
     }
     accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value=pending_validators_data)
+    accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=[])
 
     balance = accounting._get_cl_pending_validators_balance(bs)
 
     assert balance == 6000
+
+
+@pytest.mark.unit
+def test_get_cl_pending_validators_balance_includes_topups(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+
+    pending_validators_data = {
+        'key1': ('wc1', [Mock(amount=1000)]),
+    }
+    accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value=pending_validators_data)
+    active_validators = [
+        LidoValidatorFactory.build(pending_topups=[Mock(amount=500), Mock(amount=300)]),
+        LidoValidatorFactory.build(pending_topups=[Mock(amount=200)]),
+    ]
+    accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=active_validators)
+
+    balance = accounting._get_cl_pending_validators_balance(bs)
+
+    assert balance == 2000  # 1000 (new validator) + 500 + 300 + 200 (topups)
 
 
 @pytest.mark.unit
@@ -708,6 +728,7 @@ def test_get_finalization_data_zero_shares(accounting: Accounting):
 def test_get_cl_pending_validators_balance_empty(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     accounting.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=[])
     balance = accounting._get_cl_pending_validators_balance(bs)
     assert balance == 0
 
