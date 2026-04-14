@@ -79,6 +79,7 @@ def test_force_raise():
         None,
         stream=False,
         validate_response=data_is_any,
+        stream_consumer=None,
     )
 
 
@@ -116,6 +117,46 @@ def test_custom_error_provided():
 
     with pytest.raises(CustomError):
         provider.call()
+
+
+@pytest.mark.unit
+def test_stream_consumer_applied_to_data():
+    """stream_consumer receives the parsed data and its return value is used."""
+    provider = HTTPProvider(['http://localhost:1'], 5 * 60, 1, 1)
+    provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
+
+    resp = Response()
+    resp.status_code = 200
+    resp._content = b'{"data": [1, 2, 3]}'
+    provider.session.get = Mock(return_value=resp)
+
+    data, _ = provider._get_without_fallbacks('http://localhost:1', 'test', stream_consumer=lambda d: list(reversed(d)))
+    assert data == [3, 2, 1]
+
+
+@pytest.mark.unit
+def test_stream_consumer_failure_triggers_fallback():
+    """When stream_consumer raises, _get must fall back to the next host."""
+    provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
+    provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
+
+    resp = Response()
+    resp.status_code = 200
+    resp._content = b'{"data": [1, 2, 3]}'
+    provider.session.get = Mock(return_value=resp)
+
+    call_count = 0
+
+    def consumer(data):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise OSError('Mid-stream failure')
+        return list(data)
+
+    data, _ = provider._get('test', stream_consumer=consumer)
+    assert data == [1, 2, 3]
+    assert call_count == 2
 
 
 @pytest.mark.unit

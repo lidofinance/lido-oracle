@@ -116,6 +116,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         force_raise: Callable[..., Exception | None] = lambda _: None,
         validate_response: ReturnValueValidator = data_is_any,
         stream: bool = False,
+        stream_consumer: Callable[[Any], Any] | None = None,
     ) -> tuple[Any, dict]:
         """
         Plain or streamed GET request with fallbacks
@@ -123,6 +124,10 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
 
         force_raise - function that returns an Exception if it should be thrown immediately.
         Sometimes NotOk response from first provider is the response that we are expecting.
+
+        stream_consumer - when stream=True, a callable that consumes the stream data and
+        returns the final result. Must be provided for streamed requests so that mid-stream
+        failures are caught inside the fallback loop and trigger retry with the next host.
         """
         errors: list[Exception] = []
 
@@ -135,6 +140,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                     query_params,
                     stream=stream,
                     validate_response=validate_response,
+                    stream_consumer=stream_consumer,
                 )
             except Exception as e:  # pylint: disable=W0703
                 errors.append(e)
@@ -162,6 +168,7 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         query_params: dict | None = None,
         stream: bool = False,
         validate_response: ReturnValueValidator = data_is_any,
+        stream_consumer: Callable[[Any], Any] | None = None,
     ) -> tuple[Any, dict]:
         """
         Simple GET request without fallbacks
@@ -223,6 +230,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
             data = json_response
 
         validate_response(data, meta, endpoint=endpoint)
+        if stream_consumer is not None:
+            data = stream_consumer(data)
         return data, meta
 
     def _post(
