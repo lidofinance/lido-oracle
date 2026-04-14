@@ -38,7 +38,7 @@ lint: up
 	$(EXEC_CMD) pyright src
 
 isort: up
-	$(EXEC_CMD) isort $(ORACLE_ISORT_PATH)
+	$(EXEC_CMD) ruff check --select I --fix $(ORACLE_ISORT_PATH)
 
 # Use ORACLE_TEST_PATH to run specific tests, e.g.:
 # make test ORACLE_TEST_PATH=tests/providers_clients/test_keys_api_client.py

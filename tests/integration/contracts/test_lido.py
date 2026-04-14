@@ -12,6 +12,8 @@ def test_lido_contract_call(lido_contract, accounting_oracle_contract, burner_co
         [
             ('get_buffered_ether', None, lambda response: check_value_type(response, int)),
             ('total_supply', None, lambda response: check_value_type(response, int)),
+            # Uncomment after SRv3 release on mainnet
+            # ('get_deposits_reserve', ('latest',), lambda response: check_value_type(response, int)),
             ('get_beacon_stat', None, lambda response: check_value_type(response, BeaconStat)),
         ],
         caplog,

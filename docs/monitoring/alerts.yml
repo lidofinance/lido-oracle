@@ -12,14 +12,14 @@ groups:
 
   - name: oracle-health
     rules:
-      - alert: OutdatedConsensusHeadSlot
-        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-        for: 1h
+      - alert: OutdatedConsensusFinalizedSlot
+        expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+        for: 15m
         labels:
           severity: critical
         annotations:
-          summary: "Oracle is not progressing"
-          description: "Oracle consensus data is stale. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
+          summary: "Oracle finalized slot is not progressing"
+          description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
 
       - alert: LowAccountBalance
         expr: lido_oracle_account_balance / 1e18 < 1

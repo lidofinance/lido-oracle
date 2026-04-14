@@ -26,14 +26,14 @@ Alert when the Oracle member account balance is critically low:
 Alert when the Oracle is processing stale CL data:
 
 ```yaml
-- alert: OracleOutdatedCLData
-  expr: (lido_oracle_genesis_time + ignoring(state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-  for: 1h
+- alert: OutdatedConsensusFinalizedSlot
+  expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+  for: 15m
   labels:
     severity: critical
   annotations:
-    summary: "Outdated Consensus Layer HEAD slot"
-    description: "Processed by Oracle HEAD slot {{ $value }} too old"
+    summary: "Oracle finalized slot is not progressing"
+    description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
 ```
 
 ## Cycle Health Alerts
@@ -128,14 +128,14 @@ groups:
           summary: "Dangerously low account balance"
           description: "Account balance is less than 1 ETH. Address: {{ $labels.address }}: {{ $value }} ETH"
 
-      - alert: OracleOutdatedCLData
-        expr: (lido_oracle_genesis_time + ignoring(state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-        for: 1h
+      - alert: OutdatedConsensusFinalizedSlot
+        expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+        for: 15m
         labels:
           severity: critical
         annotations:
-          summary: "Outdated Consensus Layer HEAD slot"
-          description: "Processed by Oracle HEAD slot {{ $value }} too old"
+          summary: "Oracle finalized slot is not progressing"
+          description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
 
   - name: oracle-cycle-health
     rules:
