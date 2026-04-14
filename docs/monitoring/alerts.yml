@@ -12,6 +12,15 @@ groups:
 
   - name: oracle-health
     rules:
+      - alert: OutdatedConsensusFinalizedSlot
+        expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oracle finalized slot is not progressing"
+          description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
+
       - alert: LowAccountBalance
         expr: lido_oracle_account_balance / 1e18 < 1
         for: 10m

@@ -21,6 +21,21 @@ Alert when the Oracle member account balance is critically low:
     description: "Account balance is less than 1 ETH. Address: {{ $labels.address }}: {{ $value }} ETH"
 ```
 
+### Outdated Consensus Layer Data
+
+Alert when the Oracle is processing stale CL data:
+
+```yaml
+- alert: OutdatedConsensusFinalizedSlot
+  expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+  for: 15m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Oracle finalized slot is not progressing"
+    description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
+```
+
 ## Cycle Health Alerts
 
 These alerts monitor the Oracle's operational cycles using the `lido_oracle_cycle_count` and `lido_oracle_last_cycle_timestamp` metrics.
@@ -112,6 +127,15 @@ groups:
         annotations:
           summary: "Dangerously low account balance"
           description: "Account balance is less than 1 ETH. Address: {{ $labels.address }}: {{ $value }} ETH"
+
+      - alert: OutdatedConsensusFinalizedSlot
+        expr: increase(lido_oracle_slot_number{state="finalized"}[15m]) == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Oracle finalized slot is not progressing"
+          description: "Oracle finalized slot has not changed in 15 minutes. Check consensus node sync/health, oracle connectivity to it, and oracle logs ({{ $labels.job }} / {{ $labels.instance }})."
 
   - name: oracle-cycle-health
     rules:
