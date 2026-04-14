@@ -255,7 +255,7 @@ def deposit_contract(web3_provider_integration) -> DepositContract:
 
 @pytest.fixture
 def curated_staking_module_contract(web3_provider_integration, staking_router_contract) -> CuratedStakingModuleContract:
-    module = staking_router_contract.get_staking_module(1, block_identifier='latest')
+    module = staking_router_contract.get_staking_modules(block_identifier='latest')[0]
     return get_contract(
         web3_provider_integration,
         CuratedStakingModuleContract,

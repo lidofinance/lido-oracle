@@ -4,7 +4,6 @@ from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
-from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 from src.variables import EL_REQUESTS_BATCH_SIZE
@@ -67,22 +66,6 @@ class StakingRouterContract(ContractInterface):
                 break
 
         return [NodeOperator.from_response(no, module) for no in response]
-
-    def get_staking_module(self, staking_module_id: int, block_identifier: BlockIdentifier = 'latest') -> StakingModule:
-        """
-        Returns the staking module for the given ID
-        """
-        response = self.functions.getStakingModule(staking_module_id).call(block_identifier=block_identifier)
-
-        logger.info(
-            {
-                'msg': f'Call `getStakingModule({staking_module_id})`.',
-                'value': response,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
-        return named_tuple_to_dataclass(response, StakingModule.from_response)
 
     @lru_cache(maxsize=1)
     @list_of_dataclasses(StakingModule.from_response)
