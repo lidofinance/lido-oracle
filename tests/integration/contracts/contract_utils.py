@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import fields, is_dataclass
 from types import UnionType
 from typing import Any, get_origin, get_type_hints
@@ -14,7 +14,7 @@ HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)
 ADDRESS_REGREX = re.compile('^0x[0-9,A-F]{40}$', flags=re.IGNORECASE)
 
 type FuncName = str
-type FuncArgs = tuple
+type FuncArgs = Sequence[Any]
 type FuncResp = Any
 
 
@@ -38,12 +38,16 @@ def check_contract(
     assert len(functions_spec) == len(log_with_call)
 
 
-def check_is_instance_of(type_: type) -> Callable[[FuncArgs], None]:
+def make_checker(type_: Any) -> Callable[[FuncResp], None]:
     if type_ is Address or type_ is ChecksumAddress:
-        return lambda resp: check_is_address(resp) and check_value_type(resp, type_)
+        return check_is_address
 
     if is_dataclass(type_):
         return lambda resp: check_dataclass_types(resp, type_)
+
+    # Unwrap NewType
+    while hasattr(type_, '__supertype__'):
+        type_ = type_.__supertype__
 
     return lambda resp: check_value_type(resp, type_)
 

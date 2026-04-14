@@ -17,11 +17,15 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     CSParametersRegistryContract,
 )
 from src.providers.execution.contracts.cs_strikes import CSStrikesContract
+from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
 from src.providers.execution.contracts.delegation_contract import DelegationContract
+from src.providers.execution.contracts.deposit_contract import DepositContract
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
+from src.providers.execution.contracts.meta_registry import MetaRegistryContract
 from src.providers.execution.contracts.oracle_daemon_config import (
     OracleDaemonConfigContract,
 )
@@ -227,4 +231,42 @@ def delegation_contract(web3_provider_integration):
         web3_provider_integration,
         DelegationContract,
         variables.DELEGATION_CONTRACT_ADDRESS,
+    )
+
+
+@pytest.fixture
+def hash_consensus_contract(web3_provider_integration, accounting_oracle_contract) -> HashConsensusContract:
+    return get_contract(
+        web3_provider_integration,
+        HashConsensusContract,
+        accounting_oracle_contract.get_consensus_contract(),
+    )
+
+
+@pytest.fixture
+def deposit_contract(web3_provider_integration) -> DepositContract:
+    # Well-known Ethereum mainnet deposit contract address
+    return get_contract(
+        web3_provider_integration,
+        DepositContract,
+        '0x00000000219ab540356cBB839Cbe05303d7705Fa',
+    )
+
+
+@pytest.fixture
+def curated_staking_module_contract(web3_provider_integration, staking_router_contract) -> CuratedStakingModuleContract:
+    module = staking_router_contract.get_staking_modules(block_identifier='latest')[0]
+    return get_contract(
+        web3_provider_integration,
+        CuratedStakingModuleContract,
+        module.staking_module_address,
+    )
+
+
+@pytest.fixture
+def meta_registry_contract(web3_provider_integration, curated_staking_module_contract) -> MetaRegistryContract:
+    return get_contract(
+        web3_provider_integration,
+        MetaRegistryContract,
+        curated_staking_module_contract.get_meta_registry_address(block_identifier='latest'),
     )
