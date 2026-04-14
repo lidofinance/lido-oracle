@@ -94,7 +94,7 @@ class PerformanceCollector(DaemonModule):
 
         epochs_range_to_process = self._define_epochs_to_process_range(finalized_epoch)
         if not epochs_range_to_process:
-            return ModuleExecuteDelay.NEXT_SLOT
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         start_epoch, end_epoch = epochs_range_to_process
 
         checkpoints = FrameCheckpointsIterator(
@@ -130,13 +130,15 @@ class PerformanceCollector(DaemonModule):
 
         logger.info({'msg': 'All checkpoints processing completed', 'total_checkpoints_processed': checkpoint_count})
 
-        return ModuleExecuteDelay.NEXT_SLOT
+        return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
     def _update_demand_metrics(self) -> None:
         PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT.set(self.db.demands_count())
 
     def _define_epochs_to_process_range(self, finalized_epoch: EpochNumber) -> tuple[EpochNumber, EpochNumber] | None:
-        max_available_epoch_to_check = finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        max_available_epoch_to_check = EpochNumber(
+            finalized_epoch - FrameCheckpointsIterator.CHECKPOINT_SLOT_DELAY_EPOCHS
+        )
         if max_available_epoch_to_check < 0:
             logger.info({"msg": "No available epochs to process yet"})
             return None
@@ -144,8 +146,10 @@ class PerformanceCollector(DaemonModule):
         min_epoch_in_db = self.db.min_epoch()
         max_epoch_in_db = self.db.max_epoch()
 
-        if min_epoch_in_db and min_epoch_in_db > max_available_epoch_to_check:
-            raise ValueError("DB has data for a not‑yet‑finalised epoch. CL node is not synced.")
+        if max_epoch_in_db is not None and max_epoch_in_db > max_available_epoch_to_check:
+            raise ValueError(
+                f"DB has data for epoch > {max_available_epoch_to_check} ({max_epoch_in_db=}). CL node is not synced."
+            )
 
         start_epoch = EpochNumber(min_epoch_in_db if min_epoch_in_db is not None else max_available_epoch_to_check)
         end_epoch = EpochNumber(max_available_epoch_to_check)

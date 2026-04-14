@@ -14,10 +14,17 @@ class LogJSONEncoder(json.JSONEncoder): ...
 
 @dataclass
 class ValidatorFrameSummary:
+    # This is not an accurate reward value for the given validator.
+    # The source of truth is `OperatorFrameSummary.distributed_rewards`.
     distributed_rewards: RewardsShares = 0
     performance: float = 0.0
+    # The value of performance threshold for the given validator by Operator's type (Bond Curve ID).
     threshold: float = 0.0
-    rewards_share: float = 0.0
+    # The value of rewards share for the given validator by Operator's type (Bond Curve ID).
+    reward_share: float = 0.0
+    # The value of `effective_balance // EFFECTIVE_BALANCE_INCREMENT`
+    # that used as multiplier in rewards distribution calculation.
+    participation_share_multiplier: int = 0
     slashed: bool = False
     strikes: int = 0
     attestation_duty: DutyAccumulator = field(default_factory=DutyAccumulator)
@@ -28,6 +35,8 @@ class ValidatorFrameSummary:
 @dataclass
 class OperatorFrameSummary:
     distributed_rewards: RewardsShares = 0
+    # The value of performance coefficients (att, props, sync duties coefficients)
+    # for the given operator by type (Bond Curve ID).
     performance_coefficients: PerformanceCoefficients = field(default_factory=PerformanceCoefficients)
     validators: dict[ValidatorIndex, ValidatorFrameSummary] = field(
         default_factory=lambda: defaultdict(ValidatorFrameSummary)

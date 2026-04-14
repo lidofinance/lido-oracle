@@ -38,6 +38,10 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
 
+# Matches how distribution.py computes it: effective_balance // EFFECTIVE_BALANCE_INCREMENT
+PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INCREMENT
+
+
 @pytest.mark.parametrize(
     (
         "frames",
@@ -455,7 +459,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 distributed_rewards=100,
                                 performance=0.6,
                                 threshold=0.5,
-                                rewards_share=1.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=6),
@@ -533,7 +538,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                             ValidatorIndex(1): ValidatorFrameSummary(
                                 performance=0.5,
                                 threshold=0.65,
-                                rewards_share=1.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=1,
                                 attestation_duty=DutyAccumulator(assigned=10, included=5),
@@ -621,7 +627,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 distributed_rewards=50,
                                 performance=0.0,
                                 threshold=0.0,
-                                rewards_share=1.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=0),
@@ -632,7 +639,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 distributed_rewards=50,
                                 performance=1.0,
                                 threshold=0.0,
-                                rewards_share=1.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                 slashed=False,
                                 strikes=0,
                                 attestation_duty=DutyAccumulator(assigned=10, included=10),
@@ -806,7 +814,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1,
+                                        reward_share=1,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
                                         proposal_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
@@ -827,7 +836,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1,
+                                        reward_share=1,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
                                         sync_duty=DutyAccumulator(assigned=10, included=10),
                                     ),
@@ -835,7 +845,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         distributed_rewards=0,
                                         performance=0.12903225806451613,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1,
+                                        reward_share=1,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         strikes=1,
                                         attestation_duty=DutyAccumulator(assigned=10, included=0),
                                         proposal_duty=DutyAccumulator(assigned=10, included=10),
@@ -852,7 +863,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                     ValidatorIndex(5): ValidatorFrameSummary(
                                         performance=0.0,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1,
+                                        reward_share=1,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         strikes=1,
                                         attestation_duty=DutyAccumulator(assigned=10, included=0),
                                     ),
@@ -873,7 +885,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         distributed_rewards=25,
                                         performance=1.0,
                                         threshold=0.8842289719626168,
-                                        rewards_share=1.0,
+                                        reward_share=1.0,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         slashed=False,
                                         strikes=0,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
@@ -883,7 +896,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                         distributed_rewards=22,
                                         performance=1.0,
                                         threshold=0.7842289719626168,
-                                        rewards_share=0.9,
+                                        reward_share=0.9,
+                                        participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
                                         slashed=False,
                                         strikes=0,
                                         attestation_duty=DutyAccumulator(assigned=10, included=10),
@@ -1171,7 +1185,7 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
     assert outcome == expected_outcome
     if validator_duties.attestation and not is_slashed:
         assert log_operator.validators[validator.index].threshold == threshold
-        assert log_operator.validators[validator.index].rewards_share == reward_share
+        assert log_operator.validators[validator.index].reward_share == reward_share
         if validator_duties.attestation:
             assert log_operator.validators[validator.index].attestation_duty == validator_duties.attestation
         if validator_duties.proposal:
@@ -1452,11 +1466,24 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
     expected_assigned = 10 * MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
     expected_participation = math.ceil(expected_assigned * reward_share)
     expected_rebate = expected_assigned - expected_participation
+    expected_participation_share_multiplier = MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
 
     assert outcome == ValidatorDutiesOutcome(
         participation_share=expected_participation,
         rebate_share=expected_rebate,
         strikes=0,
+    )
+    assert log_operator.validators[validator.index] == ValidatorFrameSummary(
+        distributed_rewards=0,
+        performance=1.0,
+        threshold=threshold,
+        reward_share=reward_share,
+        participation_share_multiplier=expected_participation_share_multiplier,
+        slashed=False,
+        strikes=0,
+        attestation_duty=DutyAccumulator(assigned=10, included=10),
+        proposal_duty=DutyAccumulator(),
+        sync_duty=DutyAccumulator(),
     )
 
 
@@ -1527,9 +1554,9 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
 
     distribution._calculate_distribution_in_frame(frame, blockstamp, Wei(300), operators_to_validators, log)
 
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(6)].rewards_share == 1.0
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(9)].rewards_share == 0.9
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].rewards_share == 0.8
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].rewards_share == 0.7
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].rewards_share == 0.6
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].rewards_share == 0.5
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(6)].reward_share == 1.0
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(9)].reward_share == 0.9
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].reward_share == 0.8
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].reward_share == 0.7
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].reward_share == 0.6
+    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].reward_share == 0.5

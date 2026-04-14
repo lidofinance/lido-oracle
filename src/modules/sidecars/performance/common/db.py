@@ -19,23 +19,63 @@ def get_datetime_utc() -> datetime:
 
 
 class Duty(SQLModel, table=True):
+    """Aggregated validator duties and misses for a single epoch."""
+
     __tablename__: ClassVar[str] = "duties"
 
-    epoch: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=False))
-    attestations: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
-    proposals_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
-    proposals_flags: list[bool] = Field(default_factory=list, sa_column=Column(ARRAY(Boolean()), nullable=False))
-    syncs_vids: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(Integer()), nullable=False))
-    syncs_misses: list[int] = Field(default_factory=list, sa_column=Column(ARRAY(SmallInteger()), nullable=False))
+    epoch: int = Field(
+        description="Epoch number for which duty data is stored.",
+        sa_column=Column(Integer, primary_key=True, autoincrement=False),
+    )
+    missed_attestation_vids: list[int] = Field(
+        default_factory=list,
+        description="Validator indices that missed attestation duties in this epoch.",
+        sa_column=Column(ARRAY(Integer()), nullable=False),
+    )
+    proposals_vids: list[int] = Field(
+        default_factory=list,
+        description="Validator indices for proposer duties in this epoch.",
+        sa_column=Column(ARRAY(Integer()), nullable=False),
+    )
+    proposals_flags: list[bool] = Field(
+        default_factory=list,
+        description="Proposal success flags aligned with 'proposals_vids' by index.",
+        sa_column=Column(ARRAY(Boolean()), nullable=False),
+    )
+    syncs_vids: list[int] = Field(
+        default_factory=list,
+        description="Validator indices for sync committee duties in this epoch.",
+        sa_column=Column(ARRAY(Integer()), nullable=False),
+    )
+    syncs_misses: list[int] = Field(
+        default_factory=list,
+        description="Miss counters aligned with 'syncs_vids' by index.",
+        sa_column=Column(ARRAY(SmallInteger()), nullable=False),
+    )
 
 
 class EpochsDemand(SQLModel, table=True):
+    """Requested epoch range that a consumer expects from the performance collector."""
+
     __tablename__: ClassVar[str] = "epochs_demands"
 
-    consumer: str = Field(primary_key=True)
-    from_epoch: int
-    to_epoch: int
-    updated_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
+    consumer: str = Field(
+        primary_key=True,
+        description="Unique consumer identifier for the requested epoch range.",
+    )
+    from_epoch: int = Field(
+        ge=0,
+        description="Start epoch of the requested range (uint).",
+    )
+    to_epoch: int = Field(
+        ge=0,
+        description="End epoch of the requested range (uint).",
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+        description="UTC timestamp when this demand was last updated.",
+    )
 
 
 class Settings(SQLModel, table=True):
@@ -183,7 +223,7 @@ class DutiesDB:
         with self.get_session() as session:
             duty = session.get(Duty, epoch)
             if duty:
-                duty.attestations = att_list
+                duty.missed_attestation_vids = att_list
                 duty.proposals_vids = prop_vids
                 duty.proposals_flags = prop_flags
                 duty.syncs_vids = sync_vids
@@ -191,7 +231,7 @@ class DutiesDB:
             else:
                 duty = Duty(
                     epoch=epoch,
-                    attestations=att_list,
+                    missed_attestation_vids=att_list,
                     proposals_vids=prop_vids,
                     proposals_flags=prop_flags,
                     syncs_vids=sync_vids,
@@ -226,9 +266,9 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            present = session.exec(
-                select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch).distinct()
-            ).all()
+            present = set(session.exec(
+                select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch)
+            ).all())
 
         return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
 

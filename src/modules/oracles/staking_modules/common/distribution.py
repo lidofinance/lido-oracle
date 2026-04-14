@@ -268,13 +268,24 @@ class Distribution:
         performance = perf_coeffs.calc_performance(duties)
 
         log_validator.threshold = threshold
-        log_validator.rewards_share = reward_share
+        log_validator.reward_share = reward_share
         log_validator.performance = performance
         log_validator.attestation_duty = duties.attestation
         if duties.proposal:
             log_validator.proposal_duty = duties.proposal
         if duties.sync:
             log_validator.sync_duty = duties.sync
+
+        #
+        # Due to CL rewarding process, validators are getting rewards in proportion to their effective balance:
+        # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers
+        # Distribution should calculate participation and rebate shares proportional to effective balance as well.
+        # NOTE: Moment of getting 2048 ETH can be too close to the report and trick the distribution.
+        #
+        val_effective_balance = max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance)
+        participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
+
+        log_validator.participation_share_multiplier = participation_share_multiplier
 
         if performance >= threshold:
             #
@@ -288,14 +299,6 @@ class Distribution:
             #     - Reward share for this Operator's key is 0.85
             #    87.55 ≈ 88 of 103 participation shares should be counted for the operator key's reward.
             #    The rest 15 participation shares should be counted for the protocol's rebate.
-            #
-            val_effective_balance = max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance)
-            participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
-            #
-            # Due to CL rewarding process, validators are getting rewards in proportion to their effective balance:
-            # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers
-            # Distribution should calculate participation and rebate shares proportional to effective balance as well.
-            # NOTE: Moment of getting 2048 ETH can be too close to the report and trick the distribution.
             #
             assigned_att = duties.attestation.assigned * participation_share_multiplier
             participation_share = math.ceil(assigned_att * reward_share)

@@ -241,23 +241,30 @@ class TestDefineEpochsToProcessRange:
 
         # Setup DB
         mock_db.min_epoch.return_value = 50
-        mock_db.max_epoch.return_value = 99  # High max_epoch
-        mock_db.get_epochs_demands.return_value = []
+        mock_db.max_epoch.return_value = 98  # High max_epoch
+        mock_db.get_epochs_demands.return_value = [
+            EpochsDemand(consumer='consumer1', from_epoch=50, to_epoch=99, updated_at=UPDATED_AT)
+        ]
+        mock_db.is_range_available.return_value = False
         mock_db.missing_epochs_in.return_value = []  # No gaps
 
         result = performance_collector._define_epochs_to_process_range(finalized_epoch)
 
-        # start_epoch would be 100, but max_available is 98, so should return None
+        # max_epoch_in_db is 98, so start_epoch becomes 99; since max_available is 98, it should return None
         assert result is None
 
     @pytest.mark.unit
-    def test_cl_node_not_synced_error(self, performance_collector: PerformanceCollector, mock_db: Mock):
-        """Test when CL node is not synced (max_available < min_epoch_in_db)"""
-        finalized_epoch = EpochNumber(5)
+    def test_define_epochs_to_process_range__db_has_epoch_greater_than_max_available__raises_value_error(
+        self, performance_collector: PerformanceCollector, mock_db: Mock
+    ):
+        """Test raising when max_epoch_in_db exceeds max_available_epoch_to_check."""
+        finalized_epoch = EpochNumber(100)
 
-        # Setup DB where min_epoch is higher than what we can process
-        mock_db.min_epoch.return_value = 10  # min_epoch > max_available(3)
-        mock_db.max_epoch.return_value = 100
+        # Setup DB where max_epoch_in_db (99) > max_available_epoch_to_check (98)
+        mock_db.min_epoch.return_value = 50
+        mock_db.max_epoch.return_value = 99
+        mock_db.get_epochs_demands.return_value = []
+        mock_db.missing_epochs_in.return_value = []
 
         with pytest.raises(ValueError, match="CL node is not synced"):
             performance_collector._define_epochs_to_process_range(finalized_epoch)
@@ -315,7 +322,7 @@ class TestExecuteModule:
         performance_collector._reset_cycle_timeout = Mock()
 
     @pytest.mark.unit
-    def test_returns_next_slot_when_no_epochs_to_process(
+    def test_returns_next_finalized_epoch_when_no_epochs_to_process(
         self, performance_collector: PerformanceCollector, converter: Mock
     ):
         converter.get_epoch_by_slot.return_value = 10
@@ -323,7 +330,7 @@ class TestExecuteModule:
 
         result = performance_collector.execute_module(Mock())
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         cast(Mock, performance_collector._update_demand_metrics).assert_called_once_with()
         cast(Mock, performance_collector._define_epochs_to_process_range).assert_called_once_with(EpochNumber(9))
 
@@ -346,7 +353,7 @@ class TestExecuteModule:
         ):
             result = performance_collector.execute_module(blockstamp)
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         iterator_mock.assert_called_once_with(converter, start_epoch, end_epoch, EpochNumber(99))
         processor_mock.assert_called_once_with(
             performance_collector.cc,
@@ -359,7 +366,7 @@ class TestExecuteModule:
         assert cast(Mock, performance_collector._has_epochs_demand_changed).call_count == len(checkpoints)
 
     @pytest.mark.unit
-    def test_empty_checkpoints_returns_next_slot(self, performance_collector: PerformanceCollector):
+    def test_empty_checkpoints_returns_next_finalized_epoch(self, performance_collector: PerformanceCollector):
         """Test when FrameCheckpointsIterator yields no checkpoints"""
         performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
         performance_collector._has_epochs_demand_changed = Mock()
@@ -372,7 +379,7 @@ class TestExecuteModule:
         ):
             result = performance_collector.execute_module(Mock())
 
-        assert result is ModuleExecuteDelay.NEXT_SLOT
+        assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         processor.exec.assert_not_called()
         cast(Mock, performance_collector._reset_cycle_timeout).assert_not_called()
         cast(Mock, performance_collector._has_epochs_demand_changed).assert_not_called()

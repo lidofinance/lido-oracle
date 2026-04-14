@@ -505,7 +505,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
         return_value=[
             Duty(
                 epoch=0,
-                attestations=[validator_a.index],
+                missed_attestation_vids=[validator_a.index],
                 proposals_vids=[int(validator_a.index), int(validator_b.index)],
                 proposals_flags=[True, False],
                 syncs_vids=[int(validator_a.index), int(validator_b.index)],
@@ -513,7 +513,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
             ),
             Duty(
                 epoch=1,
-                attestations=[],
+                missed_attestation_vids=[],
                 proposals_vids=[int(validator_b.index), int(validator_a.index), int(validator_b.index)],
                 proposals_flags=[True, True, True],
                 syncs_vids=[int(validator_a.index), int(validator_b.index)],
@@ -575,7 +575,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
         return_value=[
             Duty(
                 epoch=0,
-                attestations=[inactive_validator.index],
+                missed_attestation_vids=[inactive_validator.index],
                 proposals_vids=[],
                 proposals_flags=[],
                 syncs_vids=[],
@@ -611,7 +611,7 @@ def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceO
         return_value=[
             Duty(
                 epoch=0,
-                attestations=[],
+                missed_attestation_vids=[],
                 proposals_vids=[int(validator.index)],
                 proposals_flags=[True],
                 syncs_vids=[int(validator.index)],
@@ -654,7 +654,7 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
         return_value=[
             Duty(
                 epoch=0,
-                attestations=[exit_early.index],
+                missed_attestation_vids=[exit_early.index],
                 proposals_vids=[int(active_all.index)],
                 proposals_flags=[True],
                 syncs_vids=[int(active_all.index)],
@@ -662,7 +662,7 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
             ),
             Duty(
                 epoch=1,
-                attestations=[active_all.index],
+                missed_attestation_vids=[active_all.index],
                 proposals_vids=[int(active_late.index), int(active_all.index)],
                 proposals_flags=[True, False],
                 syncs_vids=[int(active_all.index), int(active_late.index)],
@@ -670,7 +670,7 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
             ),
             Duty(
                 epoch=2,
-                attestations=[],
+                missed_attestation_vids=[],
                 proposals_vids=[int(active_all.index)],
                 proposals_flags=[True],
                 syncs_vids=[int(active_all.index)],

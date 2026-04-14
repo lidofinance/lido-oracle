@@ -226,7 +226,7 @@ class TestStoreEpoch:
         mock_session.commit.assert_called_once()
         added_duty = mock_session.add.call_args[0][0]
         assert added_duty.epoch == 100
-        assert sorted(added_duty.attestations) == [1, 2, 3]
+        assert sorted(added_duty.missed_attestation_vids) == [1, 2, 3]
         assert added_duty.proposals_vids == [10, 11, 12]
         assert added_duty.proposals_flags == [True, False, True]
         assert added_duty.syncs_vids == [20, 21, 22]
@@ -251,7 +251,7 @@ class TestStoreEpoch:
 
         mock_session.add.assert_not_called()
         mock_session.commit.assert_called_once()
-        assert sorted(existing.attestations) == [7, 8]
+        assert sorted(existing.missed_attestation_vids) == [7, 8]
         assert existing.proposals_vids == [50]
         assert existing.proposals_flags == [True]
         assert existing.syncs_vids == [60]
