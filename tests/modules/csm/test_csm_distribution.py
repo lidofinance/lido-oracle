@@ -189,7 +189,7 @@ PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INC
                 (NodeOperatorId(2), HexBytes("0x02")): [0, 1, 0, 0, 0, 0],
             },
         ),
-        # One frame with no distribution
+        # One frame with no distribution (all rewards rebated to the protocol)
         (
             [(0, 31)],
             Mock(
@@ -213,14 +213,14 @@ PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INC
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    0,
+                    500,
                     # strikes
                     {(NodeOperatorId(1), HexBytes("0x01")): 1},
                 )
             ],
             0,
             {NodeOperatorId(1): 500},
-            0,
+            500,
             {(NodeOperatorId(1), HexBytes("0x01")): [1, 1, 0, 0, 0, 1]},
         ),
         # Multiple frames, some of which are not distributed
@@ -258,15 +258,15 @@ PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INC
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    0,
+                    500,
                     # strikes
                     {(NodeOperatorId(1), HexBytes("0x01")): 1},
                 ),
                 (
                     # rewards
-                    {NodeOperatorId(1): 500 + 700},
+                    {NodeOperatorId(1): 700},
                     # distributed_rewards
-                    500 + 700,
+                    700,
                     # rebate_to_protocol
                     0,
                     # strikes
@@ -278,14 +278,14 @@ PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INC
                     # distributed_rewards
                     0,
                     # rebate_to_protocol
-                    0,
+                    300,
                     # strikes
                     {},
                 ),
             ],
-            500 + 700,
-            {NodeOperatorId(1): 500 + 500 + 700},
-            0,
+            700,
+            {NodeOperatorId(1): 500 + 700},
+            500 + 300,
             {
                 (NodeOperatorId(1), HexBytes("0x01")): [0, 0, 1, 1, 0, 0],
                 (NodeOperatorId(2), HexBytes("0x02")): [0, 1, 0, 0, 0, 0],
@@ -519,7 +519,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
             # Distributed rewards
             0,
             # Rebate to protocol
-            0,
+            100,
             # Strikes
             {
                 (NodeOperatorId(1), HexBytes('0x01')): 1,
@@ -529,7 +529,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 frame=...,
                 distributable=100,
                 distributed_rewards=0,
-                rebate_to_protocol=0,
+                rebate_to_protocol=100,
                 operators={
                     NodeOperatorId(1): OperatorFrameSummary(
                         distributed_rewards=0,
@@ -646,6 +646,154 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                                 attestation_duty=DutyAccumulator(assigned=10, included=10),
                                 proposal_duty=DutyAccumulator(assigned=10, included=10),
                                 sync_duty=DutyAccumulator(assigned=10, included=10),
+                            ),
+                        },
+                    )
+                },
+            ),
+        ),
+        # Leeway of 1.0 (curated module scenario): no validator activated — full rebate to protocol
+        (
+            100,
+            {
+                NodeOperatorId(1): [
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(1),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x01", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(2),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x02", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                ],
+            },
+            NetworkDuties(),
+            Mock(
+                return_value=CurveParams(
+                    strikes_params=...,
+                    perf_leeway_data=Mock(get_for=Mock(return_value=1)),
+                    reward_share_data=Mock(get_for=Mock(return_value=1)),
+                    perf_coeffs=PerformanceCoefficients(),
+                )
+            ),
+            # Expected:
+            # Distribution map
+            {},
+            # Distributed rewards
+            0,
+            # Rebate to protocol
+            100,
+            # Strikes
+            {},
+            FramePerfLog(
+                blockstamp=...,
+                frame=...,
+                distributable=100,
+                distributed_rewards=0,
+                rebate_to_protocol=100,
+                operators={},
+            ),
+        ),
+        # Leeway of 1.0 (curated module scenario): all validators have 0 performance —
+        # no rebate, all rewards go to operators because 100% leeway protects them
+        (
+            100,
+            {
+                NodeOperatorId(1): [
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(1),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x01", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                    LidoValidatorFactory.build(
+                        index=ValidatorIndex(2),
+                        validator=ValidatorStateFactory.build(
+                            slashed=False, pubkey="0x02", effective_balance=MIN_ACTIVATION_BALANCE
+                        ),
+                    ),
+                ],
+            },
+            NetworkDuties(
+                attestations=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=0),
+                    },
+                ),
+                proposals=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=0),
+                    },
+                ),
+                syncs=defaultdict(
+                    DutyAccumulator,
+                    {
+                        ValidatorIndex(1): DutyAccumulator(assigned=10, included=0),
+                        ValidatorIndex(2): DutyAccumulator(assigned=10, included=0),
+                    },
+                ),
+            ),
+            Mock(
+                return_value=CurveParams(
+                    strikes_params=...,
+                    perf_leeway_data=Mock(get_for=Mock(return_value=1)),
+                    reward_share_data=Mock(get_for=Mock(return_value=1)),
+                    perf_coeffs=PerformanceCoefficients(),
+                )
+            ),
+            # Expected:
+            # Distribution map
+            {
+                NodeOperatorId(1): 100,
+            },
+            # Distributed rewards
+            100,
+            # Rebate to protocol
+            0,
+            # Strikes
+            {},
+            FramePerfLog(
+                blockstamp=...,
+                frame=...,
+                distributable=100,
+                distributed_rewards=100,
+                rebate_to_protocol=0,
+                operators={
+                    NodeOperatorId(1): OperatorFrameSummary(
+                        distributed_rewards=100,
+                        performance_coefficients=PerformanceCoefficients(),
+                        validators={
+                            ValidatorIndex(1): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=0.0,
+                                threshold=0.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=0),
+                                proposal_duty=DutyAccumulator(assigned=10, included=0),
+                                sync_duty=DutyAccumulator(assigned=10, included=0),
+                            ),
+                            ValidatorIndex(2): ValidatorFrameSummary(
+                                distributed_rewards=50,
+                                performance=0.0,
+                                threshold=0.0,
+                                reward_share=1.0,
+                                participation_share_multiplier=PARTICIPATION_SHARE_MULTIPLIER,
+                                slashed=False,
+                                strikes=0,
+                                attestation_duty=DutyAccumulator(assigned=10, included=0),
+                                proposal_duty=DutyAccumulator(assigned=10, included=0),
+                                sync_duty=DutyAccumulator(assigned=10, included=0),
                             ),
                         },
                     )
@@ -935,7 +1083,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
             # Distributed rewards
             0,
             # Rebate to protocol
-            0,
+            100,
             # Strikes
             {},
             FramePerfLog(
@@ -943,7 +1091,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                 frame=...,
                 distributable=100,
                 distributed_rewards=0,
-                rebate_to_protocol=0,
+                rebate_to_protocol=100,
                 operators={},
             ),
         ),
@@ -1340,6 +1488,10 @@ def test_merge_strikes(
         (100, 50, 150),
         (0, 0, 0),
         (50, 50, 100),
+        # Nothing distributed, all rewards rebated to the protocol
+        (0, 100, 100),
+        # All distributed to operators, nothing rebated
+        (100, 0, 100),
     ],
 )
 @pytest.mark.unit
@@ -1352,6 +1504,8 @@ def tests_validates_correct_distribution(total_distributed_rewards, total_rebate
     [
         (100, 51, 150),
         (200, 0, 199),
+        # Nothing distributed or rebated while there are rewards to distribute
+        (0, 0, 100),
     ],
 )
 @pytest.mark.unit
