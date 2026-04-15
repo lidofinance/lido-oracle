@@ -237,8 +237,9 @@ class ConsensusClient(HTTPProvider):
             path_params=(state_id,),
             stream=True,
             validate_response=data_is_transient_dict,
+            stream_consumer=lambda d: list(d["block_roots"]),
         )
-        return list(data["block_roots"])
+        return data
 
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view(blockstamp).indexed_validators
