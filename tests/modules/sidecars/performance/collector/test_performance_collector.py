@@ -12,10 +12,11 @@ from src.modules.sidecars.performance.common.db import DutiesDB, EpochsDemand
 from src.types import EpochNumber
 
 
-UPDATED_AT = None
-
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
 T1 = datetime(2026, 1, 2, tzinfo=UTC)
+
+
+UPDATED_AT = T0
 
 
 @pytest.fixture
@@ -368,7 +369,7 @@ class TestExecuteModule:
     @pytest.mark.unit
     def test_empty_checkpoints_returns_next_finalized_epoch(self, performance_collector: PerformanceCollector):
         """Test when FrameCheckpointsIterator yields no checkpoints"""
-        performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(EpochNumber(90), EpochNumber(98)))
         performance_collector._has_epochs_demand_changed = Mock()
 
         processor = Mock()
@@ -389,11 +390,11 @@ class TestExecuteModule:
         """Test that processing stops mid-sequence when new demand appears"""
         checkpoints = [Mock(slot=10), Mock(slot=20), Mock(slot=30)]
 
-        performance_collector._define_epochs_to_process_range = Mock(return_value=(..., ...))
+        performance_collector._define_epochs_to_process_range = Mock(return_value=(EpochNumber(90), EpochNumber(98)))
         performance_collector._has_epochs_demand_changed = Mock(side_effect=[False, True])
 
         processor = Mock()
-        processor.exec.side_effect = [[...], [...]]
+        processor.exec.side_effect = [[EpochNumber(90)], [EpochNumber(91)]]
 
         with (
             patch.object(collector_module, 'FrameCheckpointsIterator', return_value=checkpoints),
