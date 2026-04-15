@@ -196,7 +196,8 @@ def test_predict_withdrawals_with_pending_partials_ratio(monkeypatch):
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
 
-    # ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP) = 8/(16-8) = 1.0
+    # ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)
+    #       = 8/(16-8) = 1.0
     # max_pending_in_cycle = ceil(5 * 1.0) = 5
     # actual_pending_in_cycle = min(20, 5) = 5
     # total = 5 + 5 = 10
