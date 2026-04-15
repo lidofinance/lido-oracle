@@ -158,7 +158,7 @@ class PerformanceCollector(DaemonModule):
         if not epochs_demand:
             logger.info({"msg": "No epoch demands found"})
         for demand in epochs_demand:
-            logger.info({"msg": "Epochs demand", **demand.model_dump()})
+            logger.info({"msg": "Epochs demand", **demand.model_dump(mode="json")})
             is_range_available = self.db.is_range_available(
                 EpochNumber(demand.from_epoch), EpochNumber(demand.to_epoch)
             )
