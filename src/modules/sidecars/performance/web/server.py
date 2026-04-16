@@ -186,6 +186,9 @@ def serve():
         host=PERFORMANCE_WEB_SERVER_API_HOST,
         port=PERFORMANCE_WEB_SERVER_API_PORT,
         workers=PERFORMANCE_WEB_SERVER_WORKERS,
+        # Keep our application logging configuration (JSON formatter) instead of
+        # uvicorn's default plain-text logging config.
+        log_config=None,
         # The `limit_max_requests` parameter is a tricky one: it defines how many requests to serve before terminating
         # the worker, meaning, let's say with this param set to 100, the web server would serve 100 requests and then
         # exit. It exists to prevent excessive memory growth which should be handled by other means.
