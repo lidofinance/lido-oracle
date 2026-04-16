@@ -1514,6 +1514,12 @@ def test_raises_error_for_invalid_distribution(total_distributed_rewards, total_
         Distribution.validate_distribution(total_distributed_rewards, total_rebate, total_rewards_to_distribute)
 
 
+@pytest.mark.unit
+def test_validate_distribution_raises_when_nothing_distributed_or_rebated():
+    with pytest.raises(ValueError, match="nothing was distributed or rebated"):
+        Distribution.validate_distribution(0, 0, 100)
+
+
 @pytest.mark.parametrize(
     "attestation_perf, proposal_perf, sync_perf, expected",
     [
