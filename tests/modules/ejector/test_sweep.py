@@ -125,7 +125,7 @@ def test_combined_withdrawals():
 
 
 @pytest.mark.unit
-def test_get_pending_partial_withdrawals_filters_exiting_validator():
+def test_get_pending_partial_withdrawals__exiting_validator__returns_empty():
     """Validators with exit_epoch != FAR_FUTURE_EPOCH are excluded from pending partial withdrawals."""
     validator = LidoValidatorFactory.build(
         balance=Gwei(MIN_ACTIVATION_BALANCE + 100),
@@ -140,12 +140,14 @@ def test_get_pending_partial_withdrawals_filters_exiting_validator():
         slashings=[],
         slot=32,
     )
+
     result = get_pending_partial_withdrawals(state)
+
     assert result == [], "Exiting validator should be excluded from pending partial withdrawals"
 
 
 @pytest.mark.unit
-def test_get_pending_partial_withdrawals_filters_low_effective_balance():
+def test_get_pending_partial_withdrawals__low_effective_balance__returns_empty():
     """Validators with effective_balance < MIN_ACTIVATION_BALANCE are excluded."""
     validator = LidoValidatorFactory.build(
         balance=Gwei(MIN_ACTIVATION_BALANCE + 100),
@@ -160,12 +162,14 @@ def test_get_pending_partial_withdrawals_filters_low_effective_balance():
         slashings=[],
         slot=32,
     )
+
     result = get_pending_partial_withdrawals(state)
+
     assert result == [], "Validator with effective_balance < MIN_ACTIVATION_BALANCE should be excluded"
 
 
 @pytest.mark.unit
-def test_get_pending_partial_withdrawals_filters_no_excess_balance():
+def test_get_pending_partial_withdrawals__no_excess_balance__returns_empty():
     """Validators with balance == MIN_ACTIVATION_BALANCE have no excess to withdraw."""
     validator = LidoValidatorFactory.build(
         balance=Gwei(MIN_ACTIVATION_BALANCE),  # Exactly at minimum — no excess balance
@@ -180,12 +184,14 @@ def test_get_pending_partial_withdrawals_filters_no_excess_balance():
         slashings=[],
         slot=32,
     )
+
     result = get_pending_partial_withdrawals(state)
+
     assert result == [], "Validator with balance == MIN_ACTIVATION_BALANCE has no excess balance"
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_with_pending_partials_ratio(monkeypatch):
+def test_predict_withdrawals_number_in_sweep_cycle__pending_partials_exceed_ratio__capped(monkeypatch):
     """Pending partials in a sweep cycle are capped by the MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP ratio."""
     state = Mock(spec=BeaconStateView)
     num_validator_withdrawals = 5
@@ -194,9 +200,11 @@ def test_predict_withdrawals_with_pending_partials_ratio(monkeypatch):
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
+
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
 
-    # ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)
+    # ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    #       / (MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)
     #       = 8/(16-8) = 1.0
     # max_pending_in_cycle = ceil(5 * 1.0) = 5
     # actual_pending_in_cycle = min(20, 5) = 5
@@ -205,25 +213,25 @@ def test_predict_withdrawals_with_pending_partials_ratio(monkeypatch):
         MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
     )
     max_pending = math.ceil(num_validator_withdrawals * ratio)
-    expected = num_validator_withdrawals + min(num_pending_partials, max_pending)
-    assert result == expected
+    assert result == num_validator_withdrawals + min(num_pending_partials, max_pending)
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_empty_state(monkeypatch):
+def test_predict_withdrawals_number_in_sweep_cycle__empty_state__returns_zero(monkeypatch):
     """Empty state (no validators, no pending partials) produces zero withdrawals."""
     state = Mock(spec=BeaconStateView)
 
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[]))
+
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
 
     assert result == 0
 
 
 @pytest.mark.unit
-def test_get_validators_withdrawals_empty():
+def test_get_validators_withdrawals__empty_validators__returns_empty():
     """Empty validator list produces no withdrawals."""
     state = BeaconStateViewFactory.build(
         slot=32,
@@ -232,5 +240,7 @@ def test_get_validators_withdrawals_empty():
         pending_partial_withdrawals=[],
         slashings=[],
     )
+
     result = get_validators_withdrawals(state, [], 32)
+
     assert result == []

@@ -193,7 +193,7 @@ def test_lowest_validators_index_predicate(iterator):
 
 
 @pytest.mark.unit
-def test_get_remaining_forced_validators(iterator):
+def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(iterator):
     """Forced validators above their force exit target are returned by get_remaining_forced_validators."""
     sm1 = make_staking_module(1)
     no1 = make_node_operator(1, sm1, total_dep=3, target=1, limit_mode=NodeOperatorLimitMode.FORCE)
@@ -211,22 +211,21 @@ def test_get_remaining_forced_validators(iterator):
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._setup_cm_data = Mock()
-
     iterator._prepare_data_structure()
     iterator._calculate_lido_stats()
-
     # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
     iterator.max_current_exit_balance = Gwei(0)
 
     # force_exit_to=1, predictable_validators=3 → 2 validators should be forcefully ejected
     forced = iterator.get_remaining_forced_validators()
+
     assert len(forced) == 2, "Expected 2 forced validators (3 validators, target 1)"
     assert all(gid == gid11 for gid, _ in forced)
 
 
 @pytest.mark.unit
-def test_get_remaining_forced_validators_none_needed(iterator):
+def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
     """When all validators are at or below their force exit target, returns empty list."""
     sm1 = make_staking_module(1)
     # target=2 > total deposited=1, so no forced exit is needed
@@ -241,19 +240,19 @@ def test_get_remaining_forced_validators_none_needed(iterator):
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._setup_cm_data = Mock()
-
     iterator._prepare_data_structure()
     iterator._calculate_lido_stats()
-
+    # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
     iterator.max_current_exit_balance = Gwei(0)
 
     forced = iterator.get_remaining_forced_validators()
+
     assert forced == [], "No forced exits needed when validators are below target"
 
 
 @pytest.mark.unit
-def test_make_exit_predicate_on_exit_validator(iterator):
+def test_get_can_request_exit_predicate__validator_on_exit__not_exitable(iterator):
     """Validators with exit_epoch != FAR_FUTURE_EPOCH are not exitable."""
     gid = (StakingModuleId(1), NodeOperatorId(1))
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid: []})
@@ -263,27 +262,25 @@ def test_make_exit_predicate_on_exit_validator(iterator):
     on_exit_validator = LidoValidatorFactory.build(
         validator=ValidatorStateFactory.build(exit_epoch=100),  # Not FAR_FUTURE_EPOCH
     )
-    assert not filt(on_exit_validator), "Validator already on exit should not be exitable"
-
     active_validator = LidoValidatorFactory.build(
         validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
     )
+
+    assert not filt(on_exit_validator), "Validator already on exit should not be exitable"
     assert filt(active_validator), "Active validator should be exitable"
 
 
 @pytest.mark.unit
-def test_make_exit_predicate_consolidating_as_source(iterator):
+def test_get_can_request_exit_predicate__consolidating_as_source__not_exitable(iterator):
     """Validators with consolidating_as_source set are not exitable."""
     gid = (StakingModuleId(1), NodeOperatorId(1))
     iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid: []})
-
-    filt = iterator.get_can_request_exit_predicate(gid)
-
-    # Validator being used as a consolidation source should NOT be exitable
     consolidating_validator = LidoValidatorFactory.build(
         validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
+        consolidating_as_source=Mock(),
     )
-    consolidating_validator._consolidating_as_source = Mock()  # type: ignore[assignment]
+
+    filt = iterator.get_can_request_exit_predicate(gid)
 
     assert not filt(consolidating_validator), "Validator being consolidated as source should not be exitable"
 
