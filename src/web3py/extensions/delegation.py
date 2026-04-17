@@ -6,8 +6,8 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 from web3.module import Module
 
-from src import variables
-from src.providers.execution.contracts.delegation_contract import DelegationContract
+import variables
+from providers.execution.contracts.delegation_contract import DelegationContract
 
 
 logger = logging.getLogger(__name__)

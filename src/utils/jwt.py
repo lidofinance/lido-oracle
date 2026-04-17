@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from src.utils.base64 import decode_base64url
+from utils.base64 import decode_base64url
 
 
 def validate_jwt(token: Any):

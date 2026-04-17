@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from eth_typing import BlockNumber
 
-from src.utils.block import get_block_timestamps
+from utils.block import get_block_timestamps
 
 
 SECONDS_PER_SLOT = 12

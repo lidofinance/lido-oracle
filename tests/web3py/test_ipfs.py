@@ -2,10 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.providers.ipfs.cid import CID
-from src.providers.ipfs.types import IPFSError, IPFSProvider
-from src.types import FrameNumber
-from src.web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError
+from providers.ipfs.cid import CID
+from providers.ipfs.types import IPFSError, IPFSProvider
+from type_aliases import FrameNumber
+from web3py.extensions.ipfs import IPFS, MaxRetryError, NoMoreProvidersError
 
 
 HARDCODED_FETCH_CONTENT = b"hardcoded_fetched_content"

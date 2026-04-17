@@ -6,18 +6,18 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from src import variables
-from src.constants import SHARE_RATE_PRECISION_E27
-from src.metrics.prometheus.accounting import (
+import variables
+from constants import SHARE_RATE_PRECISION_E27
+from metrics.prometheus.accounting import (
     ACCOUNTING_BALANCE_GWEI,
     ACCOUNTING_IS_BUNKER,
     VAULTS_TOTAL_VALUE,
 )
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
-from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataService
-from src.modules.oracles.accounting.third_phase.types import ExtraData, FormatList
-from src.modules.oracles.accounting.types import (
+from metrics.prometheus.duration_meter import duration_meter
+from modules.common.types import ZERO_HASH, ModuleExecuteDelay
+from modules.oracles.accounting.third_phase.extra_data import ExtraDataService
+from modules.oracles.accounting.third_phase.types import ExtraData, FormatList
+from modules.oracles.accounting.types import (
     AccountingProcessingState,
     BunkerMode,
     FinalizationShareRate,
@@ -29,27 +29,27 @@ from src.modules.oracles.accounting.types import (
     VaultsTreeCid,
     VaultsTreeRoot,
 )
-from src.modules.oracles.common.consensus import (
+from modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.services.bunker import BunkerService
-from src.services.staking_vaults import StakingVaultsService
-from src.services.validator_state import LidoValidatorStateService
-from src.services.withdrawal import Withdrawal
-from src.types import (
+from modules.oracles.common.oracle_module import OracleModule
+from providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from services.bunker import BunkerService
+from services.staking_vaults import StakingVaultsService
+from services.validator_state import LidoValidatorStateService
+from services.withdrawal import Withdrawal
+from type_aliases import (
     BlockStamp,
     FinalizationBatches,
     Gwei,
     ReferenceBlockStamp,
     StakingModuleId,
 )
-from src.utils.apr import calculate_gross_core_apr
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.units import gwei_to_wei
-from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
-from src.web3py.types import Web3
+from utils.apr import calculate_gross_core_apr
+from utils.cache import global_lru_cache as lru_cache
+from utils.units import gwei_to_wei
+from variables import ALLOW_REPORTING_IN_BUNKER_MODE
+from web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

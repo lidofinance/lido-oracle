@@ -2,10 +2,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
-from src.providers.http_provider import data_is_bool, data_is_int, data_is_list
-from src.providers.performance.client import PerformanceClient, PerformanceClientError
-from src.types import EpochNumber
+from modules.sidecars.performance.common.db import Duty, EpochsDemand
+from providers.http_provider import data_is_bool, data_is_int, data_is_list
+from providers.performance.client import PerformanceClient, PerformanceClientError
+from type_aliases import EpochNumber
 
 
 HOST = "http://performance.local"

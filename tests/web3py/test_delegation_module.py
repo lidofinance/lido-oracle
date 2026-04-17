@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from src import variables
-from src.web3py.extensions.delegation import DelegationModule
+import variables
+from web3py.extensions.delegation import DelegationModule
 
 
 DUMMY_ADDRESS = '0x' + '12' * 20

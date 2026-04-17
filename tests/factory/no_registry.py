@@ -6,18 +6,18 @@ from faker import Faker
 from hexbytes import HexBytes
 from polyfactory import Use
 
-from src.constants import (
+from constants import (
     COMPOUNDING_WITHDRAWAL_PREFIX,
     EFFECTIVE_BALANCE_INCREMENT,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
 )
-from src.providers.consensus.types import Validator, ValidatorState
-from src.providers.keys.types import LidoKey
-from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import UNINITIALIZED, LidoValidator, NodeOperator, StakingModule
+from providers.consensus.types import Validator, ValidatorState
+from providers.keys.types import LidoKey
 from tests.factory.web3_factory import Web3DataclassFactory
+from type_aliases import Gwei, NodeOperatorId, StakingModuleId
+from web3py.extensions.lido_validators import UNINITIALIZED, LidoValidator, NodeOperator, StakingModule
 
 
 faker = Faker()

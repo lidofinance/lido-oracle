@@ -2,8 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.services.staking_vaults import StakingVaultsService
-from src.types import Gwei
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
     TestPubkeys,
@@ -13,6 +12,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     WithdrawalCredentials,
 )
+from type_aliases import Gwei
 
 
 # =============================================================================

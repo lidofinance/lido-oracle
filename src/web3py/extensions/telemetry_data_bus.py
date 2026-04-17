@@ -9,11 +9,11 @@ from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
 from web3.module import Module
 
-from src import variables
-from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
-from src.providers.execution.contracts.data_bus import DataBusContract
-from src.utils.transaction import build_transaction_params, sign_and_send_transaction
-from src.utils.version import get_oracle_version
+import variables
+from metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
+from providers.execution.contracts.data_bus import DataBusContract
+from utils.transaction import build_transaction_params, sign_and_send_transaction
+from utils.version import get_oracle_version
 
 
 logger = logging.getLogger(__name__)

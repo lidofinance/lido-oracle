@@ -1,6 +1,6 @@
 import pytest
 
-from src.providers.execution.contracts.cs_parameters_registry import (
+from providers.execution.contracts.cs_parameters_registry import (
     KeyNumberValueIntervalList,
     PerformanceCoefficients,
     StrikesParams,

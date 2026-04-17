@@ -9,26 +9,26 @@ import pytest
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX
-from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
-from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
-from src.modules.oracles.staking_modules.common.distribution import Distribution
-from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
-from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator
-from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
-from src.modules.oracles.staking_modules.common.types import StrikesList
-from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
-from src.modules.sidecars.performance.common.db import Duty
-from src.providers.consensus.types import Validator, ValidatorState
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.ipfs import CID
-from src.types import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
-from src.utils.types import hex_str_to_bytes
-from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
-from src.web3py.types import Web3StakingModule
+from constants import UINT64_MAX
+from modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
+from modules.oracles.staking_modules.base import SMPerformanceOracleError
+from modules.oracles.staking_modules.common.distribution import Distribution
+from modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from modules.oracles.staking_modules.common.log import Logs
+from modules.oracles.staking_modules.common.state import DutyAccumulator
+from modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
+from modules.oracles.staking_modules.common.types import StrikesList
+from modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from modules.sidecars.performance.common.db import Duty
+from providers.consensus.types import Validator, ValidatorState
+from providers.execution.exceptions import InconsistentData
+from providers.ipfs import CID
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
+from type_aliases import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
+from utils.types import hex_str_to_bytes
+from web3py.extensions.telemetry_data_bus import TelemetryEventId
+from web3py.types import Web3StakingModule
 
 
 @pytest.fixture()
@@ -1186,7 +1186,7 @@ def test_calculate_distribution_lru_cache(module: CSPerformanceOracle):
     last_report.rewards = []  # Add empty list instead of Mock for rewards
     mock_distribution_result = Mock()
 
-    with patch('src.modules.oracles.staking_modules.base.Distribution') as MockDistribution:
+    with patch('modules.oracles.staking_modules.base.Distribution') as MockDistribution:
         mock_distribution_instance = MockDistribution.return_value
         mock_distribution_instance.calculate.return_value = mock_distribution_result
 

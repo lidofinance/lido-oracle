@@ -6,9 +6,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from src.modules.oracles.common.runtime import ipfs_providers
-from src.providers.ipfs import Filebase, LidoIPFS, Pinata
-from src.utils.car.converter import DEFAULT_CHUNK_SIZE
+from modules.oracles.common.runtime import ipfs_providers
+from providers.ipfs import Filebase, LidoIPFS, Pinata
+from utils.car.converter import DEFAULT_CHUNK_SIZE
 
 
 REQUIRED_PROVIDERS = (

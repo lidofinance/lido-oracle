@@ -1,9 +1,9 @@
 import pytest
 from web3.contract.contract import ContractFunction
 
-from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
-from src.types import SlotNumber
+from modules.common.types import ChainConfig, CurrentFrame, FrameConfig
 from tests.integration.contracts.contract_utils import check_contract, check_value_type, make_checker
+from type_aliases import SlotNumber
 
 
 @pytest.mark.mainnet

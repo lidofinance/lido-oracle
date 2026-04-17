@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.services.safe_border import SafeBorder
+from services.safe_border import SafeBorder
 from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
 
 

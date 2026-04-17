@@ -2,11 +2,9 @@ from unittest.mock import ANY, MagicMock, call
 
 import pytest
 
-from src.constants import MIN_DEPOSIT_AMOUNT
-from src.modules.oracles.accounting.types import ValidatorStage
-from src.services.staking_vaults import StakingVaultsService
-from src.types import Gwei, SlotNumber
-from src.utils.units import gwei_to_wei
+from constants import MIN_DEPOSIT_AMOUNT
+from modules.oracles.accounting.types import ValidatorStage
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
     TestPubkeys,
@@ -16,6 +14,8 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     WithdrawalCredentials,
 )
+from type_aliases import Gwei, SlotNumber
+from utils.units import gwei_to_wei
 
 
 # =============================================================================
@@ -467,7 +467,7 @@ class TestGetVaultsTotalValuesDefaults:
         service = StakingVaultsService(web3)
 
         logger_mock = MagicMock()
-        monkeypatch.setattr("src.services.staking_vaults.logger", logger_mock)
+        monkeypatch.setattr("services.staking_vaults.logger", logger_mock)
 
         service._get_validators_by_vault = MagicMock(return_value={})
         service._get_total_pending_amount_by_pubkey = MagicMock(return_value={})

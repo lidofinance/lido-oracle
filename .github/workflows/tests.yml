@@ -33,7 +33,7 @@ jobs:
       - name: Test with pytest
         timeout-minutes: 60
         # Fork tests running in separate workflow
-        run: poetry run pytest --cov=src -m 'not fork' tests
+        run: poetry run pytest --cov -m 'not fork' tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}

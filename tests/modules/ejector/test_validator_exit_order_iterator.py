@@ -2,13 +2,13 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
-from src.modules.common.types import ChainConfig
-from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
-from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
+from constants import FAR_FUTURE_EPOCH
+from modules.common.types import ChainConfig
+from services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
+from type_aliases import Gwei, NodeOperatorId, StakingModuleId
+from web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 
 
 @pytest.fixture

@@ -6,28 +6,28 @@ from web3.contract import Contract
 from web3.module import Module
 from web3.types import Wei
 
-from src import variables
-from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-from src.providers.execution.contracts.accounting import AccountingContract
-from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.providers.execution.contracts.burner import BurnerContract
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
-from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.oracle_daemon_config import (
+import variables
+from metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
+from providers.execution.contracts.accounting import AccountingContract
+from providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from providers.execution.contracts.burner import BurnerContract
+from providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from providers.execution.contracts.lazy_oracle import LazyOracleContract
+from providers.execution.contracts.lido import LidoContract
+from providers.execution.contracts.lido_locator import LidoLocatorContract
+from providers.execution.contracts.oracle_daemon_config import (
     OracleDaemonConfigContract,
 )
-from src.providers.execution.contracts.oracle_report_sanity_checker import (
+from providers.execution.contracts.oracle_report_sanity_checker import (
     OracleReportSanityCheckerContract,
 )
-from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
-from src.providers.execution.contracts.withdrawal_queue_nft import (
+from providers.execution.contracts.staking_router import StakingRouterContract
+from providers.execution.contracts.vault_hub import VaultHubContract
+from providers.execution.contracts.withdrawal_queue_nft import (
     WithdrawalQueueNftContract,
 )
-from src.types import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
-from src.utils.cache import global_lru_cache as lru_cache
+from type_aliases import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
+from utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)

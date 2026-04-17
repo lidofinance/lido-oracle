@@ -6,7 +6,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from src.utils.jwt import validate_jwt
+from utils.jwt import validate_jwt
 
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError

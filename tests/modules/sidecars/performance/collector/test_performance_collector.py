@@ -4,12 +4,12 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-import src.modules.sidecars.performance.collector.collector as collector_module
-from src.modules.common.types import ModuleExecuteDelay
-from src.modules.sidecars.performance.collector.checkpoint import FrameCheckpointsIterator
-from src.modules.sidecars.performance.collector.collector import PerformanceCollector
-from src.modules.sidecars.performance.common.db import DutiesDB, EpochsDemand
-from src.types import EpochNumber
+import modules.sidecars.performance.collector.collector as collector_module
+from modules.common.types import ModuleExecuteDelay
+from modules.sidecars.performance.collector.checkpoint import FrameCheckpointsIterator
+from modules.sidecars.performance.collector.collector import PerformanceCollector
+from modules.sidecars.performance.common.db import DutiesDB, EpochsDemand
+from type_aliases import EpochNumber
 
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)

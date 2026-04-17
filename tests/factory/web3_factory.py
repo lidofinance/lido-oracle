@@ -7,7 +7,7 @@ from hexbytes import HexBytes
 from polyfactory import BaseFactory
 from polyfactory.field_meta import FieldMeta, Null
 
-from src.types import NodeOperatorId, StakingModuleId
+from type_aliases import NodeOperatorId, StakingModuleId
 
 
 class Web3DataclassFactory[T](BaseFactory[T]):

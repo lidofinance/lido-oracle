@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from src import variables
-from src.modules.sidecars.performance.common.db import (
+import variables
+from modules.sidecars.performance.common.db import (
     RETENTION_EPOCHS_DEFAULT,
     DutiesDB,
     Duty,
@@ -12,8 +12,8 @@ from src.modules.sidecars.performance.common.db import (
     IncompleteEpochRangeError,
     Settings,
 )
-from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
-from src.types import EpochNumber
+from modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
+from type_aliases import EpochNumber
 
 
 pytestmark = pytest.mark.unit
@@ -30,8 +30,8 @@ def mock_session():
 @pytest.fixture
 def db(mock_session):
     with (
-        patch('src.modules.sidecars.performance.common.db.create_engine'),
-        patch('src.modules.sidecars.performance.common.db.SQLModel'),
+        patch('modules.sidecars.performance.common.db.create_engine'),
+        patch('modules.sidecars.performance.common.db.SQLModel'),
     ):
         instance = DutiesDB()
     instance.get_session = Mock(return_value=mock_session)
@@ -41,8 +41,8 @@ def db(mock_session):
 class TestBuildEngine:
     def test_build_engine_with_connect_timeout(self):
         with (
-            patch('src.modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
-            patch('src.modules.sidecars.performance.common.db.SQLModel'),
+            patch('modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
+            patch('modules.sidecars.performance.common.db.SQLModel'),
         ):
             DutiesDB(connect_timeout=5)
             _, kwargs = mock_create_engine.call_args
@@ -50,8 +50,8 @@ class TestBuildEngine:
 
     def test_build_engine_with_statement_timeout(self):
         with (
-            patch('src.modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
-            patch('src.modules.sidecars.performance.common.db.SQLModel'),
+            patch('modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
+            patch('modules.sidecars.performance.common.db.SQLModel'),
         ):
             DutiesDB(statement_timeout_ms=1000)
             _, kwargs = mock_create_engine.call_args
@@ -59,8 +59,8 @@ class TestBuildEngine:
 
     def test_build_engine_without_optional_args(self):
         with (
-            patch('src.modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
-            patch('src.modules.sidecars.performance.common.db.SQLModel'),
+            patch('modules.sidecars.performance.common.db.create_engine') as mock_create_engine,
+            patch('modules.sidecars.performance.common.db.SQLModel'),
         ):
             DutiesDB()
             _, kwargs = mock_create_engine.call_args
@@ -115,7 +115,7 @@ class TestDeleteDemand:
 
 class TestSettings:
     def test_get_retention_epochs_returns_value(self, db, mock_session):
-        from src.modules.sidecars.performance.common.db import Settings
+        from modules.sidecars.performance.common.db import Settings
 
         mock_session.get.return_value = Settings(key='retention_epochs', value=500)
 
@@ -131,7 +131,7 @@ class TestSettings:
             db.get_retention_epochs()
 
     def test_get_retention_epochs_raises_on_non_int_value(self, db, mock_session):
-        from src.modules.sidecars.performance.common.db import Settings
+        from modules.sidecars.performance.common.db import Settings
 
         mock_session.get.return_value = Settings(key='retention_epochs', value='not an int')
 
@@ -139,7 +139,7 @@ class TestSettings:
             db.get_retention_epochs()
 
     def test_get_retention_epochs_raises_on_zero(self, db, mock_session):
-        from src.modules.sidecars.performance.common.db import Settings
+        from modules.sidecars.performance.common.db import Settings
 
         mock_session.get.return_value = Settings(key='retention_epochs', value=0)
 
@@ -147,7 +147,7 @@ class TestSettings:
             db.get_retention_epochs()
 
     def test_get_retention_epochs_raises_on_negative(self, db, mock_session):
-        from src.modules.sidecars.performance.common.db import Settings
+        from modules.sidecars.performance.common.db import Settings
 
         mock_session.get.return_value = Settings(key='retention_epochs', value=-5)
 
@@ -155,7 +155,7 @@ class TestSettings:
             db.get_retention_epochs()
 
     def test_set_retention_epochs_updates_existing(self, db, mock_session):
-        from src.modules.sidecars.performance.common.db import Settings
+        from modules.sidecars.performance.common.db import Settings
 
         existing = Settings(key='retention_epochs', value=100)
         mock_session.get.return_value = existing
@@ -471,13 +471,13 @@ class TestGetSession:
     def test_get_session_creates_session(self, db):
         """Test that get_session creates a Session from the engine"""
         with (
-            patch('src.modules.sidecars.performance.common.db.create_engine'),
-            patch('src.modules.sidecars.performance.common.db.SQLModel'),
+            patch('modules.sidecars.performance.common.db.create_engine'),
+            patch('modules.sidecars.performance.common.db.SQLModel'),
         ):
             instance = DutiesDB()
 
         # Call the REAL get_session (not the mocked one from the db fixture)
-        with patch('src.modules.sidecars.performance.common.db.Session') as mock_session_class:
+        with patch('modules.sidecars.performance.common.db.Session') as mock_session_class:
             mock_session_class.return_value = mock_session
             session = instance.get_session()
 

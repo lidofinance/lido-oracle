@@ -1,6 +1,6 @@
 import pytest
 
-from src.web3py.extensions.staking_module import StakingModuleContracts
+from web3py.extensions.staking_module import StakingModuleContracts
 
 
 @pytest.fixture()

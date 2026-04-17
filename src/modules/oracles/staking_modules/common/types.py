@@ -5,8 +5,8 @@ from typing import Final, Literal
 
 from hexbytes import HexBytes
 
-from src.providers.ipfs import CID
-from src.types import NodeOperatorId, SlotNumber
+from providers.ipfs import CID
+from type_aliases import NodeOperatorId, SlotNumber
 
 
 logger = logging.getLogger(__name__)

@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, InvalidState, NetworkDuties, State
-from src.types import EpochNumber, ValidatorIndex
-from src.utils.range import sequence
+from modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, InvalidState, NetworkDuties, State
+from type_aliases import EpochNumber, ValidatorIndex
+from utils.range import sequence
 
 
 @pytest.mark.unit

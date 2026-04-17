@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.oracles.accounting.types import BatchState, WithdrawalRequestStatus
+from modules.oracles.accounting.types import BatchState, WithdrawalRequestStatus
 from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 

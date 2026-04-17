@@ -5,11 +5,9 @@ import pytest
 from eth_typing import BlockNumber
 from web3.types import Wei
 
-from src.constants import SECONDS_IN_YEAR, TOTAL_BASIS_POINTS
-from src.modules.common.types import ChainConfig, FrameConfig
-from src.services.staking_vaults import StakingVaultsService
-from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.apr import get_steth_by_shares
+from constants import SECONDS_IN_YEAR, TOTAL_BASIS_POINTS
+from modules.common.types import ChainConfig, FrameConfig
+from services.staking_vaults import StakingVaultsService
 from tests.factory.blockstamp import BlockStampFactory
 from tests.modules.accounting.staking_vault.conftest import (
     ExtraValueFactory,
@@ -21,6 +19,8 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultFeesUpdatedEventFactory,
     VaultInfoFactory,
 )
+from type_aliases import FrameNumber, ReferenceBlockStamp, SlotNumber
+from utils.apr import get_steth_by_shares
 
 
 # =============================================================================
@@ -42,7 +42,7 @@ class TestGetVaultsFees:
 
         fake_blockstamp = MagicMock()
         fake_blockstamp.block_number = 0
-        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
+        monkeypatch.setattr("services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
 
         return svc
 
@@ -124,7 +124,7 @@ class TestGetVaultsFees:
         # Negative prev_slot -> events should be fetched from 0 block
         blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
         monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
+            "services.staking_vaults.get_blockstamp",
             lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
@@ -172,7 +172,7 @@ class TestGetVaultsFees:
         service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
 
         monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
+            "services.staking_vaults.get_blockstamp",
             lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
@@ -486,7 +486,7 @@ class TestGetVaultsFees:
 
         # Act
         with patch(
-            "src.services.staking_vaults.get_block_timestamps",
+            "services.staking_vaults.get_block_timestamps",
             return_value={BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT},
         ):
             fees = service.get_vaults_fees(
@@ -567,7 +567,7 @@ class TestGetVaultsFees:
 
         # Act
         with patch(
-            "src.services.staking_vaults.get_block_timestamps",
+            "services.staking_vaults.get_block_timestamps",
             return_value={
                 BlockNumber(10): 102 * FeeTestConstants.SECONDS_PER_SLOT,
                 BlockNumber(20): 108 * FeeTestConstants.SECONDS_PER_SLOT,

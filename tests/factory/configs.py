@@ -1,6 +1,6 @@
-from src.modules.common.types import ChainConfig, FrameConfig
-from src.modules.oracles.accounting.types import OracleReportLimits
-from src.providers.consensus.types import (
+from modules.common.types import ChainConfig, FrameConfig
+from modules.oracles.accounting.types import OracleReportLimits
+from providers.consensus.types import (
     AttestationData,
     BeaconSpecResponse,
     BlockAttestationResponse,
@@ -8,7 +8,7 @@ from src.providers.consensus.types import (
     Checkpoint,
     SlotAttestationCommittee,
 )
-from src.services.bunker_cases.types import BunkerConfig
+from services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3DataclassFactory
 
 

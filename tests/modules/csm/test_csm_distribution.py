@@ -8,34 +8,34 @@ from eth_utils.address import to_checksum_address
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import (
+from constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     MIN_ACTIVATION_BALANCE,
     TOTAL_BASIS_POINTS,
 )
-from src.modules.oracles.staking_modules.common.distribution import (
+from modules.oracles.staking_modules.common.distribution import (
     Distribution,
     ValidatorDuties,
     ValidatorDutiesOutcome,
 )
-from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
-from src.modules.oracles.staking_modules.common.types import StrikesList
-from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
-from src.providers.execution.contracts.cs_parameters_registry import (
+from modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
+from modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
+from modules.oracles.staking_modules.common.types import StrikesList
+from providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from providers.execution.contracts.cs_parameters_registry import (
     CurveParams,
     KeyNumberValueInterval,
     KeyNumberValueIntervalList,
     PerformanceCoefficients,
     StrikesParams,
 )
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.keys.client import KAPIInconsistentData
-from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
-from src.web3py.extensions import StakingModuleContracts
-from src.web3py.types import Web3StakingModule
+from providers.execution.exceptions import InconsistentData
+from providers.keys.client import KAPIInconsistentData
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
+from type_aliases import EpochNumber, NodeOperatorId, ValidatorIndex
+from web3py.extensions import StakingModuleContracts
+from web3py.types import Web3StakingModule
 
 
 # Matches how distribution.py computes it: effective_balance // EFFECTIVE_BALANCE_INCREMENT

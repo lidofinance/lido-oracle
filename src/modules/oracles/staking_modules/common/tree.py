@@ -7,8 +7,8 @@ from typing import Any, ClassVar, Self
 from hexbytes import HexBytes
 from oz_merkle_tree import Dump, StandardMerkleTree
 
-from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
-from src.utils.types import hex_str_to_bytes
+from modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
+from utils.types import hex_str_to_bytes
 
 
 class TreeJSONEncoder(JSONEncoder):

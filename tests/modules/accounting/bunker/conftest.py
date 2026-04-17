@@ -2,14 +2,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH
-from src.modules.common.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorState
-from src.providers.keys.types import LidoKey
-from src.services.bunker import BunkerService
-from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
+from constants import FAR_FUTURE_EPOCH
+from modules.common.types import ChainConfig
+from providers.consensus.types import Validator, ValidatorState
+from providers.keys.types import LidoKey
+from services.bunker import BunkerService
+from services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
+from services.bunker_cases.types import BunkerConfig
+from type_aliases import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
@@ -102,11 +102,9 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[ref_slot]
 
+    monkeypatch.setattr('services.bunker_cases.abnormal_cl_rebase.get_blockstamp', Mock(side_effect=_get_blockstamp))
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_blockstamp', Mock(side_effect=_get_blockstamp)
-    )
-    monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp',
+        'services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp',
         Mock(side_effect=_get_reference_blockstamp),
     )
 

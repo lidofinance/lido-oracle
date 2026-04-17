@@ -2,10 +2,10 @@ import logging
 
 from web3.types import BlockIdentifier
 
-from src.modules.oracles.accounting.types import OracleReportLimits
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.abi import named_tuple_to_dataclass
-from src.utils.cache import global_lru_cache as lru_cache
+from modules.oracles.accounting.types import OracleReportLimits
+from providers.execution.base_interface import ContractInterface
+from utils.abi import named_tuple_to_dataclass
+from utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)

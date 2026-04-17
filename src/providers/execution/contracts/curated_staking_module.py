@@ -4,9 +4,9 @@ from itertools import islice
 from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
-from src.providers.execution.base_interface import ContractInterface
-from src.types import NodeOperatorId
-from src.variables import EL_REQUESTS_BATCH_SIZE
+from providers.execution.base_interface import ContractInterface
+from type_aliases import NodeOperatorId
+from variables import EL_REQUESTS_BATCH_SIZE
 
 
 logger = logging.getLogger(__name__)

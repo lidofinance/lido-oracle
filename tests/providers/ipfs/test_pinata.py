@@ -2,9 +2,9 @@ import pytest
 import requests
 import responses
 
-from src.providers.ipfs.cid import CID
-from src.providers.ipfs.pinata import Pinata
-from src.providers.ipfs.types import CIDValidationError, FetchError, UploadError
+from providers.ipfs.cid import CID
+from providers.ipfs.pinata import Pinata
+from providers.ipfs.types import CIDValidationError, FetchError, UploadError
 
 
 @pytest.mark.unit

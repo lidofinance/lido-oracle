@@ -4,11 +4,11 @@ import pytest
 from hexbytes import HexBytes
 from web3.types import Wei
 
-import src.services.prediction as prediction_module
-from src.modules.common.types import ChainConfig
-from src.services.prediction import RewardsPredictionService
-from src.types import BlockNumber, SlotNumber
+import services.prediction as prediction_module
+from modules.common.types import ChainConfig
+from services.prediction import RewardsPredictionService
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from type_aliases import BlockNumber, SlotNumber
 
 
 @pytest.fixture()

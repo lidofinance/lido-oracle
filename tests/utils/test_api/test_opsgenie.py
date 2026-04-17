@@ -5,7 +5,7 @@ import pytest
 import requests
 import responses
 
-from src.utils.api.opsgenie import OpsGenieAPI
+from utils.api.opsgenie import OpsGenieAPI
 
 
 @pytest.fixture

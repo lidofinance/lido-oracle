@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from web3.exceptions import ContractCustomError
 
-from src.constants import (
+from constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     GWEI_TO_WEI,
     MAX_EFFECTIVE_BALANCE,
@@ -13,26 +13,26 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.modules.common.types import ChainConfig, CurrentFrame, ModuleExecuteDelay
-from src.modules.oracles.ejector import ejector as ejector_module
-from src.modules.oracles.ejector.ejector import Ejector, logger as ejector_logger
-from src.modules.oracles.ejector.types import EjectorProcessingState
-from src.providers.consensus.types import (
+from modules.common.types import ChainConfig, CurrentFrame, ModuleExecuteDelay
+from modules.oracles.ejector import ejector as ejector_module
+from modules.oracles.ejector.ejector import Ejector, logger as ejector_logger
+from modules.oracles.ejector.types import EjectorProcessingState
+from providers.consensus.types import (
     BeaconStateView,
 )
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_balance
-from src.web3py.extensions.lido_validators import (
-    LidoValidator,
-    NodeOperatorId,
-    StakingModuleId,
-)
-from src.web3py.types import Web3
+from providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
+from type_aliases import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
+from utils.validator_balance import get_predictable_balance
+from web3py.extensions.lido_validators import (
+    LidoValidator,
+    NodeOperatorId,
+    StakingModuleId,
+)
+from web3py.types import Web3
 
 
 def build_extended_validator(**kwargs) -> LidoValidator:

@@ -7,16 +7,16 @@ from web3 import Web3
 from web3.exceptions import Web3Exception
 from web3.module import Module
 
-from src import variables
-from src.metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
-from src.providers.execution.contracts.cs_accounting import CSAccountingContract
-from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
-from src.providers.execution.contracts.cs_strikes import CSStrikesContract
-from src.providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
-from src.types import BlockStamp, NodeOperatorId, SlotNumber
+import variables
+from metrics.prometheus.business import FRAME_PREV_REPORT_REF_SLOT
+from providers.execution.contracts.cs_accounting import CSAccountingContract
+from providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from providers.execution.contracts.cs_module import CSModuleContract
+from providers.execution.contracts.cs_parameters_registry import CSParametersRegistryContract, CurveParams
+from providers.execution.contracts.cs_strikes import CSStrikesContract
+from providers.ipfs import CID, CIDv0, CIDv1, is_cid_v0
+from type_aliases import BlockStamp, NodeOperatorId, SlotNumber
 
 
 logger = logging.getLogger(__name__)

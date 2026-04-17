@@ -1,4 +1,4 @@
-from src.modules.common.types import MemberInfo
+from modules.common.types import MemberInfo
 from tests.factory.web3_factory import Web3DataclassFactory
 
 

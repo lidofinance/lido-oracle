@@ -8,10 +8,10 @@ from sqlalchemy.sql import func
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Session, SQLModel, col, create_engine, select
 
-from src import variables
-from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
-from src.types import EpochNumber
-from src.utils.range import sequence
+import variables
+from modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
+from type_aliases import EpochNumber
+from utils.range import sequence
 
 
 def get_datetime_utc() -> datetime:

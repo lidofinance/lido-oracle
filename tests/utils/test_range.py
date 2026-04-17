@@ -1,6 +1,6 @@
 import pytest
 
-from src.utils.range import sequence
+from utils.range import sequence
 
 
 @pytest.mark.unit

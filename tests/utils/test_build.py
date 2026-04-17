@@ -4,7 +4,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from src.utils.build import UNKNOWN_BUILD_INFO, get_build_info
+from utils.build import UNKNOWN_BUILD_INFO, get_build_info
 
 
 @pytest.mark.unit

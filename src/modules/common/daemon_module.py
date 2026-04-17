@@ -7,19 +7,19 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
-from src import variables
-from src.metrics.healthcheck_server import pulse
-from src.metrics.prometheus.basic import (
+import variables
+from metrics.healthcheck_server import pulse
+from metrics.prometheus.basic import (
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
     ORACLE_BLOCK_NUMBER,
     ORACLE_SLOT_NUMBER,
     CycleResult,
 )
-from src.modules.common.types import ModuleExecuteDelay
-from src.providers.consensus.client import ConsensusClient
-from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from modules.common.types import ModuleExecuteDelay
+from providers.consensus.client import ConsensusClient
+from type_aliases import BlockRoot, BlockStamp, SlotNumber
+from utils.blockstamp import build_blockstamp
 
 
 logger = logging.getLogger(__name__)

@@ -9,9 +9,9 @@ from functools import wraps
 from web3 import Web3
 from web3.module import Module
 
-from src.providers.ipfs.cid import CID
-from src.providers.ipfs.types import IPFSError, IPFSProvider
-from src.types import FrameNumber
+from providers.ipfs.cid import CID
+from providers.ipfs.types import IPFSError, IPFSProvider
+from type_aliases import FrameNumber
 
 
 logger = logging.getLogger(__name__)

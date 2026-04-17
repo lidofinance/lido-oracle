@@ -1,4 +1,4 @@
-from src.modules.oracles.staking_modules.base import SMPerformanceOracle
+from modules.oracles.staking_modules.base import SMPerformanceOracle
 
 
 class CMPerformanceOracle(SMPerformanceOracle):

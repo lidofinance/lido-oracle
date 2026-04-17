@@ -1,6 +1,6 @@
 import pytest
 
-from src.utils.types import hex_str_to_bytes
+from utils.types import hex_str_to_bytes
 
 
 @pytest.mark.unit

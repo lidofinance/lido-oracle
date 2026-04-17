@@ -6,11 +6,11 @@ from typing import cast
 
 import pytest
 
-from src import variables
-from src.main import main
-from src.modules.common.daemon_module import DaemonModule
-from src.modules.oracles.common.consensus import ConsensusModule
-from src.types import OracleModuleName
+import variables
+from main import main
+from modules.common.daemon_module import DaemonModule
+from modules.oracles.common.consensus import ConsensusModule
+from type_aliases import OracleModuleName
 
 
 @pytest.mark.mainnet
@@ -31,16 +31,16 @@ class TestIntegrationMainCycleSmoke:
         if module_name is OracleModuleName.CSM:
             variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]
 
-            from src.web3py.extensions.staking_module import StakingModuleContracts
+            from web3py.extensions.staking_module import StakingModuleContracts
 
             StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES = 3
             StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY = 0
 
-            from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+            from modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 
             CSPerformanceOracle._collect_data = lambda self: True
 
-            from src.providers.performance.client import PerformanceClient
+            from providers.performance.client import PerformanceClient
 
             PerformanceClient.is_range_available = lambda *args, **kwargs: True
             PerformanceClient.get_epochs_demand = lambda *args, **kwargs: None

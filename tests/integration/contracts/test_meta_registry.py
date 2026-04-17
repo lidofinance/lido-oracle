@@ -1,6 +1,6 @@
 import pytest
 
-from src.providers.execution.contracts.meta_registry import OperatorGroup
+from providers.execution.contracts.meta_registry import OperatorGroup
 from tests.integration.contracts.contract_utils import check_contract, check_value_type, make_checker
 
 

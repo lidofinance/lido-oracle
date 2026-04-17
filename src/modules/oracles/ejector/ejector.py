@@ -5,41 +5,41 @@ from typing import cast
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from src.constants import (
+from constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
-from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.metrics.prometheus.ejector import (
+from metrics.prometheus.business import CONTRACT_ON_PAUSE
+from metrics.prometheus.duration_meter import duration_meter
+from metrics.prometheus.ejector import (
     EJECTOR_MAX_WITHDRAWAL_EPOCH,
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
 )
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
-from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.ejector.data_encode import encode_data
-from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
-from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
-from src.providers.consensus.types import BeaconStateView, Validator
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.services.exit_order_iterator import ValidatorExitIterator
-from src.services.prediction import RewardsPredictionService
-from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import get_predictable_balance, get_predictable_full_balance, get_predictable_sweep
-from src.utils.validator_state import (
+from modules.common.types import ZERO_HASH, ModuleExecuteDelay
+from modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
+from modules.oracles.common.oracle_module import OracleModule
+from modules.oracles.ejector.data_encode import encode_data
+from modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
+from modules.oracles.ejector.types import EjectorProcessingState, ReportData
+from providers.consensus.types import BeaconStateView, Validator
+from providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from services.exit_order_iterator import ValidatorExitIterator
+from services.prediction import RewardsPredictionService
+from services.validator_state import LidoValidatorStateService
+from type_aliases import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
+from utils.cache import global_lru_cache as lru_cache
+from utils.units import gwei_to_wei
+from utils.validator_balance import get_predictable_balance, get_predictable_full_balance, get_predictable_sweep
+from utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
     is_active_validator,
     is_fully_withdrawable_validator,
 )
-from src.web3py.extensions.lido_validators import LidoValidator
-from src.web3py.types import Web3
+from web3py.extensions.lido_validators import LidoValidator
+from web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

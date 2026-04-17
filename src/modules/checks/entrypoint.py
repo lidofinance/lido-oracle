@@ -1,6 +1,6 @@
 import logging
 
-from src.modules.checks.checks_module import ChecksModule
+from modules.checks.checks_module import ChecksModule
 
 
 logger = logging.getLogger(__name__)

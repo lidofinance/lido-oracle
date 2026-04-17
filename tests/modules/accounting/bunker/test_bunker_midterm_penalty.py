@@ -1,17 +1,17 @@
 import pytest
 
-from src.constants import (
+from constants import (
     EPOCHS_PER_SLASHINGS_VECTOR,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
 )
-from src.modules.common.types import ChainConfig
-from src.modules.oracles.common.consensus import FrameConfig
-from src.providers.consensus.types import Validator, ValidatorState
-from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
-from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
-from src.utils.web3converter import Web3Converter
+from modules.common.types import ChainConfig
+from modules.oracles.common.consensus import FrameConfig
+from providers.consensus.types import Validator, ValidatorState
+from services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
+from type_aliases import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from utils.web3converter import Web3Converter
 
 
 DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)

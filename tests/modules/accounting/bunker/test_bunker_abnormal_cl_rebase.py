@@ -2,17 +2,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
-from src.providers.consensus.types import Validator, ValidatorState
-from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
-from src.services.bunker_cases.types import BunkerConfig
-from src.types import EpochNumber, Gwei, ValidatorIndex
-from src.web3py.extensions import LidoValidatorsProvider
-from src.web3py.types import Web3
+from constants import FAR_FUTURE_EPOCH, UINT64_MAX
+from providers.consensus.types import Validator, ValidatorState
+from services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
+from services.bunker_cases.types import BunkerConfig
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
+from type_aliases import EpochNumber, Gwei, ValidatorIndex
+from web3py.extensions import LidoValidatorsProvider
+from web3py.types import Web3
 
 
 DEFAULT_BALANCE = Gwei(32 * 10**9)

@@ -1,6 +1,6 @@
 from packaging.version import Version
 
-from src.types import Gwei
+from type_aliases import Gwei
 
 
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc

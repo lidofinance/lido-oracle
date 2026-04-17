@@ -10,25 +10,25 @@ from typing import cast
 
 from hexbytes import HexBytes
 
-from src import variables
-from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
-from src.metrics.prometheus.performance_collector import (
+import variables
+from constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
+from metrics.prometheus.performance_collector import (
     PERFORMANCE_COLLECTOR_DB_EPOCHS_COUNT,
     PERFORMANCE_COLLECTOR_DB_MAX_EPOCH,
     PERFORMANCE_COLLECTOR_DB_MIN_EPOCH,
 )
-from src.modules.common.types import ZERO_HASH
-from src.modules.sidecars.performance.common.db import DutiesDB
-from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
-from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
-from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
-from src.utils.blockstamp import build_blockstamp
-from src.utils.range import sequence
-from src.utils.slot import get_prev_non_missed_slot
-from src.utils.timeit import timeit
-from src.utils.types import hex_str_to_bytes
-from src.utils.web3converter import ChainConverter
+from modules.common.types import ZERO_HASH
+from modules.sidecars.performance.common.db import DutiesDB
+from modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
+from providers.consensus.client import ConsensusClient
+from providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
+from type_aliases import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
+from utils.blockstamp import build_blockstamp
+from utils.range import sequence
+from utils.slot import get_prev_non_missed_slot
+from utils.timeit import timeit
+from utils.types import hex_str_to_bytes
+from utils.web3converter import ChainConverter
 
 
 ZERO_BLOCK_ROOT = HexBytes(ZERO_HASH).to_0x_hex()

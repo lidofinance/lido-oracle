@@ -3,7 +3,7 @@ from collections.abc import Callable
 from functools import wraps
 from time import perf_counter
 
-from src.metrics.prometheus.basic import FUNCTIONS_DURATION, Status
+from metrics.prometheus.basic import FUNCTIONS_DURATION, Status
 
 
 logger = logging.getLogger(__name__)

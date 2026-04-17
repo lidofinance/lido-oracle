@@ -1,7 +1,7 @@
 import pytest
 
-from src.modules.oracles.common.consensus import ConsensusModule
-from src.types import BlockStamp, ReferenceBlockStamp
+from modules.oracles.common.consensus import ConsensusModule
+from type_aliases import BlockStamp, ReferenceBlockStamp
 
 
 class SimpleConsensusModule(ConsensusModule):

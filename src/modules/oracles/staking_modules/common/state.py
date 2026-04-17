@@ -5,8 +5,8 @@ from functools import lru_cache
 from itertools import batched
 from typing import Self
 
-from src.types import EpochNumber, ValidatorIndex
-from src.utils.range import sequence
+from type_aliases import EpochNumber, ValidatorIndex
+from utils.range import sequence
 
 
 logger = logging.getLogger(__name__)

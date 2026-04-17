@@ -1,11 +1,11 @@
 from time import sleep
 from typing import TypedDict, cast
 
-from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
-from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
-from src.providers.keys.types import KeysApiStatus, LidoKey
-from src.types import BlockStamp, StakingModuleAddress
-from src.utils.cache import global_lru_cache as lru_cache
+from metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
+from providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
+from providers.keys.types import KeysApiStatus, LidoKey
+from type_aliases import BlockStamp, StakingModuleAddress
+from utils.cache import global_lru_cache as lru_cache
 
 
 class KeysOutdatedException(Exception):

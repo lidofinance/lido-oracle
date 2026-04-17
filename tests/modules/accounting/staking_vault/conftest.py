@@ -15,8 +15,8 @@ from faker import Faker
 from hexbytes import HexBytes
 from web3.types import Wei
 
-from src.constants import FAR_FUTURE_EPOCH
-from src.modules.oracles.accounting.events import (
+from constants import FAR_FUTURE_EPOCH
+from modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -25,7 +25,7 @@ from src.modules.oracles.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.oracles.accounting.types import (
+from modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -34,9 +34,9 @@ from src.modules.oracles.accounting.types import (
     VaultFee,
     VaultInfo,
 )
-from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
-from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
+from providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from tests.factory.web3_factory import Web3DataclassFactory
+from type_aliases import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 
 
 faker = Faker()

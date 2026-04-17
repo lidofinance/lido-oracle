@@ -8,8 +8,8 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
-from src import variables
-from src.metrics.prometheus.basic import (
+import variables
+from metrics.prometheus.basic import (
     ACCOUNT_BALANCE,
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
@@ -18,18 +18,18 @@ from src.metrics.prometheus.basic import (
     Status,
     init_basic_metrics,
 )
-from src.modules.common.types import ModuleExecuteDelay
-from src.modules.oracles.common.exceptions import (
+from modules.common.types import ModuleExecuteDelay
+from modules.oracles.common.exceptions import (
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.http_provider import NotOkResponse
-from src.providers.keys.client import KeysOutdatedException
-from src.types import BlockStamp
-from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from modules.oracles.common.oracle_module import OracleModule
+from providers.http_provider import NotOkResponse
+from providers.keys.client import KeysOutdatedException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
+from type_aliases import BlockStamp
+from utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 
 
 class SimpleOracle(OracleModule):
@@ -205,7 +205,7 @@ def test_cycle__successful_execution__records_success_metric(oracle: OracleModul
     before = CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get()
 
     with (
-        patch("src.modules.common.daemon_module.pulse"),
+        patch("modules.common.daemon_module.pulse"),
         patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
         patch.object(oracle, "execute_module", return_value=ModuleExecuteDelay.NEXT_FINALIZED_EPOCH),
     ):

@@ -2,9 +2,9 @@ from typing import cast
 
 import pytest
 
-from src import variables
-from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
+import variables
+from providers.execution.contracts.lido import LidoContract
+from providers.execution.contracts.lido_locator import LidoLocatorContract
 
 
 @pytest.mark.testnet

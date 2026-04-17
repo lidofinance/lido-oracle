@@ -6,7 +6,8 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.types import BlockData, TxParams, Wei
 
-from src import constants, variables
+import constants
+import variables
 
 
 logger = logging.getLogger(__name__)

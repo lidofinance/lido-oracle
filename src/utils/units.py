@@ -2,8 +2,8 @@
 
 from web3.types import Wei
 
-from src.constants import GWEI_TO_WEI
-from src.types import Gwei
+from constants import GWEI_TO_WEI
+from type_aliases import Gwei
 
 
 def wei_to_gwei(amount: Wei) -> Gwei:

@@ -1,10 +1,10 @@
 import pytest
 
-from src.modules.common.types import FrameConfig
-from src.modules.oracles.accounting.accounting import Accounting
-from src.modules.oracles.ejector.ejector import Ejector
-from src.utils.range import sequence
+from modules.common.types import FrameConfig
+from modules.oracles.accounting.accounting import Accounting
+from modules.oracles.ejector.ejector import Ejector
 from tests.fork.conftest import first_slot_of_epoch
+from utils.range import sequence
 
 
 @pytest.fixture()

@@ -3,38 +3,38 @@ from typing import cast
 import pytest
 from web3 import HTTPProvider, Web3
 
-from src import variables
-from src.providers.execution.contracts.accounting import AccountingContract
-from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.providers.execution.contracts.burner import BurnerContract
-from src.providers.execution.contracts.cs_accounting import CSAccountingContract
-from src.providers.execution.contracts.cs_fee_distributor import (
+import variables
+from providers.execution.contracts.accounting import AccountingContract
+from providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from providers.execution.contracts.burner import BurnerContract
+from providers.execution.contracts.cs_accounting import CSAccountingContract
+from providers.execution.contracts.cs_fee_distributor import (
     CSFeeDistributorContract,
 )
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import (
+from providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from providers.execution.contracts.cs_module import CSModuleContract
+from providers.execution.contracts.cs_parameters_registry import (
     CSParametersRegistryContract,
 )
-from src.providers.execution.contracts.cs_strikes import CSStrikesContract
-from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
-from src.providers.execution.contracts.delegation_contract import DelegationContract
-from src.providers.execution.contracts.deposit_contract import DepositContract
-from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
-from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.meta_registry import MetaRegistryContract
-from src.providers.execution.contracts.oracle_daemon_config import (
+from providers.execution.contracts.cs_strikes import CSStrikesContract
+from providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
+from providers.execution.contracts.delegation_contract import DelegationContract
+from providers.execution.contracts.deposit_contract import DepositContract
+from providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from providers.execution.contracts.lazy_oracle import LazyOracleContract
+from providers.execution.contracts.lido import LidoContract
+from providers.execution.contracts.lido_locator import LidoLocatorContract
+from providers.execution.contracts.meta_registry import MetaRegistryContract
+from providers.execution.contracts.oracle_daemon_config import (
     OracleDaemonConfigContract,
 )
-from src.providers.execution.contracts.oracle_report_sanity_checker import (
+from providers.execution.contracts.oracle_report_sanity_checker import (
     OracleReportSanityCheckerContract,
 )
-from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
-from src.providers.execution.contracts.withdrawal_queue_nft import (
+from providers.execution.contracts.staking_router import StakingRouterContract
+from providers.execution.contracts.vault_hub import VaultHubContract
+from providers.execution.contracts.withdrawal_queue_nft import (
     WithdrawalQueueNftContract,
 )
 

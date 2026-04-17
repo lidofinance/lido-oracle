@@ -8,10 +8,10 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from sqlmodel import select
 
-from src.modules.sidecars.performance.common.db import DutiesDB, Duty, IncompleteEpochRangeError
-from src.modules.sidecars.performance.web.metrics import attach_metrics
-from src.modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
-from src.modules.sidecars.performance.web.validation import (
+from modules.sidecars.performance.common.db import DutiesDB, Duty, IncompleteEpochRangeError
+from modules.sidecars.performance.web.metrics import attach_metrics
+from modules.sidecars.performance.web.middleware import RequestTimeoutMiddleware
+from modules.sidecars.performance.web.validation import (
     ConsumerParam,
     EpochParam,
     EpochRangeParam,
@@ -21,8 +21,8 @@ from src.modules.sidecars.performance.web.validation import (
     RetentionEpochsParam,
     RetentionEpochsResponse,
 )
-from src.types import EpochNumber
-from src.variables import (
+from type_aliases import EpochNumber
+from variables import (
     PERFORMANCE_WEB_SERVER_API_HOST,
     PERFORMANCE_WEB_SERVER_API_PORT,
     PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,

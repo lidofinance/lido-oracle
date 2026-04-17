@@ -2,13 +2,13 @@
 
 import pytest
 
-from src.modules.oracles.accounting.accounting import Accounting
-from src.modules.oracles.common.runtime import (
+from modules.oracles.accounting.accounting import Accounting
+from modules.oracles.common.runtime import (
     check_providers_chain_ids as chain_ids_check,  # rename to not conflict with test
 )
-from src.modules.oracles.ejector.ejector import Ejector
-from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
-from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
+from modules.oracles.ejector.ejector import Ejector
+from modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
 
 
 @pytest.fixture()

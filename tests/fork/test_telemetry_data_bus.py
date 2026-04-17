@@ -4,9 +4,9 @@ import pytest
 from eth_abi import decode
 from web3 import Web3
 
-from src import variables
-from src.utils.version import get_oracle_version
-from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
+import variables
+from utils.version import get_oracle_version
+from web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
 @pytest.fixture()

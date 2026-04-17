@@ -5,24 +5,24 @@ import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Timestamp, Wei
 
-from src.modules.common.types import ChainConfig
-from src.modules.oracles.accounting.types import (
+from modules.common.types import ChainConfig
+from modules.oracles.accounting.types import (
     VaultFeeMap,
     VaultReserveMap,
     VaultsMap,
     VaultTotalValueMap,
 )
-from src.providers.ipfs import CID
-from src.services.staking_vaults import (
+from providers.ipfs import CID
+from services.staking_vaults import (
     MERKLE_TREE_VAULTS_FILENAME,
     StakingVaultsService,
 )
-from src.types import BlockHash, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
 from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     VaultFeeFactory,
     VaultInfoFactory,
 )
+from type_aliases import BlockHash, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
 
 
 # =============================================================================

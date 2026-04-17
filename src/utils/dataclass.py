@@ -4,7 +4,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from types import GenericAlias
 from typing import Self
 
-from src.types import (
+from type_aliases import (
     BlockNumber,
     CommitteeIndex,
     EpochNumber,
@@ -13,7 +13,7 @@ from src.types import (
     Timestamp,
     ValidatorIndex,
 )
-from src.utils.abi import named_tuple_to_dataclass
+from utils.abi import named_tuple_to_dataclass
 
 
 class DecodeToDataclassException(Exception):

@@ -9,16 +9,16 @@ from hexbytes import HexBytes
 from oz_merkle_tree import StandardMerkleTree
 from web3.types import Wei
 
-from src.constants import TOTAL_BASIS_POINTS
-from src.providers.consensus.types import PendingDeposit, Validator
-from src.types import (
+from constants import TOTAL_BASIS_POINTS
+from providers.consensus.types import PendingDeposit, Validator
+from type_aliases import (
     Gwei,
     OperatorsValidatorCount,
     SlotNumber,
     StakingModuleId,
 )
-from src.utils.abi import snake_to_camel
-from src.utils.dataclass import FromResponse, Nested
+from utils.abi import snake_to_camel
+from utils.dataclass import FromResponse, Nested
 
 
 BunkerMode = NewType('BunkerMode', bool)

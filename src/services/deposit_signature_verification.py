@@ -4,7 +4,7 @@ from eth_typing import Hash32
 from py_ecc.bls import G2ProofOfPossession as BLSVerifier
 from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
-from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+from constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
 
 
 class DepositMessage(ssz.Serializable):

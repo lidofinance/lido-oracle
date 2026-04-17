@@ -1,4 +1,4 @@
-from src.modules.oracles.accounting.types import ReportSimulationResults
+from modules.oracles.accounting.types import ReportSimulationResults
 from tests.factory.web3_factory import Web3DataclassFactory
 
 

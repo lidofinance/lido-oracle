@@ -7,23 +7,23 @@ from datetime import datetime
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
-from src import variables
-from src.metrics.prometheus.performance_collector import (
+import variables
+from metrics.prometheus.performance_collector import (
     PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT,
     PERFORMANCE_COLLECTOR_ERRORS_TOTAL,
 )
-from src.modules.common.daemon_module import DaemonModule
-from src.modules.common.types import ChainConfig, ModuleExecuteDelay
-from src.modules.sidecars.performance.collector.checkpoint import (
+from modules.common.daemon_module import DaemonModule
+from modules.common.types import ChainConfig, ModuleExecuteDelay
+from modules.sidecars.performance.collector.checkpoint import (
     FrameCheckpointProcessor,
     FrameCheckpointsIterator,
 )
-from src.modules.sidecars.performance.common.db import DutiesDB
-from src.providers.consensus.client import ConsensusClient
-from src.providers.http_provider import NotOkResponse
-from src.types import BlockStamp, EpochNumber
-from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.utils.web3converter import ChainConverter
+from modules.sidecars.performance.common.db import DutiesDB
+from providers.consensus.client import ConsensusClient
+from providers.http_provider import NotOkResponse
+from type_aliases import BlockStamp, EpochNumber
+from utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from utils.web3converter import ChainConverter
 
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
+from providers.execution.contracts.base_oracle import BaseOracleContract
 
 
 logger = logging.getLogger(__name__)

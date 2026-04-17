@@ -1,6 +1,6 @@
 from prometheus_client import Counter, Gauge
 
-from src.variables import PROMETHEUS_PREFIX
+from variables import PROMETHEUS_PREFIX
 
 
 PERFORMANCE_COLLECTOR_DB_MIN_EPOCH = Gauge(

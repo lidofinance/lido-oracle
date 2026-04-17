@@ -1,11 +1,11 @@
 import pytest
 from eth_typing import HexStr
 
-from src.modules.oracles.accounting.types import StakingVaultIpfsReport
-from src.providers.ipfs import CIDv0
-from src.services.staking_vaults import StakingVaultsService
-from src.types import FrameNumber, SlotNumber
-from src.utils.slot import get_blockstamp
+from modules.oracles.accounting.types import StakingVaultIpfsReport
+from providers.ipfs import CIDv0
+from services.staking_vaults import StakingVaultsService
+from type_aliases import FrameNumber, SlotNumber
+from utils.slot import get_blockstamp
 
 
 # =============================================================================

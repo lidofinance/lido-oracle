@@ -10,15 +10,15 @@ from sqlalchemy import JSON
 from sqlalchemy.pool import StaticPool
 from sqlmodel import create_engine
 
-from src.modules.common.types import FrameConfig
-from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
-from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
-from src.modules.sidecars.performance.collector.collector import PerformanceCollector
-from src.modules.sidecars.performance.common.db import Duty
-from src.modules.sidecars.performance.web.server import app
-from src.utils.range import sequence
-from src.web3py.types import Web3Base, Web3StakingModule
+from modules.common.types import FrameConfig
+from modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
+from modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
+from modules.sidecars.performance.collector.collector import PerformanceCollector
+from modules.sidecars.performance.common.db import Duty
+from modules.sidecars.performance.web.server import app
 from tests.fork.conftest import first_slot_of_epoch
+from utils.range import sequence
+from web3py.types import Web3Base, Web3StakingModule
 
 
 # pylint: disable=protected-access
@@ -69,9 +69,9 @@ def performance_local_db(testrun_path):
             table.c[col_name].type = JSON()
 
     with (
-        patch('src.modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url),
-        patch('src.modules.sidecars.performance.common.db.DutiesDB._build_engine', mock_build_engine),
-        patch('src.modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init),
+        patch('modules.sidecars.performance.common.db.DutiesDB._get_database_url', mock_get_database_url),
+        patch('modules.sidecars.performance.common.db.DutiesDB._build_engine', mock_build_engine),
+        patch('modules.sidecars.performance.common.db.DutiesDB.__init__', mock_init),
     ):
         yield mock_get_database_url, mock_init
 

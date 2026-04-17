@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.modules.sidecars.performance.web.validation import (
+from modules.sidecars.performance.web.validation import (
     PG_INTEGER_MAX,
     ConsumerParam,
     EpochParam,
@@ -9,8 +9,8 @@ from src.modules.sidecars.performance.web.validation import (
     EpochsDemandParam,
     LimitedEpochRangeParam,
 )
-from src.types import EpochNumber
-from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
+from type_aliases import EpochNumber
+from variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
 
 
 pytestmark = pytest.mark.unit

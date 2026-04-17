@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.providers.consistency import InconsistentProviders, NotHealthyProvider, ProviderConsistencyModule
+from providers.consistency import InconsistentProviders, NotHealthyProvider, ProviderConsistencyModule
 
 
 @pytest.mark.unit

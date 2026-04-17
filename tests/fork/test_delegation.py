@@ -2,10 +2,10 @@ import pytest
 from eth_account import Account
 from web3 import Web3
 
-from src import variables
-from src.providers.execution.contracts.delegation_contract import DelegationContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.web3py.extensions.delegation import DelegationModule
+import variables
+from providers.execution.contracts.delegation_contract import DelegationContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from web3py.extensions.delegation import DelegationModule
 
 
 @pytest.fixture()

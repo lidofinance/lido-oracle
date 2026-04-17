@@ -4,7 +4,7 @@ from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from src.constants import UINT64_MAX
+from constants import UINT64_MAX
 
 from ..base_interface import ContractInterface
 

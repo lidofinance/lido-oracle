@@ -1,7 +1,7 @@
 from decimal import Decimal
 
-from src.constants import SECONDS_IN_YEAR, SHARE_RATE_PRECISION_E27
-from src.modules.oracles.accounting.types import Shares
+from constants import SECONDS_IN_YEAR, SHARE_RATE_PRECISION_E27
+from modules.oracles.accounting.types import Shares
 
 
 def calculate_gross_core_apr(

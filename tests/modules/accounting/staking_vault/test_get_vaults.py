@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 from eth_typing import BlockNumber
 
-from src import variables
-from src.services.staking_vaults import StakingVaultsService
+import variables
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     VaultInfoFactory,

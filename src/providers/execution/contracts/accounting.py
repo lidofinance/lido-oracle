@@ -2,11 +2,11 @@ import logging
 
 from web3.types import BlockIdentifier
 
-from src.modules.oracles.accounting.types import (
+from modules.oracles.accounting.types import (
     ReportSimulationPayload,
     ReportSimulationResults,
 )
-from src.providers.execution.base_interface import ContractInterface
+from providers.execution.base_interface import ContractInterface
 
 
 logger = logging.getLogger(__name__)

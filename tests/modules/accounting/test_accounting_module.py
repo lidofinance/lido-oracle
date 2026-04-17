@@ -6,19 +6,19 @@ import pytest
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from src import variables
-from src.modules.common.types import (
+import variables
+from modules.common.types import (
     ZERO_HASH,
     ChainConfig,
     CurrentFrame,
     FrameConfig,
     ModuleExecuteDelay,
 )
-from src.modules.oracles.accounting import accounting as accounting_module
-from src.modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
-from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataService
-from src.modules.oracles.accounting.third_phase.types import FormatList
-from src.modules.oracles.accounting.types import (
+from modules.oracles.accounting import accounting as accounting_module
+from modules.oracles.accounting.accounting import Accounting, logger as accounting_logger
+from modules.oracles.accounting.third_phase.extra_data import ExtraDataService
+from modules.oracles.accounting.third_phase.types import FormatList
+from modules.oracles.accounting.types import (
     AccountingProcessingState,
     FinalizationShareRate,
     ReportData,
@@ -29,14 +29,14 @@ from src.modules.oracles.accounting.types import (
     VaultsTreeCid,
     VaultsTreeRoot,
 )
-from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, StakingModuleId
-from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
+from services.withdrawal import Withdrawal
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import ReportSimulationResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
+from type_aliases import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, StakingModuleId
+from web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 
 
 @pytest.fixture(autouse=True)
@@ -878,8 +878,8 @@ def test_handle_vaults_report_non_empty_vaults(
     accounting.staking_vaults.publish_tree = Mock(return_value=tree_cid_str)
 
     with (
-        patch('src.modules.oracles.accounting.accounting.calculate_gross_core_apr', return_value=0.05),
-        patch('src.modules.oracles.accounting.accounting.VAULTS_TOTAL_VALUE'),
+        patch('modules.oracles.accounting.accounting.calculate_gross_core_apr', return_value=0.05),
+        patch('modules.oracles.accounting.accounting.VAULTS_TOTAL_VALUE'),
     ):
         result_root, result_cid = accounting._handle_vaults_report(ref_bs)
 
@@ -902,8 +902,8 @@ def test_update_metrics():
         el_rewards_vault_balance=400,
     )
     with (
-        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER') as mock_bunker,
-        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI') as mock_balance,
+        patch('modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER') as mock_bunker,
+        patch('modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI') as mock_balance,
     ):
         Accounting._update_metrics(report_data)
 
@@ -933,8 +933,8 @@ def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     accounting.get_extra_data = Mock(return_value=Mock(format=0, data_hash=bytes(32), items_count=0))
 
     with (
-        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER'),
-        patch('src.modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI'),
+        patch('modules.oracles.accounting.accounting.ACCOUNTING_IS_BUNKER'),
+        patch('modules.oracles.accounting.accounting.ACCOUNTING_BALANCE_GWEI'),
     ):
         report_data = accounting._calculate_report(ref_bs)
 

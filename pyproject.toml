@@ -79,9 +79,11 @@ markers = [
     "fork: integration tests using a forked Ethereum network",
 ]
 addopts = "-s -vv --strict-markers"
+pythonpath = ["src"]
 
 [tool.coverage.run]
 branch = true
+source = ["src"]
 
 [tool.pylint.master]
 ignore-patterns = ".*_pb2\\.py"
@@ -125,6 +127,7 @@ disable = [
 pythonVersion = "3.14"
 typeCheckingMode = "basic"
 stubPath = "stubs"
+extraPaths = ["src"]
 exclude = [
     "**/__pycache__",
     ".git",
@@ -189,6 +192,7 @@ skip-magic-trailing-comma = false
 # Equivalent to isort's profile = "black" and combine_as_imports = true
 combine-as-imports = true
 lines-after-imports = 2
+known-first-party = ["constants", "main", "metrics", "modules", "providers", "runtime", "services", "type_aliases", "utils", "variables", "web3py"]
 
 [tool.mutmut]
 paths_to_mutate = "src/"

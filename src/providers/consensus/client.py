@@ -4,10 +4,10 @@ from typing import Any, Literal, cast
 from requests import Response
 from web3_multi_provider import HTTPSessionManagerProxy
 
-from src import variables
-from src.metrics.logging import logging
-from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
-from src.providers.consensus.types import (
+import variables
+from metrics.logging import logging
+from metrics.prometheus.basic import CL_REQUESTS_DURATION
+from providers.consensus.types import (
     BeaconSpecResponse,
     BeaconStateView,
     BlockAttestation,
@@ -25,16 +25,16 @@ from src.providers.consensus.types import (
     SyncCommittee,
     Validator,
 )
-from src.providers.http_provider import (
+from providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
     data_is_dict,
     data_is_list,
     data_is_transient_dict,
 )
-from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import list_of_dataclasses
+from type_aliases import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
+from utils.cache import global_lru_cache as lru_cache
+from utils.dataclass import list_of_dataclasses
 
 
 logger = logging.getLogger(__name__)

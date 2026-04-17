@@ -3,14 +3,14 @@ from collections.abc import Iterable
 
 from eth_typing import HexStr
 
-from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
-from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.slot import get_blockstamp
-from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import Validator
-from src.web3py.types import Web3
+from constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+from metrics.prometheus.duration_meter import duration_meter
+from modules.oracles.common.consensus import ChainConfig, FrameConfig
+from type_aliases import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from utils.slot import get_blockstamp
+from utils.web3converter import Web3Converter
+from web3py.extensions.lido_validators import Validator
+from web3py.types import Web3
 
 
 class WrongExitPeriod(Exception):

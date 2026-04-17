@@ -5,8 +5,8 @@ from typing import Any
 from eth_typing import BlockNumber
 from web3 import Web3
 
-from src.metrics.logging import logging
-from src.variables import BLOCK_BATCH_SIZE_LIMIT
+from metrics.logging import logging
+from variables import BLOCK_BATCH_SIZE_LIMIT
 
 
 logger = logging.getLogger(__name__)

@@ -4,14 +4,15 @@ from typing import Any, TypeVar, cast
 from packaging.version import Version
 from web3_multi_provider.metrics import init_metrics
 
-from src import constants, variables
-from src.metrics.logging import logging
-from src.metrics.prometheus.basic import init_basic_metrics
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
-from src.utils.exception import IncompatibleException
-from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import (
+import constants
+import variables
+from metrics.logging import logging
+from metrics.prometheus.basic import init_basic_metrics
+from modules.oracles.common.oracle_module import OracleModule
+from providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
+from utils.exception import IncompatibleException
+from web3py.contract_tweak import tweak_w3_contracts
+from web3py.extensions import (
     IPFS,
     ConsensusClientModule,
     DelegationModule,
@@ -23,9 +24,9 @@ from src.web3py.extensions import (
     TelemetryEventId,
     TransactionUtils,
 )
-from src.web3py.extensions.performance import PerformanceClientModule
-from src.web3py.extensions.staking_module import StakingModuleContracts
-from src.web3py.types import Web3, Web3Base, Web3StakingModule
+from web3py.extensions.performance import PerformanceClientModule
+from web3py.extensions.staking_module import StakingModuleContracts
+from web3py.types import Web3, Web3Base, Web3StakingModule
 
 
 logger = logging.getLogger(__name__)

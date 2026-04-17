@@ -1,8 +1,8 @@
 from eth_typing import BlockNumber, HexStr
 from web3.types import Timestamp
 
-from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
 from tests.factory.web3_factory import Web3DataclassFactory
+from type_aliases import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
 
 
 class BlockStampFactory(Web3DataclassFactory[BlockStamp]):

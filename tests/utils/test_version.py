@@ -3,7 +3,7 @@ import tomllib
 
 import pytest
 
-from src.utils.version import get_oracle_version
+from utils.version import get_oracle_version
 
 
 @pytest.mark.unit

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from eth_typing import BlockNumber
 
-from src.utils.block import _should_batch, get_block_timestamps
+from utils.block import _should_batch, get_block_timestamps
 
 
 SECONDS_PER_SLOT = 12
@@ -1113,19 +1113,19 @@ class TestBatchingConfiguration:
 
     def test_should_batch_helper_function(self):
         """Test _should_batch with various BLOCK_BATCH_SIZE_LIMIT and count values."""
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
             assert _should_batch(1) is False  # limit=1, count=1
             assert _should_batch(2) is False  # limit=1, count=2
             assert _should_batch(10) is False  # limit=1, count=10
 
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
             assert _should_batch(1) is False  # count=1, no benefit
             assert _should_batch(2) is True  # count=2, batching enabled
             assert _should_batch(10) is True  # count=10, batching enabled
 
     def test_batching_disabled_when_limit_is_one(self, web3, monkeypatch):
         """When BLOCK_BATCH_SIZE_LIMIT=1, batching should be completely disabled."""
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
             mock_get_block = MagicMock()
             monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
 
@@ -1143,7 +1143,7 @@ class TestBatchingConfiguration:
 
     def test_batching_disabled_with_multiple_blocks_no_missed_slots(self, web3, monkeypatch):
         """With BLOCK_BATCH_SIZE_LIMIT=1 and no missed slots, should still calculate correctly."""
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
             mock_get_block = MagicMock()
             monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
 
@@ -1169,7 +1169,7 @@ class TestBatchingConfiguration:
 
     def test_batching_disabled_with_missed_slots(self, web3, monkeypatch):
         """With BLOCK_BATCH_SIZE_LIMIT=1 and missed slots, should use sequential requests."""
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
             mock_get_block = MagicMock()
             monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
 
@@ -1204,13 +1204,13 @@ class TestBatchingConfiguration:
             return {"timestamp": first_ts + (block_num - 100) * SECONDS_PER_SLOT}
 
         # Test with BLOCK_BATCH_SIZE_LIMIT=1
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 1):
             mock_get_block = MagicMock(side_effect=mock_get_block_func)
             monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
             result_no_batch = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)
 
         # Test with BLOCK_BATCH_SIZE_LIMIT=10
-        with patch('src.utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
+        with patch('utils.block.BLOCK_BATCH_SIZE_LIMIT', 10):
             mock_get_block = MagicMock(side_effect=mock_get_block_func)
             monkeypatch.setattr(web3.eth, 'get_block', mock_get_block)
             result_with_batch = get_block_timestamps(web3, blocks, SECONDS_PER_SLOT)

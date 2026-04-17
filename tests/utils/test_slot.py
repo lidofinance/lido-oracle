@@ -3,12 +3,12 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.providers.http_provider import NotOkResponse
-from src.types import SlotNumber
-from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot
+from providers.http_provider import NotOkResponse
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
+from type_aliases import SlotNumber
+from utils.slot import NoSlotsAvailable, get_prev_non_missed_slot
 
 
 @pytest.mark.unit
