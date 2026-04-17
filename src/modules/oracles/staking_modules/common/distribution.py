@@ -221,9 +221,8 @@ class Distribution:
             participation_shares, total_rebate_share, rewards_to_distribute, log
         )
         distributed_rewards = sum(rewards_distribution_map.values())
-        # All rewards to distribute should not be rebated if no duties were assigned to validators or
-        # all validators were below the threshold.
-        rebate_to_protocol = 0 if not distributed_rewards else rewards_to_distribute - distributed_rewards
+        # Rebate all rewards if there are no active validators or validators are below the threshold in frame.
+        rebate_to_protocol = rewards_to_distribute - distributed_rewards
 
         for no_id, no_rewards in rewards_distribution_map.items():
             log.operators[no_id].distributed_rewards = no_rewards
@@ -344,6 +343,12 @@ class Distribution:
                     rewards_to_distribute * val_participation_share // total_shares
                 )
 
+        distributed_sum = sum(rewards_distribution.values())
+        if distributed_sum > rewards_to_distribute:
+            raise ValueError(
+                f"Invalid distribution: {distributed_sum=} > {rewards_to_distribute=}"
+            )
+
         return rewards_distribution
 
     @staticmethod
@@ -351,6 +356,10 @@ class Distribution:
         if (total_distributed_rewards + total_rebate) > total_rewards_to_distribute:
             raise ValueError(
                 f"Invalid distribution: {total_distributed_rewards} + {total_rebate} > {total_rewards_to_distribute}"
+            )
+        if total_rewards_to_distribute != 0 and total_distributed_rewards == 0 and total_rebate == 0:
+            raise ValueError(
+                f"Invalid distribution: {total_rewards_to_distribute=} but nothing was distributed or rebated"
             )
 
     def _process_strikes(
