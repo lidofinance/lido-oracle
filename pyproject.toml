@@ -16,7 +16,19 @@ authors = [
     "Yuri Tkachenko",
 ]
 license = "GPL 3.0"
-package-mode = false
+packages = [
+    {include = "constants.py", from = "src"},
+    {include = "main.py", from = "src"},
+    {include = "runtime.py", from = "src"},
+    {include = "type_aliases.py", from = "src"},
+    {include = "variables.py", from = "src"},
+    {include = "metrics", from = "src"},
+    {include = "modules", from = "src"},
+    {include = "providers", from = "src"},
+    {include = "services", from = "src"},
+    {include = "utils", from = "src"},
+    {include = "web3py", from = "src"},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.14,<3.15"

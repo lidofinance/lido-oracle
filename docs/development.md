@@ -86,7 +86,7 @@ make run-module ORACLE_MODULE=<module>
 ```
 #### Local setup
 ```bash
-poetry run python -m src.main <module>
+PYTHONPATH=src poetry run python -m main <module>
 ```
 
 Where `<module>` is one of:

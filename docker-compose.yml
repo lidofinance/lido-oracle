@@ -67,7 +67,7 @@ services:
     build: .
     restart: unless-stopped
     container_name: staking-module-oracle-performance-collector
-    command: ["-m", "main", "performance_collector"]
+    command: ["performance_collector"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,7 +89,7 @@ services:
     build: .
     restart: unless-stopped
     container_name: staking-module-oracle-performance-web
-    command: ["-m", "main", "performance_web_server"]
+    command: ["performance_web_server"]
     cpus: 1.0
     depends_on:
       postgres:
@@ -112,7 +112,7 @@ services:
   accounting-oracle:
     build: .
     container_name: accounting-oracle
-    command: ["-m", "main", "accounting"]
+    command: ["accounting"]
     environment:
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
@@ -133,7 +133,7 @@ services:
   ejector-oracle:
     build: .
     container_name: ejector-oracle
-    command: ["-m", "main", "ejector"]
+    command: ["ejector"]
     environment:
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
@@ -154,7 +154,7 @@ services:
   csm-oracle:
     build: .
     container_name: csm-oracle
-    command: ["-m", "main", "csm"]
+    command: ["csm"]
     depends_on:
       performance-collector:
         condition: service_healthy
@@ -191,7 +191,7 @@ services:
   cm-oracle:
     build: .
     container_name: cm-oracle
-    command: ["-m", "main", "cm"]
+    command: ["cm"]
     depends_on:
       performance-collector:
         condition: service_healthy
