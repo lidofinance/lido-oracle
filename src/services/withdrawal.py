@@ -71,9 +71,9 @@ class Withdrawal:
         # This amount of eth could not be spent for deposits.
         unfinalized_steth = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(self.blockstamp.block_hash)
 
-        reserved_buffer = min(withdrawals_reserve, unfinalized_steth)
+        reserved_withdrawals_eth = min(withdrawals_reserve, unfinalized_steth)
 
-        return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_buffer)
+        return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_withdrawals_eth)
 
     def _calculate_finalization_batches(self, share_rate: int, available_eth: int, until_timestamp: int) -> list[int]:
         max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length(self.blockstamp.block_hash)

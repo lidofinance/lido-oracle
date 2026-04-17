@@ -554,7 +554,7 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     assert ejector._get_deposit_lock_amount(0, ref_blockstamp) == Wei(0)
     # Exactly one frame (10 epochs) → 10 // 10 = 1 frame
     assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(reserve_per_frame)
-    # One epoch over one frame → 11 // 10 = 1 frames
+    # One epoch over one frame → 11 // 10 = 1 frame
     assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
     # 2.5 frames → 25 // 10 = 2 frames
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
