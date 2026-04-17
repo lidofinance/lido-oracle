@@ -21,7 +21,7 @@ from src.providers.consensus.types import (
     BeaconStateView,
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, Wei
+from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
 from src.utils.validator_balance import get_predictable_balance
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
@@ -43,7 +43,7 @@ def build_extended_validator(**kwargs) -> LidoValidator:
         validator=lido_validator.validator,
         lido_id=lido_validator.lido_id,
         pending_topups=[],
-        consolidating_as_source=None,
+        consolidating_as_source=lido_validator.consolidating_as_source,
         consolidating_as_target=[],
     )
 
@@ -56,7 +56,7 @@ def build_extended_validator_with_balance(balance: float, meb: int = MAX_EFFECTI
         validator=lido_validator.validator,
         lido_id=lido_validator.lido_id,
         pending_topups=[],
-        consolidating_as_source=None,
+        consolidating_as_source=lido_validator.consolidating_as_source,
         consolidating_as_target=[],
     )
 
@@ -485,3 +485,156 @@ def test_ejector_get_processing_state(ejector: Ejector):
     result = ejector._get_processing_state(bs)
 
     assert accounting_processing_state == result
+
+
+@pytest.mark.unit
+def test_is_reporting_allowed__reflects_pause_state(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    ejector.report_contract.is_paused = Mock(return_value=False)
+
+    result = ejector.is_reporting_allowed(ref_blockstamp)
+
+    assert result is True
+    ejector.report_contract.is_paused.assert_called_once_with('latest')
+
+    ejector.report_contract.is_paused = Mock(return_value=True)
+
+    result = ejector.is_reporting_allowed(ref_blockstamp)
+
+    assert result is False
+    ejector.report_contract.is_paused.assert_called_once_with('latest')
+
+
+@pytest.mark.unit
+def test_is_contracts_addresses_changed__returns_w3_result(ejector: Ejector) -> None:
+    ejector.w3.lido_contracts.has_contract_address_changed = Mock(return_value=True)
+
+    assert ejector.is_contracts_addresses_changed() is True
+
+    ejector.w3.lido_contracts.has_contract_address_changed = Mock(return_value=False)
+
+    assert ejector.is_contracts_addresses_changed() is False
+
+
+@pytest.mark.unit
+def test_refresh_contracts__updates_report_contract_from_w3(ejector: Ejector) -> None:
+    new_contract = Mock()
+    ejector.w3.lido_contracts.validators_exit_bus_oracle = new_contract
+
+    ejector.refresh_contracts()
+
+    assert ejector.report_contract is new_contract
+
+
+@pytest.mark.unit
+def test_execute_module__compatibility_check_fails__returns_next_finalized_epoch(
+    ejector: Ejector, blockstamp: BlockStamp
+) -> None:
+    ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
+    ejector._check_compatibility = Mock(return_value=False)
+
+    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+
+    assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+    ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
+
+
+@pytest.mark.unit
+def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+) -> None:
+    reserve_per_frame = Wei(10 * GWEI_TO_WEI)
+    epochs_per_frame = 10
+    ejector.w3.lido_contracts.lido.get_deposits_reserve = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
+    mock_consensus = Mock()
+    mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
+    ejector.w3.eth.contract = Mock(return_value=mock_consensus)
+
+    # 0 epochs → ceil(0/10) = 0 frames → 0 locked
+    assert ejector._get_deposit_lock_amount(0, ref_blockstamp) == Wei(0)
+    # Exactly one frame (10 epochs) → ceil(10/10) = 1 frame
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(reserve_per_frame)
+    # One epoch over one frame → ceil(11/10) = 2 frames
+    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(2 * reserve_per_frame)
+    # 2.5 frames → ceil(25/10) = 3 frames
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(3 * reserve_per_frame)
+
+
+class ForcedIterator:
+    """Iterator that yields no regular validators but returns forced validators on demand."""
+
+    def __init__(self, forced_vals):
+        self.forced_vals = forced_vals
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise StopIteration
+
+    def get_remaining_forced_validators(self):
+        return self.forced_vals
+
+
+@pytest.mark.unit
+def test_get_validators_to_eject__forced_validators_present__included_in_result(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(1000))
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+    ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+    ejector._get_total_el_balance = Mock(return_value=Wei(0))
+    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+    ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+    forced_gid = (StakingModuleId(1), NodeOperatorId(1))
+    forced_validator = build_extended_validator()
+    forced_iter = ForcedIterator([(forced_gid, forced_validator)])
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module.ValidatorExitIterator,
+            "__iter__",
+            Mock(return_value=forced_iter),
+        )
+
+        result = ejector.get_validators_to_eject(ref_blockstamp)
+
+    assert len(result) == 1, "Forced validator should be included even when no regular ejections are needed"
+    assert result[0][0] == forced_gid
+    assert result[0][1].index == forced_validator.index
+
+
+@pytest.mark.unit
+def test_get_withdrawable_lido_validators_balance__consolidating_as_source__excluded(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    normal_validator = build_extended_validator_with_balance(Gwei(42))
+    # Mark as consolidation source — this validator should be excluded from withdrawable balance
+    consolidating_validator = build_extended_validator_with_balance(Gwei(42), consolidating_as_source=Mock())
+
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
+        return_value=[normal_validator, consolidating_validator]
+    )
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=True),
+        )
+        # Use a different epoch to avoid LRU cache collision with other tests
+        result = ejector._get_withdrawable_lido_validators_balance(
+            EpochNumber(ref_blockstamp.ref_epoch + 1), ref_blockstamp
+        )
+
+    # Only the normal validator contributes; consolidating_as_source is skipped
+    assert result == normal_validator.balance * GWEI_TO_WEI

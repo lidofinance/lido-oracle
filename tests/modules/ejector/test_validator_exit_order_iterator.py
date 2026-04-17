@@ -2,12 +2,13 @@ from unittest.mock import Mock
 
 import pytest
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.common.types import ChainConfig
 from src.services.exit_order_iterator import NodeOperatorStats, StakingModuleStats, ValidatorExitIterator
 from src.types import Gwei, NodeOperatorId, StakingModuleId
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
 @pytest.fixture
@@ -189,3 +190,164 @@ def test_lowest_validators_index_predicate(iterator):
     iterator.exitable_validators = {(sm.id, no1.id): [Mock(index=5)], (sm.id, no2.id): [Mock(index=10)]}
     assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no1, ms)) == 5
     assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no2, ms)) == 10
+
+
+@pytest.mark.unit
+def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(iterator):
+    """Forced validators above their force exit target are returned by get_remaining_forced_validators."""
+    sm1 = make_staking_module(1)
+    no1 = make_node_operator(1, sm1, total_dep=3, target=1, limit_mode=NodeOperatorLimitMode.FORCE)
+    gid11 = (sm1.id, no1.id)
+
+    iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
+    iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={
+            gid11: [
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+            ]
+        }
+    )
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
+    iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    iterator._setup_cm_data = Mock()
+    iterator._prepare_data_structure()
+    iterator._calculate_lido_stats()
+    # These attributes are normally set by __iter__; set them manually for the test
+    iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+    iterator.max_current_exit_balance = Gwei(0)
+
+    # force_exit_to=1, predictable_validators=3 → 2 validators should be forcefully ejected
+    forced = iterator.get_remaining_forced_validators()
+
+    assert len(forced) == 2, "Expected 2 forced validators (3 validators, target 1)"
+    assert all(gid == gid11 for gid, _ in forced)
+
+
+@pytest.mark.unit
+def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
+    """When all validators are at or below their force exit target, returns empty list."""
+    sm1 = make_staking_module(1)
+    # target=2 > total deposited=1, so no forced exit is needed
+    no1 = make_node_operator(1, sm1, total_dep=1, target=2, limit_mode=NodeOperatorLimitMode.FORCE)
+    gid11 = (sm1.id, no1.id)
+
+    iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
+    iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={gid11: [LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)]}
+    )
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
+    iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    iterator._setup_cm_data = Mock()
+    iterator._prepare_data_structure()
+    iterator._calculate_lido_stats()
+    # These attributes are normally set by __iter__; set them manually for the test
+    iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+    iterator.max_current_exit_balance = Gwei(0)
+
+    forced = iterator.get_remaining_forced_validators()
+
+    assert forced == [], "No forced exits needed when validators are below target"
+
+
+@pytest.mark.unit
+def test_get_can_request_exit_predicate__validator_on_exit__not_exitable(iterator):
+    """Validators with exit_epoch != FAR_FUTURE_EPOCH are not exitable."""
+    gid = (StakingModuleId(1), NodeOperatorId(1))
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid: []})
+
+    filt = iterator.get_can_request_exit_predicate(gid)
+
+    on_exit_validator = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(exit_epoch=100),  # Not FAR_FUTURE_EPOCH
+    )
+    active_validator = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
+    )
+
+    assert not filt(on_exit_validator), "Validator already on exit should not be exitable"
+    assert filt(active_validator), "Active validator should be exitable"
+
+
+@pytest.mark.unit
+def test_get_can_request_exit_predicate__consolidating_as_source__not_exitable(iterator):
+    """Validators with consolidating_as_source set are not exitable."""
+    gid = (StakingModuleId(1), NodeOperatorId(1))
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid: []})
+    consolidating_validator = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
+        consolidating_as_source=Mock(),
+    )
+
+    filt = iterator.get_can_request_exit_predicate(gid)
+
+    assert not filt(consolidating_validator), "Validator being consolidated as source should not be exitable"
+
+
+@pytest.mark.unit
+def test_no_weight_predicate(iterator):
+    """_no_weight_predicate returns 0 for zero balance, otherwise weight / predictable_balance."""
+    sm = make_staking_module(1)
+    no = make_node_operator(1, sm)
+    ms = StakingModuleStats(staking_module=sm)
+
+    # Zero predictable_balance → return 0
+    nos_zero = NodeOperatorStats(node_operator=no, module_stats=ms, predictable_validators=0)
+    assert iterator._no_weight_predicate(nos_zero) == 0
+
+    # Non-zero balance → return weight / predictable_balance
+    nos_with_balance = NodeOperatorStats(
+        node_operator=no,
+        module_stats=ms,
+        predictable_validators=1,
+        predictable_balance=Gwei(100 * 10**9),
+        weight=2.0,
+    )
+    expected = 2.0 / (100 * 10**9)
+    assert iterator._no_weight_predicate(nos_with_balance) == pytest.approx(expected)
+
+
+@pytest.mark.unit
+def test_max_share_rate_coefficient_predicate(iterator):
+    """_max_share_rate_coefficient_predicate orders modules by excess balance above their share threshold."""
+    threshold = int(0.15 * 10000)  # 15%
+    iterator.total_lido_predictable_balance = Gwei(3500 * 32 * 10**9)
+
+    sm1 = make_staking_module(1, threshold=threshold)
+    sm2 = make_staking_module(2, threshold=threshold)
+    sm3 = make_staking_module(3, threshold=threshold)
+
+    # SM1: balance 1000 vals, max allowed ~525 vals → positive excess
+    # SM2: balance 200 vals, max allowed ~525 vals → under limit (negative)
+    # SM3: balance 2000 vals, max allowed ~525 vals → higher positive excess
+    ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(1000 * 32 * 10**9))
+    ms2 = StakingModuleStats(staking_module=sm2, predictable_balance=Gwei(200 * 32 * 10**9))
+    ms3 = StakingModuleStats(staking_module=sm3, predictable_balance=Gwei(2000 * 32 * 10**9))
+
+    no1 = make_node_operator(1, sm1)
+    no2 = make_node_operator(2, sm2)
+    no3 = make_node_operator(3, sm3)
+
+    nos = [
+        NodeOperatorStats(node_operator=no1, module_stats=ms1),
+        NodeOperatorStats(node_operator=no2, module_stats=ms2),
+        NodeOperatorStats(node_operator=no3, module_stats=ms3),
+    ]
+
+    sorted_nos = sorted(nos, key=lambda x: -iterator._max_share_rate_coefficient_predicate(x))
+    assert sorted_nos[0].node_operator.id == NodeOperatorId(3), "SM3 has highest excess balance above threshold"
+    assert sorted_nos[1].node_operator.id == NodeOperatorId(1), "SM1 has moderate excess balance above threshold"
+    assert sorted_nos[2].node_operator.id == NodeOperatorId(2), "SM2 is under threshold limit"
+
+
+@pytest.mark.unit
+def test_max_share_rate_coefficient_predicate_zero_balance(iterator):
+    """_max_share_rate_coefficient_predicate returns -2 when module predictable_balance is zero."""
+    sm = make_staking_module(1)
+    ms = StakingModuleStats(staking_module=sm, predictable_balance=Gwei(0))
+    no = make_node_operator(1, sm)
+    nos = NodeOperatorStats(node_operator=no, module_stats=ms)
+
+    result = iterator._max_share_rate_coefficient_predicate(nos)
+    assert result == -2
