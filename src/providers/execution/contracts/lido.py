@@ -15,18 +15,15 @@ class LidoContract(ContractInterface):
     abi_path = './assets/Lido.json'
 
     @lru_cache(maxsize=1)
-    def get_buffered_ether(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
         """
-        Get the amount of Ether temporary buffered on this contract balance
-        Buffered balance is kept on the contract from the moment the funds are received from user
-        until the moment they are actually sent to the official Deposit contract.
-        return amount of buffered funds in wei
+        Return the amount of ETH reserved to satisfy withdrawals, in wei.
         """
-        response = self.functions.getBufferedEther().call(block_identifier=block_identifier)
+        response = self.functions.getWithdrawalsReserve().call(block_identifier=block_identifier)
 
         logger.info(
             {
-                'msg': 'Call `getBufferedEther()`.',
+                'msg': 'Call `getWithdrawalsReserve()`.',
                 'value': response,
                 'block_identifier': repr(block_identifier),
                 'to': self.address,

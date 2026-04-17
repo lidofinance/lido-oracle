@@ -451,14 +451,14 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
 def test_get_total_balance(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=3)
     ejector.w3.lido_contracts.get_el_vault_balance = Mock(return_value=17)
-    ejector.w3.lido_contracts.lido.get_buffered_ether = Mock(return_value=1)
+    ejector.w3.lido_contracts.lido.get_withdrawals_reserve = Mock(return_value=1)
 
     result = ejector._get_total_el_balance(blockstamp)
     assert result == 21, "Unexpected total balance"
 
     ejector.w3.lido_contracts.get_withdrawal_balance.assert_called_once_with(blockstamp)
     ejector.w3.lido_contracts.get_el_vault_balance.assert_called_once_with(blockstamp)
-    ejector.w3.lido_contracts.lido.get_buffered_ether.assert_called_once_with(blockstamp.block_hash)
+    ejector.w3.lido_contracts.lido.get_withdrawals_reserve.assert_called_once_with(blockstamp.block_hash)
 
 
 @pytest.mark.unit
@@ -550,14 +550,14 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
     ejector.w3.eth.contract = Mock(return_value=mock_consensus)
 
-    # 0 epochs → ceil(0/10) = 0 frames → 0 locked
+    # 0 epochs → 0 // 10 = 0 frames → 0 locked
     assert ejector._get_deposit_lock_amount(0, ref_blockstamp) == Wei(0)
-    # Exactly one frame (10 epochs) → ceil(10/10) = 1 frame
+    # Exactly one frame (10 epochs) → 10 // 10 = 1 frame
     assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(reserve_per_frame)
-    # One epoch over one frame → ceil(11/10) = 2 frames
-    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(2 * reserve_per_frame)
-    # 2.5 frames → ceil(25/10) = 3 frames
-    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(3 * reserve_per_frame)
+    # One epoch over one frame → 11 // 10 = 1 frames
+    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
+    # 2.5 frames → 25 // 10 = 2 frames
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
 
 
 class ForcedIterator:
