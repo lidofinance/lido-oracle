@@ -1,6 +1,9 @@
 # Claude Code local settings
 .claude/
 
+# mutmut generated output
+mutants/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
