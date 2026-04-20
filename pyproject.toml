@@ -75,7 +75,7 @@ eth-tester = {version = "^0.13.0b1", extras = ["py-evm"]}
 pre-commit = "3.8"
 ipython = "^9.0"
 conventional-pre-commit = "^4.0.0"
-mutmut = "^2.5.1"
+mutmut = "^3.5.0"
 httpx = "^0.28.0"
 
 [build-system]
@@ -207,7 +207,8 @@ lines-after-imports = 2
 known-first-party = ["constants", "main", "metrics", "modules", "providers", "runtime", "services", "type_aliases", "utils", "variables", "web3py"]
 
 [tool.mutmut]
-paths_to_mutate = "src/"
-backup = false
-runner = "pytest -x -m unit -q"
-tests_dir = "tests/"
+paths_to_mutate = ["src/"]
+tests_dir = ["tests/"]
+pytest_add_cli_args = ["-x", "-m", "unit", "-q"]
+also_copy = ["src/", "assets/"]
+do_not_mutate = ["src/providers/execution/contracts/*"]
