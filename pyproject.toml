@@ -207,7 +207,8 @@ lines-after-imports = 2
 known-first-party = ["constants", "main", "metrics", "modules", "providers", "runtime", "services", "type_aliases", "utils", "variables", "web3py"]
 
 [tool.mutmut]
-paths_to_mutate = ["src/modules/oracles/ejector/"]
-tests_dir = ["tests/modules/ejector/"]
+paths_to_mutate = ["src/"]
+tests_dir = ["tests/"]
 pytest_add_cli_args = ["-x", "-m", "unit", "-q"]
 also_copy = ["src/", "assets/"]
+do_not_mutate = ["src/providers/execution/contracts/*"]

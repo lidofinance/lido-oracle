@@ -16,13 +16,14 @@ from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
     ],
 )
 def test_get_safe_border_epoch(
+    monkeypatch,
     is_bunker,
     negative_rebase_border_epoch,
     associated_slashings_border_epoch,
     default_requests_border_epoch,
     expected,
 ):
-    SafeBorder._retrieve_constants = Mock()
+    monkeypatch.setattr(SafeBorder, '_retrieve_constants', Mock())
     sb = SafeBorder(
         w3=Mock(),
         blockstamp=Mock(),
@@ -47,13 +48,13 @@ def test_get_safe_border_epoch(
     ],
 )
 def test_get_bunker_start_or_last_successful_report_epoch(
-    get_bunker_timestamp, slots_per_epoch, last_processing_ref_slot, initial_epoch, expected
+    monkeypatch, get_bunker_timestamp, slots_per_epoch, last_processing_ref_slot, initial_epoch, expected
 ):
-    SafeBorder._retrieve_constants = Mock
-    SafeBorder._get_negative_rebase_border_epoch = Mock()
-    SafeBorder._get_associated_slashings_border_epoch = Mock()
-    SafeBorder._get_default_requests_border_epoch = Mock()
-    SafeBorder._get_bunker_mode_start_timestamp = Mock(return_value=get_bunker_timestamp)
+    monkeypatch.setattr(SafeBorder, '_retrieve_constants', Mock)
+    monkeypatch.setattr(SafeBorder, '_get_negative_rebase_border_epoch', Mock())
+    monkeypatch.setattr(SafeBorder, '_get_associated_slashings_border_epoch', Mock())
+    monkeypatch.setattr(SafeBorder, '_get_default_requests_border_epoch', Mock())
+    monkeypatch.setattr(SafeBorder, '_get_bunker_mode_start_timestamp', Mock(return_value=get_bunker_timestamp))
     web3Mock = Mock()
     web3Mock.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=last_processing_ref_slot)
 
@@ -122,6 +123,7 @@ def blockstamp():
     ],
 )
 def test_find_earliest_slashed_epoch_rounded_to_frame(
+    monkeypatch,
     validators,
     frame_config,
     chain_config,
@@ -130,11 +132,15 @@ def test_find_earliest_slashed_epoch_rounded_to_frame(
     last_finalized_withdrawal_request_epoch,
     expected,
 ):
-    SafeBorder._retrieve_constants = Mock()
-    SafeBorder._get_negative_rebase_border_epoch = Mock()
-    SafeBorder._get_associated_slashings_border_epoch = Mock()
-    SafeBorder._get_last_finalized_withdrawal_request_epoch = Mock(return_value=last_finalized_withdrawal_request_epoch)
-    SafeBorder._slashings_in_frame = Mock(return_value=slashings_in_frame)
+    monkeypatch.setattr(SafeBorder, '_retrieve_constants', Mock())
+    monkeypatch.setattr(SafeBorder, '_get_negative_rebase_border_epoch', Mock())
+    monkeypatch.setattr(SafeBorder, '_get_associated_slashings_border_epoch', Mock())
+    monkeypatch.setattr(
+        SafeBorder,
+        '_get_last_finalized_withdrawal_request_epoch',
+        Mock(return_value=last_finalized_withdrawal_request_epoch),
+    )
+    monkeypatch.setattr(SafeBorder, '_slashings_in_frame', Mock(return_value=slashings_in_frame))
 
     web3Mock = Mock()
     web3Mock.lido_contracts = Mock()

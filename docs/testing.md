@@ -204,49 +204,95 @@ For integration tests:
 
 ## Mutation Testing
 
-Mutation testing is used to evaluate the quality of the test suite by introducing small changes (mutations) to the source code and verifying that tests catch these changes.
+Mutation testing evaluates test suite quality by introducing small source code changes (mutations) and verifying that tests detect them. The project uses [mutmut 3.x](https://mutmut.readthedocs.io/).
 
 ### Running Mutation Tests
 
-Run mutation tests on specific files or directories:
+**Always run via Docker** — mutmut uses `os.fork()` internally, which is unsafe on macOS with Python 3.14 and causes segfaults. Docker (Linux) is required.
 
 ```bash
-# Run on a specific mutation target and specific test files
-poetry run mutmut run \
-    --paths-to-mutate=src/services/staking_vaults.py \
-    --runner="pytest -x -m unit -q tests/modules/accounting/staking_vault"
+# Run full mutation suite — prints emoji summary at the end
+make test-mutations
+
+# Show the full list of survived/no-tests/timeout mutants
+make mutation-results
 ```
+
+To target a specific module, edit `paths_to_mutate` in `pyproject.toml` before running:
+
+```toml
+[tool.mutmut]
+paths_to_mutate = ["src/services/safe_border.py"]
+```
+
+Then run `make test-mutations` as usual. Restore the original value when done.
+
+> Results are cached in `.mutmut-cache`. Re-running only tests mutants that haven't been evaluated yet.
+> To start fresh: `rm .mutmut-cache mutants/ -rf` before `make test-mutations`.
 
 ### Viewing Results
 
+Run these commands from inside the Docker container (`make sh`) or locally if the cache was produced locally:
+
 ```bash
-# View summary of results
+# Summary of all results
 poetry run mutmut results
 
-# View details of a specific mutant
+# Diff for a specific mutant (use the ID from results)
 poetry run mutmut show <id>
 
-# Generate HTML report (opens in browser)
+# Generate HTML report
 poetry run mutmut html
 ```
 
 ### Understanding Results
 
-- **🎉 Killed**: Test suite caught the mutation (good!)
-- **🙁 Survived**: Mutation wasn't caught (test gap identified)
-- **⏰ Timeout**: Tests took too long (possible infinite loop)
-- **🤔 Suspicious**: Tests took longer than expected
+| Symbol | Name | Meaning |
+|--------|------|---------|
+| 🎉 | Killed | Tests detected the mutation — good |
+| 🙁 | Survived | Mutation was not detected — test gap |
+| 🫥 | No tests | No unit tests cover this code path |
+| ⏰ | Timeout | Tests exceeded time limit |
+| 🤔 | Suspicious | Tests passed but took longer than expected |
 
-**Mutation Score** = (Killed Mutants / Total Mutants) × 100%
+**Mutation Score** = Killed / (Killed + Survived) × 100%
 
-A mutation score above 75% indicates good test coverage. Surviving mutants often reveal:
+A score above 75% indicates solid test coverage. Survived mutants reveal:
 - Missing boundary condition tests
-- Inadequate assertion checks
-- Untested edge cases
+- Insufficient assertions (asserting shape but not values)
+- Untested branches or edge cases
 
 ### Configuration
 
-Mutation testing is configured in `pyproject.toml` under `[tool.mutmut]`:
-- Tests are run with `-m unit` flag (unit tests only for speed)
-- Tests stop on first failure (`-x` flag) for faster feedback
-- Results cached in `.mutmut-cache` file
+`pyproject.toml` under `[tool.mutmut]`:
+
+```toml
+[tool.mutmut]
+paths_to_mutate = ["src/"]          # source files to mutate
+tests_dir = ["tests/"]              # test files to run
+pytest_add_cli_args = ["-x", "-m", "unit", "-q"]  # unit tests only, stop on first failure
+also_copy = ["src/", "assets/"]     # directories copied into the mutants/ sandbox
+do_not_mutate = ["src/providers/execution/contracts/*"]  # excluded paths
+```
+
+### Test Isolation Requirement
+
+mutmut 3.x runs the stats phase and clean tests in the **same Python process**. Class-level attribute assignments without cleanup persist across the entire test session and will break the clean test phase.
+
+**Wrong** — direct class mutation persists after the test:
+
+```python
+def test_something():
+    MyClass._method = Mock()   # leaks into all subsequent tests!
+    obj = MyClass(...)
+```
+
+**Correct** — use `monkeypatch`, which automatically restores state after each test:
+
+```python
+def test_something(monkeypatch):
+    monkeypatch.setattr(MyClass, '_method', Mock())
+    obj = MyClass(...)
+```
+
+Instance-level patching (`obj._method = Mock()`) is safe because it doesn't affect the class.

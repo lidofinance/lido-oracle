@@ -47,7 +47,11 @@ test: up
 
 # To mutate specific paths, set paths_to_mutate in [tool.mutmut] in pyproject.toml
 test-mutations: up
-	$(EXEC_CMD) poetry run mutmut run && poetry run mutmut results
+	$(EXEC_CMD) poetry run mutmut run
+
+# Show full list of survived/no-tests/timeout mutants
+mutation-results: up
+	$(EXEC_CMD) poetry run mutmut results
 
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
