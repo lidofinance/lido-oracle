@@ -427,14 +427,14 @@ def test_get_pending_lido_validators_second_deposit_for_invalid_key_skipped(web3
 
 
 @pytest.mark.unit
-def test_get_active_lido_validators__with_empty_data(web3):
+def test_get_active_lido_validators__with_empty_data__returns_empty_list(web3):
     """
     Test that `get_active_lido_validators` handles empty data inputs correctly.
     """
     blockstamp = ReferenceBlockStampFactory.build()
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([], []))
     web3.cc.get_pending_deposits = Mock(return_value=[])
-    web3.cc.get_pending_consolidations = Mock(return_value={})
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
     web3.cc.get_validators_by_indexes = Mock(return_value={})
 
     active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)

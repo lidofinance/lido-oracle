@@ -197,7 +197,7 @@ class LidoValidatorsProvider(Module):
         for consolidation in self.w3.cc.get_pending_consolidations(blockstamp):
             source_validator = validators_by_index[consolidation.source_index]
 
-            # All consolidation with source validator slashed skipped
+            # Skip consolidations whose source validator is slashed.
             # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-process_pending_consolidations
             if source_validator.validator.slashed:
                 continue
