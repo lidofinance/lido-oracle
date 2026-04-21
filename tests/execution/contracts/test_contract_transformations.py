@@ -1125,10 +1125,10 @@ class TestHashConsensusContract:
 
 @pytest.mark.unit
 class TestLidoContract:
-    def test_get_buffered_ether(self):
+    def test_get_withdrawals_reserve(self):
         contract = _mock_contract()
-        contract.functions.getBufferedEther.return_value.call.return_value = 1000
-        result = LidoContract.get_buffered_ether(contract, block_identifier="latest")
+        contract.functions.getWithdrawalsReserve.return_value.call.return_value = 1000
+        result = LidoContract.get_withdrawals_reserve(contract, block_identifier="latest")
         assert result == 1000
 
     def test_total_supply(self):

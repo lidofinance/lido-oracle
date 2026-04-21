@@ -281,7 +281,7 @@ class Ejector(OracleModule[Web3]):
         return Wei(
             self.w3.lido_contracts.get_el_vault_balance(blockstamp)
             + self.w3.lido_contracts.get_withdrawal_balance(blockstamp)
-            + self.w3.lido_contracts.lido.get_buffered_ether(blockstamp.block_hash)
+            + self.w3.lido_contracts.lido.get_withdrawals_reserve(blockstamp.block_hash)
         )
 
     def _get_predicted_withdrawable_epoch(
@@ -357,7 +357,10 @@ class Ejector(OracleModule[Web3]):
 
         ao_frame_size = consensus_contract.get_frame_config(blockstamp.block_hash).epochs_per_frame
 
-        # Rounding frames number up
-        ao_frames = (epoches_number + ao_frame_size - 1) // ao_frame_size
+        # `get_deposits_reserve()` already reflects the reserve locked for the current accounting
+        # frame at `blockstamp`. Only additional fully covered accounting frames within
+        # `epoches_number` must be added here, so floor-division is intentional. Using ceil
+        # would over-count by adding a reserve for a partial / already-accounted frame.
+        ao_frames = epoches_number // ao_frame_size
 
         return Wei(ao_frames * reserve_per_frame)

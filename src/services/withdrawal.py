@@ -11,7 +11,7 @@ from src.web3py.types import Web3
 
 class Withdrawal:
     """
-    Service calculates which withdrawal requests should be finalized using next factors:
+    Service calculates which withdrawal requests should be finalized using the next factors:
 
     1. Safe border epoch for the current reference slot.
     2. The amount of available ETH is determined from the Withdrawal Vault, EL Vault, and buffered ETH.
@@ -66,14 +66,14 @@ class Withdrawal:
         return last_finalized_id < last_requested_id
 
     def _get_available_eth(self, withdrawal_vault_balance: Wei, el_rewards_vault_balance: Wei) -> Wei:
-        buffered_ether = self.w3.lido_contracts.lido.get_buffered_ether(self.blockstamp.block_hash)
+        withdrawals_reserve = self.w3.lido_contracts.lido.get_withdrawals_reserve(self.blockstamp.block_hash)
 
         # This amount of eth could not be spent for deposits.
         unfinalized_steth = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(self.blockstamp.block_hash)
 
-        reserved_buffer = min(buffered_ether, unfinalized_steth)
+        reserved_withdrawals_eth = min(withdrawals_reserve, unfinalized_steth)
 
-        return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_buffer)
+        return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_withdrawals_eth)
 
     def _calculate_finalization_batches(self, share_rate: int, available_eth: int, until_timestamp: int) -> list[int]:
         max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length(self.blockstamp.block_hash)
