@@ -264,9 +264,7 @@ class Accounting(OracleModule[Web3]):
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
         )
         active_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
-        topups_pending = Gwei(
-            sum(topup.amount for v in active_validators for topup in v.pending_topups)
-        )
+        topups_pending = Gwei(sum(topup.amount for v in active_validators for topup in v.pending_topups))
         return Gwei(new_validators_pending + topups_pending)
 
     def _get_newly_exited_validators_by_modules(

@@ -1145,10 +1145,10 @@ class TestLidoContract:
         assert result.deposited_validators == 100
         assert result.beacon_validators == 90
 
-    def test_get_deposits_reserve(self):
+    def test_get_deposits_reserve_target(self):
         contract = _mock_contract()
-        contract.functions.getDepositsReserve.return_value.call.return_value = 42
-        result = LidoContract.get_deposits_reserve(contract, block_identifier="latest")
+        contract.functions.getDepositsReserveTarget.return_value.call.return_value = 42
+        result = LidoContract.get_deposits_reserve_target(contract, block_identifier="latest")
         assert result == 42
 
 

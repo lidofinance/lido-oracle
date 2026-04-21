@@ -345,9 +345,7 @@ class Distribution:
 
         distributed_sum = sum(rewards_distribution.values())
         if distributed_sum > rewards_to_distribute:
-            raise ValueError(
-                f"Invalid distribution: {distributed_sum=} > {rewards_to_distribute=}"
-            )
+            raise ValueError(f"Invalid distribution: {distributed_sum=} > {rewards_to_distribute=}")
 
         return rewards_distribution
 

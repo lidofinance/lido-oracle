@@ -544,7 +544,7 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
 ) -> None:
     reserve_per_frame = Wei(10 * GWEI_TO_WEI)
     epochs_per_frame = 10
-    ejector.w3.lido_contracts.lido.get_deposits_reserve = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=reserve_per_frame)
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
     mock_consensus = Mock()
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
