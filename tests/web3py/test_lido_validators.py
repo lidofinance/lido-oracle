@@ -424,3 +424,96 @@ def test_get_pending_lido_validators_second_deposit_for_invalid_key_skipped(web3
         result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert result == {}
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__with_empty_data__returns_empty_list(web3):
+    """
+    Test that `get_active_lido_validators` handles empty data inputs correctly.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([], []))
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={})
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    assert active_validators == []
+    web3.cc.get_pending_deposits.assert_called_once_with(blockstamp)
+    web3.cc.get_pending_consolidations.assert_called_once_with(blockstamp)
+    web3.lido_validators._get_lido_validators_with_keys.assert_called_once_with(blockstamp)
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__with_valid_data(web3):
+    """
+    Test `get_active_lido_validators` returns correct outputs based on mock data.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    mock_validators = LidoValidatorFactory.batch(5)
+    deposits_map = {mock_validators[0].validator.pubkey: [Mock(amount=1000)]}
+
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
+    web3.cc.get_pending_deposits = Mock(return_value=[Mock(pubkey=mock_validators[0].validator.pubkey, amount=1000)])
+    web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    assert len(active_validators) == len(mock_validators)
+    assert sum(len(v.pending_topups) for v in active_validators) == 1
+    assert active_validators[0].pending_topups[0].amount == deposits_map[mock_validators[0].validator.pubkey][0].amount
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__with_slashed_sources(web3):
+    """
+    Test that consolidation requests whose source validator is slashed are skipped.
+    Both validators are still returned — only the consolidation record is dropped.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    validator1, validator2 = LidoValidatorFactory.batch(2)
+    validator1.validator.slashed = False
+    validator2.validator.slashed = True  # source is slashed → consolidation should be skipped
+    mock_validators = [validator1, validator2]
+
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
+    web3.cc.get_pending_consolidations = Mock(return_value=[Mock(source_index=validator2.index)])
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    # All validators are returned regardless of slashed status
+    assert len(active_validators) == 2
+    # The consolidation from the slashed source must not be recorded
+    v2_result = next(v for v in active_validators if v.index == validator2.index)
+    assert v2_result.consolidating_as_source is None
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__handles_multiple_consolidations(web3):
+    """
+    Test `get_active_lido_validators` handles multiple consolidations correctly.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    mock_validators = LidoValidatorFactory.batch(3)
+    # Ensure source validators are not slashed so consolidations are processed
+    for v in mock_validators:
+        v.validator.slashed = False
+    consolidation_data = [
+        Mock(source_index=mock_validators[0].index, target_index=mock_validators[1].index),
+        Mock(source_index=mock_validators[2].index, target_index=mock_validators[1].index),
+    ]
+
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
+    web3.cc.get_pending_consolidations = Mock(return_value=consolidation_data)
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    assert len(active_validators) == len(mock_validators)
+    assert active_validators[0].consolidating_as_source is not None
+    assert len(active_validators[1].consolidating_as_target) == 2

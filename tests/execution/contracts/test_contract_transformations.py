@@ -109,16 +109,16 @@ class TestDepositContractGetDepositCount:
 
 
 # ---------------------------------------------------------------------------
-# ExternalOperator.get_gid — 8-byte data parsing across input types
+# ExternalOperator.get_gid — 10-byte data parsing across input types
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestExternalOperatorGetGid:
-    # data layout: byte[0]=type, byte[1]=staking_module_id, byte[2:8]=node_operator_id
+    # data layout: byte[0]=type, byte[1]=staking_module_id, byte[2:10]=node_operator_id
 
     def _make_data(self, sm_id: int, no_id: int) -> bytes:
-        return bytes([0x01, sm_id]) + no_id.to_bytes(6, "big")
+        return bytes([0x01, sm_id]) + no_id.to_bytes(8, "big")
 
     def test_bytes_input(self):
         data = self._make_data(sm_id=2, no_id=3)
@@ -127,7 +127,7 @@ class TestExternalOperatorGetGid:
         assert no_id == 3
 
     def test_invalid_length_raises(self):
-        with pytest.raises(ValueError, match="Expected 8 bytes"):
+        with pytest.raises(ValueError, match="Expected 10 bytes"):
             ExternalOperator(data=b"\x01\x02").get_gid()
 
     def test_zero_ids(self):
@@ -1145,10 +1145,10 @@ class TestLidoContract:
         assert result.deposited_validators == 100
         assert result.beacon_validators == 90
 
-    def test_get_deposits_reserve(self):
+    def test_get_deposits_reserve_target(self):
         contract = _mock_contract()
-        contract.functions.getDepositsReserve.return_value.call.return_value = 42
-        result = LidoContract.get_deposits_reserve(contract, block_identifier="latest")
+        contract.functions.getDepositsReserveTarget.return_value.call.return_value = 42
+        result = LidoContract.get_deposits_reserve_target(contract, block_identifier="latest")
         assert result == 42
 
 

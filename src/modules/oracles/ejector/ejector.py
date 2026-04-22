@@ -344,7 +344,7 @@ class Ejector(OracleModule[Web3]):
         """
         Calculates the amount of ETH locked for depositing for a given epoches_number.
         """
-        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve(blockstamp.block_hash)
+        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
 
         consensus_contract = cast(
             HashConsensusContract,
@@ -356,8 +356,7 @@ class Ejector(OracleModule[Web3]):
         )
 
         ao_frame_size = consensus_contract.get_frame_config(blockstamp.block_hash).epochs_per_frame
-
-        # `get_deposits_reserve()` already reflects the reserve locked for the current accounting
+        # `get_withdrawals_reserve` already reflects the reserve locked for the current accounting
         # frame at `blockstamp`. Only additional fully covered accounting frames within
         # `epoches_number` must be added here, so floor-division is intentional. Using ceil
         # would over-count by adding a reserve for a partial / already-accounted frame.

@@ -266,9 +266,9 @@ class DutiesDB:
             raise ValueError("Invalid epoch range")
 
         with self.get_session() as session:
-            present = set(session.exec(
-                select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch)
-            ).all())
+            present = set(
+                session.exec(select(Duty.epoch).where(Duty.epoch >= from_epoch, Duty.epoch <= to_epoch)).all()
+            )
 
         return [epoch for epoch in sequence(from_epoch, to_epoch) if epoch not in present]
 

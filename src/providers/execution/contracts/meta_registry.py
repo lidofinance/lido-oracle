@@ -25,21 +25,21 @@ class ExternalOperator:
 
     def get_gid(self) -> NodeOperatorGlobalIndex:
         """
-        Parse external_operator data attribute (8 bytes):
-        - Byte 0: type
-        - Byte 1: staking module id
-        - Bytes 2-7: node operator id (6 bytes)
+        Parse external_operator data attribute (10 bytes):
+        - Byte 0: OperatorType enum (1 byte)
+        - Byte 1: staking module id (uint8, 1 byte)
+        - Bytes 2-9: node operator id (uint64, 8 bytes)
         """
-        # Ensure we have exactly 8 bytes
-        if len(self.data) != 8:
-            raise ValueError(f"Expected 8 bytes, got {len(self.data)}")
+        # Ensure we have exactly 10 bytes
+        if len(self.data) != 10:
+            raise ValueError(f"Expected 10 bytes, got {len(self.data)}")
 
         # Parse the components
         # type_byte = data_bytes[0]  # Not used in return value
         staking_module_id = StakingModuleId(self.data[1])
 
-        # Node operator id is 6 bytes (bytes 2-7)
-        node_operator_id = NodeOperatorId(int.from_bytes(self.data[2:8], byteorder='big'))
+        # Node operator id is 8 bytes (bytes 2-9)
+        node_operator_id = NodeOperatorId(int.from_bytes(self.data[2:10], byteorder='big'))
 
         return staking_module_id, node_operator_id
 
