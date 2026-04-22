@@ -1,9 +1,11 @@
 import json
+
 import pytest
 
-from src.modules.csm.log import FramePerfLog, DutyAccumulator
+from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator
 from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp
+from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -24,7 +26,7 @@ def log(ref_blockstamp: ReferenceBlockStamp, frame: tuple[EpochNumber, EpochNumb
 
 @pytest.mark.unit
 def test_fields_access(log: FramePerfLog):
-    log.operators[NodeOperatorId(42)].validators["100500"].slashed = True
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(100500)].slashed = True
 
 
 @pytest.mark.unit
@@ -32,13 +34,13 @@ def test_logs_encode(log: FramePerfLog):
     # Fill in dynamic fields to make sure we have data in it to be encoded.
     log.operators[NodeOperatorId(42)].distributed_rewards = 17
     log.operators[NodeOperatorId(42)].performance_coefficients = PerformanceCoefficients()
-    log.operators[NodeOperatorId(42)].validators["41337"].attestation_duty = DutyAccumulator(220, 119)
-    log.operators[NodeOperatorId(42)].validators["41337"].proposal_duty = DutyAccumulator(1, 1)
-    log.operators[NodeOperatorId(42)].validators["41337"].sync_duty = DutyAccumulator(100500, 100000)
-    log.operators[NodeOperatorId(42)].validators["41337"].performance = 0.5
-    log.operators[NodeOperatorId(42)].validators["41337"].threshold = 0.7
-    log.operators[NodeOperatorId(42)].validators["41337"].rewards_share = 0.3
-    log.operators[NodeOperatorId(42)].validators["41337"].distributed_rewards = 17
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].attestation_duty = DutyAccumulator(220, 119)
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].proposal_duty = DutyAccumulator(1, 1)
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].sync_duty = DutyAccumulator(100500, 100000)
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].performance = 0.5
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].threshold = 0.7
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].reward_share = 0.3
+    log.operators[NodeOperatorId(42)].validators[ValidatorIndex(41337)].distributed_rewards = 17
 
     log.operators[NodeOperatorId(0)].distributed_rewards = 0
     log.operators[NodeOperatorId(0)].performance_coefficients = PerformanceCoefficients(1, 2, 3)
@@ -54,12 +56,15 @@ def test_logs_encode(log: FramePerfLog):
     log_2.distributed_rewards = 0
     log_2.rebate_to_protocol = 0
 
-    logs = [log, log_2]
+    logs = Logs(frames=[log, log_2])
 
-    encoded = FramePerfLog.encode(logs)
+    encoded = logs.encode()
 
-    decoded_logs = json.loads(encoded)
+    decoded_logs_data = json.loads(encoded)
 
+    assert decoded_logs_data['_ver'] == 1
+
+    decoded_logs = decoded_logs_data['frames']
     for decoded in decoded_logs:
         assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["assigned"] == 220
         assert decoded["operators"]["42"]["validators"]["41337"]["attestation_duty"]["included"] == 119
@@ -69,8 +74,8 @@ def test_logs_encode(log: FramePerfLog):
         assert decoded["operators"]["42"]["validators"]["41337"]["sync_duty"]["included"] == 100000
         assert decoded["operators"]["42"]["validators"]["41337"]["performance"] == 0.5
         assert decoded["operators"]["42"]["validators"]["41337"]["threshold"] == 0.7
-        assert decoded["operators"]["42"]["validators"]["41337"]["rewards_share"] == 0.3
-        assert decoded["operators"]["42"]["validators"]["41337"]["slashed"] == False
+        assert decoded["operators"]["42"]["validators"]["41337"]["reward_share"] == 0.3
+        assert not decoded["operators"]["42"]["validators"]["41337"]["slashed"]
         assert decoded["operators"]["42"]["validators"]["41337"]["distributed_rewards"] == 17
         assert decoded["operators"]["42"]["distributed_rewards"] == 17
         assert decoded["operators"]["42"]["performance_coefficients"] == {

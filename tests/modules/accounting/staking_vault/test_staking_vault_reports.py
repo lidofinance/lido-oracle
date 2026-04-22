@@ -3,6 +3,7 @@ import pytest
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -10,7 +11,6 @@ from src.types import FrameNumber
 
 @pytest.mark.unit
 class TestGetIpfsReport:
-
     def test_get_ipfs_report_success(self, web3):
         # Setup
         mock_fetched_bytes = (

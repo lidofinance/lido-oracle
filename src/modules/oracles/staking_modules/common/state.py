@@ -1,0 +1,224 @@
+import logging
+from collections import defaultdict
+from dataclasses import dataclass, field
+from functools import lru_cache
+from itertools import batched
+from typing import Self
+
+from src.types import EpochNumber, ValidatorIndex
+from src.utils.range import sequence
+
+
+logger = logging.getLogger(__name__)
+
+
+class InvalidState(ValueError):
+    """State has data considered as invalid for a report"""
+
+
+@dataclass
+class DutyAccumulator:
+    """Accumulator of duties observed for a validator"""
+
+    assigned: int = 0
+    included: int = 0
+
+    @property
+    def perf(self) -> float:
+        return self.included / self.assigned if self.assigned else 0
+
+    def add_duty(self, included: bool) -> None:
+        self.assigned += 1
+        self.included += 1 if included else 0
+
+    def merge(self, other: Self) -> None:
+        self.assigned += other.assigned
+        self.included += other.included
+
+
+@dataclass
+class ValidatorDuties:
+    attestation: DutyAccumulator | None
+    proposal: DutyAccumulator | None
+    sync: DutyAccumulator | None
+
+
+@dataclass
+class NetworkDuties:
+    # fmt: off
+    attestations: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
+    proposals: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
+    syncs: defaultdict[ValidatorIndex, DutyAccumulator] = field(
+        default_factory=lambda: defaultdict(DutyAccumulator)
+    )
+
+    def merge(self, other: Self) -> None:
+        for val, duty in other.attestations.items():
+            self.attestations[val].merge(duty)
+        for val, duty in other.proposals.items():
+            self.proposals[val].merge(duty)
+        for val, duty in other.syncs.items():
+            self.syncs[val].merge(duty)
+
+
+type Frame = tuple[EpochNumber, EpochNumber]
+type StateData = dict[Frame, NetworkDuties]
+
+
+class State:
+    """Processing state of a staking module performance oracle frame"""
+
+    data: StateData
+
+    _epochs_to_process: tuple[EpochNumber, ...]
+    _processed_epochs: set[EpochNumber]
+
+    def __init__(self) -> None:
+        self.data = {}
+        self._epochs_to_process = tuple()
+        self._processed_epochs = set()
+
+    def init(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
+        if not self.is_empty:
+            raise InvalidState("State is already initialized")
+
+        new_frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
+        logger.info({"msg": f"Initializing state, {new_frames=}"})
+        new_data: StateData = {}
+        for frame in new_frames:
+            new_data[frame] = NetworkDuties()
+        self.data = new_data
+        self._epochs_to_process = tuple(sequence(l_epoch, r_epoch))
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.data and not self._epochs_to_process and not self._processed_epochs
+
+    def ensure_initialized(self) -> None:
+        if self.is_empty or not self._epochs_to_process or not self.frames:
+            raise InvalidState("State is not initialized; call init() before processing")
+
+    @property
+    def frames(self) -> list[Frame]:
+        return list(self.data.keys())
+
+    @property
+    def frame_range(self) -> tuple[EpochNumber, EpochNumber]:
+        frames = self.frames
+        if not frames:
+            raise InvalidState("Frames are not set; call init() before calling")
+        return min(frames)[0], max(frames)[-1]
+
+    @property
+    def unprocessed_epochs(self) -> set[EpochNumber]:
+        if not self._epochs_to_process:
+            raise InvalidState("Epochs to process are not set; call migrate() before processing")
+        diff = set(self._epochs_to_process) - self._processed_epochs
+        return diff
+
+    @property
+    def is_fulfilled(self) -> bool:
+        return not self.unprocessed_epochs
+
+    @staticmethod
+    def _calculate_frames(epochs_to_process: tuple[EpochNumber, ...], epochs_per_frame: int) -> list[Frame]:
+        """Split epochs to process into frames of `epochs_per_frame` length"""
+        if len(epochs_to_process) % epochs_per_frame != 0:
+            raise ValueError("Insufficient epochs to form a frame")
+        return [(frame[0], frame[-1]) for frame in batched(sorted(epochs_to_process), epochs_per_frame, strict=False)]
+
+    def clear(self) -> None:
+        self.data = {}
+        self.find_frame.cache_clear()
+        self._epochs_to_process = tuple()
+        self._processed_epochs.clear()
+        assert self.is_empty
+
+    @lru_cache(maxsize=1)  # noqa: B019
+    def find_frame(self, epoch: EpochNumber) -> Frame:
+        for epoch_range in self.frames:
+            from_epoch, to_epoch = epoch_range
+            if from_epoch <= epoch <= to_epoch:
+                return epoch_range
+        raise ValueError(f"Epoch {epoch} is out of frames range: {self.frames}")
+
+    def save_att_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame].attestations[val_index].merge(duty)
+
+    def save_prop_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame].proposals[val_index].merge(duty)
+
+    def save_sync_duty(self, epoch: EpochNumber, val_index: ValidatorIndex, duty: DutyAccumulator) -> None:
+        frame = self.find_frame(epoch)
+        self.data[frame].syncs[val_index].merge(duty)
+
+    def add_processed_epoch(self, epoch: EpochNumber) -> None:
+        self._processed_epochs.add(epoch)
+
+    def validate(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+        if not self.is_fulfilled:
+            raise InvalidState(f"State is not fulfilled. {self.unprocessed_epochs=}")
+
+        for epoch in self._processed_epochs:
+            if not l_epoch <= epoch <= r_epoch:
+                raise InvalidState(f"Processed epoch {epoch} is out of range")
+
+        for epoch in sequence(l_epoch, r_epoch):
+            if epoch not in self._processed_epochs:
+                raise InvalidState(f"Epoch {epoch} missing in processed epochs")
+
+    def get_validator_duties(self, frame: Frame, validator_index: ValidatorIndex) -> ValidatorDuties:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+
+        att_duty = frame_data.attestations.get(validator_index)
+        prop_duty = frame_data.proposals.get(validator_index)
+        sync_duty = frame_data.syncs.get(validator_index)
+
+        return ValidatorDuties(att_duty, prop_duty, sync_duty)
+
+    def get_att_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        # TODO: exclude `active_slashed` validators from the calculation
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self._get_duty_network_aggr(frame_data.attestations)
+        logger.info({"msg": "Network attestations aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_prop_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self._get_duty_network_aggr(frame_data.proposals)
+        logger.info({"msg": "Network proposal aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    def get_sync_network_aggr(self, frame: Frame) -> DutyAccumulator:
+        frame_data = self.data.get(frame)
+        if frame_data is None:
+            raise ValueError(f"No data for frame: {frame=}")
+        aggr = self._get_duty_network_aggr(frame_data.syncs)
+        logger.info({"msg": "Network syncs aggregate computed", "value": repr(aggr), "avg_perf": aggr.perf})
+        return aggr
+
+    @staticmethod
+    def _get_duty_network_aggr(duty_frame_data: defaultdict[ValidatorIndex, DutyAccumulator]) -> DutyAccumulator:
+        included = assigned = 0
+        for validator, acc in duty_frame_data.items():
+            if acc.included > acc.assigned:
+                raise ValueError(f"Invalid accumulator: {validator=}, {acc=}")
+            included += acc.included
+            assigned += acc.assigned
+        aggr = DutyAccumulator(
+            included=included,
+            assigned=assigned,
+        )
+        return aggr

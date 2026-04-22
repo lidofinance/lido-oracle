@@ -1,4 +1,4 @@
-from eth_utils import add_0x_prefix
+from eth_utils.hexadecimal import add_0x_prefix
 
 from src.providers.consensus.types import BlockDetailsResponse
 from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber

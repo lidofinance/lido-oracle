@@ -1,11 +1,12 @@
 import pytest
 from eth_typing import HexStr
 
-from src.modules.accounting.types import StakingVaultIpfsReport
+from src.modules.oracles.accounting.types import StakingVaultIpfsReport
 from src.providers.ipfs import CIDv0
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, SlotNumber
 from src.utils.slot import get_blockstamp
+
 
 # =============================================================================
 # Tests
@@ -15,7 +16,6 @@ from src.utils.slot import get_blockstamp
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestIpfsReportSmoke:
-
     def test_ipfs_report_valid(self, web3_integration):
         # Setup
         cid = CIDv0("QmYnQ9gCriLj29uWC6DC3yFm6gYXNEAkMoHLjtJun8ASeQ")
@@ -25,8 +25,7 @@ class TestIpfsReportSmoke:
         tree = StakingVaultIpfsReport.parse_merkle_tree_data(bb)
         sv = StakingVaultsService(web3_integration)
 
-        # Act & Assert
-        assert True == sv.is_tree_root_valid(expected_tree_root, tree)
+        assert sv.is_tree_root_valid(expected_tree_root, tree)
 
     def test_ipfs_window(self, web3_integration):
         # Setup

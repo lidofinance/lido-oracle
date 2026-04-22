@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from json import JSONDecoder, JSONEncoder
-from typing import Iterable
 
 import pytest
 from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
-from src.modules.csm.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
-from src.modules.csm.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
+from src.modules.oracles.staking_modules.common.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
+from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
 from src.types import NodeOperatorId
 from src.utils.types import hex_str_to_bytes
 

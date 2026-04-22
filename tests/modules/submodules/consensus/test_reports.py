@@ -1,17 +1,16 @@
+from dataclasses import dataclass
 from unittest.mock import Mock
 
 import pytest
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.types import Wei
-from dataclasses import dataclass
 
 from src import variables
-from src.modules.accounting.accounting import Accounting
-from src.modules.accounting.types import ReportData
-from src.modules.submodules.types import ChainConfig, FrameConfig, ZERO_HASH
-from src.types import SlotNumber, Gwei, StakingModuleId
-
+from src.modules.common.types import ZERO_HASH, ChainConfig, FrameConfig
+from src.modules.oracles.accounting.types import ReportData
+from src.types import Gwei, SlotNumber, StakingModuleId
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.member_info import MemberInfoFactory
 
@@ -57,10 +56,12 @@ def test_process_report_main(consensus, caplog):
     report_data = ReportData(
         consensus_version=1,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -80,6 +81,115 @@ def test_process_report_main(consensus, caplog):
     assert "Calculate report hash." in caplog.text
     assert "Send report hash" in caplog.text
     assert "Quorum is not ready" in caplog.text
+    report_hash = consensus._encode_data_hash(report_data)
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+    )
+
+
+@pytest.mark.unit
+def test_process_report__not_allowed__sends_telemetry(consensus):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5)],
+        count_exited_validators_by_staking_module=[6],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
+        withdrawal_vault_balance=Wei(7),
+        el_rewards_vault_balance=Wei(8),
+        shares_requested_to_burn=9,
+        withdrawal_finalization_batches=[10],
+        finalization_share_rate=11,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=False,
+        extra_data_format=12,
+        extra_data_hash=HexBytes(int.to_bytes(13, 32)),
+        extra_data_items_count=14,
+    ).as_tuple()
+    consensus.build_report = Mock(return_value=report_data)
+    consensus.is_reporting_allowed = Mock(return_value=False)
+
+    consensus.process_report(blockstamp)
+
+    report_hash = consensus._encode_data_hash(report_data)
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+    )
+
+
+@pytest.mark.unit
+def test_process_report__report_hash_raises__sends_telemetry(consensus):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5)],
+        count_exited_validators_by_staking_module=[6],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
+        withdrawal_vault_balance=Wei(7),
+        el_rewards_vault_balance=Wei(8),
+        shares_requested_to_burn=9,
+        withdrawal_finalization_batches=[10],
+        finalization_share_rate=11,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=False,
+        extra_data_format=12,
+        extra_data_hash=HexBytes(int.to_bytes(13, 32)),
+        extra_data_items_count=14,
+    ).as_tuple()
+    consensus.build_report = Mock(return_value=report_data)
+    consensus._process_report_hash = Mock(side_effect=RuntimeError("tx failed"))
+
+    with pytest.raises(RuntimeError, match="tx failed"):
+        consensus.process_report(blockstamp)
+
+    report_hash = consensus._encode_data_hash(report_data)
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once_with(
+        TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
+    )
+
+
+@pytest.mark.unit
+def test_process_report__same_hash_twice__skips_duplicate_telemetry(consensus, caplog):
+    blockstamp = ReferenceBlockStampFactory.build()
+    report_data = ReportData(
+        consensus_version=1,
+        ref_slot=SlotNumber(2),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
+        staking_module_ids_with_exited_validators=[StakingModuleId(5)],
+        count_exited_validators_by_staking_module=[6],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
+        withdrawal_vault_balance=Wei(7),
+        el_rewards_vault_balance=Wei(8),
+        shares_requested_to_burn=9,
+        withdrawal_finalization_batches=[10],
+        finalization_share_rate=11,
+        vaults_tree_root=bytes([0]),
+        vaults_tree_cid="tree_cid",
+        is_bunker=False,
+        extra_data_format=12,
+        extra_data_hash=HexBytes(int.to_bytes(13, 32)),
+        extra_data_items_count=14,
+    ).as_tuple()
+    consensus.build_report = Mock(return_value=report_data)
+    consensus.is_reporting_allowed = Mock(return_value=False)
+
+    consensus.process_report(blockstamp)
+    consensus.process_report(blockstamp)
+
+    consensus.w3.telemetry_data_bus.send_telemetry.assert_called_once()
+    assert 'Telemetry already sent for this report hash. Skipping.' in caplog.text
 
 
 # ----- Hash calculations ----------
@@ -88,10 +198,12 @@ def test_hash_calculations(consensus):
     rd = ReportData(
         consensus_version=1,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -106,7 +218,7 @@ def test_hash_calculations(consensus):
     )
     report_hash = consensus._encode_data_hash(rd.as_tuple())
     assert isinstance(report_hash, HexBytes)
-    assert report_hash == HexBytes('0xa55c15fa50d7c974798712ea60ef4dcbc94644c53759c16f69ea5d60e4c2de21')
+    assert report_hash == HexBytes('0x709290380958ae308e6c7d53d568579c2f7eb4337bc94d08a16656322410403e')
 
 
 # ------ Process report hash -----------
@@ -231,10 +343,12 @@ def test_process_report_data_main_sleep_until_data_submitted(consensus, caplog, 
     report_data = ReportData(
         consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,
@@ -293,10 +407,12 @@ def test_process_report_submit_report(consensus, caplog, mock_latest_data):
     report_data = ReportData(
         consensus_version=consensus.COMPATIBLE_CONSENSUS_VERSION,
         ref_slot=SlotNumber(2),
-        validators_count=3,
-        cl_balance_gwei=Gwei(4),
+        cl_validators_balance_gwei=3,
+        cl_pending_balance_gwei=Gwei(4),
         staking_module_ids_with_exited_validators=[StakingModuleId(5), StakingModuleId(6)],
         count_exited_validators_by_staking_module=[7, 8],
+        staking_module_ids_with_updated_balance=[],
+        validator_balances_gwei_by_staking_module=[],
         withdrawal_vault_balance=Wei(9),
         el_rewards_vault_balance=Wei(10),
         shares_requested_to_burn=11,

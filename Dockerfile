@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.9.0
-FROM python:3.12.4-slim AS base
+FROM python:3.14-slim AS base
 
-ARG POETRY_VERSION=1.3.2
+ARG POETRY_VERSION=2.3.2
 ARG SOURCE_DATE_EPOCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    libffi-dev=3.4.4-1 \
-    g++=4:12.2.0-3 \
-    curl=7.88.1-10+deb12u14 \
+    libffi-dev=3.4.8-2 \
+    g++=4:14.2.0-1 \
+    curl=8.14.1-2+deb13u2 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /var/cache/* \
@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100 \
     POETRY_VIRTUALENVS_IN_PROJECT=false \
     POETRY_NO_INTERACTION=1 \
+    POETRY_INSTALLER_PARALLEL=false \
     VENV_PATH="/opt/venv" \
     # Building reproducible .so files by enforcing consistent CFLAGS across builds
     CFLAGS="-g0 -O2 -ffile-prefix-map=/src=."
@@ -49,10 +50,13 @@ ARG POETRY_VERSION
 RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    git=1:2.39.5-0+deb12u2 \
-    htop=3.2.2-2 \
+    git=1:2.47.3-0+deb13u1 \
+    htop=3.4.1-5 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN bash -c "set -o pipefail && curl -L https://foundry.paradigm.xyz | bash && /root/.foundry/bin/foundryup"
+ENV PATH="/root/.foundry/bin:${PATH}"
 
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./

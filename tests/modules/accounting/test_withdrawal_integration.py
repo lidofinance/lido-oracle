@@ -2,10 +2,10 @@ import pytest
 from eth_typing import BlockNumber
 from web3.types import Timestamp
 
-from src.modules.submodules.types import FrameConfig, ChainConfig
-from src.services.withdrawal import Withdrawal
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.types import ReferenceBlockStamp, SlotNumber, EpochNumber
+from src.modules.common.types import ChainConfig, FrameConfig
+from src.services.withdrawal import Withdrawal
+from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
 
 
 def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
@@ -45,6 +45,7 @@ def subject(web3_integration, past_blockstamp, chain_config, frame_config):
 
 @pytest.mark.testnet
 @pytest.mark.integration
+@pytest.mark.skip(reason="Uncomment on SRv3 Hoodi release")
 def test_happy_path(subject, past_blockstamp):
     withdrawal_vault_balance = subject.w3.lido_contracts.get_withdrawal_balance(past_blockstamp)
     el_rewards_vault_balance = subject.w3.lido_contracts.get_el_vault_balance(past_blockstamp)

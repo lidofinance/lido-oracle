@@ -1,10 +1,10 @@
 import logging
 import random
 from collections import Counter
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from functools import wraps
-from typing import Iterable
 
 from web3 import Web3
 from web3.module import Module
@@ -12,6 +12,7 @@ from web3.module import Module
 from src.providers.ipfs.cid import CID
 from src.providers.ipfs.types import IPFSError, IPFSProvider
 from src.types import FrameNumber
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class IPFS(Module):
     @staticmethod
     def with_fallback(fn):
         @wraps(fn)
-        def wrapped(self: "IPFS", *args, **kwargs):
+        def wrapped(self, *args, **kwargs):
             try:
                 result = fn(self, *args, **kwargs)
             except Exception as ex:  # pylint: disable=broad-exception-caught
@@ -80,7 +81,7 @@ class IPFS(Module):
     @staticmethod
     def retry(fn):
         @wraps(fn)
-        def wrapped(self: "IPFS", *args, **kwargs):
+        def wrapped(self, *args, **kwargs):
             retries_left = self.retries
             while retries_left:
                 try:
@@ -111,13 +112,15 @@ class IPFS(Module):
     @retry
     def fetch(self, cid: CID, provider_rotation_frame: FrameNumber) -> bytes:
         self._set_provider_for_frame(provider_rotation_frame)
-        logger.info({
-            "msg": "Called: w3.ipfs.fetch(...)",
-            "provider_rotation_frame": provider_rotation_frame,
-            "provider_index": self.current_provider_index,
-            "provider_class": self.provider.__class__.__name__,
-            "cid": str(cid)
-        })
+        logger.info(
+            {
+                "msg": "Called: w3.ipfs.fetch(...)",
+                "provider_rotation_frame": provider_rotation_frame,
+                "provider_index": self.current_provider_index,
+                "provider_class": self.provider.__class__.__name__,
+                "cid": str(cid),
+            }
+        )
         return self.provider.fetch(cid)
 
     @retry
@@ -132,31 +135,37 @@ class IPFS(Module):
 
         for cid, count in cid_counts.items():
             if count >= required_quorum:
-                logger.info({
-                    "msg": "CID selected by quorum",
-                    "selected_cid": cid,
-                    "quorum_count": count,
-                    "required_quorum": required_quorum,
-                    "total_successful_uploads_count": total_successful_uploads_count
-                })
+                logger.info(
+                    {
+                        "msg": "CID selected by quorum",
+                        "selected_cid": cid,
+                        "quorum_count": count,
+                        "required_quorum": required_quorum,
+                        "total_successful_uploads_count": total_successful_uploads_count,
+                    }
+                )
                 return CID(cid)
 
-        logger.warning({
-            "msg": "No CID consensus reached, falling back to provider priority",
-            "cid_distribution": dict(cid_counts),
-            "required_quorum": required_quorum,
-            "total_successful_uploads_count": total_successful_uploads_count
-        })
+        logger.warning(
+            {
+                "msg": "No CID consensus reached, falling back to provider priority",
+                "cid_distribution": dict(cid_counts),
+                "required_quorum": required_quorum,
+                "total_successful_uploads_count": total_successful_uploads_count,
+            }
+        )
 
         for provider in self.priority_providers:
             provider_class_name = provider.__class__.__name__
             for upload in successful_uploads:
                 if upload.provider_class == provider_class_name:
-                    logger.info({
-                        "msg": "CID selected by provider priority fallback",
-                        "selected_cid": upload.cid,
-                        "provider": provider_class_name
-                    })
+                    logger.info(
+                        {
+                            "msg": "CID selected by provider priority fallback",
+                            "selected_cid": upload.cid,
+                            "provider": provider_class_name,
+                        }
+                    )
                     return CID(upload.cid)
 
         # This should never happen
@@ -167,10 +176,7 @@ class IPFS(Module):
         )
 
     def publish(self, content: bytes, name: str | None = None) -> CID:
-        logger.info({
-            "msg": "Started: w3.ipfs.publish(...)",
-            "total_providers": len(self.providers)
-        })
+        logger.info({"msg": "Started: w3.ipfs.publish(...)", "total_providers": len(self.providers)})
 
         successful_uploads = []
         failed_uploads = []
@@ -185,35 +191,27 @@ class IPFS(Module):
                 provider = future_to_provider[future]
                 try:
                     cid = future.result()
-                    successful_uploads.append(SuccessfulUpload(
-                        provider_class=provider.__class__.__name__,
-                        cid=str(cid)
-                    ))
+                    successful_uploads.append(
+                        SuccessfulUpload(provider_class=provider.__class__.__name__, cid=str(cid))
+                    )
                 except Exception as ex:  # pylint: disable=broad-exception-caught
-                    failed_uploads.append({
-                        "provider_class": provider.__class__.__name__,
-                        "error": str(ex)
-                    })
+                    failed_uploads.append({"provider_class": provider.__class__.__name__, "error": str(ex)})
 
         if not successful_uploads:
-            logger.error({
-                "msg": "Failed to upload to all providers",
-                "failed_uploads": failed_uploads
-            })
+            logger.error({"msg": "Failed to upload to all providers", "failed_uploads": failed_uploads})
             raise NoMoreProvidersError("All providers failed during upload")
 
         if failed_uploads:
-            logger.warning({
-                "msg": "Some providers failed during upload",
-                "failed_uploads": failed_uploads
-            })
+            logger.warning({"msg": "Some providers failed during upload", "failed_uploads": failed_uploads})
 
         selected_cid = self._select_cid_with_quorum(successful_uploads)
 
-        logger.info({
-            "msg": "Completed: w3.ipfs.publish(...)",
-            "successful_uploads": [asdict(upload) for upload in successful_uploads],
-            "selected_cid": str(selected_cid)
-        })
+        logger.info(
+            {
+                "msg": "Completed: w3.ipfs.publish(...)",
+                "successful_uploads": [asdict(upload) for upload in successful_uploads],
+                "selected_cid": str(selected_cid),
+            }
+        )
 
         return selected_cid

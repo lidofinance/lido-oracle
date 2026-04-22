@@ -1,14 +1,14 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 from multiformats.multibase.err import MultibaseKeyError
 
-from src.providers.ipfs import IPFSProvider, CID, CIDv0
+from src.providers.ipfs import CID, CIDv0, IPFSProvider
 from src.providers.ipfs.types import CIDValidationError
 
 
 @pytest.mark.unit
 class TestIPFS:
-
     @pytest.fixture
     def test_provider(self):
         class TestIPFSProvider(IPFSProvider):

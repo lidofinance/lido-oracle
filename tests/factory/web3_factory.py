@@ -1,16 +1,16 @@
-from dataclasses import is_dataclass, MISSING, fields
-from typing import TypeVar, Generic, TypeGuard, Any, get_type_hints
+from dataclasses import MISSING, fields, is_dataclass
+from typing import Any, TypeGuard, get_type_hints
 
-from eth_typing import HexStr, HexAddress
+from eth_typing import HexAddress, HexStr
 from eth_utils import to_checksum_address
 from hexbytes import HexBytes
 from polyfactory import BaseFactory
 from polyfactory.field_meta import FieldMeta, Null
 
-T = TypeVar("T")
+from src.types import NodeOperatorId, StakingModuleId
 
 
-class Web3DataclassFactory(Generic[T], BaseFactory[T]):
+class Web3DataclassFactory[T](BaseFactory[T]):
     """Dataclass base factory"""
 
     __is_base_factory__ = True
@@ -25,14 +25,14 @@ class Web3DataclassFactory(Generic[T], BaseFactory[T]):
         return bool(is_dataclass(value))
 
     @classmethod
-    def get_model_fields(cls) -> list["FieldMeta"]:
+    def get_model_fields(cls) -> list[FieldMeta]:
         """Retrieve a list of fields from the factory's model.
 
 
         :returns: A list of field MetaData instances.
 
         """
-        fields_meta: list["FieldMeta"] = []
+        fields_meta: list[FieldMeta] = []
 
         model_type_hints = get_type_hints(cls.__model__, include_extras=True)
 
@@ -52,7 +52,6 @@ class Web3DataclassFactory(Generic[T], BaseFactory[T]):
                     annotation=model_type_hints[field.name],
                     name=field.name,
                     default=default_value,
-                    random=cls.__random__,
                 ),
             )
 
@@ -75,4 +74,6 @@ class Web3DataclassFactory(Generic[T], BaseFactory[T]):
             HexStr: lambda: HexBytes(faker.binary(length=20)).hex(),
             HexBytes: lambda: HexBytes(faker.binary(length=64)),
             int | None: lambda: None,
+            NodeOperatorId: lambda: NodeOperatorId(faker.unique.pyint(min_value=1, max_value=10000)),
+            StakingModuleId: lambda: StakingModuleId(faker.unique.pyint(min_value=1, max_value=10000)),
         }

@@ -5,6 +5,7 @@ import pytest
 from src.services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import FeeTestConstants
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -12,7 +13,6 @@ from tests.modules.accounting.staking_vault.conftest import FeeTestConstants
 
 @pytest.mark.unit
 class TestCalcFeeValue:
-
     @pytest.mark.parametrize(
         'vault_total_value, time_elapsed_seconds, core_apr_ratio, fee_bp, expected',
         [

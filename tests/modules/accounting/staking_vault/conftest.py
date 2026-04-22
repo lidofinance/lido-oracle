@@ -16,7 +16,7 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.accounting.events import (
+from src.modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -25,7 +25,7 @@ from src.modules.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.accounting.types import (
+from src.modules.oracles.accounting.types import (
     ExtraValue,
     MerkleValue,
     OnChainIpfsVaultReportData,
@@ -35,11 +35,13 @@ from src.modules.accounting.types import (
     VaultInfo,
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
-from src.services.staking_vaults import StakingVaultsService
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 from tests.factory.web3_factory import Web3DataclassFactory
 
+
 faker = Faker()
+DEFAULT_ACTIVE_BALANCE = Gwei(32_000_000_000)
+DEFAULT_NOT_ELIGIBLE_BALANCE = Gwei(1_000_000_000)
 
 # =============================================================================
 # Test Constants
@@ -137,7 +139,7 @@ class ValidatorFactory(Web3DataclassFactory[Validator]):
 
     @classmethod
     def build_active(
-        cls, withdrawal_credentials: str, balance: Gwei = Gwei(32_000_000_000), **kwargs: Any
+        cls, withdrawal_credentials: str, balance: Gwei = DEFAULT_ACTIVE_BALANCE, **kwargs: Any
     ) -> Validator:
         """Build an active validator with given withdrawal credentials."""
         # Remove 'validator' from kwargs if present to avoid duplicate
@@ -153,7 +155,7 @@ class ValidatorFactory(Web3DataclassFactory[Validator]):
 
     @classmethod
     def build_not_eligible(
-        cls, withdrawal_credentials: str, balance: Gwei = Gwei(1_000_000_000), **kwargs: Any
+        cls, withdrawal_credentials: str, balance: Gwei = DEFAULT_NOT_ELIGIBLE_BALANCE, **kwargs: Any
     ) -> Validator:
         """Build a validator not yet eligible for activation."""
         # Remove 'validator' from kwargs if present to avoid duplicate

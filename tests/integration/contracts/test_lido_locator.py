@@ -1,7 +1,7 @@
 import pytest
 from eth_typing import ChecksumAddress
 
-from tests.integration.contracts.contract_utils import check_contract, check_is_instance_of
+from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 
 @pytest.mark.mainnet
@@ -10,16 +10,16 @@ def test_lido_locator_contract(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
-            ('lido', None, check_is_instance_of(ChecksumAddress)),
-            ('accounting_oracle', None, check_is_instance_of(ChecksumAddress)),
-            ('staking_router', None, check_is_instance_of(ChecksumAddress)),
-            ('validator_exit_bus_oracle', None, check_is_instance_of(ChecksumAddress)),
-            ('withdrawal_queue', None, check_is_instance_of(ChecksumAddress)),
-            ('oracle_report_sanity_checker', None, check_is_instance_of(ChecksumAddress)),
-            ('oracle_daemon_config', None, check_is_instance_of(ChecksumAddress)),
-            ('burner', None, check_is_instance_of(ChecksumAddress)),
-            ('withdrawal_vault', None, check_is_instance_of(ChecksumAddress)),
-            ('el_rewards_vault', None, check_is_instance_of(ChecksumAddress)),
+            ('lido', None, make_checker(ChecksumAddress)),
+            ('accounting_oracle', None, make_checker(ChecksumAddress)),
+            ('staking_router', None, make_checker(ChecksumAddress)),
+            ('validator_exit_bus_oracle', None, make_checker(ChecksumAddress)),
+            ('withdrawal_queue', None, make_checker(ChecksumAddress)),
+            ('oracle_report_sanity_checker', None, make_checker(ChecksumAddress)),
+            ('oracle_daemon_config', None, make_checker(ChecksumAddress)),
+            ('burner', None, make_checker(ChecksumAddress)),
+            ('withdrawal_vault', None, make_checker(ChecksumAddress)),
+            ('el_rewards_vault', None, make_checker(ChecksumAddress)),
         ],
         caplog,
     )
@@ -31,8 +31,9 @@ def test_lido_locator_contract_testnet(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
-            ('accounting', None, check_is_instance_of(ChecksumAddress)),
-            ('vault_hub', None, check_is_instance_of(ChecksumAddress)),
+            ('accounting', None, make_checker(ChecksumAddress)),
+            ('vault_hub', None, make_checker(ChecksumAddress)),
+            ('lazy_oracle', None, make_checker(ChecksumAddress)),
         ],
         caplog,
     )

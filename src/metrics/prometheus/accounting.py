@@ -2,27 +2,17 @@ from prometheus_client import Gauge
 
 from src.variables import PROMETHEUS_PREFIX
 
+
 ACCOUNTING_IS_BUNKER = Gauge(
     "accounting_is_bunker",
     "Is bunker mode enabled",
     namespace=PROMETHEUS_PREFIX,
 )
 
-ACCOUNTING_CL_BALANCE_GWEI = Gauge(
-    "accounting_cl_balance_gwei",
-    "Reported CL balance in gwei",
-    namespace=PROMETHEUS_PREFIX,
-)
-
-ACCOUNTING_EL_REWARDS_VAULT_BALANCE_WEI = Gauge(
-    "accounting_el_rewards_vault_wei",
-    "Reported EL rewards",
-    namespace=PROMETHEUS_PREFIX,
-)
-
-ACCOUNTING_WITHDRAWAL_VAULT_BALANCE_WEI = Gauge(
-    "accounting_withdrawal_vault_balance_wei",
-    "Reported withdrawal vault balance",
+ACCOUNTING_BALANCE_GWEI = Gauge(
+    "accounting_balance_gwei",
+    "Reported balance gwei",
+    ['type'],
     namespace=PROMETHEUS_PREFIX,
 )
 

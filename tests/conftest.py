@@ -1,6 +1,7 @@
 import os
 import socket
-from typing import Final, Generator
+from collections.abc import Generator
+from typing import Final
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,25 +10,34 @@ from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
 from src import variables
-from src.main import ipfs_providers
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
-    CSM,
     IPFS,
     ConsensusClientModule,
+    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    TelemetryDataBus,
     TransactionUtils,
 )
 from src.web3py.types import Web3
+
 
 UNIT_MARKER = 'unit'
 INTEGRATION_MARKER = 'integration'
 MAINNET_MARKER = 'mainnet'
 TESTNET_MARKER = 'testnet'
+FORK_MARKER = 'fork'
+
+INTEGRATION_TESTS_MODIFICATORS_MARKERS = {
+    MAINNET_MARKER,
+    TESTNET_MARKER,
+    FORK_MARKER,
+}
 
 DUMMY_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -39,16 +49,23 @@ TESTNET_KAPI_URI: Final = os.getenv('TESTNET_KAPI_URI', '').split(',')
 
 @pytest.fixture(autouse=True)
 def check_test_marks_compatibility(request):
-    all_test_markers = {x.name for x in request.node.iter_markers()}
+    markers = {x.name for x in request.node.iter_markers()}
 
-    if not all_test_markers:
-        pytest.fail('Test must be marked.')
+    has_unit = UNIT_MARKER in markers
+    has_integration = INTEGRATION_MARKER in markers
+    has_integration_mod = bool(markers & INTEGRATION_TESTS_MODIFICATORS_MARKERS)
 
-    elif UNIT_MARKER in all_test_markers and {MAINNET_MARKER, TESTNET_MARKER, INTEGRATION_MARKER} & all_test_markers:
+    if not has_unit and not has_integration:
+        pytest.fail('Test must be marked with either @pytest.mark.unit or @pytest.mark.integration.')
+
+    elif has_unit and (has_integration or has_integration_mod):
         pytest.fail('Test can not be both unit and integration at the same time.')
 
-    elif {MAINNET_MARKER, TESTNET_MARKER} & all_test_markers and INTEGRATION_MARKER not in all_test_markers:
-        pytest.fail('Test can not be run on mainnet or testnet without integration marker.')
+    elif has_integration_mod and not has_integration:
+        pytest.fail(
+            f'Test can not be run with '
+            f'{INTEGRATION_TESTS_MODIFICATORS_MARKERS} markers without @pytest.mark.integration.'
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +98,11 @@ def configure_mainnet_tests(request, monkeypatch):
             )
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+        monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F')
+
+        # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
+        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
+        monkeypatch.setattr(variables, 'DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 
     yield
 
@@ -102,20 +123,25 @@ def configure_testnet_tests(request, monkeypatch):
         monkeypatch.setattr(variables, 'KEYS_API_URI', TESTNET_KAPI_URI)
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
-        monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
+        monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
+        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0x25561dee2f25d728c3da3d1fcc915d6a77f6ac0c')
+
+        # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
+        monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
+        monkeypatch.setattr(variables, 'DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 
     yield
 
 
 @pytest.fixture()
-def web3(monkeypatch) -> Generator[Web3, None, None]:
+def web3(monkeypatch) -> Generator[Web3]:
     mock_backend = MockBackend()
     tester = EthereumTester(backend=mock_backend)
     w3 = Web3(provider=EthereumTesterProvider(tester))
     tweak_w3_contracts(w3)
 
     monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', DUMMY_ADDRESS)
-    monkeypatch.setattr(variables, 'CSM_MODULE_ADDRESS', DUMMY_ADDRESS)
+    monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', DUMMY_ADDRESS)
 
     def create_contract_mock(*args, **kwargs):
         """
@@ -143,12 +169,13 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
             # Mocked on the contract level, see create_contract_mock
             'lido_contracts': LidoContracts,
             'transaction': TransactionUtils,
-            'csm': CSM,
             'lido_validators': LidoValidatorsProvider,
             # Modules relying on network level highly - mocked fully
             'cc': lambda: Mock(spec=ConsensusClientModule),
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
+            'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
+            'delegation': lambda: Mock(spec=DelegationModule),
         }
     )
 
@@ -156,7 +183,7 @@ def web3(monkeypatch) -> Generator[Web3, None, None]:
 
 
 @pytest.fixture()
-def web3_integration() -> Generator[Web3, None, None]:
+def web3_integration() -> Generator[Web3]:
     w3 = Web3(
         FallbackProviderModule(
             variables.EXECUTION_CLIENT_URI,
@@ -174,6 +201,7 @@ def web3_integration() -> Generator[Web3, None, None]:
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
             'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
+            'delegation': lambda: DelegationModule(w3, variables.DELEGATION_CONTRACT_ADDRESS),
         }
     )
 

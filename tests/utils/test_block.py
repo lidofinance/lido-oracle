@@ -12,6 +12,7 @@ from eth_typing import BlockNumber
 
 from src.utils.block import _should_batch, get_block_timestamps
 
+
 SECONDS_PER_SLOT = 12
 
 
@@ -1029,9 +1030,9 @@ class TestGetBlockTimestampsVsNaiveApproach:
         naive_calls = num_blocks
 
         assert optimized_calls < 30, f"Expected < 30 RPC calls, got {optimized_calls}"
-        assert (
-            optimized_calls < naive_calls / 100
-        ), f"Expected at least 100x improvement, got {naive_calls / optimized_calls:.1f}x"
+        assert optimized_calls < naive_calls / 100, (
+            f"Expected at least 100x improvement, got {naive_calls / optimized_calls:.1f}x"
+        )
 
     def test_7200_blocks_with_multiple_missed_slots_vs_naive(self, web3, monkeypatch):
         """
@@ -1071,9 +1072,9 @@ class TestGetBlockTimestampsVsNaiveApproach:
         # With ~10 gaps, binary search needs to find each one
         # Expect < 150 calls (generous upper bound)
         assert optimized_calls < 150, f"Expected < 150 RPC calls, got {optimized_calls}"
-        assert (
-            optimized_calls < naive_calls / 40
-        ), f"Expected at least 40x improvement, got {naive_calls / optimized_calls:.1f}x"
+        assert optimized_calls < naive_calls / 40, (
+            f"Expected at least 40x improvement, got {naive_calls / optimized_calls:.1f}x"
+        )
 
     def test_timestamps_correctness_for_all_7200_blocks(self, web3, monkeypatch):
         """
@@ -1101,9 +1102,9 @@ class TestGetBlockTimestampsVsNaiveApproach:
         for i in range(num_blocks):
             block_num = BlockNumber(first_block + i)
             expected_ts = first_timestamp + i * SECONDS_PER_SLOT
-            assert (
-                result[block_num] == expected_ts
-            ), f"Block {block_num}: expected {expected_ts}, got {result[block_num]}"
+            assert result[block_num] == expected_ts, (
+                f"Block {block_num}: expected {expected_ts}, got {result[block_num]}"
+            )
 
 
 @pytest.mark.unit
@@ -1198,7 +1199,6 @@ class TestBatchingConfiguration:
         """Timestamps should be identical with BLOCK_BATCH_SIZE_LIMIT=1 and =10."""
         blocks = {BlockNumber(b) for b in range(100, 110)}
         first_ts = 1000
-        last_ts = 1108  # 1000 + 9*12
 
         def mock_get_block_func(block_num):
             return {"timestamp": first_ts + (block_num - 100) * SECONDS_PER_SLOT}

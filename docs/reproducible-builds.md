@@ -40,12 +40,27 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    ⚠️ Note: Do not open the directory in an IDE (e.g., VS Code, PyCharm) or run any scripts from the repository at 
    this stage. Tools like IDEs may generate hidden files (e.g., .vscode/, .idea/) or trigger automatic 
    dependency resolution, which can introduce non-deterministic elements into the build.
-3. **Perform the Build**
+3. **Checkout to the Target Branch**
+   ```bash
+   git checkout master  # or the specific branch/tag you want to build
+   ```
+
+4. **Perform the Build**
    ```bash
    make reproducible-build-oracle
    ```
+
+   This command will automatically:
+   - Generate `build-info.json` with current version, branch, and commit information
+   - Build the reproducible Docker image using the generated build info
+   - Output the image hash for comparison
+
    As a result, `oracle-reproducible-container:local` image and its hash will be produced.
-4. **Compare with an Image from Docker Registry**
+
+   ⚠️ Note: The `build-info.json` file is automatically generated and included in `.gitignore`.
+   You do not need to manually create or manage this file.
+
+5. **Compare with an Image from Docker Registry**
    ```bash
    # Pull the image from the registry (replace <registry> and <tag> as needed)
    docker pull lidofinance/oracle:<tag>

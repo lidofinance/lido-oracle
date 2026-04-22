@@ -6,20 +6,23 @@ from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import Gwei, ValidatorIndex, EpochNumber
+from src.types import EpochNumber, Gwei, ValidatorIndex
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import ChainConfigFactory, BunkerConfigFactory
+from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
-from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp, simple_key, simple_blockstamp
+from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
+
+
+DEFAULT_BALANCE = Gwei(32 * 10**9)
 
 
 def simple_validators(
     from_index: int,
     to_index: int,
-    balance=Gwei(32 * 10**9),
-    effective_balance=Gwei(32 * 10**9),
+    balance=DEFAULT_BALANCE,
+    effective_balance=DEFAULT_BALANCE,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
@@ -342,7 +345,7 @@ def test_get_nearest_and_distant_blockstamps(
             UINT64_MAX,
             UINT64_MAX,
             UINT64_MAX,
-            # It is exception because new vals count can't be less that previous
+            # It is an exception because the new vals count can't be less that previous
             ValueError("Validators count diff should be positive or 0. Something went wrong with CL API"),
         ),
     ],
@@ -365,12 +368,11 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case.w3.lido_contracts = Mock()
     abnormal_case.w3.cc.get_validators_no_cache = Mock()
 
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            LidoValidatorsProvider,
-            "merge_validators_with_keys",
-            Mock(return_value=prev_lido_validators),
-        )
+    monkeypatch.setattr(
+        LidoValidatorsProvider,
+        "compute_lido_validators",
+        Mock(return_value=(prev_lido_validators, [])),
+    )
     abnormal_case.lido_validators = curr_lido_validators
     abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(
         side_effect=[curr_withdrawals_vault_balance, prev_withdrawals_vault_balance]

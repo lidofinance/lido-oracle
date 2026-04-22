@@ -5,7 +5,7 @@ import pytest
 from requests import Response
 
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
-from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any
+from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any, data_is_int
 
 
 @pytest.mark.unit
@@ -30,7 +30,7 @@ def test_no_providers():
 @pytest.mark.unit
 def test_all_fallbacks_ok():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
-    provider._get_without_fallbacks = lambda host, endpoint, path_params, query_params, stream, **_: (host, endpoint)
+    provider._get_without_fallbacks = Mock(return_value=('http://localhost:1', 'test'))
     assert provider._get('test') == ('http://localhost:1', 'test')
     assert len(provider.get_all_providers()) == 2
 
@@ -38,8 +38,12 @@ def test_all_fallbacks_ok():
 @pytest.mark.unit
 def test_all_fallbacks_bad():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
-    with pytest.raises(Exception):
+    provider._get_without_fallbacks = Mock(side_effect=NotOkResponse("fail", status=500, text="fail"))
+
+    with pytest.raises(NotOkResponse):
         provider._get('test')
+
+    assert provider._get_without_fallbacks.call_count == 2
 
 
 @pytest.mark.unit
@@ -74,12 +78,13 @@ def test_force_raise():
         None,
         None,
         stream=False,
-        retval_validator=data_is_any,
+        validate_response=data_is_any,
+        stream_consumer=None,
     )
 
 
 @pytest.mark.unit
-def test_retval_validator():
+def test_validate_response():
     provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
     provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
 
@@ -92,7 +97,7 @@ def test_retval_validator():
         raise ValueError("Validation failed")
 
     with pytest.raises(ValueError, match="Validation failed"):
-        provider._get('test', retval_validator=failed_validation)
+        provider._get('test', validate_response=failed_validation)
 
 
 @pytest.mark.unit
@@ -107,7 +112,84 @@ def test_custom_error_provided():
         def call(self):
             return self._get('invalid_url')
 
-    provider = TestProvider('http://example.com/', 1, 1, 1)
+    provider = TestProvider(['http://example.com/'], 1, 1, 1)
+    provider.session.get = Mock(side_effect=Exception("boom"))
 
     with pytest.raises(CustomError):
         provider.call()
+
+
+@pytest.mark.unit
+def test_stream_consumer_applied_to_data():
+    """stream_consumer receives the parsed data and its return value is used."""
+    provider = HTTPProvider(['http://localhost:1'], 5 * 60, 1, 1)
+    provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
+
+    resp = Response()
+    resp.status_code = 200
+    resp._content = b'{"data": [1, 2, 3]}'
+    provider.session.get = Mock(return_value=resp)
+
+    data, _ = provider._get_without_fallbacks('http://localhost:1', 'test', stream_consumer=lambda d: list(reversed(d)))
+    assert data == [3, 2, 1]
+
+
+@pytest.mark.unit
+def test_stream_consumer_failure_triggers_fallback():
+    """When stream_consumer raises, _get must fall back to the next host."""
+    provider = HTTPProvider(['http://localhost:1', 'http://localhost:2'], 5 * 60, 1, 1)
+    provider.PROMETHEUS_HISTOGRAM = CL_REQUESTS_DURATION
+
+    resp = Response()
+    resp.status_code = 200
+    resp._content = b'{"data": [1, 2, 3]}'
+    provider.session.get = Mock(return_value=resp)
+
+    call_count = 0
+
+    def consumer(data):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise OSError('Mid-stream failure')
+        return list(data)
+
+    data, _ = provider._get('test', stream_consumer=consumer)
+    assert data == [1, 2, 3]
+    assert call_count == 2
+
+
+@pytest.mark.unit
+def test_make_get_request_delegates_to_session():
+    provider = HTTPProvider(['http://localhost:1'], 5 * 60, 1, 1)
+    mock_response = Mock()
+    provider.session.get = Mock(return_value=mock_response)
+
+    result = provider._make_get_request('http://localhost:1', 'api', params={'a': 'b'}, timeout=30)
+
+    provider.session.get.assert_called_once_with('http://localhost:1/api', params={'a': 'b'}, timeout=30)
+    assert result is mock_response
+
+
+@pytest.mark.unit
+def test_make_get_request_not_overridden_in_kapi():
+    from src.providers.keys.client import KeysAPIClient
+
+    assert '_make_get_request' not in KeysAPIClient.__dict__
+
+
+@pytest.mark.unit
+def test_data_is_int_accepts_int():
+    data_is_int(1, {}, endpoint="test")
+
+
+@pytest.mark.unit
+def test_data_is_int_rejects_bool():
+    with pytest.raises(ValueError, match="Expected int response"):
+        data_is_int(True, {}, endpoint="test")
+
+
+@pytest.mark.unit
+def test_data_is_int_rejects_non_int():
+    with pytest.raises(ValueError, match="Expected int response"):
+        data_is_int("1", {}, endpoint="test")

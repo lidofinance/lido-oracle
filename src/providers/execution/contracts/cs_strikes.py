@@ -5,6 +5,7 @@ from web3.types import BlockIdentifier
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 

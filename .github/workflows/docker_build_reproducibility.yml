@@ -38,8 +38,8 @@ jobs:
           load: true
           outputs: type=docker,dest=image.tar,rewrite-timestamp=true
           provenance: false
-        env:
-          SOURCE_DATE_EPOCH: 0
+          build-args: |
+            SOURCE_DATE_EPOCH=0
 
       - name: Compute SHA256
         id: hash
@@ -77,8 +77,8 @@ jobs:
           load: true
           outputs: type=docker,dest=image.tar,rewrite-timestamp=true
           provenance: false
-        env:
-          SOURCE_DATE_EPOCH: 0
+          build-args: |
+            SOURCE_DATE_EPOCH=0
 
       - name: Compute SHA256
         id: hash

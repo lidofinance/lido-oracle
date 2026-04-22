@@ -1,18 +1,17 @@
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
 from web3.types import Timestamp, Wei
 
-from src.modules.accounting.types import (
+from src.modules.common.types import ChainConfig
+from src.modules.oracles.accounting.types import (
     VaultFeeMap,
     VaultReserveMap,
     VaultsMap,
     VaultTotalValueMap,
 )
-from src.modules.submodules.types import ChainConfig
 from src.providers.ipfs import CID
 from src.services.staking_vaults import (
     MERKLE_TREE_VAULTS_FILENAME,
@@ -25,6 +24,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -32,7 +32,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestBuildTreeData:
-
     def test_merkle_tree_filename_constant(self):
         assert MERKLE_TREE_VAULTS_FILENAME == "staking_vaults_merkle_tree.json"
 
@@ -116,7 +115,6 @@ class TestBuildTreeData:
 
 @pytest.mark.unit
 class TestTreeEncoder:
-
     def test_encode_bytes(self):
         result = StakingVaultsService.tree_encoder(b'\x12\x34')
         assert result == '0x1234'
@@ -159,7 +157,6 @@ class TestTreeEncoder:
 
 @pytest.mark.unit
 class TestDumpedTreeAndPublish:
-
     @pytest.fixture
     def basic_setup(self):
         vault_address = VaultAddresses.VAULT_0

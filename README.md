@@ -18,18 +18,41 @@ cp .env.example .env
 docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 
 # 4. Run the Oracle (dry mode by default)
-docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm
+docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
+
+# 5. Run an oracle via docker compose
+#    (`accounting` and `ejector` can run standalone;
+#     `csm` and `cm` also use Postgres + performance sidecars)
+
+# Accounting oracle
+docker compose up -d --build accounting-oracle
+
+# Exit bus oracle
+docker compose up -d --build ejector-oracle
+
+# CSM oracle stack
+docker compose up -d --build csm-oracle
+
+# CM oracle stack
+docker compose up -d --build cm-oracle
 ```
 
 Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator-manual) for more details.
 
 ## How it works
 
-There are 3 modules in the oracle:
+Core oracle modules:
 
-- Accounting (accounting)
-- Valdiators Exit Bus (ejector)
-- CSM (csm)
+- Accounting (`accounting`)
+- Validators Exit Bus (`ejector`)
+- Community Staking Module (`csm`)
+- Curated Module (`cm`)
+
+Sidecars:
+
+- Checks (`check`)
+- Performance Collector (`performance_collector`)
+- Performance Web Server (`performance_web_server`)
 
 ### Accounting module
 
@@ -46,7 +69,7 @@ Work is divided into frames (~24 hours / 225 epochs):
 
 ### Ejector module
 
-Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_interator.py`.
+Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_iterator.py`.
 
 **Flow**
 
@@ -56,22 +79,51 @@ Work is divided into frames (~8 hours / 75 epochs):
 - Determines next available validator exit.
 - Builds validators to exit queue and submits data to Execution Layer.
 
-### CSM module
+### Staking Module Oracle
 
-Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the CSM.
+Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the Staking Module.
 
 Work is divided into frames (~28 days / 6300 epochs):
-- **Data collection**: Processes new epoches and collect attestations.
-- **IPFS data submittion**: Uploads report and full logs to IPFS.
+- **Data collection**: Processes new epochs and collects attestations.
+- **IPFS data submission**: Uploads report and full logs to IPFS.
 - **Update report**: Submits report to the CSFeeOracle contract.
+
+#### How it runs
+
+For Staking Module oracles, `docker-compose.yml` describes a small local stack with Postgres + two “performance” sidecars.
+This is meant as a reference deployment layout (not a full production guide).
+
+Services and responsibilities:
+
+- `postgres` - persistent storage for performance and attestation data.
+- `init-db` - optional one-shot bootstrap for a local Postgres instance; creates the DB and user (`scripts/init_performance_db.sh`).
+- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres.
+- `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
+- `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
+- `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
+- `csm-oracle` / `cm-oracle` - staking-module reporters:
+  - read EL/CL/Keys API data (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
+  - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
+  - publish report artifacts to IPFS (`LIDO_IPFS_*`, Pinata, Filebase or Kubo)
+
+Data flow (simplified):
+
+`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `cm-oracle` → `IPFS / chain`
+
+`Execution node` + `Consensus node` + `Keys API` → `accounting-oracle` / `ejector-oracle` → `chain`
 
 # Usage
 
 ## Machine requirements
 
-For each Oracle module:
+For each Oracle module (`accounting`, `ejector`, `csm`, `cm`):
 - vCPUs - 1
 - Memory - 8 GB
+
+For the shared Staking Module performance stack (`postgres` + `performance-collector` + `performance-web`):
+- Postgres - persistent SSD-backed storage
+- Performance Collector - 2 vCPUs, 8 GB memory
+- Performance Web - 1 vCPU, 2 GB memory
 
 [KAPI](https://github.com/lidofinance/lido-keys-api):
 - vCPU - 2
@@ -154,7 +206,21 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    docker run --env-file .env lidofinance/oracle:{tag} {type}
    ```
 
-   Replace `{tag}` with the image version and `{type}` with one of the two types of oracles: accounting or ejector.
+   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `cm`.
+
+   For `accounting` and `ejector`, set `LIDO_LOCATOR_ADDRESS`.
+   For `csm` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
+   If you use the reference compose stack, prefer:
+
+   ```bash
+   docker compose up -d accounting-oracle
+   # or
+   docker compose up -d ejector-oracle
+   # or
+   docker compose up -d csm-oracle
+   # or
+   docker compose up -d cm-oracle
+   ```
 
 > **Note**: of course, you can pass env variables without using `.env` file.
 > For example, you can run the container using the following command:
@@ -177,87 +243,96 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ## Env variables
 
-| Name                                                   | Description                                                                                                                                                              | Required | Example value                  |
-|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------|
-| `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True     | `http://localhost:8545`        |
-| `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True     | `http://localhost:5052`        |
-| `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True     | `http://localhost:8080`        |
-| `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True     | `0x1...`                       |
-| `CSM_MODULE_ADDRESS`                                   | Address of the CSModule contract                                                                                                                                         | CSM only | `0x1...`                       |
-| `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False    | `0x1...`                       |
-| `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False    | `/app/private_key`             |
-| `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | True     | `aBcD1234...`                  |
-| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | True     | `/app/pintata_secret`          |
-| `PINATA_DEDICATED_GATEWAY_URL`                         | URL of the dedicated Pinata gateway (required for Pinata provider, fallback to public gateway if dedicated fails)                                                        | CSM only | `https://gateway.pinata.cloud` |
-| `PINATA_DEDICATED_GATEWAY_TOKEN`                       | Token for accessing dedicated Pinata gateway (required for Pinata provider)                                                                                              | CSM only | `gAT_abc123...`                |
-| `STORACHA_AUTH_SECRET`                                 | Secret for Storacha IPFS provider                                                                                                                                        | True     | `uMGVabc...`                   |
-| `STORACHA_AUTHORIZATION`                               | Authorization for Storacha IPFS provider                                                                                                                                 | True     | `uMGVabc...`                   |
-| `STORACHA_SPACE_DID`                                   | Space DID for Storacha IPFS provider                                                                                                                                     | True     | `did:key:z6Mkabc...`           |
-| `LIDO_IPFS_HOST`                                       | Host to access Lido IPFS cluster                                                                                                                                         | True     | `https://ipfs.lido.fi`         |
-| `LIDO_IPFS_TOKEN`                                      | Bearer token for Lido IPFS cluster authentication                                                                                                                        | True     | `eyJhbG...`                    |
-| `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | False    | `localhost`                    |
-| `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | False    | `5001`                         |
-| `KUBO_GATEWAY_PORT`                                    | Port to access gateway provided by Kubo IPFS node                                                                                                                        | False    | `8080`                         |
-| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False    | `1000`                         |
-| `EL_REQUESTS_BATCH_SIZE`                               | The amount of entities that would be fetched in one request to EL                                                                                                        | False    | `1000`                         |
-| `BLOCK_BATCH_SIZE_LIMIT`                               | Maximum number of blocks to batch-fetch in a single RPC call. Set to 1 to disable batching and use sequential requests. Trade-off: higher value = fewer round-trips     | False    | `10`                           |
-| `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False    | `True`                         |
-| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False    | `True`                         |
-| `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False    | `100000`                       |
-| `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False    | `12`                           |
-| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue                                                                                                                                 | False    | `3000`                         |
-| `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False    | `6`                            |
-| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False    | `120`                          |
-| `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False    | `300`                          |
-| `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False    | `5`                            |
-| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False    | `12`                           |
-| `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False    | `120`                          |
-| `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False    | `300`                          |
-| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False    | `300`                          |
-| `HTTP_REQUEST_TIMEOUT_IPFS`                            | Timeout for HTTP requests to an IPFS provider                                                                                                                            | False    | `30`                           |
-| `HTTP_REQUEST_RETRY_COUNT_IPFS`                        | Total number of retries to fetch data from an IPFS provider                                                                                                              | False    | `3`                            |
-| `IPFS_VALIDATE_CID`                                    | Enable/disable CID validation for IPFS operations                                                                                                                        | False    | `True`                         |
-| `EVENTS_SEARCH_STEP`                                   | Maximum length of a range for eth_getLogs method calls                                                                                                                   | False    | `10000`                        |
-| `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False    | `3`                            |
-| `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False    | `50000000`                     |
-| `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False    | `100000000000`                 |
-| `CSM_ORACLE_MAX_CONCURRENCY`                           | Max count of dedicated workers for CSM module                                                                                                                            | False    | `2`                            |
-| `CACHE_PATH`                                           | Directory to store cache for CSM module                                                                                                                                  | False    | `.`                            |
-| `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False    | `<api-key>`                    |
-| `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False    | `http://localhost:8080`        |
-| `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 100                                                                                                        | False    | `100`                          |
-| `VAULT_VALIDATOR_STATUSES_BATCH_SIZE`                  | The limit for getting validators statuses in one request. Default 100                                                                                                    | False    | `100`                          |
+| Name                                                   | Description                                                                                                                                                              | Required            | Example value                  |
+|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|--------------------------------|
+| `EXECUTION_CLIENT_URI`                                 | URI of the Execution Layer client                                                                                                                                        | True                | `http://localhost:8545`        |
+| `CONSENSUS_CLIENT_URI`                                 | URI of the Consensus Layer client                                                                                                                                        | True                | `http://localhost:5052`        |
+| `KEYS_API_URI`                                         | URI of the Keys API                                                                                                                                                      | True                | `http://localhost:8080`        |
+| `PERFORMANCE_COLLECTOR_URI`                            | URI of the performance API used by `csm` and `cm`. Can be a comma-separated list                                                                                        | Staking Module only | `http://localhost:9020/`       |
+| `LIDO_LOCATOR_ADDRESS`                                 | Address of the Lido contract                                                                                                                                             | True                | `0x1...`                       |
+| `STAKING_MODULE_ADDRESS`                               | Address of the Staking Module contract                                                                                                                                   | Staking Module only | `0x1...`                       |
+| `DELEGATION_CONTRACT_ADDRESS`                          | Address of the delegation contract. When set, oracle calls are routed through this contract. See [delegation guide](docs/delegation.md)                                  | False               | `0x1...`                       |
+| `MEMBER_PRIV_KEY`                                      | Private key of the Oracle member account                                                                                                                                 | False               | `0x1...`                       |
+| `MEMBER_PRIV_KEY_FILE`                                 | A path to the file contained the private key of the Oracle member account. It takes precedence over `MEMBER_PRIV_KEY`                                                    | False               | `/app/private_key`             |
+| `PINATA_JWT`                                           | JWT token to access pinata.cloud IPFS provider                                                                                                                           | True                | `aBcD1234...`                  |
+| `PINATA_JWT_FILE`                                      | A path to a file with a JWT token to access pinata.cloud IPFS provider                                                                                                   | True                | `/app/pintata_secret`          |
+| `PINATA_DEDICATED_GATEWAY_URL`                         | URL of the dedicated Pinata gateway (required for Pinata provider, fallback to public gateway if dedicated fails)                                                        | Staking Module only | `https://gateway.pinata.cloud` |
+| `PINATA_DEDICATED_GATEWAY_TOKEN`                       | Token for accessing dedicated Pinata gateway (required for Pinata provider)                                                                                              | Staking Module only | `gAT_abc123...`                |
+| `LIDO_IPFS_HOST`                                       | Host to access Lido IPFS cluster                                                                                                                                         | True                | `https://ipfs.lido.fi`         |
+| `LIDO_IPFS_TOKEN`                                      | Bearer token for Lido IPFS cluster authentication                                                                                                                        | True                | `eyJhbG...`                    |
+| `FILEBASE_IPFS_HOST`                                   | Host to access Filebase IPFS endpoint                                                                                                                                    | False               | `https://rpc.filebase.io`      |
+| `FILEBASE_IPFS_TOKEN`                                  | Bearer token for Filebase IPFS authentication                                                                                                                            | False               | `eyJhbG...`                    |
+| `KUBO_HOST`                                            | Host to access running Kubo IPFS node                                                                                                                                    | False               | `localhost`                    |
+| `KUBO_RPC_PORT`                                        | Port to access RPC provided by Kubo IPFS node                                                                                                                            | False               | `5001`                         |
+| `FINALIZATION_BATCH_MAX_REQUEST_COUNT`                 | The size of the batch to be finalized per request (The larger the batch size, the more memory of the contract is used but the fewer requests are needed)                 | False               | `1000`                         | 
+| `EL_REQUESTS_BATCH_SIZE`                               | The amount of entities that would be fetched in one request to EL                                                                                                        | False               | `1000`                         | 
+| `ALLOW_REPORTING_IN_BUNKER_MODE`                       | Allow the Oracle to do report if bunker mode is active                                                                                                                   | False               | `True`                         |
+| `DAEMON`                                               | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                  | False               | `True`                         |
+| `TX_GAS_ADDITION`                                      | Used to modify gas parameter that used in transaction. (gas = estimated_gas + TX_GAS_ADDITION)                                                                           | False               | `100000`                       |
+| `CYCLE_SLEEP_IN_SECONDS`                               | The time between cycles of the oracle's activity                                                                                                                         | False               | `12`                           |
+| `MAX_CYCLE_LIFETIME_IN_SECONDS`                        | The maximum time for a cycle to continue                                                                                                                                 | False               | `3000`                         |
+| `SUBMIT_DATA_DELAY_IN_SLOTS`                           | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert. | False               | `6`                            |
+| `HTTP_REQUEST_TIMEOUT_EXECUTION`                       | Timeout for HTTP execution layer requests                                                                                                                                | False               | `120`                          |
+| `HTTP_REQUEST_TIMEOUT_CONSENSUS`                       | Timeout for HTTP consensus layer requests                                                                                                                                | False               | `300`                          |
+| `HTTP_REQUEST_RETRY_COUNT_CONSENSUS`                   | Total number of retries to fetch data from endpoint for consensus layer requests                                                                                         | False               | `5`                            |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS` | The delay http provider sleeps if API is stuck for consensus layer                                                                                                       | False               | `12`                           |
+| `HTTP_REQUEST_TIMEOUT_PERFORMANCE`                     | Timeout for HTTP requests to the performance API                                                                                                                         | False               | `60`                           |
+| `HTTP_REQUEST_RETRY_COUNT_PERFORMANCE`                 | Total number of retries for the performance API                                                                                                                          | False               | `3`                            |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_PERFORMANCE` | Sleep before retrying a failed performance API request                                                                                                                 | False               | `2`                            |
+| `HTTP_REQUEST_TIMEOUT_KEYS_API`                        | Timeout for HTTP keys api requests                                                                                                                                       | False               | `120`                          |
+| `HTTP_REQUEST_RETRY_COUNT_KEYS_API`                    | Total number of retries to fetch data from endpoint for keys api requests                                                                                                | False               | `300`                          |
+| `HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_KEYS_API`  | The delay http provider sleeps if API is stuck for keys api                                                                                                              | False               | `300`                          |
+| `HTTP_REQUEST_TIMEOUT_IPFS`                            | Timeout for HTTP requests to an IPFS provider                                                                                                                            | False               | `30`                           |
+| `HTTP_REQUEST_RETRY_COUNT_IPFS`                        | Total number of retries to fetch data from an IPFS provider                                                                                                              | False               | `3`                            |
+| `IPFS_VALIDATE_CID`                                    | Enable/disable CID validation for IPFS operations                                                                                                                        | False               | `True`                         |
+| `EVENTS_SEARCH_STEP`                                   | Maximum length of a range for eth_getLogs method calls                                                                                                                   | False               | `10000`                        |
+| `PRIORITY_FEE_PERCENTILE`                              | Priority fee percentile from prev block that would be used to send tx                                                                                                    | False               | `3`                            |
+| `MIN_PRIORITY_FEE`                                     | Min priority fee that would be used to send tx                                                                                                                           | False               | `50000000`                     |
+| `MAX_PRIORITY_FEE`                                     | Max priority fee that would be used to send tx                                                                                                                           | False               | `100000000000`                 |
+| `PERFORMANCE_WEB_SERVER_API_PORT`                      | Port for the Performance Web HTTP API                                                                                                                                    | False               | `9020`                         |
+| `PERFORMANCE_WEB_SERVER_API_HOST`                      | Bind address for the Performance Web HTTP API                                                                                                                            | False               | `0.0.0.0`                      |
+| `PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT`         | Database connection timeout for Performance Web                                                                                                                          | False               | `30`                           |
+| `PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS`       | SQL statement timeout for Performance Web queries                                                                                                                        | False               | `10000`                        |
+| `PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE`               | Maximum epoch range accepted by the Performance Web API                                                                                                                  | False               | `225`                          |
+| `PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT`               | Request timeout for the Performance Web server                                                                                                                           | False               | `60`                           |
+| `PERFORMANCE_WEB_SERVER_WORKERS`                       | Number of worker processes for the Performance Web server                                                                                                                 | Staking Module only | `2`                            |
+| `PERFORMANCE_COLLECTOR_MAX_CONCURRENCY`                | Max count of dedicated workers for Performance Collector module                                                                                                          | False               | `2`                            |
+| `PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT`          | Database connection timeout for Performance Collector                                                                                                                    | False               | `30`                           |
+| `PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS`        | SQL statement timeout for Performance Collector writes                                                                                                                   | False               | `10000`                        |
+| `PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE`              | Number of epochs processed in one collector batch                                                                                                                        | False               | `100`                          |
+| `PERFORMANCE_DB_HOST`                                  | Host of the Postgres instance used by the performance stack                                                                                                              | False               | `localhost`                    |
+| `PERFORMANCE_DB_PORT`                                  | Port of the Postgres instance used by the performance stack                                                                                                              | False               | `5432`                         |
+| `PERFORMANCE_DB_NAME`                                  | Database name for the performance stack                                                                                                                                  | False               | `performance`                  |
+| `PERFORMANCE_DB_USER`                                  | Database user for the performance stack                                                                                                                                  | False               | `performance`                  |
+| `PERFORMANCE_DB_PASSWORD`                              | Database password for the performance stack                                                                                                                              | False               | `performance`                  |
+| `PERFORMANCE_DB_POOL_SIZE`                             | SQLAlchemy pool size for performance services                                                                                                                            | False               | `10`                           |
+| `PERFORMANCE_DB_MAX_OVERFLOW`                          | Extra DB connections allowed above the pool size                                                                                                                         | False               | `20`                           |
+| `PERFORMANCE_DB_POOL_RECYCLE_SECONDS`                  | Lifetime of pooled DB connections before recycle                                                                                                                         | False               | `3600`                         |
+| `OPSGENIE_API_KEY`                                     | OpsGenie API key for authentication with the OpsGenie API. Used to send alerts from lido-oracle health-checks.                                                           | False               | `<api-key>`                    |
+| `OPSGENIE_API_URL`                                     | Base URL for the OpsGenie API.                                                                                                                                           | False               | `http://localhost:8080`        |
+| `VAULT_PAGINATION_LIMIT`                               | The limit for getting staking vaults with pagination. Default 100                                                                                                        | False               | `100`                          |
+| `VAULT_VALIDATOR_STATUSES_BATCH_SIZE`                  | The limit for getting validators statuses in one request. Default 100                                                                                                    | False               | `100`                          |
+| `BLOCK_BATCH_SIZE_LIMIT`                               | Maximum number of blocks to batch-fetch in a single RPC call. Set to 1 to disable batching and use sequential requests. Trade-off: higher value = fewer round-trips      | False               | `10`                           |
+| `TELEMETRY_DATA_BUS_RPC`                               | EL RPC endpoint for the DataBus telemetry contract                                                                                                                       | False               | `http://localhost:8545`        |
+| `DATA_BUS_ADDRESS`                                     | Address of the DataBus contract for telemetry reporting                                                                                                                  | False               | `0x37De961D6bb5865867aDd416be07189D2Dd960e6` |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
-> CSM_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> STAKING_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> CS_MODULE_ADDRESS=0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F
+> CURATED_MODULE_ADDRESS=<mainnet curated module address>
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
+
+For direct `docker run`, use `STAKING_MODULE_ADDRESS`.
+For `docker compose`, `csm-oracle` reads `CS_MODULE_ADDRESS`, and `cm-oracle` reads `CURATED_MODULE_ADDRESS`.
+
+### Delegation
+
+Check out our [delegation guide](docs/delegation.md) for setting up oracle with a delegation contract.
 
 ### Alerts
 
-A few basic alerts, which can be configured in the [Prometheus Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/).
-
-```yaml
-groups:
-  - name: oracle-alerts
-    rules:
-      - alert: AccountBalance
-        expr: lido_oracle_account_balance / 10^18 < 1
-        for: 10m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Dangerously low account balance"
-          description: "Account balance is less than 1 ETH. Address: {.labels.address}: {.value} ETH"
-      - alert: OutdatedData
-        expr: (lido_oracle_genesis_time + ignoring (state) lido_oracle_slot_number{state="head"} * 12) < time() - 300
-        for: 1h
-        labels:
-          severity: critical
-        annotations:
-          summary: "Outdated Consensus Layer HEAD slot"
-          description: "Processed by Oracle HEAD slot {.value} too old"
-```
+Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager configuration examples.
 
 ### Metrics
 
@@ -265,25 +340,24 @@ groups:
 
 The oracle exposes the following basic metrics:
 
-| Metric name                 | Description                                                     | Labels                                                                                                                                         |
-|-----------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| build_info                  | Build info                                                      | version, branch, commit                                                                                                                        |
-| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, CSM_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
-| genesis_time                | Fetched genesis time from node                                  |                                                                                                                                                |
-| account_balance             | Fetched account balance from EL                                 | address                                                                                                                                        |
-| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                  |
-| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                                                  |
-| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                                   |
-| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                         |
-| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                         |
-| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                                |
-| transactions_count          | Total count of transactions. Success or failure                 | status                                                                                                                                         |
-| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                                               |
-| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                                                                |
-| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                                                                |
-| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                                                                |
-| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                                                                |
-| contract_on_pause           | Contract on pause                                               |                                                                                                                                                |
+| Metric name                 | Description                                                     | Labels                                                                                                                                             |
+|-----------------------------|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| build_info                  | Build info                                                      | version, branch, commit                                                                                                                            |
+| env_variables_info          | Env variables for the app                                       | ACCOUNT, LIDO_LOCATOR_ADDRESS, STAKING_MODULE_ADDRESS, FINALIZATION_BATCH_MAX_REQUEST_COUNT, EL_REQUESTS_BATCH_SIZE, MAX_CYCLE_LIFETIME_IN_SECONDS |
+| account_balance             | Fetched account balance from EL                                 | address                                                                                                                                            |
+| slot_number                 | Last fetched slot number from CL                                | state (`head` or `finalized`)                                                                                                                      |
+| block_number                | Last fetched block number from CL                               | state (`head` or `finalized`)                                                                                                                      |
+| functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                                       |
+| cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                             |
+| keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                             |
+| keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                                    |
+| transactions_count          | Total count of transactions. Success or failure                 | status                                                                                                                                             |
+| member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                                                   |
+| member_last_report_ref_slot | Member last report ref slot                                     |                                                                                                                                                    |
+| frame_current_ref_slot      | Current frame ref slot                                          |                                                                                                                                                    |
+| frame_deadline_slot         | Current frame deadline slot                                     |                                                                                                                                                    |
+| frame_prev_report_ref_slot  | Previous report ref slot                                        |                                                                                                                                                    |
+| contract_on_pause           | Contract on pause                                               |                                                                                                                                                    |
 
 Interaction with external providers:
 
@@ -298,13 +372,12 @@ Interaction with external providers:
 
 Special metrics for accounting oracle:
 
-| Metric name                             | Description                                         | Labels           |
-|-----------------------------------------|-----------------------------------------------------|------------------|
-| accounting_is_bunker                    | Is bunker mode enabled                              |                  |
-| accounting_cl_balance_gwei              | Reported CL balance in gwei                         |                  |
-| accounting_el_rewards_vault_wei         | Reported EL rewards in wei                          |                  |
-| accounting_withdrawal_vault_balance_wei | Reported withdrawal vault balance in wei            |                  |
-| accounting_exited_validators            | Reported exited validators count for each operator  | module_id, no_id |
+| Metric name                   | Description                                        | Labels           |
+|-------------------------------|----------------------------------------------------|------------------|
+| accounting_is_bunker          | Is bunker mode enabled                             |                  |
+| accounting_balance_gwei       | CL and EL balances                                 | type             |
+| accounting_exited_validators  | Reported exited validators count for each operator | module_id, no_id |
+| accounting_vaults_total_value | Total balance for all vaults                       |                  |
 
 Special metrics for ejector oracle:
 
@@ -314,19 +387,20 @@ Special metrics for ejector oracle:
 | ejector_max_withdrawal_epoch      | Max withdrawal epoch among all Lido validators on CL |        |
 | ejector_validators_count_to_eject | Validators count to eject                            |        |
 
-Special metrics for CSM oracle:
+Special metrics for Staking Module oracle:
 
-| Metric name                     | Description                            | Labels |
-|---------------------------------|----------------------------------------|--------|
-| csm_current_frame_range_l_epoch | Left epoch of the current frame range  |        |
-| csm_current_frame_range_r_epoch | Right epoch of the current frame range |        |
-| csm_unprocessed_epochs_count    | Unprocessed epochs count               |        |
-| csm_min_unprocessed_epoch       | Minimum unprocessed epoch              |        |
+| Metric name                                | Description                            | Labels |
+|--------------------------------------------|----------------------------------------|--------|
+| staking_module_current_frame_range_l_epoch | Left epoch of the current frame range  |        |
+| staking_module_current_frame_range_r_epoch | Right epoch of the current frame range |        |
 
 # Development
 
 ## Setup
 Check out our [development setup guide](docs/development.md).
+
+## Testing
+Check out our [testing guide](docs/testing.md).
 
 ## Release flow
 

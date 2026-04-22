@@ -1,6 +1,7 @@
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
-from src.providers.consensus.types import Validator, BeaconStateView, BlockHeaderFullResponse
+from src.providers.consensus.types import BeaconStateView, BlockHeaderFullResponse, Validator
 from tests.factory.web3_factory import Web3DataclassFactory
 
 

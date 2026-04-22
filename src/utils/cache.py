@@ -4,6 +4,7 @@ from weakref import WeakKeyDictionary
 
 from src.providers.execution.base_interface import ContractInterface
 
+
 global_cache: WeakKeyDictionary = WeakKeyDictionary()
 
 
@@ -18,7 +19,7 @@ def global_lru_cache(*args, **kwargs):
             args_list = signature(func).parameters
 
             if issubclass(args[0].__class__, ContractInterface) and args_list.get('block_identifier'):
-                block = kwargs.get('block_identifier', None)
+                block = kwargs.get('block_identifier')
                 if block is None:
                     if len(args) == len(args_list):
                         # block_identifier provided via kwargs and args

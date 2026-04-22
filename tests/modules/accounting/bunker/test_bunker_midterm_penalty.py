@@ -1,17 +1,20 @@
 import pytest
 
 from src.constants import (
+    EPOCHS_PER_SLASHINGS_VECTOR,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
-    EPOCHS_PER_SLASHINGS_VECTOR,
 )
-from src.modules.submodules.consensus import FrameConfig
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
+from src.modules.oracles.common.consensus import FrameConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
+
+
+DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
 
 
 def simple_blockstamp(
@@ -26,7 +29,8 @@ def simple_validators(
     slashed=False,
     withdrawable_epoch=8192,
     exit_epoch=7892,
-    effective_balance=Gwei(32 * 10**9),
+    effective_balance=DEFAULT_EFFECTIVE_BALANCE,
+    is_0x02=False,
 ) -> list[Validator]:
     validators = []
     for index in range(from_index, to_index + 1):
@@ -35,7 +39,7 @@ def simple_validators(
             balance=effective_balance,
             validator=ValidatorState(
                 pubkey=f"0x{index}",
-                withdrawal_credentials='',
+                withdrawal_credentials='0x02' if is_0x02 else '0x01',
                 effective_balance=effective_balance,
                 slashed=slashed,
                 activation_eligibility_epoch=FAR_FUTURE_EPOCH,
@@ -349,11 +353,11 @@ def test_predict_midterm_penalty_in_frame(
 # 50% active validators with 2048 EB and the rest part with 32 EB
 half_electra = [
     *simple_validators(0, 250_000, effective_balance=MAX_EFFECTIVE_BALANCE),
-    *simple_validators(250_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
+    *simple_validators(250_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA, is_0x02=True),
 ]
 # 20% active validators with 2048 EB and the rest part with 32 EB
 part_electra = [
-    *simple_validators(0, 10_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA),
+    *simple_validators(0, 10_000, effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA, is_0x02=True),
     *simple_validators(10_001, 500_000, effective_balance=MAX_EFFECTIVE_BALANCE),
 ]
 
@@ -404,8 +408,10 @@ def test_cut_slashings_basic():
 
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
-    expected_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch, midterm_penalty_epoch)}
-    assert midterm_penalty_epoch not in expected_indexes
+    # Start from report_ref_epoch + 1 to preserve current epoch slashing data
+    expected_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch + 1, midterm_penalty_epoch)}
+    # Verify that report_ref_epoch slashing data is preserved
+    assert report_ref_epoch % EPOCHS_PER_SLASHINGS_VECTOR not in expected_indexes
     expected = [slashings[i] for i in range(EPOCHS_PER_SLASHINGS_VECTOR) if i not in expected_indexes]
 
     assert result == expected, f"Expected {expected}, but got {result}"
@@ -432,14 +438,18 @@ def test_cut_slashings_no_obsolete_indexes():
 
 
 @pytest.mark.unit
-def test_cut_slashings_all_removed():
+def test_cut_slashings__full_cycle_later__returns_empty_array():
     slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
     report_ref_epoch = 1
-    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Covers all indices
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR + 1  # More than full cycle later
 
     result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
 
-    assert result == [], "Expected all elements to be removed, but some remain"
+    # With report_ref_epoch=1, midterm_penalty_epoch=1+8192+1=8194:
+    # Since midterm_penalty_epoch - report_ref_epoch = 8193 > EPOCHS_PER_SLASHINGS_VECTOR,
+    # data from report_ref_epoch will be overwritten by the time penalty is applied
+    # Expected result = empty array (all data is obsolete when exceeding full cycle)
+    assert result == [], f"Expected [], but got {result}"
 
 
 @pytest.mark.unit
@@ -532,3 +542,133 @@ def test_get_frame_cl_rebase_from_report_cl_rebase(report_cl_rebase, blockstamp,
 def test_get_midterm_slashing_epoch():
     result = MidtermSlashingPenalty.get_midterm_penalty_epoch(simple_validators(0, 0)[0])
     assert result == 4096
+
+
+@pytest.mark.unit
+def test_cut_slashings__epochs_exceeding_buffer_size__filters_correctly():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 16000  # > EPOCHS_PER_SLASHINGS_VECTOR (8192)
+    midterm_penalty_epoch = 16100
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=16000, midterm_penalty_epoch=16100:
+    # range(16001, 16100) = [16001, 16002, ..., 16099] (99 elements)
+    # 16000 % 8192 = 7808, 16001 % 8192 = 7809, ..., 16099 % 8192 = 7907
+    # So obsolete_indexes = {7809, 7810, 7811, ..., 7907} (99 elements)
+    # Expected result length = 8192 - 99 = 8093
+    assert len(result) == 8093
+    # Verify report_ref_epoch data is preserved: slashings[7808] should be in result
+    assert Gwei(7808) in result
+
+
+@pytest.mark.unit
+def test_cut_slashings__large_mainnet_epochs__preserves_report_ref_epoch():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 55000  # Realistic mainnet epoch
+    midterm_penalty_epoch = 55200
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=55000, midterm_penalty_epoch=55200:
+    # range(55001, 55200) = [55001, 55002, ..., 55199] (199 elements)
+    # 55000 % 8192 = 6616, 55001 % 8192 = 6617, ..., 55199 % 8192 = 6815
+    # So obsolete_indexes = {6617, 6618, ..., 6815} (199 elements)
+    # Expected result length = 8192 - 199 = 7993
+    assert len(result) == 7993
+    # Verify report_ref_epoch data is preserved: slashings[6616] should be in result
+    assert Gwei(6616) in result
+
+
+@pytest.mark.unit
+def test_cut_slashings__adjacent_epochs__returns_full_array():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 100
+    midterm_penalty_epoch = report_ref_epoch + 1  # Adjacent epochs
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # No epochs should be filtered out since range(101, 101) is empty
+    assert result == slashings
+
+
+@pytest.mark.unit
+def test_cut_slashings__genesis_epoch_zero__preserves_epoch_zero_data():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 0
+    midterm_penalty_epoch = 50
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=0, midterm_penalty_epoch=50:
+    # range(1, 50) = [1, 2, ..., 49] (49 elements)
+    # obsolete_indexes = {1, 2, 3, ..., 49} (49 elements)
+    # Expected result length = 8192 - 49 = 8143
+    assert len(result) == 8143
+    # Verify epoch 0 data is preserved: slashings[0] should be in result
+    assert Gwei(0) in result
+
+
+@pytest.mark.unit
+def test_cut_slashings__various_epoch_ranges__always_preserves_report_ref_epoch():
+    slashings = [Gwei(i * 100) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]  # Use distinct values
+
+    # Test case 1: Genesis case (0, 1000)
+    # range(1, 1000) = 999 elements, preserved index = 0, expected length = 8192 - 999 = 7193
+    result1 = MidtermSlashingPenalty._cut_slashings(slashings, 1000, 0)
+    assert len(result1) == 7193
+    assert Gwei(0) in result1
+
+    # Test case 2: Normal case (100, 200)
+    # range(101, 200) = 99 elements, preserved index = 100, expected length = 8192 - 99 = 8093
+    result2 = MidtermSlashingPenalty._cut_slashings(slashings, 200, 100)
+    assert len(result2) == 8093
+    assert Gwei(100 * 100) in result2
+
+    # Test case 3: Near buffer limit (8000, 8100)
+    # range(8001, 8100) = 99 elements, preserved index = 8000, expected length = 8192 - 99 = 8093
+    result3 = MidtermSlashingPenalty._cut_slashings(slashings, 8100, 8000)
+    assert len(result3) == 8093
+    assert Gwei(8000 * 100) in result3
+
+    # Test case 4: Large epoch values with wrapping (16000, 16100)
+    # 16000 % 8192 = 7808, range(16001, 16100) = 99 elements, expected length = 8192 - 99 = 8093
+    result4 = MidtermSlashingPenalty._cut_slashings(slashings, 16100, 16000)
+    assert len(result4) == 8093
+    assert Gwei(7808 * 100) in result4
+
+
+@pytest.mark.unit
+def test_cut_slashings__almost_full_cycle_range__preserves_two_elements():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 100
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR - 1  # Almost full cycle
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=100, midterm_penalty_epoch=100+8191=8291:
+    # range(101, 8291) = [101, 102, ..., 8290] (8190 elements)
+    # 101 % 8192 = 101, ..., 8191 % 8192 = 8191, 8192 % 8192 = 0, ..., 8290 % 8192 = 98
+    # obsolete_indexes = {101, 102, ..., 8191, 0, 1, ..., 98} (8190 elements)
+    # Only indices 99 and 100 remain, expected length = 2
+    assert len(result) == 2
+    assert Gwei(99) in result
+    assert Gwei(100) in result
+
+
+@pytest.mark.unit
+def test_cut_slashings__equal_to_full_cycle__preserves_current_bucket():
+    slashings = [Gwei(i) for i in range(EPOCHS_PER_SLASHINGS_VECTOR)]
+    report_ref_epoch = 100
+    midterm_penalty_epoch = report_ref_epoch + EPOCHS_PER_SLASHINGS_VECTOR  # Exactly one full cycle later
+
+    result = MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch)
+
+    # With report_ref_epoch=100, midterm_penalty_epoch=100+8192=8292:
+    # Since API returns post-state, data from epoch 100 is STILL VALID when difference = EPOCHS_PER_SLASHINGS_VECTOR
+    # At epoch 8292, slashings[100] contains data from epoch 100, not yet overwritten
+    # range(101, 8292) covers indices {101, 102, ..., 8191, 0, 1, ..., 99} - excludes index 100
+    # Expected result: only slashings[100] remains (1 element)
+    assert len(result) == 1
+    # Verify that report_ref_epoch data is preserved (as per post-state API behavior)
+    assert Gwei(100) in result

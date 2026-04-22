@@ -16,6 +16,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultRebalancedEventFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -23,7 +24,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestBuildPrevReportMaps:
-
     def test_no_prev_report(self):
         prev_fee_map, prev_liability_shares_map = StakingVaultsService._build_prev_report_maps(None)
 
@@ -57,7 +57,6 @@ class TestBuildPrevReportMaps:
 
 @pytest.mark.unit
 class TestGetVaultEventsForFees:
-
     @pytest.fixture
     def vault_hub_mock(self):
         mock = MagicMock()

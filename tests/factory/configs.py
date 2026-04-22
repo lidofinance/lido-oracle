@@ -1,5 +1,5 @@
-from src.modules.accounting.types import OracleReportLimits
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.types import OracleReportLimits
 from src.providers.consensus.types import (
     AttestationData,
     BeaconSpecResponse,
@@ -40,6 +40,7 @@ class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
 
 
 class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
+    SLOT_DURATION_MS = 12000
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
@@ -64,7 +65,6 @@ class BlockAttestationFactory(Web3DataclassFactory[BlockAttestationResponse]):
 
 
 class BlockDetailsResponseFactory(Web3DataclassFactory[BlockDetailsResponse]):
-
     @classmethod
     def build(cls, **kwargs) -> BlockDetailsResponse:
         instance = super().build(**kwargs)

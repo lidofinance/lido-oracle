@@ -1,5 +1,5 @@
 import logging
-from typing import Iterator
+from collections.abc import Iterator
 
 from eth_typing import BlockNumber
 from web3.contract.contract import ContractEvent
@@ -8,6 +8,7 @@ from web3.types import EventData
 from src import variables
 from src.providers.execution.exceptions import InconsistentEvents
 from src.types import ReferenceBlockStamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,10 @@ def get_events_in_past(
     # ref_slot_shift = 22 - 18
     # for_slots_without_missed_blocks = 10 - 4
     #
-    #                  [--------------- Event search block period -------------]
+    #                              [-------- Event search block period --------]
     #                                                  (---- Needed events --------------------]
-    #              from_block                      timeout_border            to_block       ref_slot
-    #                  |                               |                       |               |
+    #                           from_block        timeout_border            to_block       ref_slot
+    #                              |                   |                       |               |
     #      e           e   e       e           e       e       e           e   e               v   e   e
     #   --[x]-[o]-[x]-[x]-[x]-[x]-[x]-[o]-[o]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
     #      1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24       slot
