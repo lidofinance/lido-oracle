@@ -5,14 +5,14 @@ import pytest
 from eth_typing import BlockNumber
 from web3.types import Wei
 
-from src.services.staking_vaults import StakingVaultsService
-from src.utils.apr import get_steth_by_shares
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     FeeTestConstants,
     MintedSharesEventFactory,
     VaultAddresses,
     VaultInfoFactory,
 )
+from utils.apr import get_steth_by_shares
 
 
 # =============================================================================

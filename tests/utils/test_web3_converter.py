@@ -1,9 +1,9 @@
 import pytest
 
-from src.modules.common.types import ChainConfig, FrameConfig
-from src.types import EpochNumber, FrameNumber, SlotNumber
-from src.utils.web3converter import Web3Converter
+from modules.common.types import ChainConfig, FrameConfig
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
+from type_aliases import EpochNumber, FrameNumber, SlotNumber
+from utils.web3converter import Web3Converter
 
 
 @pytest.fixture

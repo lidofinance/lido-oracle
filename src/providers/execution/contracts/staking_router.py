@@ -3,11 +3,11 @@ import logging
 from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import list_of_dataclasses
-from src.variables import EL_REQUESTS_BATCH_SIZE
-from src.web3py.extensions.lido_validators import NodeOperator, StakingModule
+from providers.execution.base_interface import ContractInterface
+from utils.cache import global_lru_cache as lru_cache
+from utils.dataclass import list_of_dataclasses
+from variables import EL_REQUESTS_BATCH_SIZE
+from web3py.extensions.lido_validators import NodeOperator, StakingModule
 
 
 logger = logging.getLogger(__name__)

@@ -4,17 +4,17 @@ from unittest.mock import Mock
 import pytest
 from web3.types import Wei
 
-from src.modules.oracles.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
-from src.providers.consensus.types import BeaconStateView
-from src.services.bunker import BunkerService
-from src.types import ReferenceBlockStamp
-from src.web3py.extensions.lido_validators import LidoValidator
+from modules.oracles.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
+from providers.consensus.types import BeaconStateView
+from services.bunker import BunkerService
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.contract_responses import ReportSimulationResultsFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_ref_blockstamp
+from type_aliases import ReferenceBlockStamp
+from web3py.extensions.lido_validators import LidoValidator
 
 
 class TestIsBunkerMode:
@@ -183,7 +183,7 @@ class TestIsBunkerMode:
         mock = Mock()
         with monkeypatch.context() as m:
             m.setattr(
-                "src.services.bunker.MidtermSlashingPenalty.is_high_midterm_slashing_penalty",
+                "services.bunker.MidtermSlashingPenalty.is_high_midterm_slashing_penalty",
                 mock,
             )
             yield mock
@@ -193,7 +193,7 @@ class TestIsBunkerMode:
         mock = Mock()
         with monkeypatch.context() as m:
             m.setattr(
-                "src.services.bunker.AbnormalClRebase.is_abnormal_cl_rebase",
+                "services.bunker.AbnormalClRebase.is_abnormal_cl_rebase",
                 mock,
             )
             yield mock

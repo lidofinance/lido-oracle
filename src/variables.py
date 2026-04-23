@@ -3,8 +3,8 @@ from typing import Final
 
 from eth_account import Account
 
-from src.types import OracleModuleName
-from src.utils.env import from_file_or_env
+from type_aliases import OracleModuleName
+from utils.env import from_file_or_env
 
 
 # - Providers-

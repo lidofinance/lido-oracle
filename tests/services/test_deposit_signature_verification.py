@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
-from src.services.deposit_signature_verification import (
+from constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+from services.deposit_signature_verification import (
     DepositMessage,
     compute_domain,
     compute_fork_data_root,
@@ -142,7 +142,7 @@ def test_compute_signing_root_differs_on_domain():
 
 @pytest.mark.unit
 def test_is_valid_deposit_signature_returns_true():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
     assert result is True
@@ -150,7 +150,7 @@ def test_is_valid_deposit_signature_returns_true():
 
 @pytest.mark.unit
 def test_is_valid_deposit_signature_returns_false():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = False
         result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
     assert result is False
@@ -158,7 +158,7 @@ def test_is_valid_deposit_signature_returns_false():
 
 @pytest.mark.unit
 def test_is_valid_deposit_signature_passes_correct_pubkey_and_signature():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
 
@@ -171,7 +171,7 @@ def test_is_valid_deposit_signature_passes_correct_pubkey_and_signature():
 
 @pytest.mark.unit
 def test_is_valid_deposit_signature_with_explicit_genesis_fork_version():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(
             _PUBKEY,
@@ -185,7 +185,7 @@ def test_is_valid_deposit_signature_with_explicit_genesis_fork_version():
 
 @pytest.mark.unit
 def test_is_valid_deposit_signature_with_explicit_genesis_validators_root():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(
             _PUBKEY,
@@ -200,7 +200,7 @@ def test_is_valid_deposit_signature_with_explicit_genesis_validators_root():
 @pytest.mark.unit
 def test_is_valid_deposit_signature_different_fork_versions_produce_different_signing_roots():
     # Two calls with different fork versions must produce different signing roots
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
+    with patch('services.deposit_signature_verification.BLSVerifier') as mock_bls:
         mock_bls.Verify.return_value = True
 
         is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE, genesis_fork_version=b'\x00\x00\x00\x00')

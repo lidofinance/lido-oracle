@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING, Final
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
-from src.providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
-from src.providers.keys.types import LidoKey
-from src.services.deposit_signature_verification import is_valid_deposit_signature
-from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.dataclass import FromResponse, Nested
-from src.utils.types import hex_str_to_bytes
-from src.utils.validator_state import get_max_effective_balance
+from constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
+from providers.keys.types import LidoKey
+from services.deposit_signature_verification import is_valid_deposit_signature
+from type_aliases import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
+from utils.cache import global_lru_cache as lru_cache
+from utils.dataclass import FromResponse, Nested
+from utils.types import hex_str_to_bytes
+from utils.validator_state import get_max_effective_balance
 
 
 class _Uninitialized:
@@ -29,7 +29,7 @@ UNINITIALIZED: Final = _Uninitialized()
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from src.web3py.types import Web3  # pragma: no cover
+    from web3py.types import Web3  # pragma: no cover
 
 
 class NodeOperatorLimitMode(Enum):

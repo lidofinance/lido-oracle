@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from eth_typing import BlockNumber
 
-from src.services.staking_vaults import StakingVaultsService
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     BadDebtSocializedEventFactory,
     BadDebtWrittenOffEventFactory,

@@ -2,8 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from src.constants import SECONDS_IN_YEAR
-from src.utils.apr import calculate_gross_core_apr
+from constants import SECONDS_IN_YEAR
+from utils.apr import calculate_gross_core_apr
 
 
 pytestmark = pytest.mark.unit

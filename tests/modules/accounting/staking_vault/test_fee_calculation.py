@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from src.services.staking_vaults import StakingVaultsService
+from services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import FeeTestConstants
 
 

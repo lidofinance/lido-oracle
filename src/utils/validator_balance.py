@@ -1,6 +1,6 @@
-from src.types import Gwei
-from src.utils.validator_state import get_max_effective_balance
-from src.web3py.extensions.lido_validators import LidoValidator
+from type_aliases import Gwei
+from utils.validator_state import get_max_effective_balance
+from web3py.extensions.lido_validators import LidoValidator
 
 
 def get_predictable_full_balance(validator: LidoValidator) -> Gwei:

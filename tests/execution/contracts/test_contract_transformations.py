@@ -12,8 +12,8 @@ from eth_typing import BlockNumber, ChecksumAddress, Hash32
 from hexbytes import HexBytes
 from web3.types import EventData, Wei
 
-from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
-from src.modules.oracles.accounting.events import (
+from modules.common.types import ChainConfig, CurrentFrame, FrameConfig
+from modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -22,7 +22,7 @@ from src.modules.oracles.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.modules.oracles.accounting.types import (
+from modules.oracles.accounting.types import (
     AccountingProcessingState,
     BatchState,
     BeaconStat,
@@ -35,35 +35,35 @@ from src.modules.oracles.accounting.types import (
     VaultInfo,
     WithdrawalRequestStatus,
 )
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, ValidatorDuties
-from src.providers.execution.contracts.accounting import AccountingContract
-from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.execution.contracts.burner import BurnerContract
-from src.providers.execution.contracts.cs_accounting import CSAccountingContract
-from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.providers.execution.contracts.cs_module import CSModuleContract
-from src.providers.execution.contracts.cs_parameters_registry import (
+from modules.oracles.staking_modules.common.state import DutyAccumulator, ValidatorDuties
+from providers.execution.contracts.accounting import AccountingContract
+from providers.execution.contracts.accounting_oracle import AccountingOracleContract
+from providers.execution.contracts.base_oracle import BaseOracleContract
+from providers.execution.contracts.burner import BurnerContract
+from providers.execution.contracts.cs_accounting import CSAccountingContract
+from providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
+from providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from providers.execution.contracts.cs_module import CSModuleContract
+from providers.execution.contracts.cs_parameters_registry import (
     KeyNumberValueInterval,
     KeyNumberValueIntervalList,
     PerformanceCoefficients,
 )
-from src.providers.execution.contracts.cs_strikes import CSStrikesContract
-from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
-from src.providers.execution.contracts.data_bus import DataBusContract
-from src.providers.execution.contracts.delegation_contract import DelegationContract
-from src.providers.execution.contracts.deposit_contract import DepositContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
-from src.providers.execution.contracts.lido import LidoContract
-from src.providers.execution.contracts.lido_locator import LidoLocatorContract
-from src.providers.execution.contracts.meta_registry import ExternalOperator, MetaRegistryContract
-from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
-from src.providers.execution.contracts.staking_router import StakingRouterContract
-from src.providers.execution.contracts.vault_hub import VaultHubContract
-from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import NodeOperatorId
+from providers.execution.contracts.cs_strikes import CSStrikesContract
+from providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
+from providers.execution.contracts.data_bus import DataBusContract
+from providers.execution.contracts.delegation_contract import DelegationContract
+from providers.execution.contracts.deposit_contract import DepositContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from providers.execution.contracts.lazy_oracle import LazyOracleContract
+from providers.execution.contracts.lido import LidoContract
+from providers.execution.contracts.lido_locator import LidoLocatorContract
+from providers.execution.contracts.meta_registry import ExternalOperator, MetaRegistryContract
+from providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
+from providers.execution.contracts.staking_router import StakingRouterContract
+from providers.execution.contracts.vault_hub import VaultHubContract
+from providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
+from type_aliases import NodeOperatorId
 
 
 DUMMY_ADDRESS = cast(ChecksumAddress, "0x0000000000000000000000000000000000000000")
@@ -354,7 +354,7 @@ class TestLazyOracleGetAllVaults:
         contract.get_vaults.assert_not_called()
 
     def test_single_page(self, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
+        monkeypatch.setattr("providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 2
         fake_vaults = [MagicMock(spec=VaultInfo), MagicMock(spec=VaultInfo)]
@@ -366,7 +366,7 @@ class TestLazyOracleGetAllVaults:
         contract.get_vaults.assert_called_once_with(block_identifier="latest", offset=0, limit=100)
 
     def test_multiple_pages(self, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 2)
+        monkeypatch.setattr("providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 2)
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 3
 
@@ -382,7 +382,7 @@ class TestLazyOracleGetAllVaults:
         contract.get_vaults.assert_any_call(block_identifier="latest", offset=2, limit=2)
 
     def test_stops_on_empty_batch(self, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
+        monkeypatch.setattr("providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 5
         contract.get_vaults.return_value = []
@@ -468,9 +468,9 @@ class TestStakingRouterGetAllNodeOperatorDigests:
         m.id = module_id
         return m
 
-    @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
+    @patch("providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_single_batch_shorter_than_batch_size(self, mock_from_response, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 500)
+        monkeypatch.setattr("providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 500)
         contract = _mock_contract()
         fake_no = MagicMock()
         contract.functions.getNodeOperatorDigests.return_value.call.return_value = [fake_no, fake_no]
@@ -483,9 +483,9 @@ class TestStakingRouterGetAllNodeOperatorDigests:
         assert len(result) == 2
         assert contract.functions.getNodeOperatorDigests.call_count == 1
 
-    @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
+    @patch("providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_multiple_pages(self, mock_from_response, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 2)
+        monkeypatch.setattr("providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 2)
         contract = _mock_contract()
         fake_no = MagicMock()
         # First call returns full batch (2), second returns partial (1) → stops
@@ -502,9 +502,9 @@ class TestStakingRouterGetAllNodeOperatorDigests:
         assert len(result) == 3
         assert contract.functions.getNodeOperatorDigests.call_count == 2
 
-    @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
+    @patch("providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_empty_first_response(self, mock_from_response, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 500)
+        monkeypatch.setattr("providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 500)
         contract = _mock_contract()
         contract.functions.getNodeOperatorDigests.return_value.call.return_value = []
 
@@ -514,9 +514,9 @@ class TestStakingRouterGetAllNodeOperatorDigests:
 
         assert result == []
 
-    @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
+    @patch("providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_uses_correct_offsets(self, mock_from_response, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 2)
+        monkeypatch.setattr("providers.execution.contracts.staking_router.EL_REQUESTS_BATCH_SIZE", 2)
         contract = _mock_contract()
         fake_no = MagicMock()
         contract.functions.getNodeOperatorDigests.return_value.call.side_effect = [[fake_no, fake_no], []]
@@ -601,7 +601,7 @@ class TestCuratedStakingModuleGetOperatorWeights:
         contract.functions.getOperatorWeights.assert_not_called()
 
     def test_single_batch(self, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 500)
+        monkeypatch.setattr("providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 500)
         contract = _mock_contract()
         contract.functions.getOperatorWeights.return_value.call.return_value = [10, 20]
 
@@ -612,7 +612,7 @@ class TestCuratedStakingModuleGetOperatorWeights:
         assert result == [10, 20]
 
     def test_multiple_batches(self, monkeypatch):
-        monkeypatch.setattr("src.providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 2)
+        monkeypatch.setattr("providers.execution.contracts.curated_staking_module.EL_REQUESTS_BATCH_SIZE", 2)
         contract = _mock_contract()
         contract.functions.getOperatorWeights.return_value.call.side_effect = [[10, 20], [30]]
 
@@ -662,7 +662,7 @@ class TestDelegationContractExecute:
         contract.functions.execute.return_value = MagicMock()
         calldata = b"\x01" * 10
 
-        with caplog.at_level(logging.INFO, logger="src.providers.execution.contracts.delegation_contract"):
+        with caplog.at_level(logging.INFO, logger="providers.execution.contracts.delegation_contract"):
             DelegationContract.execute(contract, target_address=DUMMY_ADDRESS, calldata=calldata)
 
         assert any("10" in m for m in caplog.messages)
@@ -804,7 +804,7 @@ class TestVaultHubContractEventMethods:
         c = _mock_contract()
         return c
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_minted_events_maps_logs(self, mock_get_events):
         log = _make_log({"vault": _DUMMY_VAULT, "amountOfShares": 5, "lockedAmount": 1})
         mock_get_events.return_value = [log]
@@ -816,7 +816,7 @@ class TestVaultHubContractEventMethods:
         assert isinstance(result[0], MintedSharesOnVaultEvent)
         assert result[0].amount_of_shares == 5
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_burned_events_maps_logs(self, mock_get_events):
         log = _make_log({"vault": _DUMMY_VAULT, "amountOfShares": 8})
         mock_get_events.return_value = [log]
@@ -827,7 +827,7 @@ class TestVaultHubContractEventMethods:
         assert len(result) == 1
         assert isinstance(result[0], BurnedSharesOnVaultEvent)
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_returns_empty_list_when_no_events(self, mock_get_events):
         mock_get_events.return_value = []
         contract = self._make_contract()
@@ -1328,7 +1328,7 @@ class TestAccountingOracleContract:
 
 @pytest.mark.unit
 class TestVaultHubRemainingEventMethods:
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_vault_fee_updated_events(self, mock_get_events):
         log = _make_log(
             {
@@ -1346,7 +1346,7 @@ class TestVaultHubRemainingEventMethods:
         assert len(result) == 1
         assert isinstance(result[0], VaultFeesUpdatedEvent)
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_vault_rebalanced_events(self, mock_get_events):
         log = _make_log({"vault": _DUMMY_VAULT, "sharesBurned": 10, "etherWithdrawn": 20})
         mock_get_events.return_value = [log]
@@ -1354,7 +1354,7 @@ class TestVaultHubRemainingEventMethods:
         assert len(result) == 1
         assert isinstance(result[0], VaultRebalancedEvent)
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_bad_debt_socialized_events(self, mock_get_events):
         log = _make_log({"vaultDonor": _DUMMY_VAULT, "vaultAcceptor": _DUMMY_VAULT, "badDebtShares": 3})
         mock_get_events.return_value = [log]
@@ -1362,7 +1362,7 @@ class TestVaultHubRemainingEventMethods:
         assert len(result) == 1
         assert isinstance(result[0], BadDebtSocializedEvent)
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_bad_debt_written_off_events(self, mock_get_events):
         log = _make_log({"vault": _DUMMY_VAULT, "badDebtShares": 5})
         mock_get_events.return_value = [log]
@@ -1372,7 +1372,7 @@ class TestVaultHubRemainingEventMethods:
         assert len(result) == 1
         assert isinstance(result[0], BadDebtWrittenOffToBeInternalizedEvent)
 
-    @patch("src.providers.execution.contracts.vault_hub.get_events_in_range")
+    @patch("providers.execution.contracts.vault_hub.get_events_in_range")
     def test_get_vault_connected_events(self, mock_get_events):
         log = _make_log(
             {

@@ -9,13 +9,13 @@ from prometheus_client import CollectorRegistry
 from prometheus_client.exposition import generate_latest
 from web3_multi_provider import metrics as w3_metrics
 
-from src import variables
-from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import Validator
-from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+import variables
+from providers.consensus.client import ConsensusClient
+from providers.consensus.types import Validator
+from providers.http_provider import NotOkResponse
 from tests.factory.blockstamp import BlockStampFactory
+from type_aliases import EpochNumber, SlotNumber
+from utils.blockstamp import build_blockstamp
 
 
 @pytest.fixture

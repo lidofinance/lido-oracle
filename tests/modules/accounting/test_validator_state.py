@@ -4,18 +4,18 @@ from unittest.mock import Mock
 import pytest
 from eth_typing import HexStr
 
-from src.constants import FAR_FUTURE_EPOCH
-from src.modules.common.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorState
-from src.providers.keys.types import LidoKey
-from src.services.validator_state import LidoValidatorStateService
-from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
-from src.web3py.extensions.lido_validators import (
+from constants import FAR_FUTURE_EPOCH
+from modules.common.types import ChainConfig
+from providers.consensus.types import Validator, ValidatorState
+from providers.keys.types import LidoKey
+from services.validator_state import LidoValidatorStateService
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+from type_aliases import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
+from web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
     StakingModule,
 )
-from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 TESTING_REF_EPOCH = 100
@@ -152,7 +152,7 @@ def test_get_recently_requested_validators_by_operator(monkeypatch, web3, valida
             {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
         ]
     )
-    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
+    monkeypatch.setattr('services.validator_state.get_events_in_past', mock_get_events_in_past)
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(
         return_value=exit_event_lookback_window
     )
@@ -175,7 +175,7 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
         {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
     ]
     mock_get_events_in_past = Mock(return_value=mocked_events)
-    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
+    monkeypatch.setattr('services.validator_state.get_events_in_past', mock_get_events_in_past)
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
 
     blockstamp = ReferenceBlockStampFactory.build(

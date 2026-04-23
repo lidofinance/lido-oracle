@@ -2,7 +2,7 @@ import pytest
 from eth_typing import BlockNumber
 from hexbytes import HexBytes
 
-from src.modules.oracles.accounting.events import (
+from modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,

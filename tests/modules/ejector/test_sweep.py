@@ -3,24 +3,24 @@ from unittest.mock import Mock
 
 import pytest
 
-import src.modules.oracles.ejector.sweep as sweep_module
-from src.constants import (
+import modules.oracles.ejector.sweep as sweep_module
+from constants import (
     FAR_FUTURE_EPOCH,
     MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_ACTIVATION_BALANCE,
 )
-from src.modules.common.types import ChainConfig
-from src.modules.oracles.ejector.sweep import (
+from modules.common.types import ChainConfig
+from modules.oracles.ejector.sweep import (
     Withdrawal,
     get_pending_partial_withdrawals,
     get_sweep_delay_in_epochs,
     get_validators_withdrawals,
 )
-from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
-from src.types import Gwei
+from providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
+from type_aliases import Gwei
 
 
 @pytest.mark.unit

@@ -1,6 +1,6 @@
 import pytest
 
-from src.modules.oracles.ejector.types import EjectorProcessingState
+from modules.oracles.ejector.types import EjectorProcessingState
 from tests.integration.contracts.contract_utils import (
     check_contract,
     make_checker,

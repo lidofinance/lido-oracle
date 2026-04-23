@@ -1,6 +1,6 @@
 from web3.contract.contract import ContractFunction
 
-from src.providers.execution.base_interface import ContractInterface
+from providers.execution.base_interface import ContractInterface
 
 
 class DataBusContract(ContractInterface):

@@ -9,15 +9,15 @@ import pytest
 import requests
 import responses
 
-import src.metrics.healthcheck_server
-from src import variables
-from src.metrics.healthcheck_server import PulseRequestHandler, pulse
+import metrics.healthcheck_server
+import variables
+from metrics.healthcheck_server import PulseRequestHandler, pulse
 
 
 @pytest.mark.unit
 class TestPulseFunction(unittest.TestCase):
     @responses.activate
-    @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
+    @patch('variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_success(self):
         """Test that pulse successfully pings the healthcheck server."""
         responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
@@ -27,7 +27,7 @@ class TestPulseFunction(unittest.TestCase):
             mock_warning.assert_not_called()
 
     @responses.activate
-    @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
+    @patch('variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_server_not_responding(self):
         """Test that pulse logs a warning when the server is not responding."""
         responses.get('http://localhost:8000/pulse/', body=requests.ConnectionError())
@@ -75,7 +75,7 @@ class TestPulseRequestHandler(unittest.TestCase):
     def test_handler_response_fail(self):
         """Test that the handler responds with 503 when the last pulse is outdated."""
         # Set the last pulse to an outdated time
-        src.metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(
+        metrics.healthcheck_server._last_pulse = datetime.now() - timedelta(
             seconds=variables.MAX_CYCLE_LIFETIME_IN_SECONDS + 1
         )
 

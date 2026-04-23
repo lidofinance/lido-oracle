@@ -3,9 +3,9 @@ from typing import Self, cast
 
 from eth_typing import ChecksumAddress, HexStr
 
-from src.types import NodeOperatorId
-from src.utils.abi import camel_to_snake
-from src.utils.dataclass import FromResponse
+from type_aliases import NodeOperatorId
+from utils.abi import camel_to_snake
+from utils.dataclass import FromResponse
 
 
 @dataclass

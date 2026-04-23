@@ -1,7 +1,7 @@
 import pytest
 
-from src.services.staking_vaults import StakingVaultsService
-from src.types import FrameNumber
+from services.staking_vaults import StakingVaultsService
+from type_aliases import FrameNumber
 
 
 # =============================================================================

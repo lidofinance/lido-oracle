@@ -7,7 +7,7 @@ from typing import Any, get_origin, get_type_hints
 
 from eth_typing import Address, ChecksumAddress
 
-from src.providers.execution.base_interface import ContractInterface
+from providers.execution.base_interface import ContractInterface
 
 
 HASH_REGREX = re.compile(r'^0x[0-9,A-F]{64}$', flags=re.IGNORECASE)

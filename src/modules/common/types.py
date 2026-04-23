@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from src.types import SlotNumber
+from type_aliases import SlotNumber
 
 
 # Constants

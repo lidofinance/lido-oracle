@@ -5,10 +5,10 @@ from eth_account.signers.local import LocalAccount
 from hexbytes import HexBytes
 from web3.exceptions import ContractLogicError, TimeExhausted
 
-from src import variables
-from src.utils import input
-from src.utils.transaction import build_transaction_params, estimate_gas
-from src.web3py.extensions import TransactionUtils
+import variables
+from utils import input
+from utils.transaction import build_transaction_params, estimate_gas
+from web3py.extensions import TransactionUtils
 
 
 @pytest.fixture
@@ -30,8 +30,8 @@ class TestTransactionUtils:
 
         assert result is None
 
-    @patch('src.web3py.extensions.tx_utils.prompt', return_value=True)
-    @patch('src.web3py.extensions.TransactionUtils._send_transaction')
+    @patch('web3py.extensions.tx_utils.prompt', return_value=True)
+    @patch('web3py.extensions.TransactionUtils._send_transaction')
     def test_manual_transaction_processing(self, mock_send, mock_prompt, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
@@ -53,7 +53,7 @@ class TestTransactionUtils:
 
         assert result is False
 
-    @patch('src.utils.transaction.estimate_gas', return_value=None)
+    @patch('utils.transaction.estimate_gas', return_value=None)
     def test_get_transaction_params_without_gas(self, mock_estimate_gas, fake_transaction_utils):
         utils, account = fake_transaction_utils
 
@@ -79,7 +79,7 @@ class TestTransactionUtils:
 
         assert gas is None
 
-    @patch('src.web3py.extensions.TransactionUtils._handle_sent_transaction')
+    @patch('web3py.extensions.TransactionUtils._handle_sent_transaction')
     def test_send_transaction(self, mock_handle_sent, fake_transaction_utils):
         utils, account = fake_transaction_utils
         transaction = MagicMock()
@@ -129,7 +129,7 @@ class TestTransactionUtils:
         utils._manual_tx_processing(tx, {}, account)
         utils._send_transaction.assert_not_called()
 
-    @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
+    @patch('web3py.extensions.tx_utils.build_transaction_params', return_value={})
     def test_daemon_check_and_send_transaction(self, mock_build_params, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()
@@ -195,7 +195,7 @@ class TestTransactionUtils:
 
             assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
 
-    @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
+    @patch('web3py.extensions.tx_utils.build_transaction_params', return_value={})
     def test_check_and_send_transaction__delegation_enabled__wraps_call(self, mock_build_params):
         # Arrange
         w3 = MagicMock()
@@ -222,7 +222,7 @@ class TestTransactionUtils:
             utils._check_transaction.assert_called_once_with(wrapped_transaction, {})
             utils._send_transaction.assert_called_once_with(wrapped_transaction, {}, account)
 
-    @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
+    @patch('web3py.extensions.tx_utils.build_transaction_params', return_value={})
     def test_check_and_send_transaction__delegation_disabled__does_not_wrap(self, mock_build_params):
         # Arrange
         w3 = MagicMock()

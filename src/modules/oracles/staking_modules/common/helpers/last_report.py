@@ -6,13 +6,13 @@ from typing import Self
 
 from hexbytes import HexBytes
 
-from src.modules.common.types import ZERO_HASH
-from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
-from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.ipfs import CID
-from src.types import BlockStamp, FrameNumber
-from src.web3py.types import Web3StakingModule
+from modules.common.types import ZERO_HASH
+from modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
+from modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesValidator
+from providers.execution.exceptions import InconsistentData
+from providers.ipfs import CID
+from type_aliases import BlockStamp, FrameNumber
+from web3py.types import Web3StakingModule
 
 
 logger = logging.getLogger(__name__)

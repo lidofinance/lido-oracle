@@ -1,14 +1,18 @@
 import pytest
 
-from src.constants import (
+from constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
 )
-from src.providers.consensus.types import Validator, ValidatorState
-from src.types import EpochNumber, Gwei
-from src.utils.validator_state import (
+from providers.consensus.types import Validator, ValidatorState
+from tests.factory.no_registry import ValidatorFactory
+from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import (
+    simple_validators,
+)
+from type_aliases import EpochNumber, Gwei
+from utils.validator_state import (
     calculate_active_effective_balance_sum,
     calculate_total_active_effective_balance,
     compute_activation_exit_epoch,
@@ -24,10 +28,6 @@ from src.utils.validator_state import (
     is_fully_withdrawable_validator,
     is_on_exit,
     is_partially_withdrawable_validator,
-)
-from tests.factory.no_registry import ValidatorFactory
-from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import (
-    simple_validators,
 )
 
 

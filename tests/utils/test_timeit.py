@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.utils.timeit import timeit
+from utils.timeit import timeit
 
 
 @pytest.mark.unit

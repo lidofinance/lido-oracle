@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src import variables
-from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
-from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
+import variables
+from metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
+from web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
 DUMMY_RPC = 'http://localhost:8545'
@@ -44,8 +44,8 @@ class TestTelemetryDataBus:
         with pytest.raises(TelemetryDataBus.ContractNotDeployedError, match="No contract deployed"):
             self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
 
-    @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
-    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    @patch('web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
+    @patch('web3py.extensions.telemetry_data_bus.build_transaction_params')
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
     def test_send_telemetry__configured__sends_transaction(

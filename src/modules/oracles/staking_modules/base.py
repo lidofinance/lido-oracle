@@ -9,28 +9,28 @@ from itertools import batched
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
-from src import variables
-from src.constants import UINT64_MAX
-from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.metrics.prometheus.performance_oracle import (
+import variables
+from constants import UINT64_MAX
+from metrics.prometheus.business import CONTRACT_ON_PAUSE
+from metrics.prometheus.duration_meter import duration_meter
+from metrics.prometheus.performance_oracle import (
     PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME,
     PERFORMANCE_ORACLE_TARGET_L_EPOCH,
     PERFORMANCE_ORACLE_TARGET_R_EPOCH,
     PERFORMANCE_ORACLE_WAITING_FOR_DATA,
 )
-from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
-from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
-from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State
-from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
-from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
-from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.ipfs import CID
-from src.types import (
+from modules.common.types import ZERO_HASH, ModuleExecuteDelay
+from modules.oracles.common.oracle_module import OracleModule
+from modules.oracles.staking_modules.common.distribution import Distribution, DistributionResult
+from modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from modules.oracles.staking_modules.common.log import Logs
+from modules.oracles.staking_modules.common.state import DutyAccumulator, State
+from modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
+from modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
+from providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
+from providers.execution.exceptions import InconsistentData
+from providers.ipfs import CID
+from type_aliases import (
     BlockStamp,
     EpochNumber,
     NodeOperatorId,
@@ -38,11 +38,11 @@ from src.types import (
     SlotNumber,
     ValidatorIndex,
 )
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.range import sequence
-from src.utils.validator_state import is_active_validator
-from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
-from src.web3py.types import Web3StakingModule
+from utils.cache import global_lru_cache as lru_cache
+from utils.range import sequence
+from utils.validator_state import is_active_validator
+from web3py.extensions.telemetry_data_bus import TelemetryEventId
+from web3py.types import Web3StakingModule
 
 
 logger = logging.getLogger(__name__)

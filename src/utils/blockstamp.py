@@ -1,7 +1,7 @@
 from eth_utils.hexadecimal import add_0x_prefix
 
-from src.providers.consensus.types import BlockDetailsResponse
-from src.types import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from providers.consensus.types import BlockDetailsResponse
+from type_aliases import BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 
 
 def build_reference_blockstamp(

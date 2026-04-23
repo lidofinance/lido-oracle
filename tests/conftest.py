@@ -9,11 +9,11 @@ from eth_tester import EthereumTester
 from eth_tester.backends.mock import MockBackend
 from web3 import EthereumTesterProvider
 
-from src import variables
-from src.modules.oracles.common.runtime import ipfs_providers
-from src.providers.execution.base_interface import ContractInterface
-from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import (
+import variables
+from modules.oracles.common.runtime import ipfs_providers
+from providers.execution.base_interface import ContractInterface
+from web3py.contract_tweak import tweak_w3_contracts
+from web3py.extensions import (
     IPFS,
     ConsensusClientModule,
     DelegationModule,
@@ -24,7 +24,7 @@ from src.web3py.extensions import (
     TelemetryDataBus,
     TransactionUtils,
 )
-from src.web3py.types import Web3
+from web3py.types import Web3
 
 
 UNIT_MARKER = 'unit'

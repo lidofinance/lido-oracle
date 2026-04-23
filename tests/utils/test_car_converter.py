@@ -1,8 +1,8 @@
 import pytest
 
-from src.providers.ipfs.cid import is_cid_v0
-from src.utils.car import CARConverter
-from src.utils.car.converter import DEFAULT_CHUNK_SIZE
+from providers.ipfs.cid import is_cid_v0
+from utils.car import CARConverter
+from utils.car.converter import DEFAULT_CHUNK_SIZE
 
 
 @pytest.mark.unit

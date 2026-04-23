@@ -1,9 +1,9 @@
 import pytest
 from web3 import Web3
 
-from src.modules.common.types import ZERO_HASH
-from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataService, ItemPayload
-from src.modules.oracles.accounting.third_phase.types import FormatList
+from modules.common.types import ZERO_HASH
+from modules.oracles.accounting.third_phase.extra_data import ExtraDataService, ItemPayload
+from modules.oracles.accounting.third_phase.types import FormatList
 
 
 @pytest.mark.unit

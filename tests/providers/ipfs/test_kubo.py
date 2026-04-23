@@ -4,10 +4,10 @@ import pytest
 import requests
 import responses
 
-from src.providers.ipfs.cid import CID
-from src.providers.ipfs.filebase import Filebase
-from src.providers.ipfs.kubo import Kubo
-from src.providers.ipfs.types import FetchError, PinError, UploadError
+from providers.ipfs.cid import CID
+from providers.ipfs.filebase import Filebase
+from providers.ipfs.kubo import Kubo
+from providers.ipfs.types import FetchError, PinError, UploadError
 
 
 @pytest.mark.unit
@@ -163,7 +163,7 @@ class TestKubo:
             kubo_provider.upload(content)
 
     @responses.activate
-    @patch("src.variables.IPFS_VALIDATE_CID", False)
+    @patch("variables.IPFS_VALIDATE_CID", False)
     def test_publish__successful__returns_cid(self, kubo_provider):
         content = b"mock car content for upload test"
         upload_response = {"Hash": "QmTvfdWcdo964nULYqsDtLfUV7Gj7Yrob8msaeVJZo58zc"}

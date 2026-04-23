@@ -2,12 +2,12 @@ import logging
 
 from web3.types import EventData, Wei
 
-from src.modules.common.types import ChainConfig
-from src.providers.execution.exceptions import InconsistentEvents
-from src.types import ReferenceBlockStamp
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.events import get_events_in_past
-from src.web3py.types import Web3
+from modules.common.types import ChainConfig
+from providers.execution.exceptions import InconsistentEvents
+from type_aliases import ReferenceBlockStamp
+from utils.cache import global_lru_cache as lru_cache
+from utils.events import get_events_in_past
+from web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

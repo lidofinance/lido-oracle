@@ -4,8 +4,8 @@ import pytest
 from hexbytes import HexBytes
 from web3.types import BlockIdentifier
 
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.cache import clear_global_cache, global_lru_cache
+from providers.execution.base_interface import ContractInterface
+from utils.cache import clear_global_cache, global_lru_cache
 
 
 class Calc:

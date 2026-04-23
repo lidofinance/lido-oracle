@@ -4,8 +4,8 @@ from enum import Enum
 from prometheus_client import Counter, Gauge, Histogram, Info
 from prometheus_client.utils import INF
 
-from src import variables
-from src.variables import PROMETHEUS_PREFIX
+import variables
+from variables import PROMETHEUS_PREFIX
 
 
 class Status(Enum):

@@ -1,8 +1,8 @@
-from src import variables
-from src.modules.sidecars.performance.collector.collector import PerformanceCollector
-from src.providers.consensus.client import ConsensusClient
-from src.runtime import log_startup, start_observability
-from src.types import OracleModuleName
+import variables
+from modules.sidecars.performance.collector.collector import PerformanceCollector
+from providers.consensus.client import ConsensusClient
+from runtime import log_startup, start_observability
+from type_aliases import OracleModuleName
 
 
 def _build_consensus_client() -> ConsensusClient:

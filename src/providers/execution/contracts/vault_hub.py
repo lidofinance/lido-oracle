@@ -2,7 +2,7 @@ import logging
 
 from eth_typing import BlockNumber
 
-from src.modules.oracles.accounting.events import (
+from modules.oracles.accounting.events import (
     BadDebtSocializedEvent,
     BadDebtWrittenOffToBeInternalizedEvent,
     BurnedSharesOnVaultEvent,
@@ -11,8 +11,8 @@ from src.modules.oracles.accounting.events import (
     VaultFeesUpdatedEvent,
     VaultRebalancedEvent,
 )
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.events import get_events_in_range
+from providers.execution.base_interface import ContractInterface
+from utils.events import get_events_in_range
 
 
 logger = logging.getLogger(__name__)

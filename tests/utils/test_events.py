@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from src import variables
-from src.providers.execution.exceptions import InconsistentEvents
-from src.utils.events import get_events_in_past, get_events_in_range
+import variables
+from providers.execution.exceptions import InconsistentEvents
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from utils.events import get_events_in_past, get_events_in_range
 
 
 @pytest.fixture()

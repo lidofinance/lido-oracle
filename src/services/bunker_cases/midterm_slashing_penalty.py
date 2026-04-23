@@ -2,17 +2,17 @@ import logging
 from collections import defaultdict
 from collections.abc import Sequence
 
-from src.constants import (
+from constants import (
     EFFECTIVE_BALANCE_INCREMENT,
     EPOCHS_PER_SLASHINGS_VECTOR,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
 )
-from src.providers.consensus.types import Validator
-from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
-from src.utils.validator_state import calculate_total_active_effective_balance
-from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator
+from providers.consensus.types import Validator
+from type_aliases import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from utils.validator_state import calculate_total_active_effective_balance
+from utils.web3converter import Web3Converter
+from web3py.extensions.lido_validators import LidoValidator
 
 
 logger = logging.getLogger(__name__)

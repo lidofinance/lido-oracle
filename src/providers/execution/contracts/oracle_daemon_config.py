@@ -3,8 +3,8 @@ import logging
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.cache import global_lru_cache as lru_cache
+from providers.execution.base_interface import ContractInterface
+from utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)

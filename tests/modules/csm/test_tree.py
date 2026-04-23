@@ -5,11 +5,11 @@ from json import JSONDecoder, JSONEncoder
 import pytest
 from hexbytes import HexBytes
 
-from src.constants import UINT64_MAX
-from src.modules.oracles.staking_modules.common.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
-from src.modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
-from src.types import NodeOperatorId
-from src.utils.types import hex_str_to_bytes
+from constants import UINT64_MAX
+from modules.oracles.staking_modules.common.tree import RewardsTree, StandardMerkleTree, StrikesTree, Tree
+from modules.oracles.staking_modules.common.types import RewardsTreeLeaf, StrikesList, StrikesTreeLeaf
+from type_aliases import NodeOperatorId
+from utils.types import hex_str_to_bytes
 
 
 class TreeTestBase[LeafType: Iterable](ABC):

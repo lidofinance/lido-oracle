@@ -2,11 +2,11 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
-from src.constants import STAKING_MODULE_LOGS_VERSION
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator
-from src.modules.oracles.staking_modules.common.types import RewardsShares
-from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
+from constants import STAKING_MODULE_LOGS_VERSION
+from modules.oracles.staking_modules.common.state import DutyAccumulator
+from modules.oracles.staking_modules.common.types import RewardsShares
+from providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
+from type_aliases import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
 
 class LogJSONEncoder(json.JSONEncoder): ...

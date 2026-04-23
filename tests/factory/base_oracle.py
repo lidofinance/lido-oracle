@@ -1,5 +1,5 @@
-from src.modules.oracles.accounting.types import AccountingProcessingState
-from src.modules.oracles.ejector.types import EjectorProcessingState
+from modules.oracles.accounting.types import AccountingProcessingState
+from modules.oracles.ejector.types import EjectorProcessingState
 from tests.factory.web3_factory import Web3DataclassFactory
 
 

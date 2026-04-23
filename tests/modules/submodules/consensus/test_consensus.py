@@ -7,13 +7,12 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
-from src import variables
-from src.modules.common.types import ChainConfig
-from src.modules.oracles.common import consensus as consensus_module
-from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
-from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
-from src.providers.consensus.types import BeaconSpecResponse
-from src.types import BlockStamp, ReferenceBlockStamp
+import variables
+from modules.common.types import ChainConfig
+from modules.oracles.common import consensus as consensus_module
+from modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
+from modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
+from providers.consensus.types import BeaconSpecResponse
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -22,6 +21,7 @@ from tests.factory.configs import (
     FrameConfigFactory,
 )
 from tests.factory.member_info import MemberInfoFactory
+from type_aliases import BlockStamp, ReferenceBlockStamp
 
 
 @dataclass

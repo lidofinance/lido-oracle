@@ -4,7 +4,7 @@ from web3 import Web3
 from web3.types import RPCEndpoint
 from web3_multi_provider import FallbackProvider
 
-from src.providers.consistency import ProviderConsistencyModule
+from providers.consistency import ProviderConsistencyModule
 
 
 class FallbackProviderModule(ProviderConsistencyModule, FallbackProvider):

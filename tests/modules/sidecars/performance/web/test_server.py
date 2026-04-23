@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from starlette.testclient import TestClient
 
-from src.modules.sidecars.performance.common.db import DutiesDB, Duty, EpochsDemand, IncompleteEpochRangeError
-from src.modules.sidecars.performance.web.server import app, get_db
+from modules.sidecars.performance.common.db import DutiesDB, Duty, EpochsDemand, IncompleteEpochRangeError
+from modules.sidecars.performance.web.server import app, get_db
 
 
 pytestmark = pytest.mark.unit
@@ -32,7 +32,7 @@ def client(mock_db):
     app.dependency_overrides[get_db] = lambda: mock_db
     with (
         patch(
-            "src.modules.sidecars.performance.web.server.DutiesDB",
+            "modules.sidecars.performance.web.server.DutiesDB",
             return_value=mock_db,
         ),
         TestClient(app, raise_server_exceptions=False) as c,

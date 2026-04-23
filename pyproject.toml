@@ -16,7 +16,19 @@ authors = [
     "Yuri Tkachenko",
 ]
 license = "GPL 3.0"
-package-mode = false
+packages = [
+    {include = "constants.py", from = "src"},
+    {include = "main.py", from = "src"},
+    {include = "runtime.py", from = "src"},
+    {include = "type_aliases.py", from = "src"},
+    {include = "variables.py", from = "src"},
+    {include = "metrics", from = "src"},
+    {include = "modules", from = "src"},
+    {include = "providers", from = "src"},
+    {include = "services", from = "src"},
+    {include = "utils", from = "src"},
+    {include = "web3py", from = "src"},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.14,<3.15"
@@ -79,9 +91,11 @@ markers = [
     "fork: integration tests using a forked Ethereum network",
 ]
 addopts = "-s -vv --strict-markers"
+pythonpath = ["src"]
 
 [tool.coverage.run]
 branch = true
+source = ["src"]
 
 [tool.pylint.master]
 ignore-patterns = ".*_pb2\\.py"
@@ -125,6 +139,7 @@ disable = [
 pythonVersion = "3.14"
 typeCheckingMode = "basic"
 stubPath = "stubs"
+extraPaths = ["src"]
 exclude = [
     "**/__pycache__",
     ".git",
@@ -189,6 +204,7 @@ skip-magic-trailing-comma = false
 # Equivalent to isort's profile = "black" and combine_as_imports = true
 combine-as-imports = true
 lines-after-imports = 2
+known-first-party = ["constants", "main", "metrics", "modules", "providers", "runtime", "services", "type_aliases", "utils", "variables", "web3py"]
 
 [tool.mutmut]
 paths_to_mutate = "src/"

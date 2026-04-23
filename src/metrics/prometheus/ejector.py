@@ -1,6 +1,6 @@
 from prometheus_client import Gauge
 
-from src.variables import PROMETHEUS_PREFIX
+from variables import PROMETHEUS_PREFIX
 
 
 EJECTOR_TO_WITHDRAW_WEI_AMOUNT = Gauge(

@@ -2,8 +2,8 @@ import pytest
 from eth_typing import ChecksumAddress
 from web3.contract.contract import ContractFunction
 
-from src.types import SlotNumber
 from tests.integration.contracts.contract_utils import check_contract, check_value_type, make_checker
+from type_aliases import SlotNumber
 
 
 @pytest.mark.mainnet

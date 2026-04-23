@@ -5,12 +5,12 @@ import pytest
 from hexbytes import HexBytes
 from web3.exceptions import Web3Exception
 
-from src import variables
-from src.providers.execution.contracts.cs_parameters_registry import CurveParams
-from src.providers.ipfs import CIDv0, CIDv1
-from src.types import NodeOperatorId, SlotNumber
-from src.web3py.extensions.staking_module import StakingModuleContracts
-from src.web3py.types import Web3, Web3StakingModule
+import variables
+from providers.execution.contracts.cs_parameters_registry import CurveParams
+from providers.ipfs import CIDv0, CIDv1
+from type_aliases import NodeOperatorId, SlotNumber
+from web3py.extensions.staking_module import StakingModuleContracts
+from web3py.types import Web3, Web3StakingModule
 
 
 DUMMY_ADDRESS = "0x9999999999999999999999999999999999999999"

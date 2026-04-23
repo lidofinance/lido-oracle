@@ -4,7 +4,8 @@ from urllib.parse import urljoin
 
 import requests
 
-from ...utils.version import get_oracle_version
+from utils.version import get_oracle_version
+
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
 

@@ -1,6 +1,6 @@
 import pytest
 
-from src.utils.lazy_object_proxy import LazyObjectProxy
+from utils.lazy_object_proxy import LazyObjectProxy
 
 
 class Counter:

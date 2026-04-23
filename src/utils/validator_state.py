@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from src.constants import (
+from constants import (
     CHURN_LIMIT_QUOTIENT,
     COMPOUNDING_WITHDRAWAL_PREFIX,
     EFFECTIVE_BALANCE_INCREMENT,
@@ -13,11 +13,11 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA,
 )
-from src.types import EpochNumber, Gwei
+from type_aliases import EpochNumber, Gwei
 
 
 if TYPE_CHECKING:
-    from src.providers.consensus.types import Validator, ValidatorState
+    from providers.consensus.types import Validator, ValidatorState
 
 
 def is_active_validator(validator: Validator, epoch: EpochNumber) -> bool:

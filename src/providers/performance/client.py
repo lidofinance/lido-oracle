@@ -1,13 +1,13 @@
-from src.metrics.prometheus.basic import PERFORMANCE_REQUESTS_DURATION
-from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
-from src.providers.http_provider import (
+from metrics.prometheus.basic import PERFORMANCE_REQUESTS_DURATION
+from modules.sidecars.performance.common.db import Duty, EpochsDemand
+from providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
     data_is_bool,
     data_is_int,
     data_is_list,
 )
-from src.types import EpochNumber
+from type_aliases import EpochNumber
 
 
 class PerformanceClientError(NotOkResponse):

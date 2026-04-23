@@ -82,4 +82,5 @@ HEALTHCHECK --interval=10s --timeout=3s \
 
 WORKDIR /app/
 
-ENTRYPOINT ["/opt/venv/bin/python3", "-m", "src.main"]
+ENV PYTHONPATH=/app/src
+ENTRYPOINT ["/opt/venv/bin/python3", "-m", "main"]

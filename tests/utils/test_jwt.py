@@ -4,7 +4,7 @@ import base64
 
 import pytest
 
-from src.utils.jwt import validate_jwt
+from utils.jwt import validate_jwt
 
 
 @pytest.mark.unit

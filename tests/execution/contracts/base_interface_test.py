@@ -5,7 +5,7 @@ import pytest
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from src.providers.execution.base_interface import ContractInterface
+from providers.execution.base_interface import ContractInterface
 
 
 @pytest.mark.unit
@@ -37,7 +37,7 @@ class TestContractInterface(unittest.TestCase):
         with self.assertRaises(AttributeError):
             TestContractWithoutAbiPath.factory(self.w3)
 
-    @patch('src.providers.execution.base_interface.ContractInterface.w3')
+    @patch('providers.execution.base_interface.ContractInterface.w3')
     def test_is_deployed_contract_exists(self, mock_w3):
         """Test the is_deployed method when the contract is deployed."""
         mock_w3.eth.get_code.return_value = b'\x01'  # Simulate contract code present
@@ -53,7 +53,7 @@ class TestContractInterface(unittest.TestCase):
         # Check if get_code was called with the correct arguments
         mock_w3.eth.get_code.assert_called_once_with(test_contract.address, block_identifier=block)
 
-    @patch('src.providers.execution.base_interface.ContractInterface.w3')
+    @patch('providers.execution.base_interface.ContractInterface.w3')
     def test_is_deployed_contract_not_exists(self, mock_w3):
         """Test the is_deployed method when the contract is not deployed."""
         mock_w3.eth.get_code.return_value = b''  # Simulate no contract code present

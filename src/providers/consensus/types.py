@@ -6,7 +6,7 @@ from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
-from src.types import (
+from type_aliases import (
     BlockHash,
     BlockRoot,
     CommitteeIndex,
@@ -16,9 +16,9 @@ from src.types import (
     StateRoot,
     ValidatorIndex,
 )
-from src.utils.dataclass import FromResponse, Nested
-from src.utils.types import hex_str_to_bytes
-from src.utils.validator_state import get_max_effective_balance
+from utils.dataclass import FromResponse, Nested
+from utils.types import hex_str_to_bytes
+from utils.validator_state import get_max_effective_balance
 
 
 @dataclass

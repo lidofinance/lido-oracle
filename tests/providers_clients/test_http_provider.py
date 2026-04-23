@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from requests import Response
 
-from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
-from src.providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any, data_is_int
+from metrics.prometheus.basic import CL_REQUESTS_DURATION
+from providers.http_provider import HTTPProvider, NoHostsProvided, NotOkResponse, data_is_any, data_is_int
 
 
 @pytest.mark.unit
@@ -173,7 +173,7 @@ def test_make_get_request_delegates_to_session():
 
 @pytest.mark.unit
 def test_make_get_request_not_overridden_in_kapi():
-    from src.providers.keys.client import KeysAPIClient
+    from providers.keys.client import KeysAPIClient
 
     assert '_make_get_request' not in KeysAPIClient.__dict__
 

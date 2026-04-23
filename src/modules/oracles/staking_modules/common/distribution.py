@@ -6,32 +6,32 @@ from dataclasses import asdict, dataclass, field
 
 from eth_typing import HexStr
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
-from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
-from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs, OperatorFrameSummary
-from src.modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
-from src.modules.oracles.staking_modules.common.types import (
+from constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from modules.oracles.staking_modules.common.helpers.last_report import LastReport
+from modules.oracles.staking_modules.common.log import FramePerfLog, Logs, OperatorFrameSummary
+from modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
+from modules.oracles.staking_modules.common.types import (
     ParticipationShares,
     RewardsShares,
     StrikesList,
     StrikesValidator,
 )
-from src.providers.execution.contracts.cs_parameters_registry import (
+from providers.execution.contracts.cs_parameters_registry import (
     PerformanceCoefficients,
 )
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.keys.client import KAPIInconsistentData
-from src.types import (
+from providers.execution.exceptions import InconsistentData
+from providers.keys.client import KAPIInconsistentData
+from type_aliases import (
     EpochNumber,
     NodeOperatorId,
     ReferenceBlockStamp,
     StakingModuleAddress,
     ValidatorIndex,
 )
-from src.utils.slot import get_reference_blockstamp
-from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.lido_validators import LidoValidator
-from src.web3py.types import Web3StakingModule
+from utils.slot import get_reference_blockstamp
+from utils.web3converter import Web3Converter
+from web3py.extensions.lido_validators import LidoValidator
+from web3py.types import Web3StakingModule
 
 
 logger = logging.getLogger(__name__)

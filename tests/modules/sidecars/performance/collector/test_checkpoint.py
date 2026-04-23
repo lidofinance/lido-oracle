@@ -4,10 +4,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import src.modules.sidecars.performance.collector.checkpoint as checkpoint_module
-from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT
-from src.modules.common.types import ChainConfig, FrameConfig
-from src.modules.sidecars.performance.collector.checkpoint import (
+import modules.sidecars.performance.collector.checkpoint as checkpoint_module
+from constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT
+from modules.common.types import ChainConfig, FrameConfig
+from modules.sidecars.performance.collector.checkpoint import (
     FrameCheckpoint,
     FrameCheckpointProcessor,
     FrameCheckpointsIterator,
@@ -15,12 +15,10 @@ from src.modules.sidecars.performance.collector.checkpoint import (
     SyncCommitteesCache,
     process_attestations,
 )
-from src.modules.sidecars.performance.common.db import DutiesDB
-from src.modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
-from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
-from src.types import BlockRoot, EpochNumber, ValidatorIndex
-from src.utils.web3converter import Web3Converter
+from modules.sidecars.performance.common.db import DutiesDB
+from modules.sidecars.performance.common.types import ProposalDuty, SyncDuty
+from providers.consensus.client import ConsensusClient
+from providers.consensus.types import BeaconSpecResponse, BlockAttestation, SlotAttestationCommittee, SyncCommittee
 from tests.factory.bitarrays import BitListFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -29,6 +27,8 @@ from tests.factory.configs import (
     FrameConfigFactory,
     SlotAttestationCommitteeFactory,
 )
+from type_aliases import BlockRoot, EpochNumber, ValidatorIndex
+from utils.web3converter import Web3Converter
 
 
 pytestmark = pytest.mark.unit
@@ -75,7 +75,7 @@ def processor(consensus_client: ConsensusClient, converter: Web3Converter):
 @pytest.fixture
 def sync_committees_cache():
     with patch(
-        'src.modules.sidecars.performance.collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()
+        'modules.sidecars.performance.collector.checkpoint.SYNC_COMMITTEES_CACHE', SyncCommitteesCache()
     ) as cache:
         yield cache
 
@@ -556,7 +556,7 @@ class TestSyncCommittee:
         prev_slot_response.message.body.execution_payload.block_hash = "0x00"
 
         with patch(
-            'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+            'modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
             Mock(return_value=prev_slot_response),
         ):
             result = processor._get_sync_committee(epoch)
@@ -583,7 +583,7 @@ class TestSyncCommittee:
         prev_slot_response.message.body.execution_payload.block_hash = "0x00"
 
         with patch(
-            'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+            'modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
             Mock(return_value=prev_slot_response),
         ):
             result = processor._get_sync_committee(epoch)
@@ -629,7 +629,7 @@ class TestProposeDuties:
         processor.cc.get_proposer_duties = Mock(return_value=[proposer_duty])
 
         with patch(
-            "src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot",
+            "modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot",
             Mock(return_value=prev_slot_response),
         ) as get_prev_non_missed_slot_mock:
             duties = processor._prepare_propose_duties(epoch, checkpoint_block_roots, checkpoint_slot)
@@ -676,7 +676,7 @@ class TestProposeDuties:
         processor.cc.get_block_root = Mock(return_value=Mock(root=fallback_root))
 
         with patch(
-            'src.modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
+            'modules.sidecars.performance.collector.checkpoint.get_prev_non_missed_slot',
             Mock(return_value=prev_slot_response),
         ):
             dependent_root = processor._get_dependent_root_for_proposer_duties(

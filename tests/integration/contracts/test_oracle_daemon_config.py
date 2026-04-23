@@ -1,6 +1,6 @@
 import pytest
 
-from src.constants import TOTAL_BASIS_POINTS
+from constants import TOTAL_BASIS_POINTS
 from tests.integration.contracts.contract_utils import check_contract, check_value_type
 
 

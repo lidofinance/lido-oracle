@@ -1,8 +1,8 @@
 DEV_CONTAINER_NAME = oracle-dev-container
 DEV_IMAGE = lidofinance/oracle:dev
 DEV_WORKDIR = /app
-EXEC_CMD = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv $(DEV_CONTAINER_NAME)
-EXEC_CMD_INTERACTIVE = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv -it $(DEV_CONTAINER_NAME)
+EXEC_CMD = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv -e PYTHONPATH=/app/src $(DEV_CONTAINER_NAME)
+EXEC_CMD_INTERACTIVE = docker exec -w $(DEV_WORKDIR) -e VIRTUAL_ENV=/opt/venv -e PYTHONPATH=/app/src -it $(DEV_CONTAINER_NAME)
 
 up:
 	@if [ -z "$$(docker ps -q -f name=$(DEV_CONTAINER_NAME))" ]; then \
@@ -55,7 +55,7 @@ test-mutations: up
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
 run-module: up
-	$(EXEC_CMD) python -m src.main $(ORACLE_MODULE)
+	$(EXEC_CMD) python -m main $(ORACLE_MODULE)
 
 sidecars-up:
 	docker compose up -d postgres init-db performance-collector performance-web

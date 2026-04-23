@@ -3,8 +3,8 @@ from unittest.mock import patch
 import pytest
 from multiformats.multibase.err import MultibaseKeyError
 
-from src.providers.ipfs import CID, CIDv0, IPFSProvider
-from src.providers.ipfs.types import CIDValidationError
+from providers.ipfs import CID, CIDv0, IPFSProvider
+from providers.ipfs.types import CIDValidationError
 
 
 @pytest.mark.unit
@@ -72,7 +72,7 @@ class TestIPFS:
         with pytest.raises(CIDValidationError):
             provider.publish(content)
 
-    @patch('src.variables.IPFS_VALIDATE_CID', False)
+    @patch('variables.IPFS_VALIDATE_CID', False)
     def test_fetch__validation_disabled__no_validation_performed(self, test_provider):
         provider = test_provider()
         cid = CID("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
@@ -81,7 +81,7 @@ class TestIPFS:
         result = provider.fetch(cid)
         assert result == b'test content'
 
-    @patch('src.variables.IPFS_VALIDATE_CID', False)
+    @patch('variables.IPFS_VALIDATE_CID', False)
     def test_publish__validation_disabled__no_validation_performed(self, test_provider):
         provider = test_provider("QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB")
         content = b"mock car content for upload test"

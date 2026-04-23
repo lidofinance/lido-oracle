@@ -7,39 +7,39 @@ from eth_abi.abi import encode
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
-from src import variables
-from src.metrics.prometheus.basic import (
+import variables
+from metrics.prometheus.basic import (
     ACCOUNT_BALANCE,
     ORACLE_BLOCK_NUMBER,
     ORACLE_SLOT_NUMBER,
 )
-from src.metrics.prometheus.business import (
+from metrics.prometheus.business import (
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
     ORACLE_MEMBER_INFO,
     ORACLE_MEMBER_LAST_REPORT_REF_SLOT,
 )
-from src.modules.common.types import (
+from modules.common.types import (
     ZERO_HASH,
     ChainConfig,
     CurrentFrame,
     FrameConfig,
     MemberInfo,
 )
-from src.modules.oracles.common.exceptions import (
+from modules.oracles.common.exceptions import (
     ContractVersionMismatch,
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
-from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_reference_blockstamp
-from src.utils.web3converter import Web3Converter
-from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
-from src.web3py.types import Web3, Web3Base
+from providers.execution.contracts.base_oracle import BaseOracleContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from type_aliases import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
+from utils.blockstamp import build_blockstamp
+from utils.cache import global_lru_cache as lru_cache
+from utils.slot import get_reference_blockstamp
+from utils.web3converter import Web3Converter
+from web3py.extensions.telemetry_data_bus import TelemetryEventId
+from web3py.types import Web3, Web3Base
 
 
 logger = logging.getLogger(__name__)

@@ -2,8 +2,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.web3py.extensions.staking_module import StakingModuleContracts
-from src.web3py.types import Web3StakingModule
+from web3py.extensions.staking_module import StakingModuleContracts
+from web3py.types import Web3StakingModule
 
 
 @pytest.fixture

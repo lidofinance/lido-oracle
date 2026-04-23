@@ -2,8 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.types import EpochNumber
-from src.variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
+from type_aliases import EpochNumber
+from variables import PERFORMANCE_WEB_SERVER_MAX_EPOCH_RANGE
 
 
 # PostgreSQL INTEGER max value (4 bytes, signed)

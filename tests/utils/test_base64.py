@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.utils.base64 import decode_base64url
+from utils.base64 import decode_base64url
 
 
 @pytest.mark.unit

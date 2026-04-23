@@ -17,27 +17,27 @@ from web3 import Web3
 from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
-from src import variables
-from src.modules.common.types import FrameConfig
-from src.modules.oracles.common.consensus import ConsensusModule
-from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.common.runtime import ipfs_providers
-from src.providers.consensus.client import ConsensusClient, LiteralState
-from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
-from src.providers.execution.contracts.base_oracle import BaseOracleContract
-from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.providers.ipfs import CID
-from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
-from src.utils.cache import clear_global_cache
-from src.utils.slot import get_non_missed_slot_header
-from src.variables import (
+import variables
+from modules.common.types import FrameConfig
+from modules.oracles.common.consensus import ConsensusModule
+from modules.oracles.common.oracle_module import OracleModule
+from modules.oracles.common.runtime import ipfs_providers
+from providers.consensus.client import ConsensusClient, LiteralState
+from providers.consensus.types import BlockDetailsResponse, BlockRootResponse
+from providers.execution.contracts.base_oracle import BaseOracleContract
+from providers.execution.contracts.hash_consensus import HashConsensusContract
+from providers.ipfs import CID
+from type_aliases import BlockRoot, BlockStamp, SlotNumber
+from utils.blockstamp import build_blockstamp
+from utils.cache import clear_global_cache
+from utils.slot import get_non_missed_slot_header
+from variables import (
     HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
     HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
     HTTP_REQUEST_TIMEOUT_CONSENSUS,
 )
-from src.web3py.contract_tweak import tweak_w3_contracts
-from src.web3py.extensions import (
+from web3py.contract_tweak import tweak_w3_contracts
+from web3py.extensions import (
     IPFS,
     FallbackProviderModule,
     KeysAPIClientModule,
@@ -46,7 +46,7 @@ from src.web3py.extensions import (
     PerformanceClientModule,
     TransactionUtils,
 )
-from src.web3py.extensions.staking_module import StakingModuleContracts
+from web3py.extensions.staking_module import StakingModuleContracts
 
 
 logger = logging.getLogger('fork_tests')
@@ -109,11 +109,11 @@ def set_delay_and_sleep(monkeypatch):
 @pytest.fixture(autouse=True)
 def patch_csm_contract_load(monkeypatch):
     monkeypatch.setattr(
-        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES",
+        "web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES",
         3,
     )
     monkeypatch.setattr(
-        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY",
+        "web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY",
         0,
     )
     logger.info("TESTRUN Patched Staking Module CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")

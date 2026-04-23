@@ -1,10 +1,10 @@
 from prometheus_client import start_http_server
 
-from src import variables
-from src.metrics.healthcheck_server import start_pulse_server
-from src.metrics.logging import logging
-from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
-from src.utils.build import get_build_info
+import variables
+from metrics.healthcheck_server import start_pulse_server
+from metrics.logging import logging
+from metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
+from utils.build import get_build_info
 
 
 logger = logging.getLogger(__name__)

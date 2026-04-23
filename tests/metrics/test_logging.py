@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.metrics.logging import JsonFormatter, convert_bytes_to_hex
+from metrics.logging import JsonFormatter, convert_bytes_to_hex
 
 
 @pytest.fixture

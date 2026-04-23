@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.utils.env import from_file_or_env
+from utils.env import from_file_or_env
 
 
 @pytest.mark.unit

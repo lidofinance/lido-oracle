@@ -1,7 +1,7 @@
 import pytest
 from web3.contract.contract import ContractFunction
 
-from src.modules.oracles.accounting.types import AccountingProcessingState
+from modules.oracles.accounting.types import AccountingProcessingState
 from tests.integration.contracts.contract_utils import check_contract, make_checker
 
 

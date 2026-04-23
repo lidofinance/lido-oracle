@@ -2,14 +2,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
-from src.modules.oracles.accounting.types import BeaconStat
-from src.web3py.extensions.lido_validators import (
-    CountOfKeysDiffersException,
-    LidoValidatorsProvider,
-    NodeOperator,
-    NodeOperatorLimitMode,
-)
+from constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from modules.oracles.accounting.types import BeaconStat
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
     LidoKeyFactory,
@@ -17,6 +11,12 @@ from tests.factory.no_registry import (
     NodeOperatorFactory,
     StakingModuleFactory,
     ValidatorFactory,
+)
+from web3py.extensions.lido_validators import (
+    CountOfKeysDiffersException,
+    LidoValidatorsProvider,
+    NodeOperator,
+    NodeOperatorLimitMode,
 )
 
 
@@ -373,7 +373,7 @@ def test_get_pending_lido_validators_happy_path(web3):
     deposit = _make_deposit(wc=_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+    with patch('web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
         result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert _PUBKEY in result
@@ -389,7 +389,7 @@ def test_get_pending_lido_validators_frontrun_attack(web3, caplog):
     deposit = _make_deposit(wc=_NON_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+    with patch('web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
         result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert result == {}
@@ -404,7 +404,7 @@ def test_get_pending_lido_validators_second_deposit_appended(web3):
     deposit2 = _make_deposit(wc=_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit1, deposit2])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+    with patch('web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
         result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert _PUBKEY in result
@@ -420,7 +420,7 @@ def test_get_pending_lido_validators_second_deposit_for_invalid_key_skipped(web3
     deposit2 = _make_deposit(wc=_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit1, deposit2])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+    with patch('web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
         result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert result == {}

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from src.utils.abi import camel_to_snake, named_tuple_to_dataclass
+from utils.abi import camel_to_snake, named_tuple_to_dataclass
 
 
 pytestmark = pytest.mark.unit

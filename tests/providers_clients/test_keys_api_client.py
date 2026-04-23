@@ -8,12 +8,13 @@ from eth_typing import HexStr
 from packaging.version import Version
 from web3 import Web3
 
-import src.providers.keys.client as keys_api_client_module
-from src import constants, variables
-from src.providers.keys.client import KAPIClientError, KAPIInconsistentData, KeysAPIClient, KeysOutdatedException
-from src.providers.keys.types import LidoKey
-from src.types import StakingModuleAddress
+import constants
+import providers.keys.client as keys_api_client_module
+import variables
+from providers.keys.client import KAPIClientError, KAPIInconsistentData, KeysAPIClient, KeysOutdatedException
+from providers.keys.types import LidoKey
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from type_aliases import StakingModuleAddress
 
 
 @pytest.mark.integration

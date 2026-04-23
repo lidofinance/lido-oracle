@@ -10,22 +10,22 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
 from web3_multi_provider import NoActiveProviderError
 
-from src.modules.common.daemon_module import DaemonModule
-from src.modules.oracles.common.consensus import ConsensusModule
-from src.modules.oracles.common.exceptions import (
+from modules.common.daemon_module import DaemonModule
+from modules.oracles.common.consensus import ConsensusModule
+from modules.oracles.common.exceptions import (
     ContractVersionMismatch,
     IncompatibleOracleVersion,
     IsNotMemberException,
 )
-from src.providers.consensus.client import ConsensusClient
-from src.providers.http_provider import NotOkResponse
-from src.providers.ipfs import IPFSError
-from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
-from src.types import BlockStamp
-from src.utils.cache import clear_global_cache
-from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
-from src.web3py.types import Web3Base
+from providers.consensus.client import ConsensusClient
+from providers.http_provider import NotOkResponse
+from providers.ipfs import IPFSError
+from providers.keys.client import KAPIInconsistentData, KeysOutdatedException
+from type_aliases import BlockStamp
+from utils.cache import clear_global_cache
+from utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from web3py.extensions.lido_validators import CountOfKeysDiffersException
+from web3py.types import Web3Base
 
 
 logger = logging.getLogger(__name__)

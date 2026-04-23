@@ -1,7 +1,7 @@
-from src.modules.oracles.common.runtime import build_staking_module_web3, run_oracle_module
-from src.modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
-from src.runtime import log_startup, start_observability
-from src.types import OracleModuleName
+from modules.oracles.common.runtime import build_staking_module_web3, run_oracle_module
+from modules.oracles.staking_modules.curated.cm import CMPerformanceOracle
+from runtime import log_startup, start_observability
+from type_aliases import OracleModuleName
 
 
 def run() -> None:

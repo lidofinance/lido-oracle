@@ -4,16 +4,16 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from src import variables
-from src.modules.oracles.accounting.types import (
+import variables
+from modules.oracles.accounting.types import (
     OnChainIpfsVaultReportData,
     ValidatorStage,
     ValidatorStatus,
     VaultInfo,
 )
-from src.providers.execution.base_interface import ContractInterface
-from src.utils.abi import named_tuple_to_dataclass
-from src.utils.cache import global_lru_cache as lru_cache
+from providers.execution.base_interface import ContractInterface
+from utils.abi import named_tuple_to_dataclass
+from utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)

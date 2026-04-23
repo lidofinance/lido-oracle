@@ -4,28 +4,28 @@ from typing import cast
 
 from eth_typing import ChecksumAddress
 
-from src.constants import (
+from constants import (
     CURATED_V2_TYPE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     TOTAL_BASIS_POINTS,
 )
-from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.common.types import ChainConfig
-from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
-from src.providers.execution.contracts.meta_registry import MetaRegistryContract
-from src.services.validator_state import LidoValidatorStateService
-from src.types import Gwei, NodeOperatorGlobalIndex, NodeOperatorId, ReferenceBlockStamp, StakingModuleId
-from src.utils.validator_balance import get_predictable_balance
-from src.utils.validator_state import get_max_effective_balance, is_on_exit
-from src.web3py.extensions.lido_validators import (
+from metrics.prometheus.duration_meter import duration_meter
+from modules.common.types import ChainConfig
+from providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
+from providers.execution.contracts.meta_registry import MetaRegistryContract
+from services.validator_state import LidoValidatorStateService
+from type_aliases import Gwei, NodeOperatorGlobalIndex, NodeOperatorId, ReferenceBlockStamp, StakingModuleId
+from utils.validator_balance import get_predictable_balance
+from utils.validator_state import get_max_effective_balance, is_on_exit
+from web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
     NodeOperatorLimitMode,
     StakingModule,
 )
-from src.web3py.types import Web3
+from web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)

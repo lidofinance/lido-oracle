@@ -2,11 +2,11 @@ import json
 
 import pytest
 
-from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator
-from src.providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
-from src.types import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
+from modules.oracles.staking_modules.common.log import FramePerfLog, Logs
+from modules.oracles.staking_modules.common.state import DutyAccumulator
+from providers.execution.contracts.cs_parameters_registry import PerformanceCoefficients
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from type_aliases import EpochNumber, NodeOperatorId, ReferenceBlockStamp, ValidatorIndex
 
 
 @pytest.fixture()

@@ -4,7 +4,7 @@ from enum import Enum
 
 import requests
 
-from src import variables
+import variables
 
 
 class OpsGenieAPI:

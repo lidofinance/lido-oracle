@@ -1,12 +1,12 @@
 import logging
 from http import HTTPStatus
 
-from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockDetailsResponse, BlockHeaderFullResponse
-from src.providers.execution.exceptions import InconsistentData
-from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp, build_reference_blockstamp
+from providers.consensus.client import ConsensusClient
+from providers.consensus.types import BlockDetailsResponse, BlockHeaderFullResponse
+from providers.execution.exceptions import InconsistentData
+from providers.http_provider import NotOkResponse
+from type_aliases import EpochNumber, ReferenceBlockStamp, SlotNumber
+from utils.blockstamp import build_blockstamp, build_reference_blockstamp
 
 
 logger = logging.getLogger(__name__)

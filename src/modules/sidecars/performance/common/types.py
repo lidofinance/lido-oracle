@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from src.types import ValidatorIndex
+from type_aliases import ValidatorIndex
 
 
 class ProposalDuty(BaseModel):

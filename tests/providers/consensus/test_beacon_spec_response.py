@@ -1,6 +1,6 @@
 import pytest
 
-from src.providers.consensus.types import BeaconSpecResponse
+from providers.consensus.types import BeaconSpecResponse
 
 
 class TestBeaconSpecResponse:

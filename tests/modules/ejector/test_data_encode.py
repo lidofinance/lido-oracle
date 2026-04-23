@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 
 import pytest
 
-from src.modules.oracles.ejector.data_encode import (
+from modules.oracles.ejector.data_encode import (
     KEY_INDEX_LENGTH,
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,
@@ -13,9 +13,9 @@ from src.modules.oracles.ejector.data_encode import (
     encode_data,
     sort_validators_to_eject,
 )
-from src.types import NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.no_registry import LidoValidatorFactory
+from type_aliases import NodeOperatorId, StakingModuleId
+from web3py.extensions.lido_validators import LidoValidator
 
 
 RECORD_LENGTH = sum(

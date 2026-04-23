@@ -13,7 +13,7 @@ from requests import JSONDecodeError, Response, Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from src.providers.consistency import ProviderConsistencyModule
+from providers.consistency import ProviderConsistencyModule
 
 
 logger = logging.getLogger(__name__)
