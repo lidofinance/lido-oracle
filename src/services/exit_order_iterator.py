@@ -52,12 +52,16 @@ class NodeOperatorStats:
     predictable_balance: Gwei = Gwei(0)
 
     total_stake: Gwei = Gwei(0)
+
+    # Link to group if NO is internal to CMv2
+    internal_operator_group: OperatorGroup | None = None
+    # Link to group if NO is external to CMv2
+    external_operator_group: OperatorGroup | None = None
+
     weight: float = 10 * TOTAL_BASIS_POINTS
 
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
-    # If this NO exists in some group in MetaRegistry already
-    grouped: bool = False
 
 
 class NodeOperatorAlreadyGroupedError(Exception):
@@ -67,7 +71,13 @@ class NodeOperatorAlreadyGroupedError(Exception):
     """
 
 
-class WeightsRevertError(Exception):
+class NodeOperatorExpectedToBeInCMv1Error(Exception):
+    """
+    Exception raised when an external node operator has other than CMv1 staking module.
+    """
+
+
+class WeightsNotUpdatedError(Exception):
     """
     In rare case weight could be unbalanced on the VEBO reference slot. In this case hope somebody will trigger
     a permissionless handle and a report will be generated on next frame.
@@ -77,6 +87,12 @@ class WeightsRevertError(Exception):
 class CuratedModuleNotFoundError(Exception):
     """
     Exception raised when Curated Module v1 and Curated Module v2 not found.
+    """
+
+
+class ModulesWithSameTypeError(Exception):
+    """
+    Exception raised when multiple curated module v1 or v2 found.
     """
 
 
@@ -93,7 +109,7 @@ class ValidatorExitIterator:
     | V       |                                                                       | Highest number of targeted validators to boosted exit |                        |
     | V       |                                                                       | Highest number of targeted validators to smooth exit  |                        |
     | V       | Highest deviation from the exit share limit or the biggest by balance |                                                       |                        |
-    | V       |                                                                       | Highest deviation from the target share               |                        |
+    | V       |                                                                       | Highest deviation from the target stake               |                        |
     | V       |                                                                       |                                                       | Lowest validator index |
     """  # noqa: E501
 
@@ -103,6 +119,8 @@ class ValidatorExitIterator:
     module_stats: dict[StakingModuleId, StakingModuleStats]
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
     exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+
+    cm_v2_id: StakingModuleId
 
     def __init__(
         self,
@@ -214,16 +232,17 @@ class ValidatorExitIterator:
 
             self.total_lido_predictable_balance += predictable_balance
             self.module_stats[sm_id].predictable_balance += predictable_balance
+            self.module_stats[sm_id].total_stake += predictable_balance
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_validators += 1
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_balance += predictable_balance
+            self.node_operators_stats[(sm_id, lido_key.operator_index)].total_stake += predictable_balance
 
     def _finalize_cm_v1_and_cm_v2_stats(self):
         cm_v1, cm_v2 = self._fetch_curated_modules()
 
         self._setup_weights(cm_v2)
-        self._setup_meta_connections(cm_v2)
-
-        self.module_stats[cm_v1[0]].total_stake += self.module_stats[cm_v2[0]].predictable_balance
+        self._setup_meta_connections(cm_v1, cm_v2)
+        self.cm_v2_id = cm_v2[0]
 
     def _fetch_curated_modules(self) -> tuple[CMv1, CMv2]:
         cm_v1_id = None
@@ -244,9 +263,18 @@ class ValidatorExitIterator:
             sm_type = sm_contract.get_type(self.blockstamp.block_hash)
 
             if sm_type == CURATED_V1_TYPE:
+                if cm_v1_id is not None:
+                    raise ModulesWithSameTypeError(
+                        f'Multiple curated module v1 found: {cm_v1_id} and {module.staking_module.id}'
+                    )
                 cm_v1_id = module.staking_module.id
                 cm_v1_contract = sm_contract
+
             elif sm_type == CURATED_V2_TYPE:
+                if cm_v2_id is not None:
+                    raise ModulesWithSameTypeError(
+                        f'Multiple curated module v2 found: {cm_v2_id} and {module.staking_module.id}'
+                    )
                 cm_v2_id = module.staking_module.id
                 cm_v2_contract = sm_contract
 
@@ -267,66 +295,91 @@ class ValidatorExitIterator:
             if no.module_stats.staking_module.id == staking_module_id
         ]
 
-        try:
-            weights = sm_contract.get_operator_weights(no_ids, self.blockstamp.block_hash)
-        except Exception as e:
-            raise WeightsRevertError(f"Failed to get weights for node operators: {no_ids}") from e
+        to_update_count = sm_contract.get_node_operator_deposit_info_to_update_count(self.blockstamp.block_hash)
+        if to_update_count != 0:
+            msg = f'Weights are not updated for Curated Module v2 (id: {staking_module_id}).'
+            logger.error({'msg': msg})
+            raise WeightsNotUpdatedError(msg)
+
+        weights = sm_contract.get_operator_weights(no_ids, self.blockstamp.block_hash)
 
         for index, no_id in enumerate(no_ids):
             self.node_operators_stats[(staking_module_id, no_id)].weight = weights[index]
 
-    def _setup_meta_connections(self, cm_v2: CMv2) -> None:
-        staking_module_id, sm_contract = cm_v2
+    def _setup_meta_connections(self, cm_v1: CMv1, cm_v2: CMv2) -> None:
+        _, cm_v2_contract = cm_v2
 
         # Get meta-registry and connect all NO
         meta_registry = cast(
             MetaRegistryContract,
             self.w3.eth.contract(
-                address=sm_contract.get_meta_registry_address(self.blockstamp.block_hash),
+                address=cm_v2_contract.get_meta_registry_address(self.blockstamp.block_hash),
                 ContractFactoryClass=MetaRegistryContract,
                 decode_tuples=True,
             ),
         )
 
         for group in meta_registry.get_all_groups(self.blockstamp.block_hash):
-            self._process_group(group, staking_module_id)
+            self._process_group(group, cm_v1, cm_v2)
 
-    def _process_group(self, group: OperatorGroup, staking_module_id: StakingModuleId) -> None:
-        internal_weight = 0
-        internal_balance = Gwei(0)
+    def _process_group(self, group: OperatorGroup, cm_v1: CMv1, cm_v2: CMv2) -> None:
+        cm_v1_id, _ = cm_v1
+        cm_v2_id, _ = cm_v2
 
         external_balance = Gwei(0)
         external_gids = []
 
-        for no in group.sub_node_operators:
-            gid = (staking_module_id, no.node_operator_id)
-
-            if self.node_operators_stats[gid].grouped:
-                raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
-
-            self.node_operators_stats[gid].grouped = True
-            internal_balance += self.node_operators_stats[gid].predictable_balance
-            internal_weight += self.node_operators_stats[gid].weight
-            # TODO should we add here external_balance?
-            # self.node_operators_stats[gid].total_stake += external_balance
-
         for no in group.external_operators:
             gid = no.get_gid()
-            if self.node_operators_stats[gid].grouped:
+
+            if gid[0] != cm_v1_id:
+                raise NodeOperatorExpectedToBeInCMv1Error(
+                    f"Node operator {gid} is expected to be in CMv1, but it is not. CMv1 id: {cm_v1_id}"
+                )
+
+            if (
+                self.node_operators_stats[gid].internal_operator_group
+                or self.node_operators_stats[gid].external_operator_group
+            ):
                 raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
+            self.node_operators_stats[gid].external_operator_group = group
 
             external_gids.append(gid)
             external_balance += self.node_operators_stats[gid].predictable_balance
 
-        # CMv2 total stake
-        self.module_stats[staking_module_id].total_stake += external_balance
+        internal_weight = 0
+        internal_balance = Gwei(0)
 
-        # CMv1 stats
-        # TODO what if NO not from CMv1?
+        for no in group.sub_node_operators:
+            gid = (cm_v2_id, no.node_operator_id)
+
+            if (
+                self.node_operators_stats[gid].internal_operator_group
+                or self.node_operators_stats[gid].external_operator_group
+            ):
+                raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
+            self.node_operators_stats[gid].internal_operator_group = group
+
+            internal_balance += self.node_operators_stats[gid].predictable_balance
+            internal_weight += self.node_operators_stats[gid].weight
+
+        if not group.has_connection():
+            # Case if the group is not fulfilled, it means that the group doesn't have connections
+            # We can skip additional calculations.
+            return
+
+        for no in group.sub_node_operators:
+            gid = (cm_v2_id, no.node_operator_id)
+            self.node_operators_stats[gid].total_stake += (
+                external_balance * self.node_operators_stats[gid].weight / internal_weight
+            )
+
         for gid in external_gids:
-            self.node_operators_stats[gid].grouped = True
             self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
             self.node_operators_stats[gid].weight += internal_weight / len(external_gids)
+
+        self.module_stats[cm_v1_id].total_stake += internal_balance
+        self.module_stats[cm_v2_id].total_stake += external_balance
 
     def _calculate_sm_weights(self) -> None:
         for (sm_id, _), node_operator in self.node_operators_stats.items():
@@ -363,20 +416,6 @@ class ValidatorExitIterator:
 
         raise StopIteration
 
-    def get_can_request_exit_predicate(self, gid: NodeOperatorGlobalIndex):
-        """
-        Validators that are presented but not yet activated on CL can be requested to exit in advance.
-
-        There is an edge case when a validator's consolidation request is still in the queue to be processed.
-        Theoretically, we can check it and verify if it is valid. If it is valid, the validator won't be excitable soon,
-        but the check is very complex and requires more additional data and some prediction to make. Decided to skip it.
-        """
-        indexes = self.lvs.get_recently_requested_to_exit_validators_by_node_operator(
-            self.chain_config.seconds_per_slot,
-            self.blockstamp,
-        )
-        return self._make_exit_predicate(gid, indexes)
-
     @staticmethod
     def _make_exit_predicate(gid: NodeOperatorGlobalIndex, indexes: dict):
         def is_validator_exitable(validator: LidoValidator) -> bool:
@@ -398,11 +437,11 @@ class ValidatorExitIterator:
         self.total_lido_predictable_balance -= exit_balance
         # Change module total
         self.module_stats[gid[0]].predictable_balance -= exit_balance
-        self.module_stats[gid[0]].total_stake -= exit_balance
         # Change node operator stats
         self.node_operators_stats[gid].predictable_validators -= 1
         self.node_operators_stats[gid].predictable_balance -= exit_balance
-        self.node_operators_stats[gid].total_stake -= exit_balance
+
+        self._decrease_affected_stake(gid, exit_balance)
 
         logger.debug(
             {
@@ -415,6 +454,30 @@ class ValidatorExitIterator:
         )
 
         return lido_validator
+
+    def _decrease_affected_stake(self, gid: NodeOperatorGlobalIndex, exit_balance: Gwei) -> None:
+        self.module_stats[gid[0]].total_stake -= exit_balance
+        self.node_operators_stats[gid].total_stake -= exit_balance
+
+        i_group = self.node_operators_stats[gid].internal_operator_group
+        if i_group and i_group.has_connection():
+            self.module_stats[i_group.external_operators[0].get_gid()[0]].total_stake -= exit_balance
+
+            for op in i_group.external_operators:
+                self.node_operators_stats[op.get_gid()].total_stake -= exit_balance / len(i_group.external_operators)
+
+        e_group = self.node_operators_stats[gid].external_operator_group
+        if e_group and e_group.has_connection():
+            self.module_stats[self.cm_v2_id].total_stake -= exit_balance
+
+            total_weight = sum(
+                self.node_operators_stats[(self.cm_v2_id, no.node_operator_id)].weight
+                for no in e_group.sub_node_operators
+            )
+            for op in e_group.sub_node_operators:
+                self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= (
+                    exit_balance * self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].weight / total_weight
+                )
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
@@ -452,9 +515,9 @@ class ValidatorExitIterator:
         NOs in this module have high priority to exit.
         If there is no higher share rate, we look at SM size. Bigger SM size means higher priority.
 
-        if  0 <  result     - node operator has excess balance.
-        if -1 <= result < 0 - node operators has ok balance.
-        if -2 == result     - node operator has no balance.
+        if  0 <  result     - sm has excess balance.
+        if -1 <= result < 0 - sm has ok balance.
+        if -2 == result     - sm has no balance.
 
         -------- -2 ------------ -1 -------------------------- 0 ----------------------------> Higher exit priority
         ---- sm with balance --- -1 --- sm with ok balance --- 0 --- sm with a lot of ETH --->
@@ -475,11 +538,11 @@ class ValidatorExitIterator:
         """
         Highest deviation current balance from target stake rate by weight.
         """
-        target_predictable_balance = (
+        target_no_stake = (
             node_operator.module_stats.total_stake * node_operator.weight / node_operator.module_stats.total_weight
         )
 
-        return Gwei(target_predictable_balance - node_operator.predictable_balance)
+        return Gwei(node_operator.total_stake - target_no_stake)
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         """

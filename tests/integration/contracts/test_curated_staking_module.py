@@ -13,6 +13,7 @@ def test_curated_staking_module_contract(curated_staking_module_contract, caplog
             ('get_operator_weights', ([0, 1, 2], 'latest'), lambda r: check_value_type(r, list)),
             ('get_type', ('latest',), lambda r: check_value_type(r, bytes)),
             ('get_meta_registry_address', ('latest',), lambda r: check_value_type(r, str)),
+            ('get_node_operator_deposit_info_to_update_count', ('latest',), lambda r: check_value_type(r, int)),
         ],
         caplog,
     )

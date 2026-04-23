@@ -65,3 +65,17 @@ class CuratedStakingModuleContract(ContractInterface):
         )
 
         return response
+
+    def get_node_operator_deposit_info_to_update_count(self, block_identifier: BlockIdentifier) -> int:
+        response = self.functions.getNodeOperatorDepositInfoToUpdateCount().call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `getNodeOperatorDepositInfoToUpdateCount()`.',
+                'response': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+
+        return response
