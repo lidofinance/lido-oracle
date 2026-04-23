@@ -74,5 +74,5 @@ STAKING_MODULE_LOGS_VERSION = 1
 SECONDS_IN_YEAR = int(365.25 * 24 * 60 * 60)
 
 # Module types
-
+CURATED_V1_TYPE = b'curated-onchain-v1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 CURATED_V2_TYPE = b'curated-onchain-v2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'

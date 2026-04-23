@@ -2,9 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import cast
 
-from eth_typing import ChecksumAddress
-
 from src.constants import (
+    CURATED_V1_TYPE,
     CURATED_V2_TYPE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MAX_EFFECTIVE_BALANCE,
@@ -14,9 +13,9 @@ from src.constants import (
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.common.types import ChainConfig
 from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
-from src.providers.execution.contracts.meta_registry import MetaRegistryContract
+from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
 from src.services.validator_state import LidoValidatorStateService
-from src.types import Gwei, NodeOperatorGlobalIndex, NodeOperatorId, ReferenceBlockStamp, StakingModuleId
+from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
 from src.utils.validator_balance import get_predictable_balance
 from src.utils.validator_state import get_max_effective_balance, is_on_exit
 from src.web3py.extensions.lido_validators import (
@@ -31,10 +30,17 @@ from src.web3py.types import Web3
 logger = logging.getLogger(__name__)
 
 
+type CMv1 = tuple[StakingModuleId, CuratedStakingModuleContract]
+type CMv2 = tuple[StakingModuleId, CuratedStakingModuleContract]
+
+
 @dataclass
 class StakingModuleStats:
     staking_module: StakingModule
     predictable_balance: Gwei = Gwei(0)
+
+    total_stake: Gwei = Gwei(0)
+    total_weight: float = 0
 
 
 @dataclass
@@ -45,7 +51,8 @@ class NodeOperatorStats:
     predictable_validators: int = 0
     predictable_balance: Gwei = Gwei(0)
 
-    weight: float = 1.0
+    total_stake: Gwei = Gwei(0)
+    weight: float = 10 * TOTAL_BASIS_POINTS
 
     force_exit_to: int | None = None
     soft_exit_to: int | None = None
@@ -53,17 +60,23 @@ class NodeOperatorStats:
     grouped: bool = False
 
 
-class NodeOperatorAlreadyGrouped(Exception):
+class NodeOperatorAlreadyGroupedError(Exception):
     """
     Exception raised when trying to group a node operator that is already part of a group.
     Avoiding double accounting of the same node operator in different groups better do not build report at all
     """
 
 
-class WeightsRevert(Exception):
+class WeightsRevertError(Exception):
     """
     In rare case weight could be unbalanced on the VEBO reference slot. In this case hope somebody will trigger
     a permissionless handle and a report will be generated on next frame.
+    """
+
+
+class CuratedModuleNotFoundError(Exception):
+    """
+    Exception raised when Curated Module v1 and Curated Module v2 not found.
     """
 
 
@@ -80,7 +93,7 @@ class ValidatorExitIterator:
     | V       |                                                                       | Highest number of targeted validators to boosted exit |                        |
     | V       |                                                                       | Highest number of targeted validators to smooth exit  |                        |
     | V       | Highest deviation from the exit share limit or the biggest by balance |                                                       |                        |
-    | V       |                                                                       | Highest rate weight to effective balance              |                        |
+    | V       |                                                                       | Highest deviation from the target share               |                        |
     | V       |                                                                       |                                                       | Lowest validator index |
     """  # noqa: E501
 
@@ -166,18 +179,8 @@ class ValidatorExitIterator:
         # Calculate current stats on CL
         self._calculate_current_cl_balance()
         self._calculate_pending_validator_cl_balance()
-
-        no_ids_by_module: dict[StakingModuleId, list[NodeOperatorId]] = {}
-        for module_id, no_id in self.node_operators_stats:
-            no_ids_by_module.setdefault(module_id, []).append(no_id)
-
-        for module in self.module_stats.values():
-            # fetch weights for curated V2
-            self._setup_cm_data(
-                staking_module_id=module.staking_module.id,
-                staking_module_address=module.staking_module.staking_module_address,
-                no_ids=no_ids_by_module.get(module.staking_module.id, []),
-            )
+        self._finalize_cm_v1_and_cm_v2_stats()
+        self._calculate_sm_weights()
 
     def _calculate_current_cl_balance(self):
         for gid, validators in self.exitable_validators.items():
@@ -189,8 +192,10 @@ class ValidatorExitIterator:
 
                 # --- Update lido stats ---
                 self.total_lido_predictable_balance += validator_predictable_balance
+                self.module_stats[gid[0]].total_stake += validator_predictable_balance
                 self.module_stats[gid[0]].predictable_balance += validator_predictable_balance
                 self.node_operators_stats[gid].predictable_balance += validator_predictable_balance
+                self.node_operators_stats[gid].total_stake += validator_predictable_balance
 
     def _calculate_pending_validator_cl_balance(self):
         pending_validators = self.w3.lido_validators.get_pending_lido_validators(self.blockstamp)
@@ -212,45 +217,67 @@ class ValidatorExitIterator:
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_validators += 1
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_balance += predictable_balance
 
-    def _setup_cm_data(
-        self,
-        staking_module_id: StakingModuleId,
-        staking_module_address: ChecksumAddress,
-        no_ids: list[NodeOperatorId],
-    ) -> None:
-        sm_contract = cast(
-            CuratedStakingModuleContract,
-            self.w3.eth.contract(
-                address=staking_module_address,
-                ContractFactoryClass=CuratedStakingModuleContract,
-                decode_tuples=True,
-            ),
-        )
-        sm_type = sm_contract.get_type(self.blockstamp.block_hash)
+    def _finalize_cm_v1_and_cm_v2_stats(self):
+        cm_v1, cm_v2 = self._fetch_curated_modules()
 
-        if sm_type == CURATED_V2_TYPE:
-            self._setup_weights(staking_module_id, sm_contract, no_ids)
-            self._setup_meta_connections(staking_module_id, sm_contract)
+        self._setup_weights(cm_v2)
+        self._setup_meta_connections(cm_v2)
 
-    def _setup_weights(
-        self,
-        staking_module_id: StakingModuleId,
-        sm_contract: CuratedStakingModuleContract,
-        no_ids: list[NodeOperatorId],
-    ):
+        self.module_stats[cm_v1[0]].total_stake += self.module_stats[cm_v2[0]].predictable_balance
+
+    def _fetch_curated_modules(self) -> tuple[CMv1, CMv2]:
+        cm_v1_id = None
+        cm_v1_contract = None
+        cm_v2_id = None
+        cm_v2_contract = None
+
+        for module in self.module_stats.values():
+            sm_contract = cast(
+                CuratedStakingModuleContract,
+                self.w3.eth.contract(
+                    address=module.staking_module.staking_module_address,
+                    ContractFactoryClass=CuratedStakingModuleContract,
+                    decode_tuples=True,
+                ),
+            )
+
+            sm_type = sm_contract.get_type(self.blockstamp.block_hash)
+
+            if sm_type == CURATED_V1_TYPE:
+                cm_v1_id = module.staking_module.id
+                cm_v1_contract = sm_contract
+            elif sm_type == CURATED_V2_TYPE:
+                cm_v2_id = module.staking_module.id
+                cm_v2_contract = sm_contract
+
+        if not (cm_v1_id and cm_v1_contract and cm_v2_id and cm_v2_contract):
+            msg = f'Curated Module v1 or v2 not found. CMv1 id: {cm_v1_id} | CMV2 id: {cm_v2_id}'
+
+            logger.error({'msg': msg})
+            raise CuratedModuleNotFoundError(msg)
+
+        return (cm_v1_id, cm_v1_contract), (cm_v2_id, cm_v2_contract)
+
+    def _setup_weights(self, curated_module: CMv2) -> None:
+        staking_module_id, sm_contract = curated_module
+
+        no_ids = [
+            no.node_operator.id
+            for no in self.node_operators_stats.values()
+            if no.module_stats.staking_module.id == staking_module_id
+        ]
+
         try:
             weights = sm_contract.get_operator_weights(no_ids, self.blockstamp.block_hash)
         except Exception as e:
-            raise WeightsRevert(f"Failed to get weights for node operators: {no_ids}") from e
+            raise WeightsRevertError(f"Failed to get weights for node operators: {no_ids}") from e
 
         for index, no_id in enumerate(no_ids):
             self.node_operators_stats[(staking_module_id, no_id)].weight = weights[index]
 
-    def _setup_meta_connections(
-        self,
-        staking_module_id: StakingModuleId,
-        sm_contract: CuratedStakingModuleContract,
-    ):
+    def _setup_meta_connections(self, cm_v2: CMv2) -> None:
+        staking_module_id, sm_contract = cm_v2
+
         # Get meta-registry and connect all NO
         meta_registry = cast(
             MetaRegistryContract,
@@ -261,29 +288,51 @@ class ValidatorExitIterator:
             ),
         )
 
-        groups = meta_registry.get_all_groups(self.blockstamp.block_hash)
-        for group in groups:
-            gids = []
-            total_group_balance = Gwei(0)
+        for group in meta_registry.get_all_groups(self.blockstamp.block_hash):
+            self._process_group(group, staking_module_id)
 
-            for no in group.sub_node_operators:
-                gid = (staking_module_id, no.node_operator_id)
-                gids.append(gid)
-                total_group_balance += self.node_operators_stats[gid].predictable_balance
+    def _process_group(self, group: OperatorGroup, staking_module_id: StakingModuleId) -> None:
+        internal_weight = 0
+        internal_balance = Gwei(0)
 
-            for no in group.external_operators:
-                gid = no.get_gid()
-                gids.append(gid)
-                total_group_balance += self.node_operators_stats[gid].predictable_balance
+        external_balance = Gwei(0)
+        external_gids = []
 
-            for gid in gids:
-                if self.node_operators_stats[gid].grouped:
-                    raise NodeOperatorAlreadyGrouped(f"Node operator {gid} is already persists in a group.")
+        for no in group.sub_node_operators:
+            gid = (staking_module_id, no.node_operator_id)
 
-                self.node_operators_stats[gid].grouped = True
-                self.node_operators_stats[gid].predictable_balance = total_group_balance
+            if self.node_operators_stats[gid].grouped:
+                raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
 
-    def _get_report_limits(self):
+            self.node_operators_stats[gid].grouped = True
+            internal_balance += self.node_operators_stats[gid].predictable_balance
+            internal_weight += self.node_operators_stats[gid].weight
+            # TODO should we add here external_balance?
+            # self.node_operators_stats[gid].total_stake += external_balance
+
+        for no in group.external_operators:
+            gid = no.get_gid()
+            if self.node_operators_stats[gid].grouped:
+                raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
+
+            external_gids.append(gid)
+            external_balance += self.node_operators_stats[gid].predictable_balance
+
+        # CMv2 total stake
+        self.module_stats[staking_module_id].total_stake += external_balance
+
+        # CMv1 stats
+        # TODO what if NO not from CMv1?
+        for gid in external_gids:
+            self.node_operators_stats[gid].grouped = True
+            self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
+            self.node_operators_stats[gid].weight += internal_weight / len(external_gids)
+
+    def _calculate_sm_weights(self) -> None:
+        for (sm_id, _), node_operator in self.node_operators_stats.items():
+            self.module_stats[sm_id].total_weight += node_operator.weight
+
+    def _get_report_limits(self) -> None:
         self.exit_limit_in_gwei = Gwei(
             self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
                 self.blockstamp.block_hash,
@@ -349,9 +398,11 @@ class ValidatorExitIterator:
         self.total_lido_predictable_balance -= exit_balance
         # Change module total
         self.module_stats[gid[0]].predictable_balance -= exit_balance
+        self.module_stats[gid[0]].total_stake -= exit_balance
         # Change node operator stats
         self.node_operators_stats[gid].predictable_validators -= 1
         self.node_operators_stats[gid].predictable_balance -= exit_balance
+        self.node_operators_stats[gid].total_stake -= exit_balance
 
         logger.debug(
             {
@@ -370,7 +421,7 @@ class ValidatorExitIterator:
             -self._no_force_predicate(node_operator),
             -self._no_soft_predicate(node_operator),
             -self._max_share_rate_coefficient_predicate(node_operator),
-            self._no_weight_predicate(node_operator),
+            -self._no_target_balance_deviation_predicate(node_operator),
             self._lowest_validator_index_predicate(node_operator),
         )
 
@@ -420,17 +471,15 @@ class ValidatorExitIterator:
         return -1 / node_operator.module_stats.predictable_balance
 
     @staticmethod
-    def _no_weight_predicate(node_operator: NodeOperatorStats) -> float:
+    def _no_target_balance_deviation_predicate(node_operator: NodeOperatorStats) -> Gwei:
         """
-        Some NOs could have a weight. Weight represents how more stake NO can have comparing to other NO in same SM.
-
-        --- 0 --------------------------------- 1 ----------> Lower exit priority
-        ------- high stake NOs --------- low stake NOs ----->
+        Highest deviation current balance from target stake rate by weight.
         """
-        if node_operator.predictable_balance == 0:
-            return 0
+        target_predictable_balance = (
+            node_operator.module_stats.total_stake * node_operator.weight / node_operator.module_stats.total_weight
+        )
 
-        return node_operator.weight / node_operator.predictable_balance
+        return Gwei(target_predictable_balance - node_operator.predictable_balance)
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         """
