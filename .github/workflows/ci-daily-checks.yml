@@ -29,6 +29,8 @@ jobs:
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN}}
           LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
           LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}
         run: |
           cat << EOF > .env
           OPSGENIE_API_KEY=${OPSGENIE_API_KEY}
@@ -46,6 +48,8 @@ jobs:
           PINATA_DEDICATED_GATEWAY_TOKEN=${PINATA_DEDICATED_GATEWAY_TOKEN}
           LIDO_IPFS_TOKEN=${LIDO_IPFS_TOKEN}
           LIDO_IPFS_HOST=${LIDO_IPFS_HOST}
+          FILEBASE_IPFS_HOST=${FILEBASE_IPFS_HOST}
+          FILEBASE_IPFS_TOKEN=${FILEBASE_IPFS_TOKEN}
           EOF
 
           docker build -t lido-oracle-ci . && docker run --env-file .env --rm lido-oracle-ci check

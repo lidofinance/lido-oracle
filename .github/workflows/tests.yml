@@ -48,6 +48,8 @@ jobs:
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
           LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
           LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}
 
   linters:
     runs-on: ubuntu-latest
