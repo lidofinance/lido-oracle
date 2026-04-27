@@ -290,12 +290,27 @@ class AbnormalClRebase:
     ) -> Gwei:
         """
         Account for balances of freshly added validators who appeared between epochs.
-        Uses actual validator balance rather than a fixed deposit amount to correctly
-        handle validators topped up to MAX_EFFECTIVE_BALANCE (2048 ETH) via EIP-7251.
+
+        We sum `v.balance` (not `v.validator.effective_balance`) for new validators because:
+        - With EIP-7251, a new validator's deposit can be up to 2048 ETH, and using a fixed
+          32 ETH constant or the (potentially lagging/rounded) effective_balance would under-correct.
+        - `v.balance` may include a small amount of rewards earned since activation, which means
+          we slightly over-correct (making the detected rebase marginally more negative). This is
+          conservative and safe for bunker-mode detection — we err toward triggering bunker mode
+          rather than missing a real negative rebase.
+        - The excess of `v.balance` over the deposit is bounded by one partial-withdrawal sweep
+          cycle, which is negligible relative to the oracle reporting period.
+
         Any pre-deposits to Lido keys will not be counted until the key is deposited through
         the protocol and goes into `used` state.
         """
         prev_pubkeys = {v.validator.pubkey for v in prev_validators}
+        ref_pubkeys = {v.validator.pubkey for v in ref_validators}
+        missing_count = len(prev_pubkeys - ref_pubkeys)
+        if missing_count:
+            logger.warning(
+                {"msg": f"Validator set shrank in abnormal CL rebase: missing_validators={missing_count}"}
+            )
         return Gwei(sum((v.balance for v in ref_validators if v.validator.pubkey not in prev_pubkeys), Gwei(0)))
 
     @staticmethod

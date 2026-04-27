@@ -225,8 +225,8 @@ def test_get_nearest_and_distant_blockstamps(
     assert distant_blockstamp == expected_blockstamps[1]
 
 
-# Shared validator pool: module-level so all parametrize cases reuse the same pubkeys.
-# Case groups use non-overlapping slices to stay independent.
+# Shared validator pool: module-level so parametrized cases reuse stable pubkeys.
+# Slices may overlap across cases; case independence comes from deepcopy in the helpers.
 _POOL = LidoValidatorFactory.batch(12, balance=Gwei(32 * 10**9))
 
 
@@ -375,6 +375,7 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
 
     result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
     assert result == expected_rebase
 
 
