@@ -37,6 +37,7 @@ class TelemetryDataBus(Module):
         self._data_bus_w3 = None
         self._contract = None
         self._module_name = module_name
+        self._chain_id = w3.eth.chain_id
 
         if not data_bus_rpc or not data_bus_address:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping initialization.'})
@@ -101,6 +102,7 @@ class TelemetryDataBus(Module):
             return
 
         message: dict = {
+            'chain_id': self._chain_id,
             'version': get_oracle_version(),
             'module': self._module_name,
         }

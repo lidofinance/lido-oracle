@@ -59,6 +59,7 @@ class TestTelemetryDataBusFork:
         (payload_bytes,) = decode(['bytes'], bytes(log['data']))
         payload = json.loads(payload_bytes.decode('utf-8'))
 
+        assert payload['chain_id'] == forked_el_client.eth.chain_id
         assert payload['module'] == 'accounting'
         assert payload['version'] == get_oracle_version()
         assert payload['data']['report_hash'] == '0x' + report_hash.hex()

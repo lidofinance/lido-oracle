@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "7.1.0"
+version = "8.0.0"
 description = "Oracle daemon for the Lido decentralized staking protocol. It collects consensus-layer data — including the number of active validators and their aggregated balances — and securely reports this information to the Lido dApp smart contracts operating on the execution layer."
 authors = [
     "Dmitry Chernukhin",

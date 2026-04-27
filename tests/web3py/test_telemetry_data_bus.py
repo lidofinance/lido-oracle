@@ -1,9 +1,11 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
 
 from src import variables
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
+from src.utils.version import get_oracle_version
 from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
 
 
@@ -69,6 +71,11 @@ class TestTelemetryDataBus:
         module.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
 
         mock_contract.send_message.assert_called_once()
+        payload = json.loads(mock_contract.send_message.call_args[0][1])
+        assert payload['chain_id'] == web3.eth.chain_id
+        assert payload['version'] == get_oracle_version()
+        assert payload['module'] == 'accounting'
+        assert payload['data'] == data
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
         assert 'DataBus telemetry sent.' in caplog.text

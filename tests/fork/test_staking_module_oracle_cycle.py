@@ -64,7 +64,7 @@ def performance_local_db(testrun_path):
         self._setup_database()
 
     table = Duty.__table__
-    for col_name in ("attestations", "proposals_vids", "proposals_flags", "syncs_vids", "syncs_misses"):
+    for col_name in ("missed_attestation_vids", "proposals_vids", "proposals_flags", "syncs_vids", "syncs_misses"):
         if col_name in table.c:
             table.c[col_name].type = JSON()
 
