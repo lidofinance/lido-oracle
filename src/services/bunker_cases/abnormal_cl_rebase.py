@@ -6,7 +6,7 @@ from typing import cast
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
@@ -289,16 +289,14 @@ class AbnormalClRebase:
         ref_validators: Sequence[Validator],
     ) -> Gwei:
         """
-        Handle 32 ETH balances of freshly baked validators, who appeared between epochs
-        Lido validators are counted by public keys that the protocol deposited with 32 ETH,
-        so we can safely count the differences in the number of validators when they occur by deposit size.
-        Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
-        and goes into `used` state
+        Account for balances of freshly added validators who appeared between epochs.
+        Uses actual validator balance rather than a fixed deposit amount to correctly
+        handle validators topped up to MAX_EFFECTIVE_BALANCE (2048 ETH) via EIP-7251.
+        Any pre-deposits to Lido keys will not be counted until the key is deposited through
+        the protocol and goes into `used` state.
         """
-        validators_diff = len(ref_validators) - len(prev_validators)
-        if validators_diff < 0:
-            raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * LIDO_DEPOSIT_AMOUNT)
+        prev_pubkeys = {v.validator.pubkey for v in prev_validators}
+        return Gwei(sum((v.balance for v in ref_validators if v.validator.pubkey not in prev_pubkeys), Gwei(0)))
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
