@@ -460,21 +460,45 @@ class TestProcessGroup:
         assert nos_int2.total_stake == Gwei(48 * 10**9)
 
     def test_process_group__already_grouped_internal__raises_error(self, iterator):
+        """Error raised when a sub_node_operator already belongs to a group,
+        even when the group also contains valid external_operators on the other side."""
         sm_v1 = make_staking_module(1)
         sm_v2 = make_staking_module(2)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
         ms_v2 = StakingModuleStats(staking_module=sm_v2)
-        no1 = make_node_operator(1, sm_v2)
-        nos1 = NodeOperatorStats(node_operator=no1, module_stats=ms_v2, internal_operator_group=Mock())
-        iterator.module_stats = {sm_v2.id: ms_v2}
-        iterator.node_operators_stats = {(sm_v2.id, no1.id): nos1}
+
+        # Internal NO (CMv2) is already in a group
+        no_int = make_node_operator(1, sm_v2)
+        nos_int = NodeOperatorStats(node_operator=no_int, module_stats=ms_v2, internal_operator_group=Mock())
+
+        # External NO (CMv1) is fresh — not yet in any group
+        no_ext = make_node_operator(2, sm_v1)
+        nos_ext = NodeOperatorStats(node_operator=no_ext, module_stats=ms_v1)
+
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            (sm_v2.id, no_int.id): nos_int,
+            (sm_v1.id, no_ext.id): nos_ext,
+        }
+
+        # Group has the already-grouped NO in sub_node_operators AND a valid external NO
         group = OperatorGroup(
-            sub_node_operators=[SubNodeOperator(node_operator_id=no1.id, share=100)],
-            external_operators=[],
+            sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
 
         cm_v1 = (sm_v1.id, Mock())
         cm_v2 = (sm_v2.id, Mock())
         with pytest.raises(NodeOperatorAlreadyGroupedError):
+            iterator._process_group(group, cm_v1, cm_v2)
+
+        # Same NO in external and internal
+        group = OperatorGroup(
+            sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v2.id, no_int.id))],
+        )
+
+        with pytest.raises(NodeOperatorExpectedToBeInCMv1Error):
             iterator._process_group(group, cm_v1, cm_v2)
 
     def test_process_group__already_grouped_external__raises_error(self, iterator):
