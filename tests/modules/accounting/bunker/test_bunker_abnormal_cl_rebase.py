@@ -331,17 +331,6 @@ _POOL = LidoValidatorFactory.batch(12, balance=Gwei(32 * 10**9))
             Gwei(0),
             Gwei(-10 * 100_000),
         ),
-        (
-            # 1 validator exits (count decreases, e.g. consolidation source).
-            # No new validators → no error; raw rebase is negative (missing balance).
-            _POOL[:10],
-            _clone_with_balance(_POOL[:9], 32 * 10**9),
-            15 * 10**18,
-            15 * 10**18,
-            Gwei(0),
-            # The exited validator had 32 ETH that no longer appears in curr.
-            Gwei(-32 * 10**9),
-        ),
     ],
 )
 def test_calculate_cl_rebase_between_blocks(
@@ -463,13 +452,17 @@ MAX_EB_BALANCE = Gwei(2048 * 10**9)
             simple_validators(0, 9),
             MAX_EB_BALANCE,
         ),
-        # Validator count decreases (e.g. consolidation source exits) — returns 0, no error
-        (simple_validators(0, 9), simple_validators(0, 10), 0),
     ],
 )
 def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result):
     result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
     assert result == expected_result
+
+
+@pytest.mark.unit
+def test_get_validators_diff_in_gwei_raises_on_shrink():
+    with pytest.raises(ValueError, match="Something went wrong with CL API"):
+        AbnormalClRebase.calculate_validators_count_diff_in_gwei(simple_validators(0, 10), simple_validators(0, 9))
 
 
 @pytest.mark.unit

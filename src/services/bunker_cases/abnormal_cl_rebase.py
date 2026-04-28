@@ -308,8 +308,9 @@ class AbnormalClRebase:
         ref_pubkeys = {v.validator.pubkey for v in ref_validators}
         missing_count = len(prev_pubkeys - ref_pubkeys)
         if missing_count:
-            logger.warning(
-                {"msg": f"Validator set shrank in abnormal CL rebase: missing_validators={missing_count}"}
+            raise ValueError(
+                f"Validators count diff should be positive or 0. Something went wrong with CL API. "
+                f"missing_validators={missing_count}"
             )
         return Gwei(sum((v.balance for v in ref_validators if v.validator.pubkey not in prev_pubkeys), Gwei(0)))
 
