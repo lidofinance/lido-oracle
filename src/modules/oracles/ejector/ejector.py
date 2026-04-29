@@ -164,10 +164,6 @@ class Ejector(OracleModule[Web3]):
         # Get all balance available to use to fulfill on closes exit epoch
         predictable_el_balance = self._get_predicted_el_balance(Gwei(0), blockstamp)
 
-        if to_withdraw_amount <= predictable_el_balance:
-            logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
-            return []
-
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         total_balance_to_eject_gwei = Gwei(0)
         validators_iterator = iter(
@@ -178,17 +174,20 @@ class Ejector(OracleModule[Web3]):
             )
         )
 
-        for gid, next_validator in validators_iterator:
-            validators_to_eject.append((gid, next_validator))
+        if to_withdraw_amount > predictable_el_balance:
+            for gid, next_validator in validators_iterator:
+                validators_to_eject.append((gid, next_validator))
 
-            val_balance = get_predictable_balance(next_validator)
+                val_balance = get_predictable_balance(next_validator)
 
-            total_balance_to_eject_gwei += val_balance
+                total_balance_to_eject_gwei += val_balance
 
-            predictable_el_balance = self._get_predicted_el_balance(total_balance_to_eject_gwei, blockstamp)
+                predictable_el_balance = self._get_predicted_el_balance(total_balance_to_eject_gwei, blockstamp)
 
-            if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) > to_withdraw_amount:
-                break
+                if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) > to_withdraw_amount:
+                    break
+        else:
+            logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
 
         forced_validators = validators_iterator.get_remaining_forced_validators()
         if forced_validators:

@@ -74,7 +74,7 @@ def hash_consensus_with_delegation_member(web3_with_delegation, delegation_addre
     hash_consensus.functions.grantRole(manage_role, consensus_admin).transact({'from': consensus_admin})
 
     current_quorum = hash_consensus.functions.getQuorum().call()
-    hash_consensus.functions.addMember(delegation_address, current_quorum).transact({'from': consensus_admin})
+    hash_consensus.functions.addMember(delegation_address, current_quorum + 1).transact({'from': consensus_admin})
 
     # Warp time past one frame + fast lane to guarantee a fresh frame outside the fast-lane window
     frame_config = hash_consensus.functions.getFrameConfig().call()
