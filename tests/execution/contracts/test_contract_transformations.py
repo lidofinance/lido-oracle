@@ -877,6 +877,40 @@ class TestMetaRegistryGetAllGroups:
         assert result == [group]
 
 
+@pytest.mark.unit
+class TestMetaRegistryContractPassThroughs:
+    def test_get_operator_groups_count(self):
+        contract = _mock_contract()
+        contract.functions.getOperatorGroupsCount.return_value.call.return_value = 5
+
+        result = MetaRegistryContract.get_operator_groups_count(contract, block_identifier="latest")
+
+        assert result == 5
+        contract.functions.getOperatorGroupsCount.return_value.call.assert_called_once_with(block_identifier="latest")
+
+    def test_get_operator_group(self):
+        from collections import namedtuple
+
+        from src.providers.execution.contracts.meta_registry import OperatorGroup
+
+        contract = _mock_contract()
+        SubOpTuple = namedtuple("SubNodeOperator", ["node_operator_id", "share"])
+        ExtOpTuple = namedtuple("ExternalOperator", ["data"])
+        GroupTuple = namedtuple("OperatorGroup", ["sub_node_operators", "external_operators"])
+        raw = GroupTuple(
+            sub_node_operators=[SubOpTuple(node_operator_id=1, share=100)],
+            external_operators=[ExtOpTuple(data=bytes(10))],
+        )
+        contract.functions.getOperatorGroup.return_value.call.return_value = raw
+
+        result = MetaRegistryContract.get_operator_group(contract, group_id=0, block_identifier="latest")
+
+        assert isinstance(result, OperatorGroup)
+        assert len(result.sub_node_operators) == 1
+        assert len(result.external_operators) == 1
+        contract.functions.getOperatorGroup.assert_called_once_with(0)
+
+
 # ---------------------------------------------------------------------------
 # AccountingContract.simulate_oracle_report — payload tuple + result unpacking
 # ---------------------------------------------------------------------------

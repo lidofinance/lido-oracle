@@ -35,7 +35,7 @@ class ExternalOperator:
             raise ValueError(f"Expected 10 bytes, got {len(self.data)}")
 
         # Parse the components
-        # type_byte = data_bytes[0]  # Not used in return value
+        # type_byte = data_bytes[0]
         staking_module_id = StakingModuleId(self.data[1])
 
         # Node operator id is 8 bytes (bytes 2-9)
@@ -48,6 +48,9 @@ class ExternalOperator:
 class OperatorGroup(Nested, FromResponse):
     sub_node_operators: list[SubNodeOperator]
     external_operators: list[ExternalOperator]
+
+    def has_connection(self):
+        return len(self.sub_node_operators) > 0 and len(self.external_operators) > 0
 
 
 class MetaRegistryContract(ContractInterface):
