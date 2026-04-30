@@ -850,7 +850,7 @@ class TestInvalidCuratedModuleConfigError:
         with pytest.raises(InvalidCuratedModuleConfigError, match="Curated"):
             iterator._fetch_curated_modules()
 
-    def test_fetch_curated_modules__simple_dvt_is_ignored_for_v1_selection(self, iterator):
+    def test_fetch_curated_modules__simple_dvt_present__returns_curated_as_v1(self, iterator):
         sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
         sm2 = make_staking_module(2, name="SimpleDVT")
