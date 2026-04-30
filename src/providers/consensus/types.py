@@ -243,7 +243,7 @@ class PendingDeposit(Nested):
 
 
 @dataclass
-class PendingConsolidation:
+class PendingConsolidation(Nested):
     source_index: int
     target_index: int
 
