@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.constants import (
-    CURATED_MODULE_NAME,
+    CURATED_V1_MODULE_NAME,
     CURATED_V1_TYPE,
     CURATED_V2_MODULE_NAME,
     CURATED_V2_TYPE,
@@ -651,7 +651,7 @@ class TestNoRemainingForcedPredicate:
 @pytest.mark.unit
 class TestFetchCuratedModules:
     def test_fetch_curated_modules__both_found__returns_tuple(self, iterator):
-        sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
         sm2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
         sm2.staking_module_address = "0x" + "b" * 40
@@ -676,7 +676,7 @@ class TestFetchCuratedModules:
         assert cm_v2[0] == sm2.id
 
     def test_fetch_curated_modules__missing_v2__raises_error(self, iterator):
-        sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         ms1 = StakingModuleStats(staking_module=sm1)
         iterator.module_stats = {sm1.id: ms1}
 
@@ -824,9 +824,9 @@ class TestOperatorGroupIsFulfilled:
 @pytest.mark.unit
 class TestInvalidCuratedModuleConfigError:
     def test_fetch_curated_modules__duplicate_curated_name__raises_error(self, iterator):
-        sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
-        sm2 = make_staking_module(2, name=CURATED_MODULE_NAME)
+        sm2 = make_staking_module(2, name=CURATED_V1_MODULE_NAME)
         sm2.staking_module_address = "0x" + "b" * 40
         sm3 = make_staking_module(3, name=CURATED_V2_MODULE_NAME)
         sm3.staking_module_address = "0x" + "c" * 40
@@ -847,11 +847,11 @@ class TestInvalidCuratedModuleConfigError:
         }
         iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
 
-        with pytest.raises(InvalidCuratedModuleConfigError, match="Curated"):
+        with pytest.raises(InvalidCuratedModuleConfigError, match="curated-onchain-v1"):
             iterator._fetch_curated_modules()
 
     def test_fetch_curated_modules__simple_dvt_present__returns_curated_as_v1(self, iterator):
-        sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
         sm2 = make_staking_module(2, name="SimpleDVT")
         sm2.staking_module_address = "0x" + "b" * 40
@@ -880,7 +880,7 @@ class TestInvalidCuratedModuleConfigError:
         assert cm_v2[0] == sm3.id
 
     def test_fetch_curated_modules__duplicate_v2__raises_error(self, iterator):
-        sm1 = make_staking_module(1, name=CURATED_MODULE_NAME)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
         sm2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
         sm2.staking_module_address = "0x" + "b" * 40

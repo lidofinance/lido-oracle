@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from src.constants import (
-    CURATED_MODULE_NAME,
+    CURATED_V1_MODULE_NAME,
     CURATED_V1_TYPE,
     CURATED_V2_MODULE_NAME,
     CURATED_V2_TYPE,
@@ -256,7 +256,7 @@ class ValidatorExitIterator:
 
             sm_type = sm_contract.get_type(self.blockstamp.block_hash)
 
-            if sm_type == CURATED_V1_TYPE and module.staking_module.name == CURATED_MODULE_NAME:
+            if sm_type == CURATED_V1_TYPE and module.staking_module.name == CURATED_V1_MODULE_NAME:
                 cm_v1_modules.append((module.staking_module.id, sm_contract))
 
             elif sm_type == CURATED_V2_TYPE and module.staking_module.name == CURATED_V2_MODULE_NAME:
@@ -265,7 +265,7 @@ class ValidatorExitIterator:
         errors = []
         if len(cm_v1_modules) != 1:
             errors.append(
-                f'expected exactly one curated module named {CURATED_MODULE_NAME}, '
+                f'expected exactly one curated module named {CURATED_V1_MODULE_NAME}, '
                 f'found ids: {[module_id for module_id, _ in cm_v1_modules]}'
             )
         if len(cm_v2_modules) != 1:
