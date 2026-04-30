@@ -174,7 +174,7 @@ class Ejector(OracleModule[Web3]):
             )
         )
 
-        if to_withdraw_amount > predictable_el_balance:
+        if to_withdraw_amount != 0 and to_withdraw_amount > predictable_el_balance:
             for gid, next_validator in validators_iterator:
                 validators_to_eject.append((gid, next_validator))
 

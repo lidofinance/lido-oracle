@@ -647,6 +647,39 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
 
 
 @pytest.mark.unit
+def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(0))
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+    ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+    ejector._get_total_el_balance = Mock(return_value=Wei(0))
+    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+    ejector._get_deposit_lock_amount = Mock(return_value=Wei(1000 * 10**18))
+
+    v_gid = (StakingModuleId(1), NodeOperatorId(1))
+    v = build_extended_validator()
+    simple_it = SimpleIterator([(v_gid, v)])
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module.ValidatorExitIterator,
+            "__iter__",
+            Mock(return_value=simple_it),
+        )
+
+        result = ejector.get_validators_to_eject(ref_blockstamp)
+
+    assert len(result) == 0, "No WQ pressure we need to exit only forced validators"
+
+
+@pytest.mark.unit
 def test_get_withdrawable_lido_validators_balance__consolidating_as_source__excluded(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
