@@ -3,7 +3,9 @@ from dataclasses import dataclass
 from typing import cast
 
 from src.constants import (
+    CURATED_V1_MODULE_NAME,
     CURATED_V1_TYPE,
+    CURATED_V2_MODULE_NAME,
     CURATED_V2_TYPE,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MAX_EFFECTIVE_BALANCE,
@@ -84,15 +86,9 @@ class WeightsNotUpdatedError(Exception):
     """
 
 
-class CuratedModuleNotFoundError(Exception):
+class InvalidCuratedModuleConfigError(Exception):
     """
-    Exception raised when Curated Module v1 and Curated Module v2 not found.
-    """
-
-
-class ModulesWithSameTypeError(Exception):
-    """
-    Exception raised when multiple curated module v1 or v2 found.
+    Exception raised when curated modules cannot be uniquely identified from the current SR config.
     """
 
 
@@ -245,10 +241,8 @@ class ValidatorExitIterator:
         self.cm_v2_id = cm_v2[0]
 
     def _fetch_curated_modules(self) -> tuple[CMv1, CMv2]:
-        cm_v1_id = None
-        cm_v1_contract = None
-        cm_v2_id = None
-        cm_v2_contract = None
+        cm_v1_modules: list[CMv1] = []
+        cm_v2_modules: list[CMv2] = []
 
         for module in self.module_stats.values():
             sm_contract = cast(
@@ -262,29 +256,30 @@ class ValidatorExitIterator:
 
             sm_type = sm_contract.get_type(self.blockstamp.block_hash)
 
-            if sm_type == CURATED_V1_TYPE:
-                if cm_v1_id is not None:
-                    raise ModulesWithSameTypeError(
-                        f'Multiple curated module v1 found: {cm_v1_id} and {module.staking_module.id}'
-                    )
-                cm_v1_id = module.staking_module.id
-                cm_v1_contract = sm_contract
+            if sm_type == CURATED_V1_TYPE and module.staking_module.name == CURATED_V1_MODULE_NAME:
+                cm_v1_modules.append((module.staking_module.id, sm_contract))
 
-            elif sm_type == CURATED_V2_TYPE:
-                if cm_v2_id is not None:
-                    raise ModulesWithSameTypeError(
-                        f'Multiple curated module v2 found: {cm_v2_id} and {module.staking_module.id}'
-                    )
-                cm_v2_id = module.staking_module.id
-                cm_v2_contract = sm_contract
+            elif sm_type == CURATED_V2_TYPE and module.staking_module.name == CURATED_V2_MODULE_NAME:
+                cm_v2_modules.append((module.staking_module.id, sm_contract))
 
-        if not (cm_v1_id and cm_v1_contract and cm_v2_id and cm_v2_contract):
-            msg = f'Curated Module v1 or v2 not found. CMv1 id: {cm_v1_id} | CMV2 id: {cm_v2_id}'
+        errors = []
+        if len(cm_v1_modules) != 1:
+            errors.append(
+                f'expected exactly one curated module named {CURATED_V1_MODULE_NAME}, '
+                f'found ids: {[module_id for module_id, _ in cm_v1_modules]}'
+            )
+        if len(cm_v2_modules) != 1:
+            errors.append(
+                f'expected exactly one curated module v2 named {CURATED_V2_MODULE_NAME}, '
+                f'found ids: {[module_id for module_id, _ in cm_v2_modules]}'
+            )
 
+        if errors:
+            msg = '; '.join(errors)
             logger.error({'msg': msg})
-            raise CuratedModuleNotFoundError(msg)
+            raise InvalidCuratedModuleConfigError(msg)
 
-        return (cm_v1_id, cm_v1_contract), (cm_v2_id, cm_v2_contract)
+        return cm_v1_modules[0], cm_v2_modules[0]
 
     def _setup_weights(self, curated_module: CMv2) -> None:
         staking_module_id, sm_contract = curated_module

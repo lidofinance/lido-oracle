@@ -2,12 +2,18 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import CURATED_V1_TYPE, CURATED_V2_TYPE, FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    CURATED_V1_MODULE_NAME,
+    CURATED_V1_TYPE,
+    CURATED_V2_MODULE_NAME,
+    CURATED_V2_TYPE,
+    FAR_FUTURE_EPOCH,
+    MIN_ACTIVATION_BALANCE,
+)
 from src.modules.common.types import ChainConfig
 from src.providers.execution.contracts.meta_registry import ExternalOperator, OperatorGroup, SubNodeOperator
 from src.services.exit_order_iterator import (
-    CuratedModuleNotFoundError,
-    ModulesWithSameTypeError,
+    InvalidCuratedModuleConfigError,
     NodeOperatorAlreadyGroupedError,
     NodeOperatorExpectedToBeInCMv1Error,
     NodeOperatorStats,
@@ -43,7 +49,7 @@ def iterator(web3):
     return it
 
 
-def make_staking_module(sm_id, threshold=10000):
+def make_staking_module(sm_id, threshold=10000, name="test"):
     return StakingModule(
         id=StakingModuleId(sm_id),
         staking_module_address="0x" + "1" * 40,
@@ -51,7 +57,7 @@ def make_staking_module(sm_id, threshold=10000):
         treasury_fee=0,
         stake_share_limit=0,
         status=0,
-        name="test",
+        name=name,
         last_deposit_at=0,
         last_deposit_block=0,
         exited_validators_count=0,
@@ -645,9 +651,9 @@ class TestNoRemainingForcedPredicate:
 @pytest.mark.unit
 class TestFetchCuratedModules:
     def test_fetch_curated_modules__both_found__returns_tuple(self, iterator):
-        sm1 = make_staking_module(1)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
-        sm2 = make_staking_module(2)
+        sm2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
         sm2.staking_module_address = "0x" + "b" * 40
         ms1 = StakingModuleStats(staking_module=sm1)
         ms2 = StakingModuleStats(staking_module=sm2)
@@ -670,7 +676,7 @@ class TestFetchCuratedModules:
         assert cm_v2[0] == sm2.id
 
     def test_fetch_curated_modules__missing_v2__raises_error(self, iterator):
-        sm1 = make_staking_module(1)
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         ms1 = StakingModuleStats(staking_module=sm1)
         iterator.module_stats = {sm1.id: ms1}
 
@@ -678,11 +684,11 @@ class TestFetchCuratedModules:
         mock_contract.get_type.return_value = CURATED_V1_TYPE
         iterator.w3.eth.contract = Mock(return_value=mock_contract)
 
-        with pytest.raises(CuratedModuleNotFoundError):
+        with pytest.raises(InvalidCuratedModuleConfigError):
             iterator._fetch_curated_modules()
 
     def test_fetch_curated_modules__missing_v1__raises_error(self, iterator):
-        sm1 = make_staking_module(1)
+        sm1 = make_staking_module(1, name=CURATED_V2_MODULE_NAME)
         ms1 = StakingModuleStats(staking_module=sm1)
         iterator.module_stats = {sm1.id: ms1}
 
@@ -690,7 +696,7 @@ class TestFetchCuratedModules:
         mock_contract.get_type.return_value = CURATED_V2_TYPE
         iterator.w3.eth.contract = Mock(return_value=mock_contract)
 
-        with pytest.raises(CuratedModuleNotFoundError):
+        with pytest.raises(InvalidCuratedModuleConfigError):
             iterator._fetch_curated_modules()
 
 
@@ -816,39 +822,88 @@ class TestOperatorGroupIsFulfilled:
 
 
 @pytest.mark.unit
-class TestModulesWithSameTypeError:
-    def test_fetch_curated_modules__duplicate_v1__raises_error(self, iterator):
-        sm1 = make_staking_module(1)
+class TestInvalidCuratedModuleConfigError:
+    def test_fetch_curated_modules__duplicate_curated_name__raises_error(self, iterator):
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
-        sm2 = make_staking_module(2)
+        sm2 = make_staking_module(2, name=CURATED_V1_MODULE_NAME)
         sm2.staking_module_address = "0x" + "b" * 40
+        sm3 = make_staking_module(3, name=CURATED_V2_MODULE_NAME)
+        sm3.staking_module_address = "0x" + "c" * 40
         iterator.module_stats = {
             sm1.id: StakingModuleStats(staking_module=sm1),
             sm2.id: StakingModuleStats(staking_module=sm2),
+            sm3.id: StakingModuleStats(staking_module=sm3),
         }
 
-        mock_contract = Mock()
-        mock_contract.get_type.return_value = CURATED_V1_TYPE
-        iterator.w3.eth.contract = Mock(return_value=mock_contract)
+        mock_contract_v1 = Mock()
+        mock_contract_v1.get_type.return_value = CURATED_V1_TYPE
+        mock_contract_v2 = Mock()
+        mock_contract_v2.get_type.return_value = CURATED_V2_TYPE
+        contracts_by_addr = {
+            sm1.staking_module_address: mock_contract_v1,
+            sm2.staking_module_address: mock_contract_v1,
+            sm3.staking_module_address: mock_contract_v2,
+        }
+        iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
 
-        with pytest.raises(ModulesWithSameTypeError, match="v1"):
+        with pytest.raises(InvalidCuratedModuleConfigError, match="curated-onchain-v1"):
             iterator._fetch_curated_modules()
 
-    def test_fetch_curated_modules__duplicate_v2__raises_error(self, iterator):
-        sm1 = make_staking_module(1)
+    def test_fetch_curated_modules__simple_dvt_present__returns_curated_as_v1(self, iterator):
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
         sm1.staking_module_address = "0x" + "a" * 40
-        sm2 = make_staking_module(2)
+        sm2 = make_staking_module(2, name="SimpleDVT")
         sm2.staking_module_address = "0x" + "b" * 40
+        sm3 = make_staking_module(3, name=CURATED_V2_MODULE_NAME)
+        sm3.staking_module_address = "0x" + "c" * 40
         iterator.module_stats = {
             sm1.id: StakingModuleStats(staking_module=sm1),
             sm2.id: StakingModuleStats(staking_module=sm2),
+            sm3.id: StakingModuleStats(staking_module=sm3),
         }
 
-        mock_contract = Mock()
-        mock_contract.get_type.return_value = CURATED_V2_TYPE
-        iterator.w3.eth.contract = Mock(return_value=mock_contract)
+        mock_contract_v1 = Mock()
+        mock_contract_v1.get_type.return_value = CURATED_V1_TYPE
+        mock_contract_v2 = Mock()
+        mock_contract_v2.get_type.return_value = CURATED_V2_TYPE
+        contracts_by_addr = {
+            sm1.staking_module_address: mock_contract_v1,
+            sm2.staking_module_address: mock_contract_v1,
+            sm3.staking_module_address: mock_contract_v2,
+        }
+        iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
 
-        with pytest.raises(ModulesWithSameTypeError, match="v2"):
+        cm_v1, cm_v2 = iterator._fetch_curated_modules()
+
+        assert cm_v1[0] == sm1.id
+        assert cm_v2[0] == sm3.id
+
+    def test_fetch_curated_modules__duplicate_v2__raises_error(self, iterator):
+        sm1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
+        sm1.staking_module_address = "0x" + "a" * 40
+        sm2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
+        sm2.staking_module_address = "0x" + "b" * 40
+        sm3 = make_staking_module(3, name=CURATED_V2_MODULE_NAME)
+        sm3.staking_module_address = "0x" + "c" * 40
+        iterator.module_stats = {
+            sm1.id: StakingModuleStats(staking_module=sm1),
+            sm2.id: StakingModuleStats(staking_module=sm2),
+            sm3.id: StakingModuleStats(staking_module=sm3),
+        }
+
+        mock_contract_v1 = Mock()
+        mock_contract_v1.get_type.return_value = CURATED_V1_TYPE
+        mock_contract_v2 = Mock()
+        mock_contract_v2.get_type.return_value = CURATED_V2_TYPE
+        contracts_by_addr = {
+            sm1.staking_module_address: mock_contract_v1,
+            sm2.staking_module_address: mock_contract_v2,
+            sm3.staking_module_address: mock_contract_v2,
+        }
+        iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
+
+        with pytest.raises(InvalidCuratedModuleConfigError, match="curated module v2"):
             iterator._fetch_curated_modules()
 
 
