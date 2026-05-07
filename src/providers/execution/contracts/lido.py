@@ -73,6 +73,31 @@ class LidoContract(ContractInterface):
         )
         return response
 
+    def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
+        response = self.functions.getContractVersion().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `getContractVersion()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return int(response)
+
+    def get_deposited_for_current_report(self, block_identifier: BlockIdentifier) -> Wei:
+        """Lido v4+: ETH deposited by Lido since the last oracle report, in wei."""
+        response = self.functions.getBalanceStats().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `getBalanceStats()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return Wei(response[3])  # depositedForCurrentReport is the 4th return value
+
     def get_deposits_reserve_target(self, block_identifier: BlockIdentifier) -> Wei:
         """
         Returns the amount of ETH reserved for deposits every AO frame.

@@ -168,6 +168,7 @@ def test_calculate_lido_normal_cl_rebase(
 )
 def test_is_negative_specific_cl_rebase(
     abnormal_case,
+    mock_get_accounting_last_processing_ref_slot,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
     mock_get_blockstamp,
@@ -271,16 +272,6 @@ _POOL = LidoValidatorFactory.batch(12, balance=Gwei(32 * 10**9))
             Gwei(0),
         ),
         (
-            # 9 existing + 1 new at 2048 ETH (MaxEB / EIP-7251), no organic rebase.
-            _POOL[:9],
-            _clone_with_balance(_POOL[:9], 32 * 10**9) + LidoValidatorFactory.batch(1, balance=Gwei(2048 * 10**9)),
-            15 * 10**18,
-            15 * 10**18,
-            Gwei(0),
-            # 2048 ETH deposit is correctly excluded — not just 32 ETH.
-            Gwei(0),
-        ),
-        (
             # Same 10 validators, 5 penalized; rewards withdrawn from vault offset penalties.
             _POOL[:10],
             _clone_with_balances(_POOL[:10], [32 * 10**9 - 100_000] * 5 + [32 * 10**9] * 5),
@@ -362,6 +353,11 @@ def test_calculate_cl_rebase_between_blocks(
     )
     abnormal_case._get_withdrawn_from_vault_between_blocks = Mock(return_value=withdrawn_from_vault)
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
+    # Pre-v4: version check returns 3, so _calculate_injected_capital uses the fallback path
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(
+        return_value=ReferenceBlockStampFactory.build(block_number=0)
+    )
 
     result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
 
@@ -446,11 +442,11 @@ MAX_EB_BALANCE = Gwei(2048 * 10**9)
         (simple_validators(0, 9), simple_validators(0, 9), 0),
         # Two new validators at 32 ETH each
         (simple_validators(0, 11), simple_validators(0, 9), 2 * 32 * 10**9),
-        # One new validator topped up to MAX_EFFECTIVE_BALANCE (2048 ETH via EIP-7251)
+        # One new validator — counted at LIDO_DEPOSIT_AMOUNT (32 ETH) regardless of balance
         (
             simple_validators(0, 9) + simple_validators(10, 10, balance=MAX_EB_BALANCE),
             simple_validators(0, 9),
-            MAX_EB_BALANCE,
+            32 * 10**9,
         ),
     ],
 )

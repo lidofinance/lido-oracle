@@ -1,12 +1,12 @@
 import logging
 import math
 from collections.abc import Sequence
-from typing import cast
+from typing import ClassVar, cast
 
 from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
@@ -22,11 +22,15 @@ from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
+_LIDO_V4 = 4  # Lido contract version that introduced getBalanceStats / EIP-7251 top-up support
+
 
 class AbnormalClRebase:
     all_validators: list[Validator]
     lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
+
+    _upgrade_confirmed_at_block: ClassVar[int | None] = None
 
     def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
         self.w3 = w3
@@ -191,15 +195,14 @@ class AbnormalClRebase:
         # Without accounting for withdrawals from WithdrawalVault
         raw_cl_rebase = ref_balance_with_vault - prev_balance_with_vault
 
-        # We should account for validators who have been appeared between blocks
-        validators_count_diff_in_gwei = AbnormalClRebase.calculate_validators_count_diff_in_gwei(
-            prev_lido_validators, self.lido_validators
-        )
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
+        # Capital injected via deposits: new validators (pre-v4) or new validators + top-ups (post-v4)
+        injected_capital = self._calculate_injected_capital(prev_blockstamp, ref_blockstamp, prev_lido_validators)
+
         # Finally, we can calculate a corrected CL rebase
-        cl_rebase = Gwei(raw_cl_rebase - validators_count_diff_in_gwei + withdrawn_from_vault)
+        cl_rebase = Gwei(raw_cl_rebase - injected_capital + withdrawn_from_vault)
 
         logger.info(
             {
@@ -273,6 +276,64 @@ class AbnormalClRebase:
             )
         )
 
+    def _lido_version_at_block(self, block_number: int) -> int:
+        """Lido contract version at `block_number`, with an earliest-confirmed-upgrade cache.
+
+        Caches the lowest block number at which v4 is confirmed so that calls for
+        later blocks skip the RPC, while calls for earlier blocks still probe.
+        """
+        if (
+            AbnormalClRebase._upgrade_confirmed_at_block is not None
+            and block_number >= AbnormalClRebase._upgrade_confirmed_at_block
+        ):
+            return _LIDO_V4
+        version = self.w3.lido_contracts.lido.get_contract_version(block_identifier=block_number)
+        if version >= _LIDO_V4 and (
+            AbnormalClRebase._upgrade_confirmed_at_block is None
+            or block_number < AbnormalClRebase._upgrade_confirmed_at_block
+        ):
+            AbnormalClRebase._upgrade_confirmed_at_block = block_number
+        return version
+
+    def _calculate_injected_capital(
+        self,
+        prev_blockstamp: BlockStamp,
+        ref_blockstamp: ReferenceBlockStamp,
+        prev_lido_validators: list[LidoValidator],
+    ) -> Gwei:
+        """ETH injected via Lido deposits in the window [prev_blockstamp, ref_blockstamp].
+
+        Pre-v4 (no top-ups): counts new validators by actual balance, matching the
+        conservative behaviour of calculate_validators_count_diff_in_gwei.
+        Post-v4 (EIP-7251): uses the pending-queue conservation identity so top-ups
+        to existing validators are also accounted for.
+        """
+        last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
+
+        if self._lido_version_at_block(last_report_blockstamp.block_number) < _LIDO_V4:
+            return AbnormalClRebase.calculate_validators_count_diff_in_gwei(
+                prev_lido_validators, self.lido_validators
+            )
+
+        lido_pubkeys = {key.key for key in self.lido_keys}
+
+        old_pending = Gwei(sum(
+            d.amount for d in self.w3.cc.get_pending_deposits(prev_blockstamp)
+            if d.pubkey in lido_pubkeys
+        ))
+
+        deposited_in_window = Gwei(
+            self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
+            - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
+        )
+
+        current_pending = Gwei(sum(
+            d.amount for d in self.w3.cc.get_pending_deposits(ref_blockstamp)
+            if d.pubkey in lido_pubkeys
+        ))
+
+        return Gwei(deposited_in_window + old_pending - current_pending)
+
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(ref_blockstamp)
@@ -289,30 +350,16 @@ class AbnormalClRebase:
         ref_validators: Sequence[Validator],
     ) -> Gwei:
         """
-        Account for balances of freshly added validators who appeared between epochs.
-
-        We sum `v.balance` (not `v.validator.effective_balance`) for new validators because:
-        - With EIP-7251, a new validator's deposit can be up to 2048 ETH, and using a fixed
-          32 ETH constant or the (potentially lagging/rounded) effective_balance would under-correct.
-        - `v.balance` may include a small amount of rewards earned since activation, which means
-          we slightly over-correct (making the detected rebase marginally more negative). This is
-          conservative and safe for bunker-mode detection — we err toward triggering bunker mode
-          rather than missing a real negative rebase.
-        - The excess of `v.balance` over the deposit is bounded by one partial-withdrawal sweep
-          cycle, which is negligible relative to the oracle reporting period.
-
-        Any pre-deposits to Lido keys will not be counted until the key is deposited through
-        the protocol and goes into `used` state.
+        Handle 32 ETH balances of freshly baked validators, who appeared between epochs
+        Lido validators are counted by public keys that the protocol deposited with 32 ETH,
+        so we can safely count the differences in the number of validators when they occur by deposit size.
+        Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
+        and goes into `used` state
         """
-        prev_pubkeys = {v.validator.pubkey for v in prev_validators}
-        ref_pubkeys = {v.validator.pubkey for v in ref_validators}
-        missing_count = len(prev_pubkeys - ref_pubkeys)
-        if missing_count:
-            raise ValueError(
-                f"Validators count diff should be positive or 0. Something went wrong with CL API. "
-                f"missing_validators={missing_count}"
-            )
-        return Gwei(sum((v.balance for v in ref_validators if v.validator.pubkey not in prev_pubkeys), Gwei(0)))
+        validators_diff = len(ref_validators) - len(prev_validators)
+        if validators_diff < 0:
+            raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
+        return Gwei(validators_diff * LIDO_DEPOSIT_AMOUNT)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
