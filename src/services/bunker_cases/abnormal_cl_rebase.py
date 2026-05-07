@@ -119,30 +119,23 @@ class AbnormalClRebase:
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
         return Gwei(normal_cl_rebase)
 
-    def _is_negative_specific_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> bool:
-        """
-        Calculate CL rebase from nearest and distant epochs to ref epoch given the changes in withdrawal vault
-        """
-        logger.info({"msg": "Calculating nearest and distant CL rebase"})
-
-        nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
-
-        if nearest_blockstamp.block_number == distant_blockstamp.block_number:
-            logger.info(
-                {"msg": "Nearest and distant blocks are the same. Intraframe sampled CL rebase will be calculated once"}
-            )
-            specific_cl_rebase = self._calculate_cl_rebase_between_blocks(nearest_blockstamp, blockstamp)
-            logger.info({"msg": f"Intraframe sampled CL rebase: {specific_cl_rebase} Gwei"})
-            return specific_cl_rebase < 0
-
-        nearest_cl_rebase = self._calculate_cl_rebase_between_blocks(nearest_blockstamp, blockstamp)
-        logger.info({"msg": f"Nearest intraframe sampled CL rebase {nearest_cl_rebase} Gwei"})
-        if nearest_cl_rebase < 0:
+    def _is_negative_specific_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> bool:  
+      """
+      Calculate CL rebase from nearest and distant epochs to ref epoch given the changes in withdrawal vault
+      """                                             
+      logger.info({"msg": "Calculating nearest and distant CL rebase"})
+                                                                                                                                    
+      nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
+                            
+      # dict preserves insertion order and deduplicates by block_number
+      for bs in {nearest_blockstamp.block_number: nearest_blockstamp,
+                 distant_blockstamp.block_number: distant_blockstamp}.values():
+          rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
+          logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
+          if rebase < 0:
             return True
-
-        distant_cl_rebase = self._calculate_cl_rebase_between_blocks(distant_blockstamp, blockstamp)
-        logger.info({"msg": f"Distant intraframe sampled CL rebase {distant_cl_rebase} Gwei"})
-        return distant_cl_rebase < 0
+                                                                                                                                    
+      return False 
 
     def _get_nearest_and_distant_blockstamps(
         self, ref_blockstamp: ReferenceBlockStamp
