@@ -2,6 +2,7 @@ import copy
 from unittest.mock import Mock
 
 import pytest
+from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.types import Validator, ValidatorState
@@ -435,17 +436,17 @@ MAX_EB_BALANCE = Gwei(2048 * 10**9)
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("curr_validators", "prev_validators", "expected_result"),
+    ("prev_validators", "curr_validators", "expected_result"),
     [
         ([], [], 0),
         # No new validators
         (simple_validators(0, 9), simple_validators(0, 9), 0),
         # Two new validators at 32 ETH each
-        (simple_validators(0, 11), simple_validators(0, 9), 2 * 32 * 10**9),
+        (simple_validators(0, 9), simple_validators(0, 11), 2 * 32 * 10**9),
         # One new validator — counted at LIDO_DEPOSIT_AMOUNT (32 ETH) regardless of balance
         (
-            simple_validators(0, 9) + simple_validators(10, 10, balance=MAX_EB_BALANCE),
             simple_validators(0, 9),
+            simple_validators(0, 9) + simple_validators(10, 10, balance=MAX_EB_BALANCE),
             32 * 10**9,
         ),
     ],
@@ -459,6 +460,52 @@ def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_
 def test_get_validators_diff_in_gwei_raises_on_shrink():
     with pytest.raises(ValueError, match="Something went wrong with CL API"):
         AbnormalClRebase.calculate_validators_count_diff_in_gwei(simple_validators(0, 10), simple_validators(0, 9))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("deposited_ref_wei", "deposited_prev_wei", "old_pending_gwei", "current_pending_gwei", "expected_gwei"),
+    [
+        # Top-up 32 ETH to existing validator; no pending deposits
+        (32 * 10**18, 0, 0, 0, 32 * 10**9),
+        # Top-up 64 ETH, 32 ETH still pending at ref
+        (64 * 10**18, 0, 0, 32 * 10**9, 32 * 10**9),
+        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in window
+        (64 * 10**18, 0, 32 * 10**9, 0, 96 * 10**9),
+        # No deposits in window, no pending changes
+        (0, 0, 0, 0, 0),
+    ],
+)
+def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
+    web3,
+    deposited_ref_wei,
+    deposited_prev_wei,
+    old_pending_gwei,
+    current_pending_gwei,
+    expected_gwei,
+):
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+
+    lido_pubkey = '0xabc'
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+
+    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+
+    pending_at_prev = [Mock(pubkey=lido_pubkey, amount=old_pending_gwei)] if old_pending_gwei else []
+    pending_at_ref = [Mock(pubkey=lido_pubkey, amount=current_pending_gwei)] if current_pending_gwei else []
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
+
+    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(
+        side_effect=[Wei(deposited_ref_wei), Wei(deposited_prev_wei)]
+    )
+
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    assert result == Gwei(expected_gwei)
 
 
 @pytest.mark.unit

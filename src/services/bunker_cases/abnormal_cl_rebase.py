@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import ClassVar, cast
 
 from web3.contract.contract import ContractEvent
-from web3.types import EventData
+from web3.types import EventData, Wei
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig
@@ -315,10 +315,10 @@ class AbnormalClRebase:
             if d.pubkey in lido_pubkeys
         ))
 
-        deposited_in_window = Gwei(
+        deposited_in_window = wei_to_gwei(Wei(
             self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
             - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
-        )
+        ))
 
         current_pending = Gwei(sum(
             d.amount for d in self.w3.cc.get_pending_deposits(ref_blockstamp)
