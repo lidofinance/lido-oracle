@@ -1,5 +1,6 @@
 # Claude Code local settings
 .claude/
+.ai
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
