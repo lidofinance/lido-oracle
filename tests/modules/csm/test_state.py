@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, InvalidState, NetworkDuties, State
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import EpochNumber, ValidatorIndex
 from src.utils.range import sequence
 
@@ -103,159 +103,6 @@ def test_clear_resets_state_to_empty():
 
 
 @pytest.mark.unit
-def test_find_frame_returns_correct_frame():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    assert state.find_frame(EpochNumber(15)) == (EpochNumber(0), EpochNumber(31))
-
-
-@pytest.mark.unit
-def test_find_frame_raises_error_for_out_of_range_epoch():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    with pytest.raises(ValueError, match="Epoch 32 is out of frames range"):
-        state.find_frame(EpochNumber(32))
-
-
-@pytest.mark.unit
-def test_increment_att_duty_adds_duty_correctly():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_att_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].attestations[ValidatorIndex(1)].included == 6
-
-
-@pytest.mark.unit
-def test_increment_prop_duty_adds_duty_correctly():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].proposals[ValidatorIndex(1)].included == 6
-
-
-@pytest.mark.unit
-def test_increment_sync_duty_adds_duty_correctly():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].syncs[ValidatorIndex(1)].included == 6
-
-
-@pytest.mark.unit
-def test_increment_att_duty_creates_new_validator_entry():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(),
-    }
-    state.save_att_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].attestations[ValidatorIndex(2)].assigned == 1
-    assert state.data[frame].attestations[ValidatorIndex(2)].included == 1
-
-
-@pytest.mark.unit
-def test_increment_prop_duty_creates_new_validator_entry():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(),
-    }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].proposals[ValidatorIndex(2)].assigned == 1
-    assert state.data[frame].proposals[ValidatorIndex(2)].included == 1
-
-
-@pytest.mark.unit
-def test_increment_sync_duty_creates_new_validator_entry():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(),
-    }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(2), DutyAccumulator(assigned=1, included=1))
-    assert state.data[frame].syncs[ValidatorIndex(2)].assigned == 1
-    assert state.data[frame].syncs[ValidatorIndex(2)].included == 1
-
-
-@pytest.mark.unit
-def test_increment_att_duty_handles_non_included_duty():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_att_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
-    assert state.data[frame].attestations[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].attestations[ValidatorIndex(1)].included == 5
-
-
-@pytest.mark.unit
-def test_increment_prop_duty_handles_non_included_duty():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_prop_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
-    assert state.data[frame].proposals[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].proposals[ValidatorIndex(1)].included == 5
-
-
-@pytest.mark.unit
-def test_increment_sync_duty_handles_non_included_duty():
-    state = State()
-    frame: Frame = (EpochNumber(0), EpochNumber(31))
-    duty_epoch, _ = frame
-    state.data = {
-        frame: NetworkDuties(syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})),
-    }
-    state.save_sync_duty(duty_epoch, ValidatorIndex(1), DutyAccumulator(assigned=1, included=0))
-    assert state.data[frame].syncs[ValidatorIndex(1)].assigned == 11
-    assert state.data[frame].syncs[ValidatorIndex(1)].included == 5
-
-
-@pytest.mark.unit
-def test_increment_att_duty_raises_error_for_out_of_range_epoch():
-    state = State()
-    with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_att_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-
-
-@pytest.mark.unit
-def test_increment_prop_duty_raises_error_for_out_of_range_epoch():
-    state = State()
-    with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_prop_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-
-
-@pytest.mark.unit
-def test_increment_sync_duty_raises_error_for_out_of_range_epoch():
-    state = State()
-    with pytest.raises(ValueError, match="is out of frames range"):
-        state.save_sync_duty(EpochNumber(32), ValidatorIndex(1), DutyAccumulator(assigned=1, included=1))
-
-
-@pytest.mark.unit
 def test_add_processed_epoch_adds_epoch_to_processed_set():
     state = State()
     state.add_processed_epoch(EpochNumber(5))
@@ -308,18 +155,6 @@ def test_reinit_after_clear():
     state.init(EpochNumber(0), EpochNumber(63), 64)
     assert state.data == {(EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={})}
     assert state.frames == [(EpochNumber(0), EpochNumber(63))]
-
-
-@pytest.mark.unit
-def test_clear_then_init_resets_find_frame_cache():
-    state = State()
-    state.init(EpochNumber(0), EpochNumber(63), 64)
-    assert state.find_frame(EpochNumber(10)) == (EpochNumber(0), EpochNumber(63))
-
-    state.clear()
-    state.init(EpochNumber(0), EpochNumber(63), 32)
-
-    assert state.find_frame(EpochNumber(10)) == (EpochNumber(0), EpochNumber(31))
 
 
 @pytest.mark.unit

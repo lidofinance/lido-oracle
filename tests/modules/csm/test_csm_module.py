@@ -1,6 +1,7 @@
 import logging
 import time
 from collections import defaultdict
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, NoReturn, cast
 from unittest.mock import Mock, PropertyMock, call, patch
@@ -11,11 +12,11 @@ from hexbytes import HexBytes
 
 from src.constants import UINT64_MAX
 from src.modules.common.types import ZERO_HASH, CurrentFrame, ModuleExecuteDelay
-from src.modules.oracles.staking_modules.base import SMPerformanceOracleError
+from src.modules.oracles.staking_modules.base import SMPerformanceOracle, SMPerformanceOracleError
 from src.modules.oracles.staking_modules.common.distribution import Distribution
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import Logs
-from src.modules.oracles.staking_modules.common.state import DutyAccumulator
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree
 from src.modules.oracles.staking_modules.common.types import StrikesList
 from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
@@ -25,6 +26,7 @@ from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import EpochNumber, FrameNumber, Gwei, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.utils.types import hex_str_to_bytes
+from src.utils.validator_state import is_active_validator
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -67,6 +69,44 @@ def make_validator(index: int, activation_epoch: int = 0, exit_epoch: int = 100)
             withdrawable_epoch=EpochNumber(exit_epoch + 1),
         ),
     )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("activation_epoch", "exit_epoch", "l_epoch", "r_epoch", "expected"),
+    [
+        pytest.param(0, 100, 10, 14, 5, id="active-for-whole-frame"),
+        pytest.param(15, 100, 10, 14, 0, id="activates-after-frame"),
+        pytest.param(0, 10, 10, 14, 0, id="exited-before-frame-start"),
+        pytest.param(14, 100, 10, 14, 1, id="activates-on-frame-end"),
+        pytest.param(12, 100, 10, 14, 3, id="activates-inside-frame"),
+        pytest.param(0, 13, 10, 14, 3, id="exits-inside-frame"),
+        pytest.param(12, 13, 10, 14, 1, id="active-for-one-epoch-inside-frame"),
+        pytest.param(10, 11, 10, 10, 1, id="active-for-single-epoch-frame"),
+        pytest.param(0, 10, 10, 10, 0, id="exited-at-single-epoch-frame"),
+    ],
+)
+def test_count_active_epochs(activation_epoch: int, exit_epoch: int, l_epoch: int, r_epoch: int, expected: int):
+    validator = make_validator(0, activation_epoch=activation_epoch, exit_epoch=exit_epoch)
+    actual = SMPerformanceOracle._count_active_epochs(validator, EpochNumber(l_epoch), EpochNumber(r_epoch))
+    assert actual == expected
+
+
+@pytest.mark.unit
+def test_count_active_epochs_matches_validator_active_epoch_predicate():
+    for activation_epoch in range(0, 8):
+        for exit_epoch in range(activation_epoch, 10):
+            validator = make_validator(0, activation_epoch=activation_epoch, exit_epoch=exit_epoch)
+
+            for l_epoch in range(0, 8):
+                for r_epoch in range(l_epoch, 8):
+                    actual = SMPerformanceOracle._count_active_epochs(
+                        validator, EpochNumber(l_epoch), EpochNumber(r_epoch)
+                    )
+                    expected = sum(
+                        is_active_validator(validator, EpochNumber(epoch)) for epoch in range(l_epoch, r_epoch + 1)
+                    )
+                    assert actual == expected
 
 
 @pytest.fixture()
@@ -501,37 +541,28 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
 
-    module.w3.performance.get_epochs_data = Mock(
-        return_value=[
-            Duty(
-                epoch=0,
-                missed_attestation_vids=[validator_a.index],
-                proposals_vids=[int(validator_a.index), int(validator_b.index)],
-                proposals_flags=[True, False],
-                syncs_vids=[int(validator_a.index), int(validator_b.index)],
-                syncs_misses=[0, 1],
-            ),
-            Duty(
-                epoch=1,
-                missed_attestation_vids=[],
-                proposals_vids=[int(validator_b.index), int(validator_a.index), int(validator_b.index)],
-                proposals_flags=[True, True, True],
-                syncs_vids=[int(validator_a.index), int(validator_b.index)],
-                syncs_misses=[2, 3],
-            ),
-        ]
-    )
+    epochs_data = [
+        Duty(
+            epoch=0,
+            missed_attestation_vids=[validator_a.index],
+            proposals_vids=[int(validator_a.index), int(validator_b.index)],
+            proposals_flags=[True, False],
+            syncs_vids=[int(validator_a.index), int(validator_b.index)],
+            syncs_misses=[0, 1],
+        ),
+        Duty(
+            epoch=1,
+            missed_attestation_vids=[],
+            proposals_vids=[int(validator_b.index), int(validator_a.index), int(validator_b.index)],
+            proposals_flags=[True, True, True],
+            syncs_vids=[int(validator_a.index), int(validator_b.index)],
+            syncs_misses=[2, 3],
+        ),
+    ]
+    module.w3.performance.get_epochs_data = Mock(return_value=epochs_data)
     frames = [(0, 1)]
-    unprocessed = {0, 1}
-
-    state = Mock()
-    state.frames = frames
-    state.unprocessed_epochs = unprocessed
-    state.save_att_duty = Mock()
-    state.save_prop_duty = Mock()
-    state.save_sync_duty = Mock()
-    state.add_processed_epoch = Mock()
-    state.log_progress = Mock()
+    state = State()
+    state.init(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
     module.state = state
 
     module._fulfill_state()
@@ -540,29 +571,71 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
     module.w3.cc.get_validators.assert_called_once_with("finalized")
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
-    assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), validator_a.index, DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(0), validator_b.index, DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), validator_a.index, DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), validator_b.index, DutyAccumulator(assigned=1, included=1)),
-    ]
-    assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=1)),
-    ]
-    assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(0), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(1), ValidatorIndex(int(validator_a.index)), DutyAccumulator(assigned=3, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(validator_b.index)), DutyAccumulator(assigned=3, included=0)),
-    ]
-    assert state.add_processed_epoch.call_args_list == [
-        call(EpochNumber(0)),
-        call(EpochNumber(1)),
-    ]
+    frame_data = state.data[frames[0]]
+    assert frame_data.attestations == {
+        validator_a.index: DutyAccumulator(assigned=2, included=1),
+        validator_b.index: DutyAccumulator(assigned=2, included=2),
+    }
+    assert frame_data.proposals == {
+        validator_a.index: DutyAccumulator(assigned=2, included=2),
+        validator_b.index: DutyAccumulator(assigned=3, included=2),
+    }
+    assert frame_data.syncs == {
+        validator_a.index: DutyAccumulator(assigned=4, included=2),
+        validator_b.index: DutyAccumulator(assigned=4, included=0),
+    }
+    assert state.is_fulfilled
+
+    frame_data_snapshot = deepcopy(frame_data)
+    module._fulfill_state()
+
+    assert state.data[frames[0]] == frame_data_snapshot
+    # Still one epoch data call
+    module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
+
+
+@pytest.mark.unit
+def test_fulfill_state_does_not_recount_already_processed_epochs_in_frame(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[validator.index],
+                proposals_vids=[int(validator.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(validator.index)],
+                syncs_misses=[0],
+            ),
+            Duty(
+                epoch=1,
+                missed_attestation_vids=[],
+                proposals_vids=[int(validator.index)],
+                proposals_flags=[True],
+                syncs_vids=[int(validator.index)],
+                syncs_misses=[0],
+            ),
+        ]
+    )
+    frame = (EpochNumber(0), EpochNumber(1))
+    state = State()
+    state.init(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
+    state.data[frame].attestations[validator.index] = DutyAccumulator(assigned=1, included=0)
+    state.data[frame].proposals[validator.index] = DutyAccumulator(assigned=1, included=1)
+    state.data[frame].syncs[validator.index] = DutyAccumulator(assigned=1, included=1)
+    state.add_processed_epoch(EpochNumber(0))
+    module.state = state
+
+    module._fulfill_state()
+
+    module.w3.performance.get_epochs_data.assert_called_once_with(1, 1)
+    assert state.data[frame].attestations == {validator.index: DutyAccumulator(assigned=2, included=1)}
+    assert state.data[frame].proposals == {validator.index: DutyAccumulator(assigned=2, included=2)}
+    assert state.data[frame].syncs == {validator.index: DutyAccumulator(assigned=2, included=2)}
+    assert state.is_fulfilled
 
 
 @pytest.mark.unit
@@ -583,22 +656,16 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
             ),
         ]
     )
-    state = Mock()
-    state.frames = [(0, 0)]
-    state.unprocessed_epochs = {0}
-    state.save_att_duty = Mock()
-    state.save_prop_duty = Mock()
-    state.save_sync_duty = Mock()
-    state.add_processed_epoch = Mock()
-    state.log_progress = Mock()
+    state = State()
+    state.init(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
     module.state = state
 
     with pytest.raises(ValueError, match="not active"):
         module._fulfill_state()
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
-    state.save_att_duty.assert_not_called()
-    state.add_processed_epoch.assert_not_called()
+    assert state.data[(EpochNumber(0), EpochNumber(0))].attestations == {}
+    assert not state.is_fulfilled
 
 
 @pytest.mark.unit
@@ -620,25 +687,19 @@ def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceO
         ]
     )
 
-    state = Mock()
-    state.frames = [(0, 0)]
-    state.unprocessed_epochs = {0}
-    state.save_att_duty = Mock()
-    state.save_prop_duty = Mock()
-    state.save_sync_duty = Mock()
-    state.add_processed_epoch = Mock()
-    state.log_progress = Mock()
+    state = State()
+    state.init(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
     module.state = state
 
     with pytest.raises(ValueError, match="Inconsistent sync committee duties data"):
         module._fulfill_state()
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 0)
-    state.save_prop_duty.assert_called_once_with(
-        EpochNumber(0), ValidatorIndex(int(validator.index)), DutyAccumulator(assigned=1, included=1)
-    )
-    state.save_sync_duty.assert_not_called()
-    state.add_processed_epoch.assert_not_called()
+    frame_data = state.data[(EpochNumber(0), EpochNumber(0))]
+    assert frame_data.proposals == {}
+    assert frame_data.syncs == {}
+    assert frame_data.attestations == {}
+    assert not state.is_fulfilled
 
 
 @pytest.mark.unit
@@ -650,68 +711,55 @@ def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerform
     inactive_all = make_validator(3, activation_epoch=10, exit_epoch=20)
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[active_all, active_late, exit_early, inactive_all])
-    module.w3.performance.get_epochs_data = Mock(
-        return_value=[
-            Duty(
-                epoch=0,
-                missed_attestation_vids=[exit_early.index],
-                proposals_vids=[int(active_all.index)],
-                proposals_flags=[True],
-                syncs_vids=[int(active_all.index)],
-                syncs_misses=[0],
-            ),
-            Duty(
-                epoch=1,
-                missed_attestation_vids=[active_all.index],
-                proposals_vids=[int(active_late.index), int(active_all.index)],
-                proposals_flags=[True, False],
-                syncs_vids=[int(active_all.index), int(active_late.index)],
-                syncs_misses=[1, 0],
-            ),
-            Duty(
-                epoch=2,
-                missed_attestation_vids=[],
-                proposals_vids=[int(active_all.index)],
-                proposals_flags=[True],
-                syncs_vids=[int(active_all.index)],
-                syncs_misses=[1],
-            ),
-        ]
-    )
-    state = Mock()
-    state.frames = [(0, 2)]
-    state.unprocessed_epochs = {0, 1, 2}
-    state.save_att_duty = Mock()
-    state.save_prop_duty = Mock()
-    state.save_sync_duty = Mock()
-    state.add_processed_epoch = Mock()
-    state.log_progress = Mock()
+    epochs_data = [
+        Duty(
+            epoch=0,
+            missed_attestation_vids=[exit_early.index],
+            proposals_vids=[int(active_all.index)],
+            proposals_flags=[True],
+            syncs_vids=[int(active_all.index)],
+            syncs_misses=[0],
+        ),
+        Duty(
+            epoch=1,
+            missed_attestation_vids=[active_all.index],
+            proposals_vids=[int(active_late.index), int(active_all.index)],
+            proposals_flags=[True, False],
+            syncs_vids=[int(active_all.index), int(active_late.index)],
+            syncs_misses=[1, 0],
+        ),
+        Duty(
+            epoch=2,
+            missed_attestation_vids=[],
+            proposals_vids=[int(active_all.index)],
+            proposals_flags=[True],
+            syncs_vids=[int(active_all.index)],
+            syncs_misses=[1],
+        ),
+    ]
+    module.w3.performance.get_epochs_data = Mock(return_value=epochs_data)
+    state = State()
+    state.init(EpochNumber(0), EpochNumber(2), epochs_per_frame=3)
     module.state = state
 
     module._fulfill_state()
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 2)
-    assert state.save_att_duty.call_args_list == [
-        call(EpochNumber(0), active_all.index, DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(0), exit_early.index, DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(1), active_all.index, DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(1), active_late.index, DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(2), active_all.index, DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(2), active_late.index, DutyAccumulator(assigned=1, included=1)),
-    ]
-    assert state.save_prop_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
-    ]
-    assert state.save_sync_duty.call_args_list == [
-        call(EpochNumber(0), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(1), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
-        call(EpochNumber(1), ValidatorIndex(int(active_late.index)), DutyAccumulator(assigned=1, included=1)),
-        call(EpochNumber(2), ValidatorIndex(int(active_all.index)), DutyAccumulator(assigned=1, included=0)),
-    ]
-    state.add_processed_epoch.assert_has_calls([call(EpochNumber(0)), call(EpochNumber(1)), call(EpochNumber(2))])
+    frame_data = state.data[(EpochNumber(0), EpochNumber(2))]
+    assert frame_data.attestations == {
+        active_all.index: DutyAccumulator(assigned=3, included=2),
+        active_late.index: DutyAccumulator(assigned=2, included=2),
+        exit_early.index: DutyAccumulator(assigned=1, included=0),
+    }
+    assert frame_data.proposals == {
+        active_all.index: DutyAccumulator(assigned=3, included=2),
+        active_late.index: DutyAccumulator(assigned=1, included=1),
+    }
+    assert frame_data.syncs == {
+        active_all.index: DutyAccumulator(assigned=3, included=1),
+        active_late.index: DutyAccumulator(assigned=1, included=1),
+    }
+    assert state.is_fulfilled
 
 
 @pytest.mark.unit
