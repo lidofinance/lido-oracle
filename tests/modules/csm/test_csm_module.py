@@ -86,14 +86,20 @@ def make_validator(index: int, activation_epoch: int = 0, exit_epoch: int = 100)
         pytest.param(0, 10, 10, 10, 0, id="exited-at-single-epoch-frame"),
     ],
 )
-def test_count_active_epochs(activation_epoch: int, exit_epoch: int, l_epoch: int, r_epoch: int, expected: int):
+def test_count_active_epochs__activity_range_overlap__returns_active_epoch_count(
+    activation_epoch: int,
+    exit_epoch: int,
+    l_epoch: int,
+    r_epoch: int,
+    expected: int,
+):
     validator = make_validator(0, activation_epoch=activation_epoch, exit_epoch=exit_epoch)
     actual = SMPerformanceOracle._count_active_epochs(validator, EpochNumber(l_epoch), EpochNumber(r_epoch))
     assert actual == expected
 
 
 @pytest.mark.unit
-def test_count_active_epochs_matches_validator_active_epoch_predicate():
+def test_count_active_epochs__compared_to_is_active_validator__matches_active_epoch_predicate():
     for activation_epoch in range(0, 8):
         for exit_epoch in range(activation_epoch, 10):
             validator = make_validator(0, activation_epoch=activation_epoch, exit_epoch=exit_epoch)
@@ -534,7 +540,7 @@ def test__collect_data_handles_range_availability(
 
 
 @pytest.mark.unit
-def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
+def test_fulfill_state__epochs_data_received__stores_frame_duties(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
@@ -595,7 +601,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
 
 
 @pytest.mark.unit
-def test_fulfill_state_does_not_recount_already_processed_epochs_in_frame(module: CSPerformanceOracle):
+def test_fulfill_state__already_processed_epoch_in_frame__skips_recount(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -639,7 +645,7 @@ def test_fulfill_state_does_not_recount_already_processed_epochs_in_frame(module
 
 
 @pytest.mark.unit
-def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerformanceOracle):
+def test_fulfill_state__missed_attestation_for_inactive_validator__raises_error(module: CSPerformanceOracle):
     inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
@@ -669,7 +675,7 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 
 
 @pytest.mark.unit
-def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceOracle):
+def test_fulfill_state__sync_misses_exceed_blocks_in_epoch__raises_error(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -703,7 +709,9 @@ def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceO
 
 
 @pytest.mark.unit
-def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerformanceOracle):
+def test_fulfill_state__validators_active_for_part_of_frame__stores_only_active_duties(
+    module: CSPerformanceOracle,
+):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     active_all = make_validator(0, activation_epoch=0, exit_epoch=10)
     active_late = make_validator(1, activation_epoch=1, exit_epoch=10)
