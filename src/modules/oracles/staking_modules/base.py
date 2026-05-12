@@ -330,7 +330,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                         "total_epochs": len(unprocessed_epochs_batch),
                     }
                 )
-                if end_epoch - start_epoch != len(unprocessed_epochs_batch) - 1:
+                if end_epoch - start_epoch + 1 != len(unprocessed_epochs_batch):
                     raise ValueError("Non-contiguous unprocessed epochs in the batch")
 
                 raw_duties = self.w3.performance.get_epochs_data(start_epoch, end_epoch)
@@ -436,16 +436,14 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     @staticmethod
     def _count_active_epochs(validator: Validator, l_epoch: EpochNumber, r_epoch: EpochNumber) -> int:
-        activation_epoch = validator.validator.activation_epoch
-        exit_epoch = validator.validator.exit_epoch
-        if activation_epoch > r_epoch or exit_epoch <= l_epoch:
-            return 0
-        if activation_epoch <= l_epoch and exit_epoch > r_epoch:
-            return r_epoch - l_epoch + 1
+        first_active_epoch = max(l_epoch, validator.validator.activation_epoch)
+        last_active_epoch = min(r_epoch, validator.validator.exit_epoch - 1)
 
-        active_from = max(l_epoch, activation_epoch)
-        active_to = min(r_epoch, exit_epoch - 1)
-        return active_to - active_from + 1
+        # Validator activates after the range or exits before it.
+        if first_active_epoch > last_active_epoch:
+            return 0
+
+        return last_active_epoch - first_active_epoch + 1
 
     def _make_rewards_tree(self, shares: dict[NodeOperatorId, RewardsShares]) -> RewardsTree:
         if not shares:
