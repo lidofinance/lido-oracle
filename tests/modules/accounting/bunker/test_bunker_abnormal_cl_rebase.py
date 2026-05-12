@@ -508,6 +508,7 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
 )
 def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     web3,
+    monkeypatch,
     deposited_ref_wei,
     deposited_prev_wei,
     old_pending_gwei,
@@ -519,14 +520,31 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
 
     lido_pubkey = '0xabc'
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
 
     last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
     abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
     abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    genesis_mock = Mock()
+    genesis_mock.genesis_fork_version = '0x00000000'
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
 
-    pending_at_prev = [Mock(pubkey=lido_pubkey, amount=old_pending_gwei)] if old_pending_gwei else []
-    pending_at_ref = [Mock(pubkey=lido_pubkey, amount=current_pending_gwei)] if current_pending_gwei else []
+    monkeypatch.setattr(
+        'src.services.bunker_cases.abnormal_cl_rebase.is_valid_deposit_signature',
+        Mock(return_value=True),
+    )
+    monkeypatch.setattr(
+        'src.services.bunker_cases.abnormal_cl_rebase.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    def make_deposit(amount):
+        return Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xsig', amount=amount)
+
+    pending_at_prev = [make_deposit(old_pending_gwei)] if old_pending_gwei else []
+    pending_at_ref = [make_deposit(current_pending_gwei)] if current_pending_gwei else []
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
 
     abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(
@@ -536,6 +554,51 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
     assert result == Gwei(expected_gwei)
+
+
+@pytest.mark.unit
+def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3, monkeypatch):
+    """Invalid-signature deposits in old_pending must not inflate injected_capital."""
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+
+    lido_pubkey = '0xabc'
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = []
+
+    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    genesis_mock = Mock()
+    genesis_mock.genesis_fork_version = '0x00000000'
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
+
+    valid_deposit = Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xvalid', amount=1000 * 10**9)
+    invalid_deposit = Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xinvalid', amount=1 * 10**9)
+
+    def fake_is_valid(pubkey, withdrawal_credentials, amount, signature, genesis_fork_version):
+        return signature != b'0xinvalid'
+
+    monkeypatch.setattr(
+        'src.services.bunker_cases.abnormal_cl_rebase.is_valid_deposit_signature',
+        fake_is_valid,
+    )
+    monkeypatch.setattr(
+        'src.services.bunker_cases.abnormal_cl_rebase.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    # Both deposits pending at prev; only valid one processed by ref (invalid rejected)
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[valid_deposit, invalid_deposit], []])
+    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(side_effect=[Wei(0), Wei(0)])
+
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    # Only the valid 1000 ETH deposit should be counted; invalid 1 ETH excluded
+    assert result == Gwei(1000 * 10**9)
 
 
 @pytest.mark.unit

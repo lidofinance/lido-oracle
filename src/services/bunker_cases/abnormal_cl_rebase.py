@@ -11,9 +11,11 @@ from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
+from src.services.deposit_signature_verification import is_valid_deposit_signature
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
+from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
@@ -309,21 +311,32 @@ class AbnormalClRebase:
             )
 
         lido_pubkeys = {key.key for key in self.lido_keys}
+        lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
+        genesis_fork_version = hex_str_to_bytes(self.w3.cc.get_genesis().genesis_fork_version)
 
-        old_pending = Gwei(sum(
-            d.amount for d in self.w3.cc.get_pending_deposits(prev_blockstamp)
-            if d.pubkey in lido_pubkeys
-        ))
+        def valid_lido_pending(blockstamp: BlockStamp) -> Gwei:
+            return Gwei(sum(
+                d.amount
+                for d in self.w3.cc.get_pending_deposits(blockstamp)
+                if d.pubkey in lido_pubkeys
+                and d.withdrawal_credentials in lido_wc_list
+                and is_valid_deposit_signature(
+                    pubkey=hex_str_to_bytes(d.pubkey),
+                    withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
+                    amount=d.amount,
+                    signature=hex_str_to_bytes(d.signature),
+                    genesis_fork_version=genesis_fork_version,
+                )
+            ))
+
+        old_pending = valid_lido_pending(prev_blockstamp)
 
         deposited_in_window = wei_to_gwei(Wei(
             self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
             - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
         ))
 
-        current_pending = Gwei(sum(
-            d.amount for d in self.w3.cc.get_pending_deposits(ref_blockstamp)
-            if d.pubkey in lido_pubkeys
-        ))
+        current_pending = valid_lido_pending(ref_blockstamp)
 
         return Gwei(deposited_in_window + old_pending - current_pending)
 
