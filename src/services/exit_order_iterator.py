@@ -371,7 +371,7 @@ class ValidatorExitIterator:
 
         for gid in external_gids:
             self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
-            self.node_operators_stats[gid].weight += internal_weight / len(external_gids)
+            self.node_operators_stats[gid].weight = internal_weight / len(external_gids)
 
         self.module_stats[cm_v1_id].total_stake += internal_balance
         self.module_stats[cm_v2_id].total_stake += external_balance
