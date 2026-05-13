@@ -237,7 +237,7 @@ class LidoValidatorsProvider(Module):
         filter_pubkeys: set[str],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
-    ) -> dict[str, list[PendingDeposit]]:
+    ) -> dict[HexStr, list[PendingDeposit]]:
         """Core frontrun-detection loop.
 
         Returns pending deposits grouped by pubkey, only for pubkeys in filter_pubkeys.
