@@ -6,7 +6,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast, get_args
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 import xdist
@@ -43,7 +43,6 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
-    PerformanceClientModule,
     TransactionUtils,
 )
 from src.web3py.extensions.staking_module import StakingModuleContracts
@@ -292,7 +291,6 @@ def forked_el_client(blockstamp_for_forking: BlockStamp | None, testrun_path: st
 @pytest.fixture()
 def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
     kac = KeysAPIClientModule(variables.KEYS_API_URI, forked_el_client)
-    performance = PerformanceClientModule(variables.PERFORMANCE_COLLECTOR_URI)
     forked_el_client.attach_modules(
         {
             'lido_contracts': LidoContracts,
@@ -300,8 +298,8 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'transaction': TransactionUtils,
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
-            "ipfs": lambda: mocked_ipfs_client,
-            'performance': lambda: performance,
+            'ipfs': lambda: mocked_ipfs_client,
+            'delegation': lambda: Mock(is_enabled=lambda: False),  # type: ignore[dict-item]
         }
     )
     yield forked_el_client
@@ -516,6 +514,19 @@ def new_hash_consensus(  # pylint: disable=too-many-positional-arguments
     forked_el_client.provider.make_request('anvil_setStorageAt', [report_contract.address, storage_slot, bytes(32)])
 
     yield new_consensus
+
+
+@pytest.fixture()
+def process_frame_index(forked_el_client, report_contract, frame_config):
+    def _set_last_processed(frame_index: int):
+        storage_slot = forked_el_client.keccak(text="lido.BaseOracle.lastProcessingRefSlot")
+        ref_slot = 32 * (frame_config.initial_epoch + frame_index * frame_config.epochs_per_frame) - 1
+        logger.info(f"TESTRUN Set Last Processed Ref Slot to {ref_slot}")
+        forked_el_client.provider.make_request(
+            'anvil_setStorageAt', [report_contract.address, storage_slot, int(ref_slot).to_bytes(32, byteorder='big')]
+        )
+
+    return _set_last_processed
 
 
 @pytest.fixture()

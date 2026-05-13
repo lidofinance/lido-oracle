@@ -17,6 +17,7 @@ from src.modules.sidecars.performance.collector.collector import PerformanceColl
 from src.modules.sidecars.performance.common.db import Duty
 from src.modules.sidecars.performance.web.server import app
 from src.utils.range import sequence
+from src.web3py.extensions import PerformanceClientModule
 from src.web3py.types import Web3Base, Web3StakingModule
 from tests.fork.conftest import first_slot_of_epoch
 
@@ -87,7 +88,7 @@ def performance_web_server_port():
 
 
 @pytest.fixture()
-def performance_web_server(performance_local_db, performance_web_server_port):
+def performance_web_server(performance_local_db, web3: Web3Base, performance_web_server_port):
     config = uvicorn.Config(app, host='127.0.0.1', port=performance_web_server_port, log_level='error')
     server = uvicorn.Server(config)
     thread = Thread(target=server.run, daemon=True)
@@ -97,6 +98,9 @@ def performance_web_server(performance_local_db, performance_web_server_port):
         if server.started:
             break
         time.sleep(0.05)
+
+    performance = PerformanceClientModule([f"http://127.0.0.1:{performance_web_server_port}"])
+    web3.attach_modules({'performance': lambda: performance})
 
     yield
     server.should_exit = True
@@ -123,10 +127,16 @@ def start_after_initial_epoch(frame_config: FrameConfig, cycle_iterations):
 
 
 @pytest.fixture
-def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
+def start_after_initial_frame(frame_config: FrameConfig, cycle_iterations):
     _from = frame_config.initial_epoch + frame_config.epochs_per_frame + 1
     _to = _from + cycle_iterations
     return [first_slot_of_epoch(i) for i in sequence(_from, _to)]
+
+
+@pytest.fixture
+def frame_index_as_processed(request):
+    # None means no frame was processed yet
+    return request.param
 
 
 @pytest.mark.fork
@@ -140,8 +150,13 @@ def missed_initial_frame(frame_config: FrameConfig, cycle_iterations):
     indirect=True,
 )
 @pytest.mark.parametrize(
-    'running_finalized_slots',
-    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
+    'running_finalized_slots,frame_index_as_processed',
+    [
+        (start_before_initial_epoch, None),
+        (start_after_initial_epoch, None),
+        (start_after_initial_frame, None),
+        (start_after_initial_frame, 0),
+    ],
     indirect=True,
 )
 def test_staking_module_module_report(
@@ -149,7 +164,9 @@ def test_staking_module_module_report(
     performance_collector,
     module,
     set_oracle_members,
+    process_frame_index,
     running_finalized_slots,
+    frame_index_as_processed,
     account_from,
 ):
     current_contract_version = module.report_contract.get_contract_version()
@@ -166,6 +183,9 @@ def test_staking_module_module_report(
         )
 
     assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
+    if frame_index_as_processed is not None:
+        process_frame_index(frame_index_as_processed)
+
     members = set_oracle_members(count=2)
 
     report_frame = None

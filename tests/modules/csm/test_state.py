@@ -1,217 +1,94 @@
 from collections import defaultdict
-from unittest.mock import Mock
 
 import pytest
 
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator, InvalidState, NetworkDuties, State
 from src.types import EpochNumber, ValidatorIndex
-from src.utils.range import sequence
+
+
+def make_state(l_epoch: int = 0, r_epoch: int = 31, epochs_per_frame: int = 32) -> State:
+    return State(EpochNumber(l_epoch), EpochNumber(r_epoch), epochs_per_frame)
 
 
 @pytest.mark.unit
-def test_is_empty_returns_true_for_empty_state():
-    state = State()
-    assert state.is_empty
+def test_init__single_frame_range__creates_empty_frame_data():
+    state = make_state(0, 31, 32)
 
-
-@pytest.mark.unit
-def test_is_empty_returns_false_for_non_empty_state():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    assert not state.is_empty
-
-
-@pytest.mark.unit
-def test_unprocessed_epochs_raises_error_if_epochs_not_set():
-    state = State()
-    with pytest.raises(ValueError, match="Epochs to process are not set"):
-        _ = state.unprocessed_epochs
-
-
-@pytest.mark.unit
-def test_unprocessed_epochs_returns_correct_set():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 63))
-    assert state.unprocessed_epochs == set(EpochNumber(e) for e in sequence(64, 95))
-
-
-@pytest.mark.unit
-def test_is_fulfilled_returns_true_if_no_unprocessed_epochs():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 95))
-    assert state.is_fulfilled
-
-
-@pytest.mark.unit
-def test_is_fulfilled_returns_false_if_unprocessed_epochs_exist():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 63))
+    assert state.data == {
+        (EpochNumber(0), EpochNumber(31)): NetworkDuties(attestations={}, proposals={}, syncs={}),
+    }
+    assert state.frames == [(EpochNumber(0), EpochNumber(31))]
     assert not state.is_fulfilled
 
 
 @pytest.mark.unit
-def test_calculate_frames_handles_exact_frame_size():
+def test_init__multiple_frame_range__creates_empty_frame_data_per_frame():
+    state = make_state(0, 63, 32)
+
+    assert state.data == {
+        (EpochNumber(0), EpochNumber(31)): NetworkDuties(attestations={}, proposals={}, syncs={}),
+        (EpochNumber(32), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
+    }
+    assert state.frames == [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(63))]
+    assert not state.is_fulfilled
+
+
+@pytest.mark.unit
+def test_calculate_frames__exact_frame_size__returns_frames():
     epochs = tuple(EpochNumber(e) for e in range(10))
+
     frames = State._calculate_frames(epochs, 5)
+
     assert frames == [(EpochNumber(0), EpochNumber(4)), (EpochNumber(5), EpochNumber(9))]
 
 
 @pytest.mark.unit
-def test_calculate_frames_raises_error_for_insufficient_epochs():
+def test_calculate_frames__insufficient_epochs__raises_error():
     epochs = tuple(EpochNumber(e) for e in range(8))
+
     with pytest.raises(ValueError, match="Insufficient epochs to form a frame"):
         State._calculate_frames(epochs, 5)
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    "frames, expected",
-    [
-        pytest.param(((10, 41),), (10, 41), id="single-frame"),
-        pytest.param(((0, 31), (32, 63)), (0, 63), id="sorted-frames"),
-        pytest.param(((32, 63), (0, 31)), (0, 63), id="unsorted-two-frames"),
-        pytest.param(((64, 95), (32, 63), (0, 31)), (0, 95), id="reverse-three-frames"),
-        pytest.param(((32, 63), (64, 95), (0, 31)), (0, 95), id="mixed-three-frames"),
-    ],
-)
-def test_range_returns_expected_bounds(frames, expected):
-    state = State()
-    state.data = {frame: NetworkDuties() for frame in frames}
-    assert state.frame_range == expected
+def test_save_duties__existing_frame__merges_data():
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
+    state.data[frame].attestations[ValidatorIndex(1)] = DutyAccumulator(assigned=10, included=8)
+    duties = NetworkDuties(
+        attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(assigned=2, included=1)}),
+        proposals=defaultdict(DutyAccumulator, {ValidatorIndex(2): DutyAccumulator(assigned=1, included=1)}),
+        syncs=defaultdict(DutyAccumulator, {ValidatorIndex(3): DutyAccumulator(assigned=4, included=3)}),
+    )
+
+    state.save_duties(frame, duties)
+
+    assert state.data[frame].attestations == {ValidatorIndex(1): DutyAccumulator(assigned=12, included=9)}
+    assert state.data[frame].proposals == {ValidatorIndex(2): DutyAccumulator(assigned=1, included=1)}
+    assert state.data[frame].syncs == {ValidatorIndex(3): DutyAccumulator(assigned=4, included=3)}
 
 
 @pytest.mark.unit
-def test_range_raises_error_when_no_frames():
-    state = State()
-    with pytest.raises(InvalidState, match="Frames are not set"):
-        _ = state.frame_range
+def test_save_duties__missing_frame__raises_error():
+    state = make_state()
 
-
-@pytest.mark.unit
-def test_clear_resets_state_to_empty():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 5)})
-        ),
-    }
-    state.clear()
-    assert state.is_empty
-
-
-@pytest.mark.unit
-def test_add_processed_epoch_adds_epoch_to_processed_set():
-    state = State()
-    state.add_processed_epoch(EpochNumber(5))
-    assert EpochNumber(5) in state._processed_epochs
-
-
-@pytest.mark.unit
-def test_add_processed_epoch_does_not_duplicate_epochs():
-    state = State()
-    state.add_processed_epoch(EpochNumber(5))
-    state.add_processed_epoch(EpochNumber(5))
-    assert len(state._processed_epochs) == 1
-
-
-@pytest.mark.unit
-def test_init():
-    state = State()
-    state._calculate_frames = Mock(side_effect=state._calculate_frames)
-
-    state.init(EpochNumber(0), EpochNumber(63), 64)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
-    }
-    assert state.frames == [(EpochNumber(0), EpochNumber(63))]
-    assert state._epochs_to_process == tuple(EpochNumber(e) for e in sequence(0, 63))
-    state._calculate_frames.assert_called_once_with(tuple(sequence(0, 63)), 64)
-
-
-@pytest.mark.unit
-def test_init_multiple_frames():
-    state = State()
-    state._calculate_frames = Mock(side_effect=state._calculate_frames)
-
-    state.init(EpochNumber(0), EpochNumber(127), 64)
-
-    assert state.data == {
-        (EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
-        (EpochNumber(64), EpochNumber(127)): NetworkDuties(attestations={}, proposals={}, syncs={}),
-    }
-    assert state.frames == [(EpochNumber(0), EpochNumber(63)), (EpochNumber(64), EpochNumber(127))]
-    state._calculate_frames.assert_called_once_with(tuple(sequence(0, 127)), 64)
-
-
-@pytest.mark.unit
-def test_reinit_after_clear():
-    state = State()
-    state.init(EpochNumber(0), EpochNumber(63), 64)
-    state.clear()
-    state.init(EpochNumber(0), EpochNumber(63), 64)
-    assert state.data == {(EpochNumber(0), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={})}
-    assert state.frames == [(EpochNumber(0), EpochNumber(63))]
-
-
-@pytest.mark.unit
-def test_init_raises_if_already_initialized():
-    state = State()
-    state.init(EpochNumber(0), EpochNumber(127), 64)
-    with pytest.raises(InvalidState, match="initialized"):
-        state.init(EpochNumber(0), EpochNumber(127), 64)
-
-
-@pytest.mark.unit
-def test_validate_raises_error_if_state_not_fulfilled():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 94))
-    with pytest.raises(InvalidState, match="State is not fulfilled"):
-        state.validate(EpochNumber(0), EpochNumber(95))
-
-
-@pytest.mark.unit
-def test_validate_raises_error_if_processed_epoch_out_of_range():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs.add(EpochNumber(96))
-    with pytest.raises(InvalidState, match="Processed epoch 96 is out of range"):
-        state.validate(EpochNumber(0), EpochNumber(95))
-
-
-@pytest.mark.unit
-def test_validate_raises_error_if_epoch_missing_in_processed_epochs():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 94))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 94))
-    with pytest.raises(InvalidState, match="Epoch 95 missing in processed epochs"):
-        state.validate(EpochNumber(0), EpochNumber(95))
-
-
-@pytest.mark.unit
-def test_validate_passes_for_fulfilled_state():
-    state = State()
-    state._epochs_to_process = tuple(EpochNumber(e) for e in sequence(0, 95))
-    state._processed_epochs = set(EpochNumber(e) for e in sequence(0, 95))
-    state.validate(EpochNumber(0), EpochNumber(95))
+    with pytest.raises(InvalidState, match="No data for frame"):
+        state.save_duties((EpochNumber(32), EpochNumber(63)), NetworkDuties())
 
 
 @pytest.mark.unit
 def test_attestation_aggregate_perf():
     aggr = DutyAccumulator(included=333, assigned=777)
+
     assert aggr.perf == pytest.approx(0.4285, abs=1e-4)
 
 
 @pytest.mark.unit
 def test_get_validator_duties():
-    state = State()
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
     state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
+        frame: NetworkDuties(
             attestations=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
@@ -226,7 +103,9 @@ def test_get_validator_duties():
             ),
         )
     }
-    duties = state.get_validator_duties((EpochNumber(0), EpochNumber(31)), ValidatorIndex(1))
+
+    duties = state.get_validator_duties(frame, ValidatorIndex(1))
+
     assert duties.attestation is not None
     assert duties.attestation.assigned == 10
     assert duties.attestation.included == 5
@@ -239,132 +118,121 @@ def test_get_validator_duties():
 
 
 @pytest.mark.unit
+def test_get_validator_duties__missing_frame__raises_error():
+    state = make_state()
+
+    with pytest.raises(InvalidState, match="No data for frame"):
+        state.get_validator_duties((EpochNumber(32), EpochNumber(63)), ValidatorIndex(1))
+
+
+@pytest.mark.unit
 def test_get_att_network_aggr_computes_correctly():
-    state = State()
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
     state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
+        frame: NetworkDuties(
             attestations=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
             )
         )
     }
-    aggr = state.get_att_network_aggr((EpochNumber(0), EpochNumber(31)))
+
+    aggr = state.get_att_network_aggr(frame)
+
     assert aggr.assigned == 30
     assert aggr.included == 20
 
 
 @pytest.mark.unit
 def test_get_sync_network_aggr_computes_correctly():
-    state = State()
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
     state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
+        frame: NetworkDuties(
             syncs=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
             )
         )
     }
-    aggr = state.get_sync_network_aggr((EpochNumber(0), EpochNumber(31)))
+
+    aggr = state.get_sync_network_aggr(frame)
+
     assert aggr.assigned == 30
     assert aggr.included == 20
 
 
 @pytest.mark.unit
 def test_get_prop_network_aggr_computes_correctly():
-    state = State()
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
     state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
+        frame: NetworkDuties(
             proposals=defaultdict(
                 DutyAccumulator,
                 {ValidatorIndex(1): DutyAccumulator(10, 5), ValidatorIndex(2): DutyAccumulator(20, 15)},
             )
         )
     }
-    aggr = state.get_prop_network_aggr((EpochNumber(0), EpochNumber(31)))
+
+    aggr = state.get_prop_network_aggr(frame)
+
     assert aggr.assigned == 30
     assert aggr.included == 20
 
 
 @pytest.mark.unit
-def test_get_att_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})
-        )
-    }
-    with pytest.raises(ValueError, match="Invalid accumulator"):
-        state.get_att_network_aggr((EpochNumber(0), EpochNumber(31)))
+@pytest.mark.parametrize(
+    "duties_field, aggr_method",
+    [
+        pytest.param("attestations", "get_att_network_aggr", id="attestations"),
+        pytest.param("proposals", "get_prop_network_aggr", id="proposals"),
+        pytest.param("syncs", "get_sync_network_aggr", id="syncs"),
+    ],
+)
+def test_get_network_aggr__invalid_accumulator__raises_error(duties_field: str, aggr_method: str):
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
+    frame_data = NetworkDuties()
+    getattr(frame_data, duties_field)[ValidatorIndex(1)] = DutyAccumulator(assigned=10, included=15)
+    state.data = {frame: frame_data}
+
+    with pytest.raises(InvalidState, match="Invalid accumulator"):
+        getattr(state, aggr_method)(frame)
 
 
 @pytest.mark.unit
-def test_get_prop_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            proposals=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})
-        )
-    }
-    with pytest.raises(ValueError, match="Invalid accumulator"):
-        state.get_prop_network_aggr((EpochNumber(0), EpochNumber(31)))
+@pytest.mark.parametrize(
+    "aggr_method",
+    [
+        pytest.param("get_att_network_aggr", id="attestations"),
+        pytest.param("get_prop_network_aggr", id="proposals"),
+        pytest.param("get_sync_network_aggr", id="syncs"),
+    ],
+)
+def test_get_network_aggr__missing_frame__raises_error(aggr_method: str):
+    state = make_state()
+
+    with pytest.raises(InvalidState, match="No data for frame"):
+        getattr(state, aggr_method)((EpochNumber(32), EpochNumber(63)))
 
 
 @pytest.mark.unit
-def test_get_sync_network_aggr_raises_error_for_invalid_accumulator():
-    state = State()
-    state.data = {
-        (EpochNumber(0), EpochNumber(31)): NetworkDuties(
-            syncs=defaultdict(DutyAccumulator, {ValidatorIndex(1): DutyAccumulator(10, 15)})
-        )
-    }
-    with pytest.raises(ValueError, match="Invalid accumulator"):
-        state.get_sync_network_aggr((EpochNumber(0), EpochNumber(31)))
+@pytest.mark.parametrize(
+    "aggr_method",
+    [
+        pytest.param("get_att_network_aggr", id="attestations"),
+        pytest.param("get_prop_network_aggr", id="proposals"),
+        pytest.param("get_sync_network_aggr", id="syncs"),
+    ],
+)
+def test_get_network_aggr__empty_frame_data__returns_zero_accumulator(aggr_method: str):
+    state = make_state()
+    frame = (EpochNumber(0), EpochNumber(31))
+    state.data = {frame: NetworkDuties()}
 
+    aggr = getattr(state, aggr_method)(frame)
 
-@pytest.mark.unit
-def test_get_att_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
-    with pytest.raises(ValueError, match="No data for frame"):
-        state.get_att_network_aggr((EpochNumber(0), EpochNumber(31)))
-
-
-@pytest.mark.unit
-def test_get_prop_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
-    with pytest.raises(ValueError, match="No data for frame"):
-        state.get_prop_network_aggr((EpochNumber(0), EpochNumber(31)))
-
-
-@pytest.mark.unit
-def test_get_sync_network_aggr_raises_error_for_missing_frame_data():
-    state = State()
-    with pytest.raises(ValueError, match="No data for frame"):
-        state.get_sync_network_aggr((EpochNumber(0), EpochNumber(31)))
-
-
-@pytest.mark.unit
-def test_get_att_network_aggr_handles_empty_frame_data():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    aggr = state.get_att_network_aggr((EpochNumber(0), EpochNumber(31)))
-    assert aggr.assigned == 0
-    assert aggr.included == 0
-
-
-@pytest.mark.unit
-def test_get_prop_network_aggr_handles_empty_frame_data():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    aggr = state.get_prop_network_aggr((EpochNumber(0), EpochNumber(31)))
-    assert aggr.assigned == 0
-    assert aggr.included == 0
-
-
-@pytest.mark.unit
-def test_get_sync_network_aggr_handles_empty_frame_data():
-    state = State()
-    state.data = {(EpochNumber(0), EpochNumber(31)): NetworkDuties()}
-    aggr = state.get_sync_network_aggr((EpochNumber(0), EpochNumber(31)))
     assert aggr.assigned == 0
     assert aggr.included == 0

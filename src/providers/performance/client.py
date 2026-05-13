@@ -1,3 +1,6 @@
+from itertools import batched
+
+from src import variables
 from src.metrics.prometheus.basic import PERFORMANCE_REQUESTS_DURATION
 from src.modules.sidecars.performance.common.db import Duty, EpochsDemand
 from src.providers.http_provider import (
@@ -8,6 +11,7 @@ from src.providers.http_provider import (
     data_is_list,
 )
 from src.types import EpochNumber
+from src.utils.range import sequence
 
 
 class PerformanceClientError(NotOkResponse):
@@ -37,12 +41,19 @@ class PerformanceClient(HTTPProvider):
         return Duty.model_validate(data) if data else None
 
     def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
-        data, _ = self._get(
-            self.API_EPOCHS_DATA,
-            query_params={'from': from_epoch, 'to': to_epoch},
-            validate_response=data_is_list,
-        )
-        return [Duty.model_validate(item) for item in data]
+        batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
+
+        data: list[Duty] = []
+        for epochs_batch in batched(sequence(from_epoch, to_epoch), batch_size, strict=False):
+            from_epoch, to_epoch = epochs_batch[0], epochs_batch[-1]
+            _data, _ = self._get(
+                self.API_EPOCHS_DATA,
+                query_params={'from': from_epoch, 'to': to_epoch},
+                validate_response=data_is_list,
+            )
+            data.extend([Duty.model_validate(item) for item in _data])
+
+        return data
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         data, _ = self._get(self.API_EPOCHS_DEMAND + f"/{consumer}")

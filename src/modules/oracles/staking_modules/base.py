@@ -5,7 +5,6 @@ from collections import defaultdict
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from itertools import batched
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -93,14 +92,12 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     """
 
     report_contract: CSFeeOracleContract
-    state: State
     consumer: HexAddress
     collector_telemetry: ThrottledTelemetry
 
     def __init__(self, w3: Web3StakingModule):
         self.report_contract = w3.staking_module.oracle
         self.consumer = self.report_contract.address
-        self.state = State()
         self.collector_telemetry = ThrottledTelemetry(
             interval_seconds=variables.TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS,
             send_callback=self._try_send_telemetry,
@@ -115,7 +112,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if self.consumer != old_consumer:
             with suppress(self.w3.performance.PROVIDER_EXCEPTION):
                 self.w3.performance.delete_epochs_demand(old_consumer)
-        self.state.clear()
 
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
@@ -124,38 +120,27 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self._prepare_to_collect(last_finalized_blockstamp)
+        l_epoch = self._get_l_epoch(last_finalized_blockstamp)
+        r_epoch = self._predict_r_epoch(last_finalized_blockstamp, l_epoch)
+        self.push_epochs_demand(l_epoch, r_epoch)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        collected = self._collect_data()
-        if not collected:
+        r_epoch = report_blockstamp.ref_epoch
+        is_range_available = self._check_range_availability(l_epoch, r_epoch)
+        if not is_range_available:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
         self.process_report(report_blockstamp)
         return ModuleExecuteDelay.NEXT_SLOT
 
     @duration_meter()
-    def _prepare_to_collect(self, blockstamp: BlockStamp):
-        l_epoch, r_epoch = self._get_epochs_range_to_process(blockstamp)
-        self._post_epochs_demand(l_epoch, r_epoch)
-
-        converter = self._get_web3_converter(blockstamp)
-        self.state.clear()
-        self.state.init(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
-
-    def _post_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber):
-        range_available = self._check_range_availability(l_epoch, r_epoch)
-        if range_available:
-            PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(0)
-            logger.info(
-                {"msg": "Performance data range is already available", "start_epoch": l_epoch, "end_epoch": r_epoch}
-            )
+    def push_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+        is_range_available = self._check_range_availability(l_epoch, r_epoch)
+        if is_range_available:
             return
-
-        PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
 
         current_demand = self.w3.performance.get_epochs_demand(self.consumer)
         current_epochs_range = (current_demand.from_epoch, current_demand.to_epoch) if current_demand else None
@@ -170,28 +155,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             )
             self.w3.performance.post_epochs_demand(self.consumer, l_epoch, r_epoch)
 
-    def _collect_data(self) -> bool:
-        logger.info({"msg": "Collecting data for the report from Performance Collector"})
-
-        self.state.ensure_initialized()
-
-        if not self.state.is_fulfilled:
-            l_epoch, r_epoch = self.state.frame_range
-            range_available = self._check_range_availability(l_epoch, r_epoch)
-            if not range_available:
-                logger.warning(
-                    {
-                        "msg": "Performance data range is not available yet",
-                        "start_epoch": l_epoch,
-                        "end_epoch": r_epoch,
-                    }
-                )
-                return False
-            logger.info({"msg": "Performance data range is available", "start_epoch": l_epoch, "end_epoch": r_epoch})
-            self._fulfill_state()
-
-        return self.state.is_fulfilled
-
     def _check_range_availability(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
         PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set_to_current_time()
         range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
@@ -203,13 +166,21 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             },
             ignore_cooldown=range_available,
         )
+        if range_available:
+            PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(0)
+            logger.info(
+                {"msg": "Performance data range is already available", "start_epoch": l_epoch, "end_epoch": r_epoch}
+            )
+        else:
+            PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
+            logger.info(
+                {"msg": "Performance data range is not available yet", "start_epoch": l_epoch, "end_epoch": r_epoch}
+            )
         return range_available
 
     @lru_cache(maxsize=1)
     @duration_meter()
     def build_report(self, blockstamp: ReferenceBlockStamp) -> tuple:
-        self._validate_state(blockstamp)
-
         distribution, last_report = self._calculate_distribution(blockstamp)
         rewards_tree_root, rewards_cid = last_report.rewards_tree_root, last_report.rewards_tree_cid
 
@@ -246,16 +217,34 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             strikes_tree_cid=strikes_cid or "",
         ).as_tuple()
 
+    @lru_cache(maxsize=1)
+    def _calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
+        state = self._prepare_duties_state(blockstamp)
+        last_report = self._get_last_report(blockstamp)
+
+        distribution = Distribution(self.w3, self._get_web3_converter(blockstamp), state)
+        result = distribution.calculate(blockstamp, last_report)
+
+        return result, last_report
+
+    def _prepare_duties_state(self, blockstamp: ReferenceBlockStamp) -> State:
+        l_epoch = self._get_l_epoch(blockstamp)
+        r_epoch = blockstamp.ref_epoch
+
+        is_data_available = self._check_range_availability(l_epoch, r_epoch)
+        if not is_data_available:
+            raise ValueError(f"Performance data range is not available yet, but it should: {l_epoch=}, {r_epoch=}")
+
+        converter = self._get_web3_converter(blockstamp)
+        state = self._get_duties_state(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
+        if not state.is_fulfilled:
+            self._fulfill_state(state)
+
+        return state
+
     def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
         current_frame = self.get_frame_number_by_slot(blockstamp)
         return LastReport.load(self.w3, blockstamp, current_frame)
-
-    @lru_cache(maxsize=1)
-    def _calculate_distribution(self, blockstamp: ReferenceBlockStamp) -> tuple[DistributionResult, LastReport]:
-        last_report = self._get_last_report(blockstamp)
-        distribution = Distribution(self.w3, self._get_web3_converter(blockstamp), self.state)
-        result = distribution.calculate(blockstamp, last_report)
-        return result, last_report
 
     def is_main_data_submitted(self, blockstamp: BlockStamp) -> bool:
         last_ref_slot = self.w3.staking_module.get_last_processing_ref_slot(blockstamp)
@@ -270,169 +259,115 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         CONTRACT_ON_PAUSE.labels(self.consumer).set(on_pause)
         return not on_pause
 
-    def _validate_state(self, blockstamp: ReferenceBlockStamp) -> None:
-        # NOTE: We cannot use `r_epoch` from the `current_frame_range` call because the `blockstamp` is a
-        # `ReferenceBlockStamp`, hence it's a block the frame ends at. We use `ref_epoch` instead.
-        l_epoch, _ = self._get_epochs_range_to_process(blockstamp)
-        r_epoch = blockstamp.ref_epoch
-
-        self.state.validate(l_epoch, r_epoch)
+    @lru_cache(maxsize=1)
+    def _get_duties_state(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> State:
+        return State(l_epoch, r_epoch, epochs_per_frame)
 
     @duration_meter()
-    def _fulfill_state(self):  # noqa: C901
+    def _fulfill_state(self, state: State):  # noqa: C901
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
         validators_by_index = {validator.index: validator for validator in validators}
 
-        batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
-
         logger.info(
             {
                 "msg": "Starting state fulfillment",
-                "total_frames": len(self.state.frames),
+                "total_frames": len(state.frames),
                 "total_validators": len(validators),
-                "batch_size": batch_size,
             }
         )
 
-        for l_epoch, r_epoch in self.state.frames:
+        for l_epoch, r_epoch in state.frames:
+            frame_epochs = tuple(sequence(l_epoch, r_epoch))
+            frame_duties_to_save = NetworkDuties()
+            frame_missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
+
             logger.info(
                 {
                     "msg": "Processing frame",
                     "start_epoch": l_epoch,
                     "end_epoch": r_epoch,
-                    "total_epochs": r_epoch - l_epoch + 1,
+                    "total_epochs": len(frame_epochs),
                 }
             )
 
-            frame_epochs = tuple(sequence(l_epoch, r_epoch))
-            frame_unprocessed_epochs = sorted(self.state.unprocessed_epochs.intersection(frame_epochs))
-            if not frame_unprocessed_epochs:
-                logger.debug(
-                    {
-                        "msg": "Frame epochs are already processed",
-                        "start_epoch": l_epoch,
-                        "end_epoch": r_epoch,
-                    }
+            raw_frame_duties = self.w3.performance.get_epochs_data(l_epoch, r_epoch)
+            for epoch_data in raw_frame_duties:
+                epoch = EpochNumber(epoch_data.epoch)
+
+                (
+                    missed_atts_vids,
+                    proposers,
+                    props_flags,
+                    syncs_vids,
+                    syncs_misses,
+                ) = (
+                    [ValidatorIndex(vid) for vid in epoch_data.missed_attestation_vids],
+                    [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
+                    epoch_data.proposals_flags,  # proposed or not status
+                    [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
+                    epoch_data.syncs_misses,  # count of missed blocks in sync duties
                 )
-                continue
 
-            for unprocessed_epochs_batch in batched(frame_unprocessed_epochs, batch_size, strict=False):
-                batch_duties_to_save = NetworkDuties()
-                batch_missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
+                if len(missed_atts_vids) != len(set(missed_atts_vids)):
+                    raise ValueError(f"Duplicate validator indices in missed attestation vids for epoch {epoch}")
 
-                start_epoch, end_epoch = unprocessed_epochs_batch[0], unprocessed_epochs_batch[-1]
-                logger.info(
-                    {
-                        "msg": "Requesting unprocessed performance data batch from collector",
-                        "start_epoch": start_epoch,
-                        "end_epoch": end_epoch,
-                        "total_epochs": len(unprocessed_epochs_batch),
-                    }
-                )
-                if end_epoch - start_epoch + 1 != len(unprocessed_epochs_batch):
-                    raise ValueError("Non-contiguous unprocessed epochs in the batch")
-
-                raw_duties = self.w3.performance.get_epochs_data(start_epoch, end_epoch)
-                raw_duties_by_epoch = {duty.epoch: duty for duty in raw_duties}
-
-                for epoch in unprocessed_epochs_batch:
-                    epoch_data = raw_duties_by_epoch.get(epoch)
-                    if epoch_data is None:
-                        raise ValueError(f"Epoch {epoch} is missing in data received from Performance Collector")
-
-                    (
-                        missed_atts_vids,
-                        proposers,
-                        props_flags,
-                        syncs_vids,
-                        syncs_misses,
-                    ) = (
-                        [ValidatorIndex(vid) for vid in epoch_data.missed_attestation_vids],
-                        [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
-                        epoch_data.proposals_flags,  # proposed or not status
-                        [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
-                        epoch_data.syncs_misses,  # count of missed blocks in sync duties
+                if len(proposers) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
+                    raise ValueError(
+                        f"Epoch {epoch} data is corrupted: "
+                        f"{len(proposers)=}, {len(props_flags)=}, "
+                        f"{len(syncs_vids)=}, {len(syncs_misses)=}"
                     )
 
-                    if len(missed_atts_vids) != len(set(missed_atts_vids)):
-                        raise ValueError(f"Duplicate validator indices in missed attestation vids for epoch {epoch}")
+                blocks_in_epoch = 0
 
-                    if len(proposers) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
-                        raise ValueError(
-                            f"Epoch {epoch} data is corrupted: "
-                            f"{len(proposers)=}, {len(props_flags)=}, "
-                            f"{len(syncs_vids)=}, {len(syncs_misses)=}"
-                        )
+                for i, vid in enumerate(proposers):
+                    proposed = props_flags[i]
+                    v_prop = frame_duties_to_save.proposals[vid]
+                    v_prop.assigned += 1
+                    v_prop.included += int(proposed)
+                    blocks_in_epoch += int(proposed)
 
-                    blocks_in_epoch = 0
-
-                    for i, vid in enumerate(proposers):
-                        proposed = props_flags[i]
-                        v_prop = batch_duties_to_save.proposals[vid]
-                        v_prop.assigned += 1
-                        v_prop.included += int(proposed)
-                        blocks_in_epoch += int(proposed)
-
-                    if blocks_in_epoch:
-                        for i, vid in enumerate(syncs_vids):
-                            s_misses = syncs_misses[i]
-                            if s_misses > blocks_in_epoch:
-                                raise ValueError(
-                                    f"Inconsistent sync committee duties data: index={i}, {vid=}, "
-                                    f"{s_misses=} > {blocks_in_epoch=}"
-                                )
-                            v_sync = batch_duties_to_save.syncs[vid]
-                            v_sync.assigned += blocks_in_epoch
-                            v_sync.included += blocks_in_epoch - s_misses
-
-                    for vid in missed_atts_vids:
-                        validator = validators_by_index.get(vid)
-                        if validator is None:
+                if blocks_in_epoch:
+                    for i, vid in enumerate(syncs_vids):
+                        s_misses = syncs_misses[i]
+                        if s_misses > blocks_in_epoch:
                             raise ValueError(
-                                f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
+                                f"Inconsistent sync committee duties data: index={i}, {vid=}, "
+                                f"{s_misses=} > {blocks_in_epoch=}"
                             )
-                        if not is_active_validator(validator, epoch):
-                            raise ValueError(
-                                f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active"
-                            )
-                        batch_missed_atts[vid] += 1
+                        v_sync = frame_duties_to_save.syncs[vid]
+                        v_sync.assigned += blocks_in_epoch
+                        v_sync.included += blocks_in_epoch - s_misses
 
-                for validator in validators:
-                    # There is no possible way to get processed epochs between start and end epochs,
-                    # so it is safe to consider it as continuous unprocessed batch
-                    assigned = self._count_active_epochs(validator, start_epoch, end_epoch)
-                    if not assigned:
-                        continue
-
-                    misses = batch_missed_atts[validator.index]
-                    if misses > assigned:
+                for vid in missed_atts_vids:
+                    validator = validators_by_index.get(vid)
+                    if validator is None:
                         raise ValueError(
-                            f"Invalid attestation duties data: validator={validator.index}, {misses=} > {assigned=}"
+                            f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
                         )
-                    v_atts = batch_duties_to_save.attestations[validator.index]
-                    v_atts.assigned += assigned
-                    v_atts.included += assigned - misses
+                    if not is_active_validator(validator, epoch):
+                        raise ValueError(
+                            f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active"
+                        )
+                    frame_missed_atts[vid] += 1
 
-                self.state.save_duties((l_epoch, r_epoch), unprocessed_epochs_batch, batch_duties_to_save)
+            for validator in validators:
+                assigned = self._count_active_epochs(validator, l_epoch, r_epoch)
+                if not assigned:
+                    continue
 
-                logger.info(
-                    {
-                        "msg": "Performance data batch is processed",
-                        "start_epoch": start_epoch,
-                        "end_epoch": end_epoch,
-                        "total_epochs": len(unprocessed_epochs_batch),
-                    }
-                )
+                misses = frame_missed_atts[validator.index]
+                if misses > assigned:
+                    raise ValueError(
+                        f"Invalid attestation duties data: validator={validator.index}, {misses=} > {assigned=}"
+                    )
+                v_atts = frame_duties_to_save.attestations[validator.index]
+                v_atts.assigned += assigned
+                v_atts.included += assigned - misses
 
-            logger.info(
-                {
-                    "msg": "Frame performance data is fulfilled",
-                    "start_epoch": l_epoch,
-                    "end_epoch": r_epoch,
-                    "total_epochs": r_epoch - l_epoch + 1,
-                }
-            )
+            state.save_duties((l_epoch, r_epoch), frame_duties_to_save)
+        state.is_fulfilled = True
 
     @staticmethod
     def _count_active_epochs(validator: Validator, l_epoch: EpochNumber, r_epoch: EpochNumber) -> int:
@@ -486,7 +421,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return log_cid
 
     @lru_cache(maxsize=1)
-    def _get_epochs_range_to_process(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
+    def _get_l_epoch(self, blockstamp: BlockStamp) -> EpochNumber:
         converter = self._get_web3_converter(blockstamp)
 
         far_future_initial_epoch = converter.get_epoch_by_timestamp(UINT64_MAX)
@@ -494,40 +429,39 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             raise ValueError("Oracle initial epoch is not set yet")
 
         l_ref_slot = last_processing_ref_slot = self.w3.staking_module.get_last_processing_ref_slot(blockstamp)
-        r_ref_slot = initial_ref_slot = self.get_initial_ref_slot(blockstamp)
 
-        if last_processing_ref_slot > blockstamp.slot_number:
-            raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
-
-        # The very first report, no previous ref slot.
         if not last_processing_ref_slot:
+            initial_ref_slot = self.get_initial_ref_slot(blockstamp)
             l_ref_slot = SlotNumber(initial_ref_slot - converter.slots_per_frame)
             if l_ref_slot < 0:
                 raise SMPerformanceOracleError("Invalid frame configuration for the current network")
 
-        # NOTE: before the initial slot the contract can't return current frame
-        if blockstamp.slot_number > initial_ref_slot:
-            r_ref_slot = self.get_initial_or_current_frame(blockstamp).ref_slot
-
-        # We are between reports, next report slot didn't happen yet. Predicting the next ref slot for the report
-        # to calculate epochs range to collect the data.
-        if l_ref_slot == r_ref_slot:
-            r_ref_slot = converter.get_epoch_last_slot(
-                EpochNumber(converter.get_epoch_by_slot(l_ref_slot) + converter.frame_config.epochs_per_frame)
-            )
-
-        if l_ref_slot < last_processing_ref_slot:
-            raise SMPerformanceOracleError(f"Got invalid epochs range: {l_ref_slot=} < {last_processing_ref_slot=}")
-        if l_ref_slot >= r_ref_slot:
-            raise SMPerformanceOracleError(f"Got invalid epochs range {r_ref_slot=}, {l_ref_slot=}")
+        if last_processing_ref_slot > blockstamp.slot_number:
+            raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
-        r_epoch = converter.get_epoch_by_slot(r_ref_slot)
 
         # Update Prometheus metrics
         PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(l_epoch)
+
+        return l_epoch
+
+    @lru_cache(maxsize=1)
+    def _predict_r_epoch(self, blockstamp: BlockStamp, l_epoch: EpochNumber) -> EpochNumber:
+        converter = self._get_web3_converter(blockstamp)
+
+        epochs_per_frame = converter.frame_config.epochs_per_frame
+        initial_epoch = converter.frame_config.initial_epoch
+        current_epoch = converter.get_epoch_by_slot(blockstamp.slot_number)
+
+        epochs_since_initial = max(current_epoch - initial_epoch, 0)
+        full_frames = (epochs_since_initial + epochs_per_frame - 1) // epochs_per_frame
+        r_epoch = EpochNumber(initial_epoch + full_frames * epochs_per_frame)
+
+        if l_epoch > r_epoch:
+            raise SMPerformanceOracleError(f"Got invalid epochs range: {l_epoch=}, {r_epoch=}")
+
+        # Update Prometheus metrics
         PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
 
-        logger.info({"msg": "Epochs range for the report", "l_epoch": l_epoch, "r_epoch": r_epoch})
-
-        return l_epoch, r_epoch
+        return r_epoch
