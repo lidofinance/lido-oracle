@@ -231,6 +231,57 @@ class LidoValidatorsProvider(Module):
             HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + wc_postfix),
         ]
 
+    @staticmethod
+    def _collect_valid_pending_deposits(
+        pending_deposits: list[PendingDeposit],
+        filter_pubkeys: set[str],
+        lido_wc_list: list[HexStr],
+        genesis_fork_version: bytes,
+    ) -> dict[str, list[PendingDeposit]]:
+        """Core frontrun-detection loop.
+
+        Returns pending deposits grouped by pubkey, only for pubkeys in filter_pubkeys.
+        A key whose first valid-signature deposit uses non-Lido WC is treated as a
+        frontrun and excluded entirely along with any subsequent deposits for that key.
+        """
+        result: dict[str, list[PendingDeposit]] = {}
+        invalid_keys: set[str] = set()
+
+        for d in pending_deposits:
+            if d.pubkey not in filter_pubkeys:
+                continue
+
+            if d.pubkey in result:
+                result[d.pubkey].append(d)
+                continue
+
+            if d.pubkey in invalid_keys:
+                continue
+
+            if not is_valid_deposit_signature(
+                pubkey=hex_str_to_bytes(d.pubkey),
+                withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
+                amount=d.amount,
+                signature=hex_str_to_bytes(d.signature),
+                genesis_fork_version=genesis_fork_version,
+                # Fork-agnostic domain since deposits are valid across forks
+                # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
+            ):
+                continue
+
+            if d.withdrawal_credentials in lido_wc_list:
+                result[d.pubkey] = [d]
+            else:
+                invalid_keys.add(d.pubkey)
+                logger.warning(
+                    {
+                        'msg': 'Ignoring key. Possible front run attack',
+                        'value': d.pubkey,
+                    }
+                )
+
+        return result
+
     @lru_cache(maxsize=1)
     def get_pending_lido_validators(
         self,
@@ -241,59 +292,19 @@ class LidoValidatorsProvider(Module):
 
         Validates all BLS signatures and ensures there are no front-running attacks.
         """
-
         lido_wc_list = self.get_lido_wc_list(blockstamp)
-
         genesis_config = self.w3.cc.get_genesis()
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         pending_lido_keys = self._get_lido_validators_with_keys(blockstamp)[1]
-        pending_keys = {key.key: key for key in pending_lido_keys}
+        pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
 
-        pending_validators = {}
-        invalid_keys = set()
-
-        # Validate there are no frontrun
-        for pending_deposit in pending_deposits:
-            if pending_deposit.pubkey not in pending_keys:
-                continue
-
-            # In case we already had a valid pending deposit for the key
-            if pending_deposit.pubkey in pending_validators:
-                pending_validators[pending_deposit.pubkey][1].append(pending_deposit)
-                continue
-
-            # If there already were valid validator with wrong wc
-            if pending_deposit.pubkey in invalid_keys:
-                continue
-
-            # In case if this is the first possibly valid pending deposit for the key
-            if not is_valid_deposit_signature(
-                pubkey=hex_str_to_bytes(pending_deposit.pubkey),
-                withdrawal_credentials=hex_str_to_bytes(pending_deposit.withdrawal_credentials),
-                amount=pending_deposit.amount,
-                signature=hex_str_to_bytes(pending_deposit.signature),
-                genesis_fork_version=hex_str_to_bytes(genesis_config.genesis_fork_version),
-                # Fork-agnostic domain since deposits are valid across forks
-                # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
-            ):
-                continue
-
-            lido_key = pending_keys[pending_deposit.pubkey]
-
-            if pending_deposit.withdrawal_credentials in lido_wc_list:
-                # Lido WC
-                pending_validators[pending_deposit.pubkey] = (lido_key, [pending_deposit])
-            else:
-                # Possible frontrun attack
-                invalid_keys.add(pending_deposit.pubkey)
-                logger.warning(
-                    {
-                        'msg': 'Ignoring key. Possible front run attack',
-                        'value': pending_deposit.pubkey,
-                    }
-                )
-
-        return pending_validators
+        valid = self._collect_valid_pending_deposits(
+            pending_deposits,
+            set(pending_keys.keys()),
+            lido_wc_list,
+            hex_str_to_bytes(genesis_config.genesis_fork_version),
+        )
+        return {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
 
     @lru_cache(maxsize=1)
     def _get_lido_validators_with_keys(self, blockstamp: BlockStamp) -> tuple[list[LidoValidator], list[LidoKey]]:

@@ -12,7 +12,6 @@ from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.services.deposit_signature_verification import is_valid_deposit_signature
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
@@ -178,10 +177,10 @@ class AbnormalClRebase:
             # Can't calculate rebase between the same block
             return Gwei(0)
 
-        prev_lido_validators = LidoValidatorsProvider.compute_lido_validators(
+        (prev_lido_validators, _) = LidoValidatorsProvider.compute_lido_validators(
             self.lido_keys,
             self.w3.cc.get_validators_no_cache(prev_blockstamp),
-        )[0]
+        )
 
         ref_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
 
@@ -314,14 +313,21 @@ class AbnormalClRebase:
         lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
         genesis_fork_version = hex_str_to_bytes(self.w3.cc.get_genesis().genesis_fork_version)
 
-        old_pending = self._sum_valid_lido_pending(prev_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version)
+        prev_pubkeys = {v.validator.pubkey for v in prev_lido_validators}
+        ref_pubkeys = {v.validator.pubkey for v in self.lido_validators}
+
+        old_pending = self._sum_valid_lido_pending(
+            prev_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version, prev_pubkeys
+        )
 
         deposited_in_window = wei_to_gwei(Wei(
             self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
             - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
         ))
 
-        current_pending = self._sum_valid_lido_pending(ref_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version)
+        current_pending = self._sum_valid_lido_pending(
+            ref_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version, ref_pubkeys
+        )
 
         return Gwei(deposited_in_window + old_pending - current_pending)
 
@@ -331,20 +337,29 @@ class AbnormalClRebase:
         lido_pubkeys: set[HexStr],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
+        existing_pubkeys: set[str],
     ) -> Gwei:
-        return Gwei(sum(
-            d.amount
-            for d in self.w3.cc.get_pending_deposits(blockstamp)
-            if d.pubkey in lido_pubkeys
-            and d.withdrawal_credentials in lido_wc_list
-            and is_valid_deposit_signature(
-                pubkey=hex_str_to_bytes(d.pubkey),
-                withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
-                amount=d.amount,
-                signature=hex_str_to_bytes(d.signature),
-                genesis_fork_version=genesis_fork_version,
-            )
-        ))
+        """Sum pending deposits for Lido keys at blockstamp.
+
+        Existing validators: count all their top-ups unconditionally (Lido owns them).
+        New/pending validators: use shared frontrun-detection logic from
+        _collect_valid_pending_deposits — only count keys whose first valid-signature
+        deposit has Lido withdrawal credentials.
+        """
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        total = Gwei(0)
+
+        for d in pending_deposits:
+            if d.pubkey in existing_pubkeys:
+                total = Gwei(total + d.amount)
+
+        valid = LidoValidatorsProvider._collect_valid_pending_deposits(
+            pending_deposits, cast(set[str], lido_pubkeys) - existing_pubkeys, lido_wc_list, genesis_fork_version
+        )
+        for deposits in valid.values():
+            total = Gwei(total + sum(d.amount for d in deposits))
+
+        return total
 
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""

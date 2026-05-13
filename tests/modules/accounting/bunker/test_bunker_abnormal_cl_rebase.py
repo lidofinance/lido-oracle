@@ -522,6 +522,7 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     lido_pubkey = '0xabc'
     lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = []
 
     last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
     abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
@@ -532,11 +533,11 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
 
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.is_valid_deposit_signature',
+        'src.web3py.extensions.lido_validators.is_valid_deposit_signature',
         Mock(return_value=True),
     )
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.hex_str_to_bytes',
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
         lambda s: s.encode() if isinstance(s, str) else s,
     )
 
@@ -583,16 +584,17 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
         return signature != b'0xinvalid'
 
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.is_valid_deposit_signature',
+        'src.web3py.extensions.lido_validators.is_valid_deposit_signature',
         fake_is_valid,
     )
     monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.hex_str_to_bytes',
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
         lambda s: s.encode() if isinstance(s, str) else s,
     )
 
-    # Both deposits pending at prev; only valid one processed by ref (invalid rejected)
-    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[valid_deposit, invalid_deposit], []])
+    # Invalid deposit comes first in queue (by deposit index), valid one second.
+    # With frontrun-detection logic: invalid sig → skipped; valid sig + correct WC → counted.
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[invalid_deposit, valid_deposit], []])
     abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(side_effect=[Wei(0), Wei(0)])
 
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
