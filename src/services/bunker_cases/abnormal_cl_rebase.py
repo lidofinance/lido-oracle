@@ -193,7 +193,8 @@ class AbnormalClRebase:
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
-        # Capital injected via deposits: new validators (pre-v4) or new validators + top-ups (post-v4)
+        # Capital injected via deposits: new validators (pre-v4) 
+        # or new validators + top-ups (post-v4)
         injected_capital = self._calculate_injected_capital(prev_blockstamp, ref_blockstamp, prev_lido_validators)
 
         # Finally, we can calculate a corrected CL rebase
