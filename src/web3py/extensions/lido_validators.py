@@ -290,7 +290,7 @@ class LidoValidatorsProvider(Module):
         """
         Return the list of Lido keys that already have pending deposits on the CL.
 
-        Validates all BLS signatures and ensures there are no front-running attacks.
+        Validates BLS signatures and filters out deposits with non-Lido withdrawal credentials.
         """
         lido_wc_list = self.get_lido_wc_list(blockstamp)
         genesis_config = self.w3.cc.get_genesis()
