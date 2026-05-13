@@ -1,7 +1,7 @@
 import logging
 import math
 from collections.abc import Sequence
-from typing import ClassVar, cast
+from typing import cast
 
 from eth_typing import HexStr
 from web3.contract.contract import ContractEvent
@@ -31,8 +31,6 @@ class AbnormalClRebase:
     all_validators: list[Validator]
     lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
-
-    _upgrade_confirmed_at_block: ClassVar[int | None] = None
 
     def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
         self.w3 = w3
@@ -272,25 +270,6 @@ class AbnormalClRebase:
             )
         )
 
-    def _lido_version_at_block(self, block_number: BlockNumber) -> int:
-        """Lido contract version at `block_number`, with an earliest-confirmed-upgrade cache.
-
-        Caches the lowest block number at which v4 is confirmed so that calls for
-        later blocks skip the RPC, while calls for earlier blocks still probe.
-        """
-        if (
-            AbnormalClRebase._upgrade_confirmed_at_block is not None
-            and block_number >= AbnormalClRebase._upgrade_confirmed_at_block
-        ):
-            return _LIDO_V4
-        version = self.w3.lido_contracts.lido.get_contract_version(block_identifier=block_number)
-        if version >= _LIDO_V4 and (
-            AbnormalClRebase._upgrade_confirmed_at_block is None
-            or block_number < AbnormalClRebase._upgrade_confirmed_at_block
-        ):
-            AbnormalClRebase._upgrade_confirmed_at_block = block_number
-        return version
-
     def _calculate_injected_capital(
         self,
         prev_blockstamp: BlockStamp,
@@ -304,7 +283,7 @@ class AbnormalClRebase:
         """
         last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
 
-        if self._lido_version_at_block(last_report_blockstamp.block_number) < _LIDO_V4:
+        if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
             return AbnormalClRebase.calculate_validators_count_diff_in_gwei(
                 prev_lido_validators, self.lido_validators
             )
