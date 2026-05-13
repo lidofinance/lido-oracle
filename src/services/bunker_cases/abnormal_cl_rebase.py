@@ -271,7 +271,7 @@ class AbnormalClRebase:
             )
         )
 
-    def _lido_version_at_block(self, block_number: int) -> int:
+    def _lido_version_at_block(self, block_number: BlockNumber) -> int:
         """Lido contract version at `block_number`, with an earliest-confirmed-upgrade cache.
 
         Caches the lowest block number at which v4 is confirmed so that calls for
