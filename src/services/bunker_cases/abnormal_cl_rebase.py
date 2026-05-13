@@ -3,6 +3,7 @@ import math
 from collections.abc import Sequence
 from typing import ClassVar, cast
 
+from eth_typing import HexStr
 from web3.contract.contract import ContractEvent
 from web3.types import EventData, Wei
 
@@ -297,12 +298,10 @@ class AbnormalClRebase:
         ref_blockstamp: ReferenceBlockStamp,
         prev_lido_validators: list[LidoValidator],
     ) -> Gwei:
-        """ETH injected via Lido deposits in the window [prev_blockstamp, ref_blockstamp].
+        """How much ETH entered Lido validators' balances via deposits in [prev, ref].
 
-        Pre-v4 (no top-ups): counts new validators by actual balance, matching the
-        conservative behaviour of calculate_validators_count_diff_in_gwei.
-        Post-v4 (EIP-7251): uses the pending-queue conservation identity so top-ups
-        to existing validators are also accounted for.
+        Pre-v4: only new validators, counted as 32 ETH each.
+        Post-v4 (EIP-7251): new validators + top-ups to existing ones.
         """
         last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
 
@@ -315,31 +314,37 @@ class AbnormalClRebase:
         lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
         genesis_fork_version = hex_str_to_bytes(self.w3.cc.get_genesis().genesis_fork_version)
 
-        def valid_lido_pending(blockstamp: BlockStamp) -> Gwei:
-            return Gwei(sum(
-                d.amount
-                for d in self.w3.cc.get_pending_deposits(blockstamp)
-                if d.pubkey in lido_pubkeys
-                and d.withdrawal_credentials in lido_wc_list
-                and is_valid_deposit_signature(
-                    pubkey=hex_str_to_bytes(d.pubkey),
-                    withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
-                    amount=d.amount,
-                    signature=hex_str_to_bytes(d.signature),
-                    genesis_fork_version=genesis_fork_version,
-                )
-            ))
-
-        old_pending = valid_lido_pending(prev_blockstamp)
+        old_pending = self._sum_valid_lido_pending(prev_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version)
 
         deposited_in_window = wei_to_gwei(Wei(
             self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
             - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
         ))
 
-        current_pending = valid_lido_pending(ref_blockstamp)
+        current_pending = self._sum_valid_lido_pending(ref_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version)
 
         return Gwei(deposited_in_window + old_pending - current_pending)
+
+    def _sum_valid_lido_pending(
+        self,
+        blockstamp: BlockStamp,
+        lido_pubkeys: set[HexStr],
+        lido_wc_list: list[HexStr],
+        genesis_fork_version: bytes,
+    ) -> Gwei:
+        return Gwei(sum(
+            d.amount
+            for d in self.w3.cc.get_pending_deposits(blockstamp)
+            if d.pubkey in lido_pubkeys
+            and d.withdrawal_credentials in lido_wc_list
+            and is_valid_deposit_signature(
+                pubkey=hex_str_to_bytes(d.pubkey),
+                withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
+                amount=d.amount,
+                signature=hex_str_to_bytes(d.signature),
+                genesis_fork_version=genesis_fork_version,
+            )
+        ))
 
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
