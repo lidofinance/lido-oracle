@@ -296,7 +296,11 @@ class AbnormalClRebase:
         ref_pubkeys = {v.validator.pubkey for v in self.lido_validators}
 
         old_pending = self._sum_valid_lido_pending(
-            prev_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version, prev_pubkeys
+            blockstamp=prev_blockstamp,
+            lido_pubkeys=lido_pubkeys,
+            existing_pubkeys=prev_pubkeys,
+            lido_wc_list=lido_wc_list,
+            genesis_fork_version=genesis_fork_version,
         )
 
         deposited_in_window = wei_to_gwei(Wei(
@@ -305,7 +309,11 @@ class AbnormalClRebase:
         ))
 
         current_pending = self._sum_valid_lido_pending(
-            ref_blockstamp, lido_pubkeys, lido_wc_list, genesis_fork_version, ref_pubkeys
+            blockstamp=ref_blockstamp,
+            lido_pubkeys=lido_pubkeys,
+            existing_pubkeys=ref_pubkeys,
+            lido_wc_list=lido_wc_list,
+            genesis_fork_version=genesis_fork_version,
         )
 
         return Gwei(deposited_in_window + old_pending - current_pending)
@@ -314,9 +322,9 @@ class AbnormalClRebase:
         self,
         blockstamp: BlockStamp,
         lido_pubkeys: set[HexStr],
+        existing_pubkeys: set[str],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
-        existing_pubkeys: set[str],
     ) -> Gwei:
         """Sum pending deposits for Lido keys at blockstamp.
 
@@ -333,7 +341,10 @@ class AbnormalClRebase:
                 total = Gwei(total + d.amount)
 
         valid = LidoValidatorsProvider._collect_valid_pending_deposits(
-            pending_deposits, cast(set[str], lido_pubkeys) - existing_pubkeys, lido_wc_list, genesis_fork_version
+            pending_deposits, 
+            filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys, 
+            lido_wc_list=lido_wc_list, 
+            genesis_fork_version=genesis_fork_version
         )
         for deposits in valid.values():
             total = Gwei(total + sum(d.amount for d in deposits))

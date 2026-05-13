@@ -231,6 +231,30 @@ class LidoValidatorsProvider(Module):
             HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + wc_postfix),
         ]
 
+    @lru_cache(maxsize=1)
+    def get_pending_lido_validators(
+        self,
+        blockstamp: BlockStamp,
+    ) -> dict[HexStr, PendingValidator]:
+        """
+        Return the list of Lido keys that already have pending deposits on the CL.
+
+        Validates BLS signatures and filters out deposits with non-Lido withdrawal credentials.
+        """
+        lido_wc_list = self.get_lido_wc_list(blockstamp)
+        genesis_config = self.w3.cc.get_genesis()
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        (_, pending_lido_keys) = self._get_lido_validators_with_keys(blockstamp)
+        pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
+
+        valid = self._collect_valid_pending_deposits(
+            pending_deposits,
+            set(pending_keys.keys()),
+            lido_wc_list,
+            hex_str_to_bytes(genesis_config.genesis_fork_version),
+        )
+        return {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
+
     @staticmethod
     def _collect_valid_pending_deposits(
         pending_deposits: list[PendingDeposit],
@@ -281,30 +305,6 @@ class LidoValidatorsProvider(Module):
                 )
 
         return result
-
-    @lru_cache(maxsize=1)
-    def get_pending_lido_validators(
-        self,
-        blockstamp: BlockStamp,
-    ) -> dict[HexStr, PendingValidator]:
-        """
-        Return the list of Lido keys that already have pending deposits on the CL.
-
-        Validates BLS signatures and filters out deposits with non-Lido withdrawal credentials.
-        """
-        lido_wc_list = self.get_lido_wc_list(blockstamp)
-        genesis_config = self.w3.cc.get_genesis()
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
-        pending_lido_keys = self._get_lido_validators_with_keys(blockstamp)[1]
-        pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
-
-        valid = self._collect_valid_pending_deposits(
-            pending_deposits,
-            set(pending_keys.keys()),
-            lido_wc_list,
-            hex_str_to_bytes(genesis_config.genesis_fork_version),
-        )
-        return {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
 
     @lru_cache(maxsize=1)
     def _get_lido_validators_with_keys(self, blockstamp: BlockStamp) -> tuple[list[LidoValidator], list[LidoKey]]:
