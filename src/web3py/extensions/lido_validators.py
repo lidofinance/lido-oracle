@@ -296,7 +296,7 @@ class LidoValidatorsProvider(Module):
         genesis_config = self.w3.cc.get_genesis()
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         pending_lido_keys = self._get_lido_validators_with_keys(blockstamp)[1]
-        pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
+        pending_keys: dict[HexStr, LidoKey] = {key.key: key for key in pending_lido_keys}
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
