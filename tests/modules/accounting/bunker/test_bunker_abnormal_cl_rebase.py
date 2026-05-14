@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.providers.consensus.types import Validator, ValidatorState
@@ -151,6 +152,7 @@ def test_calculate_lido_normal_cl_rebase(
 )
 def test_is_negative_specific_cl_rebase(
     abnormal_case,
+    mock_get_accounting_last_processing_ref_slot,
     mock_get_eth_distributed_events,
     mock_get_withdrawal_vault_balance,
     mock_get_blockstamp,
@@ -379,6 +381,11 @@ def test_calculate_cl_rebase_between_blocks(
     )
     abnormal_case._get_withdrawn_from_vault_between_blocks = Mock(return_value=withdrawn_from_vault)
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
+    # Pre-v4: version check returns 3, so _calculate_injected_capital uses the fallback path
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(
+        return_value=ReferenceBlockStampFactory.build(block_number=0)
+    )
 
     if isinstance(expected_rebase, Exception):
         with pytest.raises(ValueError, match=expected_rebase.args[0]):
@@ -454,27 +461,146 @@ def test_get_withdrawn_from_vault_between(
         assert result == expected_result
 
 
+MAX_EB_BALANCE = Gwei(2048 * 10**9)
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("curr_validators", "prev_validators", "expected_result"),
+    ("prev_validators", "curr_validators", "expected_result"),
     [
         ([], [], 0),
+        # No new validators
         (simple_validators(0, 9), simple_validators(0, 9), 0),
-        (simple_validators(0, 11), simple_validators(0, 9), 2 * 32 * 10**9),
+        # Two new validators at 32 ETH each
+        (simple_validators(0, 9), simple_validators(0, 11), 2 * 32 * 10**9),
+        # One new validator — counted at LIDO_DEPOSIT_AMOUNT (32 ETH) regardless of balance
         (
             simple_validators(0, 9),
-            simple_validators(0, 10),
-            "Validators count diff should be positive or 0. Something went wrong with CL API",
+            simple_validators(0, 9) + simple_validators(10, 10, balance=MAX_EB_BALANCE),
+            32 * 10**9,
         ),
     ],
 )
 def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result):
-    if isinstance(expected_result, str):
-        with pytest.raises(ValueError, match=expected_result):
-            AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
-    else:
-        result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
-        assert result == expected_result
+    result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
+    assert result == expected_result
+
+
+@pytest.mark.unit
+def test_get_validators_diff_in_gwei_raises_on_shrink():
+    with pytest.raises(ValueError, match="Something went wrong with CL API"):
+        AbnormalClRebase.calculate_validators_count_diff_in_gwei(simple_validators(0, 10), simple_validators(0, 9))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("deposited_ref_wei", "deposited_prev_wei", "old_pending_gwei", "current_pending_gwei", "expected_gwei"),
+    [
+        # Top-up 32 ETH to existing validator; no pending deposits
+        (32 * 10**18, 0, 0, 0, 32 * 10**9),
+        # Top-up 64 ETH, 32 ETH still pending at ref
+        (64 * 10**18, 0, 0, 32 * 10**9, 32 * 10**9),
+        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in window
+        (64 * 10**18, 0, 32 * 10**9, 0, 96 * 10**9),
+        # No deposits in window, no pending changes
+        (0, 0, 0, 0, 0),
+    ],
+)
+def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
+    web3,
+    monkeypatch,
+    deposited_ref_wei,
+    deposited_prev_wei,
+    old_pending_gwei,
+    current_pending_gwei,
+    expected_gwei,
+):
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+
+    lido_pubkey = '0xabc'
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = []
+
+    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    genesis_mock = Mock()
+    genesis_mock.genesis_fork_version = '0x00000000'
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
+
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.is_valid_deposit_signature',
+        Mock(return_value=True),
+    )
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    def make_deposit(amount):
+        return Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xsig', amount=amount)
+
+    pending_at_prev = [make_deposit(old_pending_gwei)] if old_pending_gwei else []
+    pending_at_ref = [make_deposit(current_pending_gwei)] if current_pending_gwei else []
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
+
+    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(
+        side_effect=[Wei(deposited_ref_wei), Wei(deposited_prev_wei)]
+    )
+
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    assert result == Gwei(expected_gwei)
+
+
+@pytest.mark.unit
+def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3, monkeypatch):
+    """Invalid-signature deposits in old_pending must not inflate injected_capital."""
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+
+    lido_pubkey = '0xabc'
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = []
+
+    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
+    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    genesis_mock = Mock()
+    genesis_mock.genesis_fork_version = '0x00000000'
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
+
+    valid_deposit = Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xvalid', amount=1000 * 10**9)
+    invalid_deposit = Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0xinvalid', amount=1 * 10**9)
+
+    def fake_is_valid(pubkey, withdrawal_credentials, amount, signature, genesis_fork_version):
+        return signature != b'0xinvalid'
+
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.is_valid_deposit_signature',
+        fake_is_valid,
+    )
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    # Invalid deposit comes first in queue (by deposit index), valid one second.
+    # With frontrun-detection logic: invalid sig → skipped; valid sig + correct WC → counted.
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[invalid_deposit, valid_deposit], []])
+    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(side_effect=[Wei(0), Wei(0)])
+
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    # Only the valid 1000 ETH deposit should be counted; invalid 1 ETH excluded
+    assert result == Gwei(1000 * 10**9)
 
 
 @pytest.mark.unit
