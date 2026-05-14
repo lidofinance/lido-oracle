@@ -40,7 +40,6 @@ from src.types import (
     ValidatorIndex,
 )
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.range import sequence
 from src.utils.validator_state import is_active_validator
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3StakingModule
@@ -287,7 +286,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         )
 
         for l_epoch, r_epoch in state.frames:
-            frame_epochs = tuple(sequence(l_epoch, r_epoch))
             frame_duties_to_save = NetworkDuties()
             frame_missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
 
@@ -296,7 +294,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                     "msg": "Processing frame",
                     "start_epoch": l_epoch,
                     "end_epoch": r_epoch,
-                    "total_epochs": len(frame_epochs),
+                    "total_epochs": r_epoch - l_epoch + 1,
                 }
             )
 
@@ -331,6 +329,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                 blocks_in_epoch = 0
 
                 for i, vid in enumerate(proposers):
+                    if vid not in validators_by_index:
+                        raise ValueError(
+                            f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
+                        )
                     proposed = props_flags[i]
                     v_prop = frame_duties_to_save.proposals[vid]
                     v_prop.assigned += 1
@@ -339,6 +341,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
                 if blocks_in_epoch:
                     for i, vid in enumerate(syncs_vids):
+                        if vid not in validators_by_index:
+                            raise ValueError(
+                                f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
+                            )
                         s_misses = syncs_misses[i]
                         if s_misses > blocks_in_epoch:
                             raise ValueError(

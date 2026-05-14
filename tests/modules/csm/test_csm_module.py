@@ -693,6 +693,50 @@ def test_build_fulfilled_state__missed_attestation_for_inactive_validator__raise
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "duty",
+    [
+        pytest.param(
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[999],
+                proposals_flags=[True],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+            id="unknown-proposer",
+        ),
+        pytest.param(
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[0],
+                proposals_flags=[True],
+                syncs_vids=[999],
+                syncs_misses=[0],
+            ),
+            id="unknown-sync-committee-member",
+        ),
+    ],
+)
+def test_build_fulfilled_state__duty_for_unknown_validator__raises_error(
+    module: CSPerformanceOracle,
+    duty: Duty,
+):
+    module._receive_last_finalized_slot = Mock(return_value=Mock(slot_number=123))
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.performance.get_epochs_data = Mock(return_value=[duty])
+
+    with pytest.raises(ValueError, match="is missing in validators"):
+        module._build_fulfilled_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+
+    module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(0))
+
+
+@pytest.mark.unit
 def test_build_fulfilled_state__sync_misses_exceed_blocks_in_epoch__raises_error(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
