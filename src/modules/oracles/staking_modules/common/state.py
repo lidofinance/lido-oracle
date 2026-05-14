@@ -72,7 +72,6 @@ class State:
     """Processing state of a staking module performance oracle frame"""
 
     data: StateData
-    is_fulfilled: bool
 
     def __init__(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
         frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
@@ -81,7 +80,6 @@ class State:
         for frame in frames:
             data[frame] = NetworkDuties()
         self.data = data
-        self.is_fulfilled = False
 
     @property
     def frames(self) -> list[Frame]:

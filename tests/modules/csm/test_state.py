@@ -18,7 +18,6 @@ def test_init__single_frame_range__creates_empty_frame_data():
         (EpochNumber(0), EpochNumber(31)): NetworkDuties(attestations={}, proposals={}, syncs={}),
     }
     assert state.frames == [(EpochNumber(0), EpochNumber(31))]
-    assert not state.is_fulfilled
 
 
 @pytest.mark.unit
@@ -30,7 +29,6 @@ def test_init__multiple_frame_range__creates_empty_frame_data_per_frame():
         (EpochNumber(32), EpochNumber(63)): NetworkDuties(attestations={}, proposals={}, syncs={}),
     }
     assert state.frames == [(EpochNumber(0), EpochNumber(31)), (EpochNumber(32), EpochNumber(63))]
-    assert not state.is_fulfilled
 
 
 @pytest.mark.unit

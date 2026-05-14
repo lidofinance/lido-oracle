@@ -236,11 +236,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             raise ValueError(f"Performance data range is not available yet, but it should: {l_epoch=}, {r_epoch=}")
 
         converter = self._get_web3_converter(blockstamp)
-        state = self._get_duties_state(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
-        if not state.is_fulfilled:
-            self._fulfill_state(state)
-
-        return state
+        return self._get_duties_state(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
 
     def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
         current_frame = self.get_frame_number_by_slot(blockstamp)
@@ -261,10 +257,13 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     @lru_cache(maxsize=1)
     def _get_duties_state(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> State:
-        return State(l_epoch, r_epoch, epochs_per_frame)
+        return self._build_fulfilled_state(l_epoch, r_epoch, epochs_per_frame)
 
     @duration_meter()
-    def _fulfill_state(self, state: State):  # noqa: C901
+    def _build_fulfilled_state(  # noqa: C901
+        self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int
+    ) -> State:
+        state = State(l_epoch, r_epoch, epochs_per_frame)
         finalized_blockstamp = self._receive_last_finalized_slot()
         validators = self.w3.cc.get_validators(finalized_blockstamp)
         validators_by_index = {validator.index: validator for validator in validators}
@@ -367,7 +366,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
                 v_atts.included += assigned - misses
 
             state.save_duties((l_epoch, r_epoch), frame_duties_to_save)
-        state.is_fulfilled = True
+
+        return state
 
     @staticmethod
     def _count_active_epochs(validator: Validator, l_epoch: EpochNumber, r_epoch: EpochNumber) -> int:
