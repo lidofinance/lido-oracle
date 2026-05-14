@@ -299,7 +299,6 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             'ipfs': lambda: mocked_ipfs_client,
-            'delegation': lambda: Mock(is_enabled=lambda: False),  # type: ignore[dict-item]
         }
     )
     yield forked_el_client
@@ -323,6 +322,7 @@ def curated_module_address() -> str:
 
 @pytest.fixture()
 def web3_cs_module(web3, cs_module_address):
+    web3.attach_modules({'delegation': lambda: Mock(is_enabled=lambda: False)})  # type: ignore[dict-item]
     with patch.object(variables, "STAKING_MODULE_ADDRESS", cs_module_address):
         web3.attach_modules({'staking_module': StakingModuleContracts})
         yield web3
@@ -330,6 +330,7 @@ def web3_cs_module(web3, cs_module_address):
 
 @pytest.fixture()
 def web3_curated_module(web3, curated_module_address):
+    web3.attach_modules({'delegation': lambda: Mock(is_enabled=lambda: False)})  # type: ignore[dict-item]
     with patch.object(variables, "STAKING_MODULE_ADDRESS", curated_module_address):
         web3.attach_modules({'staking_module': StakingModuleContracts})
         yield web3
