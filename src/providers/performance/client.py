@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from itertools import batched
 
 from src import variables
@@ -40,20 +41,17 @@ class PerformanceClient(HTTPProvider):
         data, _ = self._get(self.API_EPOCHS_DATA + f"/{epoch}")
         return Duty.model_validate(data) if data else None
 
-    def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> list[Duty]:
+    def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> Iterator[Duty]:
         batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
-
-        data: list[Duty] = []
         for epochs_batch in batched(sequence(from_epoch, to_epoch), batch_size, strict=False):
             from_epoch, to_epoch = epochs_batch[0], epochs_batch[-1]
-            _data, _ = self._get(
+            data, _ = self._get(
                 self.API_EPOCHS_DATA,
                 query_params={'from': from_epoch, 'to': to_epoch},
                 validate_response=data_is_list,
             )
-            data.extend([Duty.model_validate(item) for item in _data])
-
-        return data
+            for item in data:
+                yield Duty.model_validate(item)
 
     def get_epochs_demand(self, consumer: str) -> EpochsDemand | None:
         data, _ = self._get(self.API_EPOCHS_DEMAND + f"/{consumer}")

@@ -109,7 +109,7 @@ def test_get_epochs_data(client: PerformanceClient):
     ]
     client._get = Mock(return_value=(raw, {}))
 
-    result = client.get_epochs_data(EpochNumber(100), EpochNumber(103))
+    result = list(client.get_epochs_data(EpochNumber(100), EpochNumber(103)))
     returned_epochs = [EpochNumber(epoch_data.epoch) for epoch_data in result]
 
     assert result == [
