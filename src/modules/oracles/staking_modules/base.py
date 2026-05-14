@@ -120,16 +120,13 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        l_epoch = self._get_l_epoch(last_finalized_blockstamp)
-        r_epoch = self._predict_r_epoch(last_finalized_blockstamp, l_epoch)
-        self.push_epochs_demand(l_epoch, r_epoch)
+        self.push_epochs_demand(last_finalized_blockstamp)
 
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
         if not report_blockstamp:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        r_epoch = report_blockstamp.ref_epoch
-        is_range_available = self._check_range_availability(l_epoch, r_epoch)
+        is_range_available = self.check_report_range_availability(report_blockstamp)
         if not is_range_available:
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -137,7 +134,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return ModuleExecuteDelay.NEXT_SLOT
 
     @duration_meter()
-    def push_epochs_demand(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> None:
+    def push_epochs_demand(self, blockstamp: BlockStamp) -> None:
+        l_epoch, r_epoch = self._get_predicted_range(blockstamp)
         is_range_available = self._check_range_availability(l_epoch, r_epoch)
         if is_range_available:
             return
@@ -155,7 +153,23 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             )
             self.w3.performance.post_epochs_demand(self.consumer, l_epoch, r_epoch)
 
+    def check_report_range_availability(self, blockstamp: ReferenceBlockStamp) -> bool:
+        l_epoch, r_epoch = self._get_report_range(blockstamp)
+        is_available = self._check_range_availability(l_epoch, r_epoch)
+        if not is_available:
+            logger.info(
+                {
+                    "msg": "Performance data range for report is not available yet",
+                    "start_epoch": l_epoch,
+                    "end_epoch": r_epoch,
+                }
+            )
+        return is_available
+
     def _check_range_availability(self, l_epoch: EpochNumber, r_epoch: EpochNumber) -> bool:
+        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(l_epoch)
+        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
+
         PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set_to_current_time()
         range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
         self.collector_telemetry.send(
@@ -173,9 +187,6 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             )
         else:
             PERFORMANCE_ORACLE_WAITING_FOR_DATA.labels(consumer=self.consumer).set(1)
-            logger.info(
-                {"msg": "Performance data range is not available yet", "start_epoch": l_epoch, "end_epoch": r_epoch}
-            )
         return range_available
 
     @lru_cache(maxsize=1)
@@ -228,8 +239,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return result, last_report
 
     def _prepare_duties_state(self, blockstamp: ReferenceBlockStamp) -> State:
-        l_epoch = self._get_l_epoch(blockstamp)
-        r_epoch = blockstamp.ref_epoch
+        l_epoch, r_epoch = self._get_report_range(blockstamp)
 
         is_data_available = self._check_range_availability(l_epoch, r_epoch)
         if not is_data_available:
@@ -421,6 +431,19 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return log_cid
 
     @lru_cache(maxsize=1)
+    def _get_predicted_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
+        l_epoch = self._get_l_epoch(blockstamp)
+        r_epoch = self._predict_r_epoch(blockstamp, l_epoch)
+        logger.info({"msg": "Predicted epochs range", "start_epoch": l_epoch, "end_epoch": r_epoch})
+        return l_epoch, r_epoch
+
+    @lru_cache(maxsize=1)
+    def _get_report_range(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, EpochNumber]:
+        l_epoch = self._get_l_epoch(blockstamp)
+        r_epoch = blockstamp.ref_epoch
+        logger.info({"msg": "Report epochs range", "start_epoch": l_epoch, "end_epoch": r_epoch})
+        return l_epoch, r_epoch
+
     def _get_l_epoch(self, blockstamp: BlockStamp) -> EpochNumber:
         converter = self._get_web3_converter(blockstamp)
 
@@ -441,27 +464,15 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
         l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
 
-        # Update Prometheus metrics
-        PERFORMANCE_ORACLE_TARGET_L_EPOCH.labels(consumer=self.consumer).set(l_epoch)
-
         return l_epoch
 
-    @lru_cache(maxsize=1)
     def _predict_r_epoch(self, blockstamp: BlockStamp, l_epoch: EpochNumber) -> EpochNumber:
         converter = self._get_web3_converter(blockstamp)
 
-        epochs_per_frame = converter.frame_config.epochs_per_frame
-        initial_epoch = converter.frame_config.initial_epoch
-        current_epoch = converter.get_epoch_by_slot(blockstamp.slot_number)
-
-        epochs_since_initial = max(current_epoch - initial_epoch, 0)
-        full_frames = (epochs_since_initial + epochs_per_frame - 1) // epochs_per_frame
-        r_epoch = EpochNumber(initial_epoch + full_frames * epochs_per_frame)
+        current_frame = converter.get_frame_by_slot(blockstamp.slot_number)
+        r_epoch = converter.get_epoch_by_slot(converter.get_frame_last_slot(current_frame))
 
         if l_epoch > r_epoch:
             raise SMPerformanceOracleError(f"Got invalid epochs range: {l_epoch=}, {r_epoch=}")
-
-        # Update Prometheus metrics
-        PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
 
         return r_epoch

@@ -48,10 +48,6 @@ def last_slot_of_epoch(epoch: int) -> int:
     return epoch * 32 + 31
 
 
-def slot_to_epoch(slot: int) -> int:
-    return slot // 32
-
-
 def make_validator(index: int, activation_epoch: int = 0, exit_epoch: int = 100) -> Validator:
     return Validator(
         index=ValidatorIndex(index),
@@ -133,7 +129,7 @@ FAR_FUTURE_EPOCH = (UINT64_MAX - 0) // 12 // 32
 @dataclass(frozen=True)
 class FrameTestParam:
     epochs_per_frame: int
-    initial_ref_slot: int
+    initial_epoch: int
     last_processing_ref_slot: int
     blockstamp_slot: int
     expected_frame: tuple[int, int] | type[Exception]
@@ -145,7 +141,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=0,
-                initial_ref_slot=last_slot_of_epoch(FAR_FUTURE_EPOCH),
+                initial_epoch=FAR_FUTURE_EPOCH,
                 last_processing_ref_slot=0,
                 blockstamp_slot=0,
                 expected_frame=ValueError,
@@ -155,7 +151,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=1575,
-                initial_ref_slot=2017759,
+                initial_epoch=63055,
                 last_processing_ref_slot=2168959,
                 blockstamp_slot=2219359,
                 expected_frame=(67780, 69354),
@@ -166,7 +162,7 @@ class FrameTestParam:
         # pytest.param(
         #     FrameTestParam(
         #         epochs_per_frame=32,
-        #         initial_ref_slot=last_slot_of_epoch(100),
+        #         initial_epoch=101,
         #         last_processing_ref_slot=0,
         #         blockstamp_slot=0,
         #         expected_frame=(69, 100),
@@ -176,7 +172,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=0,
                 blockstamp_slot=last_slot_of_epoch(164),
                 expected_frame=(69, 164),
@@ -186,7 +182,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=0,
                 blockstamp_slot=last_slot_of_epoch(100),
                 expected_frame=(69, 100),
@@ -196,7 +192,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=last_slot_of_epoch(100),
                 blockstamp_slot=last_slot_of_epoch(124),
                 expected_frame=(101, 132),
@@ -206,7 +202,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=last_slot_of_epoch(100),
                 blockstamp_slot=last_slot_of_epoch(132),
                 expected_frame=(101, 132),
@@ -216,7 +212,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=last_slot_of_epoch(132),
                 blockstamp_slot=last_slot_of_epoch(196),
                 expected_frame=(133, 196),
@@ -226,7 +222,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(100),
+                initial_epoch=101,
                 last_processing_ref_slot=last_slot_of_epoch(90),
                 blockstamp_slot=last_slot_of_epoch(132),
                 expected_frame=(91, 132),
@@ -236,7 +232,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=32,
-                initial_ref_slot=last_slot_of_epoch(10),
+                initial_epoch=11,
                 last_processing_ref_slot=last_slot_of_epoch(20),
                 blockstamp_slot=last_slot_of_epoch(15),
                 expected_frame=InconsistentData,
@@ -246,7 +242,7 @@ class FrameTestParam:
         pytest.param(
             FrameTestParam(
                 epochs_per_frame=4,
-                initial_ref_slot=last_slot_of_epoch(1),
+                initial_epoch=2,
                 last_processing_ref_slot=0,
                 blockstamp_slot=last_slot_of_epoch(1),
                 expected_frame=SMPerformanceOracleError,
@@ -259,14 +255,14 @@ class FrameTestParam:
 def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoReturn, param: FrameTestParam):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
-            initial_epoch=slot_to_epoch(param.initial_ref_slot),
+            initial_epoch=param.initial_epoch,
             epochs_per_frame=param.epochs_per_frame,
             fast_lane_length_slots=...,
         )
     )
 
     module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=param.last_processing_ref_slot)
-    module.get_initial_ref_slot = Mock(return_value=param.initial_ref_slot)
+    module.get_initial_ref_slot = Mock(return_value=last_slot_of_epoch(param.initial_epoch - 1))
 
     bs = BlockStampFactory.build(slot_number=param.blockstamp_slot)
     if isinstance(param.expected_frame, type) and issubclass(param.expected_frame, Exception):
@@ -280,76 +276,114 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
 
 
 @pytest.mark.unit
-def test_predict_r_epoch__at_report_ref_epoch__matches_blockstamp_ref_epoch(
-    module: CSPerformanceOracle, mock_chain_config: NoReturn
+@pytest.mark.parametrize(
+    ("finalized_epoch", "predicted_ref_epoch", "report_ref_epoch"),
+    [
+        pytest.param(
+            EpochNumber(124),
+            EpochNumber(132),
+            None,
+            id="before_report_ref_slot_prediction_reaches_frame_end",
+        ),
+        pytest.param(
+            EpochNumber(132),
+            EpochNumber(132),
+            EpochNumber(132),
+            id="at_report_ref_slot_prediction_matches_report_range",
+        ),
+        pytest.param(
+            EpochNumber(133),
+            EpochNumber(164),
+            EpochNumber(132),
+            id="after_report_ref_slot_prediction_still_covers_report_range",
+        ),
+    ],
+)
+def test_predicted_range__relative_to_finalized_and_report_ref_epoch(
+    module: CSPerformanceOracle,
+    mock_chain_config: NoReturn,
+    finalized_epoch: EpochNumber,
+    predicted_ref_epoch: EpochNumber,
+    report_ref_epoch: EpochNumber | None,
 ):
-    report_ref_epoch = EpochNumber(132)
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
-            initial_epoch=100,
+            initial_epoch=101,
             epochs_per_frame=32,
             fast_lane_length_slots=...,
         )
     )
     module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=last_slot_of_epoch(100))
 
-    blockstamp = BlockStampFactory.build(slot_number=last_slot_of_epoch(report_ref_epoch))
+    finalized_blockstamp = BlockStampFactory.build(slot_number=last_slot_of_epoch(finalized_epoch))
+    predicted_l_epoch, predicted_r_epoch = module._get_predicted_range(finalized_blockstamp)
 
-    l_epoch = module._get_l_epoch(blockstamp)
-    r_epoch = module._predict_r_epoch(blockstamp, l_epoch)
+    assert predicted_r_epoch == predicted_ref_epoch
+    assert predicted_r_epoch >= finalized_epoch
 
-    assert r_epoch == report_ref_epoch
+    if report_ref_epoch is None:
+        return
+
+    report_blockstamp = ReferenceBlockStampFactory.build(
+        slot_number=last_slot_of_epoch(report_ref_epoch),
+        ref_slot=last_slot_of_epoch(report_ref_epoch),
+        ref_epoch=report_ref_epoch,
+    )
+    report_l_epoch, report_r_epoch = module._get_report_range(report_blockstamp)
+
+    assert predicted_l_epoch == report_l_epoch
+    assert report_r_epoch == report_ref_epoch
+    assert predicted_r_epoch >= report_r_epoch
 
 
 @pytest.mark.unit
-def test_predict_r_epoch__inside_frame__can_be_greater_than_blockstamp_ref_epoch(
+def test_predict_r_epoch__frame_starts_at_initial_epoch__returns_inclusive_frame_end(
     module: CSPerformanceOracle, mock_chain_config: NoReturn
 ):
     module.get_frame_config = Mock(
         return_value=FrameConfigFactory.build(
-            initial_epoch=100,
-            epochs_per_frame=32,
+            initial_epoch=95104,
+            epochs_per_frame=8,
             fast_lane_length_slots=...,
         )
     )
-    module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=last_slot_of_epoch(100))
+    module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=last_slot_of_epoch(95103))
 
-    blockstamp_epoch = EpochNumber(124)
-    blockstamp = BlockStampFactory.build(slot_number=last_slot_of_epoch(blockstamp_epoch))
+    blockstamp = BlockStampFactory.build(slot_number=last_slot_of_epoch(95110))
 
     l_epoch = module._get_l_epoch(blockstamp)
     r_epoch = module._predict_r_epoch(blockstamp, l_epoch)
 
-    assert r_epoch == EpochNumber(132)
-    assert r_epoch > blockstamp_epoch
+    assert (l_epoch, r_epoch) == (EpochNumber(95104), EpochNumber(95111))
 
 
 @pytest.mark.unit
 def test_execute_module_pushes_predicted_epochs_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
     module._check_compatibility = Mock(return_value=True)
-    module._get_l_epoch = Mock(return_value=EpochNumber(10))
-    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module.push_epochs_demand = Mock()
     module.get_blockstamp_for_report = Mock(return_value=None)
 
     execute_delay = module.execute_module(blockstamp)
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
-    module._get_l_epoch.assert_called_once_with(blockstamp)
-    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
-    module.push_epochs_demand.assert_called_once_with(EpochNumber(10), EpochNumber(20))
+    module.push_epochs_demand.assert_called_once_with(blockstamp)
 
 
 @pytest.mark.unit
 def test_push_epochs_demand_skips_demand_post_when_range_available(module: CSPerformanceOracle):
+    blockstamp = BlockStampFactory.build()
     module.w3 = Mock()
+    module._get_l_epoch = Mock(return_value=EpochNumber(10))
+    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module._check_range_availability = Mock(return_value=True)
     module.w3.performance.get_epochs_demand = Mock()
     module.w3.performance.post_epochs_demand = Mock()
 
-    module.push_epochs_demand(EpochNumber(10), EpochNumber(20))
+    module.push_epochs_demand(blockstamp)
 
+    module._get_l_epoch.assert_called_once_with(blockstamp)
+    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_not_called()
     module.w3.performance.post_epochs_demand.assert_not_called()
@@ -357,14 +391,19 @@ def test_push_epochs_demand_skips_demand_post_when_range_available(module: CSPer
 
 @pytest.mark.unit
 def test_push_epochs_demand_skips_demand_post_when_demand_same(module: CSPerformanceOracle):
+    blockstamp = BlockStampFactory.build()
     module.w3 = Mock()
+    module._get_l_epoch = Mock(return_value=EpochNumber(10))
+    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module._check_range_availability = Mock(return_value=False)
     demand = Mock(from_epoch=EpochNumber(10), to_epoch=EpochNumber(20))
     module.w3.performance.get_epochs_demand = Mock(return_value=demand)
     module.w3.performance.post_epochs_demand = Mock()
 
-    module.push_epochs_demand(EpochNumber(10), EpochNumber(20))
+    module.push_epochs_demand(blockstamp)
 
+    module._get_l_epoch.assert_called_once_with(blockstamp)
+    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
     module.w3.performance.post_epochs_demand.assert_not_called()
@@ -372,16 +411,34 @@ def test_push_epochs_demand_skips_demand_post_when_demand_same(module: CSPerform
 
 @pytest.mark.unit
 def test_push_epochs_demand_posts_new_demand_when_range_not_available(module: CSPerformanceOracle):
+    blockstamp = BlockStampFactory.build()
     module.w3 = Mock()
+    module._get_l_epoch = Mock(return_value=EpochNumber(10))
+    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module._check_range_availability = Mock(return_value=False)
     module.w3.performance.get_epochs_demand = Mock(return_value=None)
     module.w3.performance.post_epochs_demand = Mock()
 
-    module.push_epochs_demand(EpochNumber(10), EpochNumber(20))
+    module.push_epochs_demand(blockstamp)
 
+    module._get_l_epoch.assert_called_once_with(blockstamp)
+    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
     module.w3.performance.post_epochs_demand.assert_called_once_with(module.consumer, EpochNumber(10), EpochNumber(20))
+
+
+@pytest.mark.unit
+def test_check_report_range_availability__uses_report_ref_epoch(module: CSPerformanceOracle):
+    blockstamp = ReferenceBlockStampFactory.build(ref_epoch=12)
+    module._get_l_epoch = Mock(return_value=EpochNumber(10))
+    module._check_range_availability = Mock(return_value=True)
+
+    result = module.check_report_range_availability(blockstamp)
+
+    assert result is True
+    module._get_l_epoch.assert_called_once_with(blockstamp)
+    module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(12))
 
 
 @pytest.mark.unit
@@ -1133,17 +1190,15 @@ def test_execute_module_not_collected(module: CSPerformanceOracle):
     module._check_compatibility = Mock(return_value=True)
     report_blockstamp = Mock(slot_number=100500, ref_epoch=EpochNumber(12))
     module.get_blockstamp_for_report = Mock(return_value=report_blockstamp)
-    module._get_l_epoch = Mock(return_value=EpochNumber(10))
-    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module.push_epochs_demand = Mock()
-    module._check_range_availability = Mock(return_value=False)
+    module.check_report_range_availability = Mock(return_value=False)
     module.process_report = Mock()
 
     last_finalized_blockstamp = Mock(slot_number=100500)
     execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
 
-    module.push_epochs_demand.assert_called_once_with(EpochNumber(10), EpochNumber(20))
-    module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(12))
+    module.push_epochs_demand.assert_called_once_with(last_finalized_blockstamp)
+    module.check_report_range_availability.assert_called_once_with(report_blockstamp)
     module.process_report.assert_not_called()
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -1163,17 +1218,15 @@ def test_execute_module_skips_collecting_if_not_compatible(module: CSPerformance
 def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
     module._check_compatibility = Mock(return_value=True)
     module.get_blockstamp_for_report = Mock(return_value=None)
-    module._get_l_epoch = Mock(return_value=EpochNumber(10))
-    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module.push_epochs_demand = Mock()
-    module._check_range_availability = Mock()
+    module.check_report_range_availability = Mock()
     module.process_report = Mock()
 
     last_finalized_blockstamp = Mock(slot_number=100500)
     execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
 
-    module.push_epochs_demand.assert_called_once_with(EpochNumber(10), EpochNumber(20))
-    module._check_range_availability.assert_not_called()
+    module.push_epochs_demand.assert_called_once_with(last_finalized_blockstamp)
+    module.check_report_range_availability.assert_not_called()
     module.process_report.assert_not_called()
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -1184,16 +1237,14 @@ def test_execute_module_processed(module: CSPerformanceOracle):
     module.get_blockstamp_for_report = Mock(return_value=report_blockstamp)
     module.process_report = Mock()
     module._check_compatibility = Mock(return_value=True)
-    module._get_l_epoch = Mock(return_value=EpochNumber(10))
-    module._predict_r_epoch = Mock(return_value=EpochNumber(20))
     module.push_epochs_demand = Mock()
-    module._check_range_availability = Mock(return_value=True)
+    module.check_report_range_availability = Mock(return_value=True)
 
     last_finalized_blockstamp = Mock(slot_number=100500)
     execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
 
-    module.push_epochs_demand.assert_called_once_with(EpochNumber(10), EpochNumber(20))
-    module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(12))
+    module.push_epochs_demand.assert_called_once_with(last_finalized_blockstamp)
+    module.check_report_range_availability.assert_called_once_with(report_blockstamp)
     module.process_report.assert_called_once_with(report_blockstamp)
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT
 
