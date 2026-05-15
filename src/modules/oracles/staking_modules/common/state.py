@@ -76,10 +76,7 @@ class State:
     def __init__(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> None:
         frames = self._calculate_frames(tuple(sequence(l_epoch, r_epoch)), epochs_per_frame)
         logger.info({"msg": f"Initializing state: {frames=}"})
-        data: StateData = {}
-        for frame in frames:
-            data[frame] = NetworkDuties()
-        self.data = data
+        self.data = {frame: NetworkDuties() for frame in frames}
 
     @property
     def frames(self) -> list[Frame]:

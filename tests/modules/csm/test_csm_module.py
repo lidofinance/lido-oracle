@@ -268,10 +268,10 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
     if isinstance(param.expected_frame, type) and issubclass(param.expected_frame, Exception):
         with pytest.raises(param.expected_frame):
             l_epoch = module._get_l_epoch(bs)
-            module._predict_r_epoch(bs, l_epoch)
+            module._predict_r_epoch(bs)
     else:
         l_epoch = module._get_l_epoch(bs)
-        r_epoch = module._predict_r_epoch(bs, l_epoch)
+        r_epoch = module._predict_r_epoch(bs)
         assert (l_epoch, r_epoch) == param.expected_frame
 
 
@@ -352,7 +352,7 @@ def test_predict_r_epoch__frame_starts_at_initial_epoch__returns_inclusive_frame
     blockstamp = BlockStampFactory.build(slot_number=last_slot_of_epoch(95110))
 
     l_epoch = module._get_l_epoch(blockstamp)
-    r_epoch = module._predict_r_epoch(blockstamp, l_epoch)
+    r_epoch = module._predict_r_epoch(blockstamp)
 
     assert (l_epoch, r_epoch) == (EpochNumber(95104), EpochNumber(95111))
 
@@ -383,7 +383,7 @@ def test_push_epochs_demand_skips_demand_post_when_range_available(module: CSPer
     module.push_epochs_demand(blockstamp)
 
     module._get_l_epoch.assert_called_once_with(blockstamp)
-    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
+    module._predict_r_epoch.assert_called_once_with(blockstamp)
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_not_called()
     module.w3.performance.post_epochs_demand.assert_not_called()
@@ -403,7 +403,7 @@ def test_push_epochs_demand_skips_demand_post_when_demand_same(module: CSPerform
     module.push_epochs_demand(blockstamp)
 
     module._get_l_epoch.assert_called_once_with(blockstamp)
-    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
+    module._predict_r_epoch.assert_called_once_with(blockstamp)
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
     module.w3.performance.post_epochs_demand.assert_not_called()
@@ -422,7 +422,7 @@ def test_push_epochs_demand_posts_new_demand_when_range_not_available(module: CS
     module.push_epochs_demand(blockstamp)
 
     module._get_l_epoch.assert_called_once_with(blockstamp)
-    module._predict_r_epoch.assert_called_once_with(blockstamp, EpochNumber(10))
+    module._predict_r_epoch.assert_called_once_with(blockstamp)
     module._check_range_availability.assert_called_once_with(EpochNumber(10), EpochNumber(20))
     module.w3.performance.get_epochs_demand.assert_called_once_with(module.consumer)
     module.w3.performance.post_epochs_demand.assert_called_once_with(module.consumer, EpochNumber(10), EpochNumber(20))
@@ -517,8 +517,9 @@ def test_check_range_availability_skips_same_payload_even_after_interval(module:
 @pytest.mark.unit
 def test_check_range_availability_sends_changed_payload_when_ready(module: CSPerformanceOracle):
     module.w3 = Mock()
-    module.w3.performance.is_range_available = Mock(return_value=True)
-    module.w3.performance.get_stored_epochs_count = Mock(side_effect=[3, 4])
+    # first call: 3 out of 11 epochs ready → not available → normal cooldown applies
+    # second call: all 11 epochs ready → range_available=True → ignore_cooldown=True → sent despite short gap
+    module.w3.performance.get_stored_epochs_count = Mock(side_effect=[3, 11])
     module.collector_telemetry.send_callback = Mock(return_value=True)
     module.collector_telemetry.interval_seconds = 60
 
@@ -532,7 +533,7 @@ def test_check_range_availability_sends_changed_payload_when_ready(module: CSPer
         {
             "l_epoch": 10,
             "r_epoch": 20,
-            "ready": 4,
+            "ready": 11,
         },
     )
 
@@ -540,8 +541,8 @@ def test_check_range_availability_sends_changed_payload_when_ready(module: CSPer
 @pytest.mark.unit
 def test_check_range_availability_retries_same_payload_if_previous_send_failed(module: CSPerformanceOracle):
     module.w3 = Mock()
-    module.w3.performance.is_range_available = Mock(return_value=True)
-    module.w3.performance.get_stored_epochs_count = Mock(return_value=3)
+    # stored == needed (11 epochs: 10..20 inclusive) → range is available → result=True
+    module.w3.performance.get_stored_epochs_count = Mock(return_value=11)
     module.collector_telemetry.send_callback = Mock(side_effect=[False, True])
     module.collector_telemetry.interval_seconds = 60
 
@@ -602,19 +603,15 @@ def test_prepare_duties_state__returns_duties_state_for_ref_epoch_range(
 
 @pytest.mark.unit
 def test_get_duties_state__build_error__does_not_cache_result(module: CSPerformanceOracle):
-    state = Mock()
-    module._build_fulfilled_state = Mock(side_effect=[ValueError("boom"), state])
+    module._receive_last_finalized_slot = Mock(side_effect=[ValueError("first"), ValueError("second")])
 
-    with pytest.raises(ValueError, match="boom"):
-        module._get_duties_state(EpochNumber(10), EpochNumber(12), 4)
+    with pytest.raises(ValueError, match="first"):
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), 1)
 
-    result = module._get_duties_state(EpochNumber(10), EpochNumber(12), 4)
+    with pytest.raises(ValueError, match="second"):
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), 1)
 
-    assert result is state
-    assert module._build_fulfilled_state.mock_calls == [
-        call(EpochNumber(10), EpochNumber(12), 4),
-        call(EpochNumber(10), EpochNumber(12), 4),
-    ]
+    assert module._receive_last_finalized_slot.call_count == 2
 
 
 @pytest.mark.unit
@@ -623,7 +620,9 @@ def test_build_fulfilled_state__epochs_data_received__stores_frame_duties(module
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
-    module.w3.cc.get_validators = Mock(return_value=[validator_a, validator_b])
+    module.w3.cc.get_validators_by_indexes = Mock(
+        return_value={validator_a.index: validator_a, validator_b.index: validator_b}
+    )
 
     epochs_data = [
         Duty(
@@ -646,10 +645,10 @@ def test_build_fulfilled_state__epochs_data_received__stores_frame_duties(module
     module.w3.performance.get_epochs_data = Mock(return_value=epochs_data)
     frame = (EpochNumber(0), EpochNumber(1))
 
-    state = module._build_fulfilled_state(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
+    state = module._get_duties_state(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
 
     module._receive_last_finalized_slot.assert_called_once()
-    module.w3.cc.get_validators.assert_called_once_with("finalized")
+    module.w3.cc.get_validators_by_indexes.assert_called_once_with("finalized")
 
     module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(1))
     frame_data = state.data[frame]
@@ -672,7 +671,7 @@ def test_build_fulfilled_state__missed_attestation_for_inactive_validator__raise
     inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
-    module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={inactive_validator.index: inactive_validator})
     module.w3.performance.get_epochs_data = Mock(
         return_value=[
             Duty(
@@ -687,7 +686,7 @@ def test_build_fulfilled_state__missed_attestation_for_inactive_validator__raise
     )
 
     with pytest.raises(ValueError, match="not active"):
-        module._build_fulfilled_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
 
     module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(0))
 
@@ -727,11 +726,11 @@ def test_build_fulfilled_state__duty_for_unknown_validator__raises_error(
     module._receive_last_finalized_slot = Mock(return_value=Mock(slot_number=123))
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
-    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
     module.w3.performance.get_epochs_data = Mock(return_value=[duty])
 
     with pytest.raises(ValueError, match="is missing in validators"):
-        module._build_fulfilled_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
 
     module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(0))
 
@@ -741,7 +740,7 @@ def test_build_fulfilled_state__sync_misses_exceed_blocks_in_epoch__raises_error
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
-    module.w3.cc.get_validators = Mock(return_value=[validator])
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
     module.w3.performance.get_epochs_data = Mock(
         return_value=[
             Duty(
@@ -756,7 +755,7 @@ def test_build_fulfilled_state__sync_misses_exceed_blocks_in_epoch__raises_error
     )
 
     with pytest.raises(ValueError, match="Inconsistent sync committee duties data"):
-        module._build_fulfilled_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
 
     module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(0))
 
@@ -771,7 +770,9 @@ def test_build_fulfilled_state__validators_active_for_part_of_frame__stores_only
     exit_early = make_validator(2, activation_epoch=0, exit_epoch=1)
     inactive_all = make_validator(3, activation_epoch=10, exit_epoch=20)
     module.w3 = Mock()
-    module.w3.cc.get_validators = Mock(return_value=[active_all, active_late, exit_early, inactive_all])
+    module.w3.cc.get_validators_by_indexes = Mock(
+        return_value={v.index: v for v in [active_all, active_late, exit_early, inactive_all]}
+    )
     epochs_data = [
         Duty(
             epoch=0,
@@ -800,7 +801,7 @@ def test_build_fulfilled_state__validators_active_for_part_of_frame__stores_only
     ]
     module.w3.performance.get_epochs_data = Mock(return_value=epochs_data)
 
-    state = module._build_fulfilled_state(EpochNumber(0), EpochNumber(2), epochs_per_frame=3)
+    state = module._get_duties_state(EpochNumber(0), EpochNumber(2), epochs_per_frame=3)
 
     module.w3.performance.get_epochs_data.assert_called_once_with(EpochNumber(0), EpochNumber(2))
     frame_data = state.data[(EpochNumber(0), EpochNumber(2))]
@@ -817,6 +818,265 @@ def test_build_fulfilled_state__validators_active_for_part_of_frame__stores_only
         active_all.index: DutyAccumulator(assigned=3, included=1),
         active_late.index: DutyAccumulator(assigned=1, included=1),
     }
+
+
+@pytest.mark.unit
+def test_build_fulfilled_state__duplicate_epoch_data__raises_error(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Duplicate epoch data"):
+        module._get_duties_state(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
+
+
+@pytest.mark.unit
+def test_build_fulfilled_state__incomplete_frame_data__raises_error(module: CSPerformanceOracle):
+    """Frame expects 2 epochs but only 1 is returned."""
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Invalid frame data"):
+        module._get_duties_state(EpochNumber(0), EpochNumber(1), epochs_per_frame=2)
+
+
+@pytest.mark.unit
+def test_validate_epoch_data__valid_data__does_not_raise():
+    duty = Duty(
+        epoch=0,
+        missed_attestation_vids=[1, 2, 3],
+        proposals_vids=[4, 5],
+        proposals_flags=[True, False],
+        syncs_vids=[6, 7],
+        syncs_misses=[0, 1],
+    )
+    SMPerformanceOracle._validate_epoch_data(duty)  # должен не упасть
+
+
+@pytest.mark.unit
+def test_validate_epoch_data__duplicate_missed_attestation_vids__raises_error():
+    duty = Duty(
+        epoch=0,
+        missed_attestation_vids=[1, 1],  # duplicate
+        proposals_vids=[],
+        proposals_flags=[],
+        syncs_vids=[],
+        syncs_misses=[],
+    )
+
+    with pytest.raises(ValueError, match="Duplicate validator indices in missed attestation vids"):
+        SMPerformanceOracle._validate_epoch_data(duty)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("proposals_vids", "proposals_flags", "syncs_vids", "syncs_misses", "match"),
+    [
+        pytest.param(
+            [0],
+            [True, False],
+            [],
+            [],
+            "corrupted",
+            id="proposals-flags-length-mismatch",
+        ),
+        pytest.param(
+            [],
+            [],
+            [0],
+            [0, 1],
+            "corrupted",
+            id="syncs-misses-length-mismatch",
+        ),
+    ],
+)
+def test_validate_epoch_data__length_mismatch__raises_error(
+    proposals_vids: list,
+    proposals_flags: list,
+    syncs_vids: list,
+    syncs_misses: list,
+    match: str,
+):
+    duty = Duty(
+        epoch=0,
+        missed_attestation_vids=[],
+        proposals_vids=proposals_vids,
+        proposals_flags=proposals_flags,
+        syncs_vids=syncs_vids,
+        syncs_misses=syncs_misses,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        SMPerformanceOracle._validate_epoch_data(duty)
+
+
+@pytest.mark.unit
+def test_build_fulfilled_state__missed_attestation_for_unknown_validator__raises_error(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value=Mock(slot_number=123))
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[999],  # unknown
+                proposals_vids=[],
+                proposals_flags=[],
+                syncs_vids=[],
+                syncs_misses=[],
+            ),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="is missing in validators"):
+        module._get_duties_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+
+
+@pytest.mark.unit
+def test_build_fulfilled_state__multi_frame__each_frame_fetched_independently(module: CSPerformanceOracle):
+    """Два фрейма: get_epochs_data вызывается отдельно для каждого, результаты пишутся в правильные фреймы."""
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
+    module.w3.performance.get_epochs_data = Mock(
+        side_effect=[
+            # frame 0..0
+            [
+                Duty(
+                    epoch=0,
+                    missed_attestation_vids=[],
+                    proposals_vids=[],
+                    proposals_flags=[],
+                    syncs_vids=[],
+                    syncs_misses=[],
+                )
+            ],
+            # frame 1..1
+            [
+                Duty(
+                    epoch=1,
+                    missed_attestation_vids=[validator.index],
+                    proposals_vids=[],
+                    proposals_flags=[],
+                    syncs_vids=[],
+                    syncs_misses=[],
+                )
+            ],
+        ]
+    )
+
+    state = module._get_duties_state(EpochNumber(0), EpochNumber(1), epochs_per_frame=1)
+
+    assert module.w3.performance.get_epochs_data.call_count == 2
+    module.w3.performance.get_epochs_data.assert_any_call(EpochNumber(0), EpochNumber(0))
+    module.w3.performance.get_epochs_data.assert_any_call(EpochNumber(1), EpochNumber(1))
+
+    frame0_atts = state.data[(EpochNumber(0), EpochNumber(0))].attestations
+    frame1_atts = state.data[(EpochNumber(1), EpochNumber(1))].attestations
+    assert frame0_atts[validator.index] == DutyAccumulator(assigned=1, included=1)
+    assert frame1_atts[validator.index] == DutyAccumulator(assigned=1, included=0)
+
+
+@pytest.mark.unit
+def test_build_fulfilled_state__no_blocks_in_epoch__sync_duties_not_recorded(module: CSPerformanceOracle):
+    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    validator = make_validator(0, activation_epoch=0, exit_epoch=10)
+    module.w3 = Mock()
+    module.w3.cc.get_validators_by_indexes = Mock(return_value={validator.index: validator})
+    module.w3.performance.get_epochs_data = Mock(
+        return_value=[
+            Duty(
+                epoch=0,
+                missed_attestation_vids=[],
+                proposals_vids=[int(validator.index)],
+                proposals_flags=[False],  # блок предложен, но не включён
+                syncs_vids=[int(validator.index)],
+                syncs_misses=[0],
+            ),
+        ]
+    )
+
+    state = module._get_duties_state(EpochNumber(0), EpochNumber(0), epochs_per_frame=1)
+
+    frame_data = state.data[(EpochNumber(0), EpochNumber(0))]
+    assert frame_data.proposals[validator.index] == DutyAccumulator(assigned=1, included=0)
+    assert validator.index not in frame_data.syncs  # sync не записан
+
+
+@pytest.mark.unit
+def test_get_predicted_range__l_epoch_exceeds_r_epoch__raises_error(
+    module: CSPerformanceOracle, mock_chain_config: NoReturn
+):
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            initial_epoch=101,
+            epochs_per_frame=32,
+            fast_lane_length_slots=...,
+        )
+    )
+    # last_processing_ref_slot > blockstamp → _get_l_epoch returns epoch > r_epoch
+    module.w3.staking_module.get_last_processing_ref_slot = Mock(return_value=last_slot_of_epoch(200))
+    module._get_l_epoch = Mock(return_value=EpochNumber(200))
+    module._predict_r_epoch = Mock(return_value=EpochNumber(100))
+
+    bs = BlockStampFactory.build(slot_number=last_slot_of_epoch(100))
+    with pytest.raises(SMPerformanceOracleError, match="invalid predicted epochs range"):
+        module._get_predicted_range(bs)
+
+
+@pytest.mark.unit
+def test_get_report_range__l_epoch_exceeds_r_epoch__raises_error(
+    module: CSPerformanceOracle, mock_chain_config: NoReturn
+):
+    module.get_frame_config = Mock(
+        return_value=FrameConfigFactory.build(
+            initial_epoch=101,
+            epochs_per_frame=32,
+            fast_lane_length_slots=...,
+        )
+    )
+    module._get_l_epoch = Mock(return_value=EpochNumber(200))
+
+    bs = ReferenceBlockStampFactory.build(ref_epoch=EpochNumber(100))
+    with pytest.raises(SMPerformanceOracleError, match="invalid report epochs range"):
+        module._get_report_range(bs)
 
 
 @pytest.mark.unit

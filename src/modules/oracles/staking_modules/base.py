@@ -27,6 +27,7 @@ from src.modules.oracles.staking_modules.common.log import Logs
 from src.modules.oracles.staking_modules.common.state import NetworkDuties, State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
+from src.modules.sidecars.performance.common.db import Duty
 from src.providers.consensus.types import Validator
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
@@ -170,12 +171,13 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         PERFORMANCE_ORACLE_TARGET_R_EPOCH.labels(consumer=self.consumer).set(r_epoch)
 
         PERFORMANCE_ORACLE_LAST_RANGE_CHECK_UNIXTIME.labels(consumer=self.consumer).set_to_current_time()
-        range_available = self.w3.performance.is_range_available(l_epoch, r_epoch)
+        stored_count = self.w3.performance.get_stored_epochs_count(l_epoch, r_epoch)
+        range_available = stored_count == (r_epoch - l_epoch + 1)
         self.collector_telemetry.send(
             {
                 "l_epoch": l_epoch,
                 "r_epoch": r_epoch,
-                "ready": self.w3.performance.get_stored_epochs_count(l_epoch, r_epoch),
+                "ready": stored_count,
             },
             ignore_cooldown=range_available,
         )
@@ -265,125 +267,122 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         return not on_pause
 
     @lru_cache(maxsize=1)
-    def _get_duties_state(self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int) -> State:
-        return self._build_fulfilled_state(l_epoch, r_epoch, epochs_per_frame)
-
     @duration_meter()
-    def _build_fulfilled_state(  # noqa: C901
-        self, l_epoch: EpochNumber, r_epoch: EpochNumber, epochs_per_frame: int
+    def _get_duties_state(
+        self, report_l_epoch: EpochNumber, report_r_epoch: EpochNumber, epochs_per_frame: int
     ) -> State:
-        state = State(l_epoch, r_epoch, epochs_per_frame)
         finalized_blockstamp = self._receive_last_finalized_slot()
-        validators = self.w3.cc.get_validators(finalized_blockstamp)
-        validators_by_index = {validator.index: validator for validator in validators}
+        validators_by_index = self.w3.cc.get_validators_by_indexes(finalized_blockstamp)
 
+        state = State(report_l_epoch, report_r_epoch, epochs_per_frame)
         logger.info(
             {
                 "msg": "Starting state fulfillment",
                 "total_frames": len(state.frames),
-                "total_validators": len(validators),
+                "total_epochs": report_r_epoch - report_l_epoch + 1,
+                "total_validators": len(validators_by_index),
             }
         )
 
         for l_epoch, r_epoch in state.frames:
-            frame_duties_to_save = NetworkDuties()
-            frame_missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
-
-            logger.info(
-                {
-                    "msg": "Processing frame",
-                    "start_epoch": l_epoch,
-                    "end_epoch": r_epoch,
-                    "total_epochs": r_epoch - l_epoch + 1,
-                }
+            state.save_duties(
+                (l_epoch, r_epoch),
+                self._get_frame_duties(l_epoch, r_epoch, validators_by_index)
             )
 
-            raw_frame_duties = self.w3.performance.get_epochs_data(l_epoch, r_epoch)
-            for epoch_data in raw_frame_duties:
-                epoch = EpochNumber(epoch_data.epoch)
-
-                (
-                    missed_atts_vids,
-                    proposers,
-                    props_flags,
-                    syncs_vids,
-                    syncs_misses,
-                ) = (
-                    [ValidatorIndex(vid) for vid in epoch_data.missed_attestation_vids],
-                    [ValidatorIndex(vid) for vid in epoch_data.proposals_vids],
-                    epoch_data.proposals_flags,  # proposed or not status
-                    [ValidatorIndex(vid) for vid in epoch_data.syncs_vids],
-                    epoch_data.syncs_misses,  # count of missed blocks in sync duties
-                )
-
-                if len(missed_atts_vids) != len(set(missed_atts_vids)):
-                    raise ValueError(f"Duplicate validator indices in missed attestation vids for epoch {epoch}")
-
-                if len(proposers) != len(props_flags) or len(syncs_vids) != len(syncs_misses):
-                    raise ValueError(
-                        f"Epoch {epoch} data is corrupted: "
-                        f"{len(proposers)=}, {len(props_flags)=}, "
-                        f"{len(syncs_vids)=}, {len(syncs_misses)=}"
-                    )
-
-                blocks_in_epoch = 0
-
-                for i, vid in enumerate(proposers):
-                    if vid not in validators_by_index:
-                        raise ValueError(
-                            f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
-                        )
-                    proposed = props_flags[i]
-                    v_prop = frame_duties_to_save.proposals[vid]
-                    v_prop.assigned += 1
-                    v_prop.included += int(proposed)
-                    blocks_in_epoch += int(proposed)
-
-                if blocks_in_epoch:
-                    for i, vid in enumerate(syncs_vids):
-                        if vid not in validators_by_index:
-                            raise ValueError(
-                                f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
-                            )
-                        s_misses = syncs_misses[i]
-                        if s_misses > blocks_in_epoch:
-                            raise ValueError(
-                                f"Inconsistent sync committee duties data: index={i}, {vid=}, "
-                                f"{s_misses=} > {blocks_in_epoch=}"
-                            )
-                        v_sync = frame_duties_to_save.syncs[vid]
-                        v_sync.assigned += blocks_in_epoch
-                        v_sync.included += blocks_in_epoch - s_misses
-
-                for vid in missed_atts_vids:
-                    validator = validators_by_index.get(vid)
-                    if validator is None:
-                        raise ValueError(
-                            f"Validator {vid} is missing in validators on {finalized_blockstamp.slot_number=}"
-                        )
-                    if not is_active_validator(validator, epoch):
-                        raise ValueError(
-                            f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active"
-                        )
-                    frame_missed_atts[vid] += 1
-
-            for validator in validators:
-                assigned = self._count_active_epochs(validator, l_epoch, r_epoch)
-                if not assigned:
-                    continue
-
-                misses = frame_missed_atts[validator.index]
-                if misses > assigned:
-                    raise ValueError(
-                        f"Invalid attestation duties data: validator={validator.index}, {misses=} > {assigned=}"
-                    )
-                v_atts = frame_duties_to_save.attestations[validator.index]
-                v_atts.assigned += assigned
-                v_atts.included += assigned - misses
-
-            state.save_duties((l_epoch, r_epoch), frame_duties_to_save)
-
         return state
+
+    def _get_frame_duties(  # noqa: C901
+        self, l_epoch: EpochNumber, r_epoch: EpochNumber, validators_by_index: dict[int, Validator]
+    ) -> NetworkDuties:
+        duties_to_save = NetworkDuties()
+        missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
+        processed_epochs: set[EpochNumber] = set()
+
+        tota_epochs = r_epoch - l_epoch + 1
+
+        logger.info(
+            {"msg": "Processing frame", "start_epoch": l_epoch, "end_epoch": r_epoch, "total_epochs": tota_epochs}
+        )
+
+        raw_duties = self.w3.performance.get_epochs_data(l_epoch, r_epoch)
+        for duties in raw_duties:
+            self._validate_epoch_data(duties)
+
+            epoch = EpochNumber(duties.epoch)
+            if epoch in processed_epochs:
+                raise ValueError(f"Duplicate epoch data for epoch {epoch}")
+
+            blocks_in_epoch = 0
+
+            for i, vid in enumerate(ValidatorIndex(vid) for vid in duties.proposals_vids):
+                if vid not in validators_by_index:
+                    raise ValueError(f"Validator {vid} is missing in validators list")
+                proposed = duties.proposals_flags[i]
+                v_prop = duties_to_save.proposals[vid]
+                v_prop.assigned += 1
+                v_prop.included += int(proposed)
+                blocks_in_epoch += int(proposed)
+
+            if blocks_in_epoch:
+                for i, vid in enumerate(ValidatorIndex(vid) for vid in duties.syncs_vids):
+                    if vid not in validators_by_index:
+                        raise ValueError(f"Validator {vid} is missing in validators list")
+                    s_misses = duties.syncs_misses[i]
+                    if s_misses > blocks_in_epoch:
+                        raise ValueError(
+                            f"Inconsistent sync committee duties data: index={i}, {vid=}, "
+                            f"{s_misses=} > {blocks_in_epoch=}"
+                        )
+                    v_sync = duties_to_save.syncs[vid]
+                    v_sync.assigned += blocks_in_epoch
+                    v_sync.included += blocks_in_epoch - s_misses
+
+            for vid in (ValidatorIndex(vid) for vid in duties.missed_attestation_vids):
+                validator = validators_by_index.get(vid)
+                if validator is None:
+                    raise ValueError(f"Validator {vid} is missing in validators on list")
+                if not is_active_validator(validator, epoch):
+                    raise ValueError(
+                        f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active"
+                    )
+                missed_atts[vid] += 1
+
+            processed_epochs.add(epoch)
+
+        if len(processed_epochs) != tota_epochs:
+            raise ValueError(f"Invalid frame data: expected {tota_epochs} epochs, got {len(processed_epochs)} epochs")
+
+        for validator in validators_by_index.values():
+            assigned = self._count_active_epochs(validator, l_epoch, r_epoch)
+            if not assigned:
+                continue
+
+            misses = missed_atts[validator.index]
+            if misses > assigned:
+                raise ValueError(
+                    f"Invalid attestation duties data: validator={validator.index}, {misses=} > {assigned=}"
+                )
+            v_atts = duties_to_save.attestations[validator.index]
+            v_atts.assigned += assigned
+            v_atts.included += assigned - misses
+
+        return duties_to_save
+
+    @staticmethod
+    def _validate_epoch_data(duty: Duty):
+        if len(duty.missed_attestation_vids) != len(set(duty.missed_attestation_vids)):
+            raise ValueError(f"Duplicate validator indices in missed attestation vids for epoch {duty.epoch}")
+
+        proposals_vids_len = len(duty.proposals_vids)
+        proposals_flags_len = len(duty.proposals_flags)
+        if proposals_vids_len != proposals_flags_len:
+            raise ValueError(f"Epoch {duty.epoch} data is corrupted: {proposals_vids_len=} != {proposals_flags_len=}")
+
+        syncs_vids_len = len(duty.syncs_vids)
+        syncs_misses_len = len(duty.syncs_misses)
+        if syncs_vids_len != syncs_misses_len:
+            raise ValueError(f"Epoch {duty.epoch} data is corrupted: {syncs_vids_len=} != {syncs_misses_len=}")
 
     @staticmethod
     def _count_active_epochs(validator: Validator, l_epoch: EpochNumber, r_epoch: EpochNumber) -> int:
@@ -439,7 +438,9 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     @lru_cache(maxsize=1)
     def _get_predicted_range(self, blockstamp: BlockStamp) -> tuple[EpochNumber, EpochNumber]:
         l_epoch = self._get_l_epoch(blockstamp)
-        r_epoch = self._predict_r_epoch(blockstamp, l_epoch)
+        r_epoch = self._predict_r_epoch(blockstamp)
+        if l_epoch > r_epoch:
+            raise SMPerformanceOracleError(f"Got invalid predicted epochs range: {l_epoch=}, {r_epoch=}")
         logger.info({"msg": "Predicted epochs range", "start_epoch": l_epoch, "end_epoch": r_epoch})
         return l_epoch, r_epoch
 
@@ -447,6 +448,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def _get_report_range(self, blockstamp: ReferenceBlockStamp) -> tuple[EpochNumber, EpochNumber]:
         l_epoch = self._get_l_epoch(blockstamp)
         r_epoch = blockstamp.ref_epoch
+        if l_epoch > r_epoch:
+            raise SMPerformanceOracleError(f"Got invalid report epochs range: {l_epoch=}, {r_epoch=}")
         logger.info({"msg": "Report epochs range", "start_epoch": l_epoch, "end_epoch": r_epoch})
         return l_epoch, r_epoch
 
@@ -468,17 +471,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         if last_processing_ref_slot > blockstamp.slot_number:
             raise InconsistentData(f"{last_processing_ref_slot=} > {blockstamp.slot_number=}")
 
-        l_epoch = converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
+        return converter.get_epoch_by_slot(SlotNumber(l_ref_slot + 1))
 
-        return l_epoch
-
-    def _predict_r_epoch(self, blockstamp: BlockStamp, l_epoch: EpochNumber) -> EpochNumber:
+    def _predict_r_epoch(self, blockstamp: BlockStamp) -> EpochNumber:
         converter = self._get_web3_converter(blockstamp)
 
         current_frame = converter.get_frame_by_slot(blockstamp.slot_number)
-        r_epoch = converter.get_epoch_by_slot(converter.get_frame_last_slot(current_frame))
-
-        if l_epoch > r_epoch:
-            raise SMPerformanceOracleError(f"Got invalid epochs range: {l_epoch=}, {r_epoch=}")
-
-        return r_epoch
+        return converter.get_epoch_by_slot(converter.get_frame_last_slot(current_frame))
