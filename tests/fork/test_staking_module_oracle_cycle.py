@@ -7,7 +7,7 @@ import pytest
 import uvicorn
 from faker import Faker
 from sqlalchemy import JSON
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 from sqlmodel import create_engine
 
 from src.modules.common.types import FrameConfig
@@ -54,9 +54,8 @@ def performance_local_db(testrun_path):
         return create_engine(
             self._get_database_url(),
             echo=False,
-            pool_pre_ping=True,
             connect_args={"check_same_thread": False, "timeout": 30},
-            poolclass=StaticPool,
+            poolclass=NullPool,
         )
 
     def mock_init(self, *args, **kwargs):
