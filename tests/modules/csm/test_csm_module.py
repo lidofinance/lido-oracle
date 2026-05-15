@@ -615,7 +615,7 @@ def test_get_duties_state__build_error__does_not_cache_result(module: CSPerforma
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__epochs_data_received__stores_frame_duties(module: CSPerformanceOracle):
+def test_get_duties_state__epochs_data_received__stores_frame_duties(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
@@ -667,7 +667,7 @@ def test_build_fulfilled_state__epochs_data_received__stores_frame_duties(module
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__missed_attestation_for_inactive_validator__raises_error(module: CSPerformanceOracle):
+def test_get_duties_state__missed_attestation_for_inactive_validator__raises_error(module: CSPerformanceOracle):
     inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     module.w3 = Mock()
@@ -719,7 +719,7 @@ def test_build_fulfilled_state__missed_attestation_for_inactive_validator__raise
         ),
     ],
 )
-def test_build_fulfilled_state__duty_for_unknown_validator__raises_error(
+def test_get_duties_state__duty_for_unknown_validator__raises_error(
     module: CSPerformanceOracle,
     duty: Duty,
 ):
@@ -736,7 +736,7 @@ def test_build_fulfilled_state__duty_for_unknown_validator__raises_error(
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__sync_misses_exceed_blocks_in_epoch__raises_error(module: CSPerformanceOracle):
+def test_get_duties_state__sync_misses_exceed_blocks_in_epoch__raises_error(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -761,7 +761,7 @@ def test_build_fulfilled_state__sync_misses_exceed_blocks_in_epoch__raises_error
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__validators_active_for_part_of_frame__stores_only_active_duties(
+def test_get_duties_state__validators_active_for_part_of_frame__stores_only_active_duties(
     module: CSPerformanceOracle,
 ):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
@@ -821,7 +821,7 @@ def test_build_fulfilled_state__validators_active_for_part_of_frame__stores_only
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__duplicate_epoch_data__raises_error(module: CSPerformanceOracle):
+def test_get_duties_state__duplicate_epoch_data__raises_error(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -852,7 +852,7 @@ def test_build_fulfilled_state__duplicate_epoch_data__raises_error(module: CSPer
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__incomplete_frame_data__raises_error(module: CSPerformanceOracle):
+def test_get_duties_state__incomplete_frame_data__raises_error(module: CSPerformanceOracle):
     """Frame expects 2 epochs but only 1 is returned."""
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
@@ -885,7 +885,7 @@ def test_validate_epoch_data__valid_data__does_not_raise():
         syncs_vids=[6, 7],
         syncs_misses=[0, 1],
     )
-    SMPerformanceOracle._validate_epoch_data(duty)  # должен не упасть
+    SMPerformanceOracle._validate_epoch_data(duty)
 
 
 @pytest.mark.unit
@@ -946,7 +946,7 @@ def test_validate_epoch_data__length_mismatch__raises_error(
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__missed_attestation_for_unknown_validator__raises_error(module: CSPerformanceOracle):
+def test_get_duties_state__missed_attestation_for_unknown_validator__raises_error(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value=Mock(slot_number=123))
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -969,7 +969,7 @@ def test_build_fulfilled_state__missed_attestation_for_unknown_validator__raises
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__multi_frame__each_frame_fetched_independently(module: CSPerformanceOracle):
+def test_get_duties_state__multi_frame__each_frame_fetched_independently(module: CSPerformanceOracle):
     """Два фрейма: get_epochs_data вызывается отдельно для каждого, результаты пишутся в правильные фреймы."""
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
@@ -1015,7 +1015,7 @@ def test_build_fulfilled_state__multi_frame__each_frame_fetched_independently(mo
 
 
 @pytest.mark.unit
-def test_build_fulfilled_state__no_blocks_in_epoch__sync_duties_not_recorded(module: CSPerformanceOracle):
+def test_get_duties_state__no_blocks_in_epoch__sync_duties_not_recorded(module: CSPerformanceOracle):
     module._receive_last_finalized_slot = Mock(return_value="finalized")
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()

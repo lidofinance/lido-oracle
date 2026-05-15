@@ -300,10 +300,10 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         missed_atts: defaultdict[ValidatorIndex, int] = defaultdict(int)
         processed_epochs: set[EpochNumber] = set()
 
-        tota_epochs = r_epoch - l_epoch + 1
+        total_epochs = r_epoch - l_epoch + 1
 
         logger.info(
-            {"msg": "Processing frame", "start_epoch": l_epoch, "end_epoch": r_epoch, "total_epochs": tota_epochs}
+            {"msg": "Processing frame", "start_epoch": l_epoch, "end_epoch": r_epoch, "total_epochs": total_epochs}
         )
 
         raw_duties = self.w3.performance.get_epochs_data(l_epoch, r_epoch)
@@ -342,7 +342,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
             for vid in (ValidatorIndex(vid) for vid in duties.missed_attestation_vids):
                 validator = validators_by_index.get(vid)
                 if validator is None:
-                    raise ValueError(f"Validator {vid} is missing in validators on list")
+                    raise ValueError(f"Validator {vid} is missing in validators list")
                 if not is_active_validator(validator, epoch):
                     raise ValueError(
                         f"Validator {validator.index} missed attestation in epoch {epoch}, but was not active"
@@ -351,8 +351,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
             processed_epochs.add(epoch)
 
-        if len(processed_epochs) != tota_epochs:
-            raise ValueError(f"Invalid frame data: expected {tota_epochs} epochs, got {len(processed_epochs)} epochs")
+        if len(processed_epochs) != total_epochs:
+            raise ValueError(f"Invalid frame data: expected {total_epochs} epochs, got {len(processed_epochs)} epochs")
 
         for validator in validators_by_index.values():
             assigned = self._count_active_epochs(validator, l_epoch, r_epoch)

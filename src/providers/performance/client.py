@@ -44,10 +44,9 @@ class PerformanceClient(HTTPProvider):
     def get_epochs_data(self, from_epoch: EpochNumber, to_epoch: EpochNumber) -> Iterator[Duty]:
         batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE
         for epochs_batch in batched(sequence(from_epoch, to_epoch), batch_size, strict=False):
-            from_epoch, to_epoch = epochs_batch[0], epochs_batch[-1]
             data, _ = self._get(
                 self.API_EPOCHS_DATA,
-                query_params={'from': from_epoch, 'to': to_epoch},
+                query_params={'from': epochs_batch[0], 'to': epochs_batch[-1]},
                 validate_response=data_is_list,
             )
             for item in data:
