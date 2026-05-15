@@ -43,7 +43,7 @@ def cm_module(web3_curated_module: Web3StakingModule):
 
 @pytest.fixture()
 def performance_local_db(testrun_path):
-    db_path = Path(testrun_path) / "test_duties.db"
+    db_path = (Path(testrun_path) / "test_duties.db").resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.touch(mode=0o600, exist_ok=True)
 
