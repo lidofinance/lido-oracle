@@ -249,6 +249,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         converter = self._get_web3_converter(blockstamp)
         return self._get_duties_state(l_epoch, r_epoch, converter.frame_config.epochs_per_frame)
 
+    @lru_cache(maxsize=1)
     def _get_last_report(self, blockstamp: ReferenceBlockStamp) -> LastReport:
         current_frame = self.get_frame_number_by_slot(blockstamp)
         return LastReport.load(self.w3, blockstamp, current_frame)
