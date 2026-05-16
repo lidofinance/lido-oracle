@@ -42,6 +42,10 @@ from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, Vali
 PARTICIPATION_SHARE_MULTIPLIER = MIN_ACTIVATION_BALANCE // EFFECTIVE_BALANCE_INCREMENT
 
 
+def make_state() -> State:
+    return State(EpochNumber(0), EpochNumber(31), epochs_per_frame=32)
+
+
 @pytest.mark.parametrize(
     (
         "frames",
@@ -314,7 +318,7 @@ def test_calculate_distribution(
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
     w3.staking_module.get_curve_params = mocked_curve_params
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=make_state())
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {f: {} for f in frames}
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
@@ -343,7 +347,7 @@ def test_calculate_distribution_handles_invalid_distribution():
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=make_state())
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -374,7 +378,7 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
     w3.staking_module.get_curve_params = Mock(...)
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=make_state())
     distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
@@ -1115,8 +1119,7 @@ def test_calculate_distribution_in_frame(
     w3.staking_module.get_curve_params = mocked_curve_params
 
     frame = (EpochNumber(0), EpochNumber(31))
-    state = State()
-    state.init(*frame, epochs_per_frame=32)
+    state = State(*frame, epochs_per_frame=32)
     state.data = {frame: frame_state_data}
 
     distribution = Distribution(w3, converter=..., state=state)
@@ -1229,7 +1232,7 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
     }
     w3.cc.get_validators.return_value = [validator]
 
-    distribution = Distribution(w3, converter=Mock(), state=State())
+    distribution = Distribution(w3, converter=Mock(), state=make_state())
 
     with pytest.raises(KAPIInconsistentData, match="Invalid key"):
         distribution._get_module_validators(blockstamp)
@@ -1661,7 +1664,7 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
         )
     )
 
-    distribution = Distribution(w3, converter=..., state=State())
+    distribution = Distribution(w3, converter=..., state=make_state())
     distribution._get_network_performance = Mock(return_value=0.9)
 
     frame = (EpochNumber(0), EpochNumber(31))

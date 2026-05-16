@@ -36,9 +36,12 @@ class TestIntegrationMainCycleSmoke:
             StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES = 3
             StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY = 0
 
+            from src.modules.oracles.staking_modules.common.state import State
             from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 
-            CSPerformanceOracle._collect_data = lambda self: True
+            CSPerformanceOracle._prepare_duties_state = lambda self, blockstamp: State(
+                blockstamp.ref_epoch, blockstamp.ref_epoch, 1
+            )
 
             from src.providers.performance.client import PerformanceClient
 
