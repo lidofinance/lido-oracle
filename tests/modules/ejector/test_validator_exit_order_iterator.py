@@ -416,13 +416,11 @@ class TestProcessGroup:
             node_operator=no_ext1,
             module_stats=ms_v1,
             predictable_balance=Gwei(50 * 10**9),
-            weight=1.0,
         )
         nos_ext2 = NodeOperatorStats(
             node_operator=no_ext2,
             module_stats=ms_v1,
             predictable_balance=Gwei(30 * 10**9),
-            weight=2.0,
         )
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
         iterator.node_operators_stats = {
@@ -456,8 +454,8 @@ class TestProcessGroup:
         assert nos_ext1.total_stake == Gwei(150 * 10**9)
         assert nos_ext2.total_stake == Gwei(150 * 10**9)
         # internal_weight = 4.0 + 6.0 = 10.0, split equally among 2 externals = 5.0 each
-        assert nos_ext1.weight == 1.0 + 5.0
-        assert nos_ext2.weight == 2.0 + 5.0
+        assert nos_ext1.weight == 5.0
+        assert nos_ext2.weight == 5.0
         # internal_balance added to cm_v1 total_stake
         assert ms_v1.total_stake == Gwei(300 * 10**9)
         # int1 gets external_balance * 4.0/10.0 = 80 * 0.4 = 32

@@ -45,7 +45,7 @@ EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 TX_GAS_ADDITION: Final = int(os.getenv('TX_GAS_ADDITION', 100_000))
 
 # Maximum length of a range for eth_getLogs method calls.
-EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 10_000))
+EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 7_200))
 assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
 
 # Transactions fee calculation variables
