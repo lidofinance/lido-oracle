@@ -343,7 +343,14 @@ class Ejector(OracleModule[Web3]):
         """
         Calculates the amount of ETH locked for depositing for a given epoches_number.
         """
-        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
+        deposit_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
+        max_wr_wei = self.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount(blockstamp.block_hash)
+
+        # Withdrawn ETH lands in the Withdrawal Vault or EL rewards vault and only reaches
+        # the buffer after WRs are fulfilled — so it cannot be redirected to deposits unless
+        # the first WR in line exceeds the available buffer. In that worst case, at most `max_wr_wei` per
+        # frame can flow into the buffer for deposits instead of fulfilling withdrawals
+        reserve_per_frame = min(deposit_per_frame, max_wr_wei)
 
         consensus_contract = cast(
             HashConsensusContract,

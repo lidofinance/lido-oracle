@@ -545,6 +545,9 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     reserve_per_frame = Wei(10 * GWEI_TO_WEI)
     epochs_per_frame = 10
     ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(
+        return_value=Wei(1000 * GWEI_TO_WEI)
+    )
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
     mock_consensus = Mock()
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
@@ -558,6 +561,25 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
     # 2.5 frames → 25 // 10 = 2 frames
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
+
+
+@pytest.mark.unit
+def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+) -> None:
+    deposit_per_frame = Wei(100 * GWEI_TO_WEI)
+    max_wr_wei = Wei(30 * GWEI_TO_WEI)
+    epochs_per_frame = 10
+    ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=deposit_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(return_value=max_wr_wei)
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
+    mock_consensus = Mock()
+    mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
+    ejector.w3.eth.contract = Mock(return_value=mock_consensus)
+
+    # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
 
 
 class ForcedIterator:
