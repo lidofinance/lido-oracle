@@ -1296,24 +1296,6 @@ cython = ["cython (>=0.29)"]
 test = ["pytest"]
 
 [[package]]
-name = "dag-cbor"
-version = "0.3.3"
-description = "Python implementation of the DAG-CBOR codec."
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "dag-cbor-0.3.3.tar.gz", hash = "sha256:d8d1e7c7a022af758932e5343b7a2c9d7afa1cc64860246cae22f90cab1c9d8a"},
-    {file = "dag_cbor-0.3.3-py3-none-any.whl", hash = "sha256:e0d1c45427ed1fa21bbd103163d4b250f4ce9066337d6ffb976da1fac3a67454"},
-]
-
-[package.dependencies]
-multiformats = ">=0.3.1"
-typing-extensions = ">=4.6.0"
-typing-validation = ">=1.1.0"
-
-[[package]]
 name = "decorator"
 version = "5.2.1"
 description = "Decorators for Humans"
@@ -5177,4 +5159,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "9af87f806b2e91a9b4efab9d9f43193689d262be553fc49c9e4db12dbe1e4c6a"
+content-hash = "2c66c34ab71f16ccce065e12f633c632205ef029423856669fce37545acaf67e"
