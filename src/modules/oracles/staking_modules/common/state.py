@@ -26,10 +26,6 @@ class DutyAccumulator:
     def perf(self) -> float:
         return self.included / self.assigned if self.assigned else 0
 
-    def add_duty(self, included: bool) -> None:
-        self.assigned += 1
-        self.included += 1 if included else 0
-
     def merge(self, other: Self) -> None:
         self.assigned += other.assigned
         self.included += other.included
