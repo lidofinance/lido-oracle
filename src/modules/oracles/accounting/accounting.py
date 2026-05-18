@@ -6,7 +6,6 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
@@ -34,6 +33,7 @@ from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService

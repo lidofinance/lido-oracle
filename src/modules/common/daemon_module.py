@@ -7,7 +7,6 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
-from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import (
@@ -18,6 +17,7 @@ from src.metrics.prometheus.basic import (
 )
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockDetailsResponse
 from src.types import BlockRoot, SlotNumber
 
 

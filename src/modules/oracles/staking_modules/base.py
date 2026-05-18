@@ -9,7 +9,6 @@ from itertools import batched
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
-from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -28,6 +27,7 @@ from src.modules.oracles.staking_modules.common.log import Logs
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator, State
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID

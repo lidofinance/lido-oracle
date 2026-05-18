@@ -7,7 +7,6 @@ from datetime import datetime
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 
-from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.metrics.prometheus.performance_collector import (
     PERFORMANCE_COLLECTOR_DB_DEMAND_COUNT,
@@ -21,6 +20,7 @@ from src.modules.sidecars.performance.collector.checkpoint import (
 )
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized

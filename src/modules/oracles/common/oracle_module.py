@@ -10,7 +10,6 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3.exceptions import Web3Exception
 from web3_multi_provider import NoActiveProviderError
 
-from providers.consensus.types import BlockDetailsResponse
 from src.modules.common.daemon_module import DaemonModule
 from src.modules.oracles.common.consensus import ConsensusModule
 from src.modules.oracles.common.exceptions import (
@@ -19,6 +18,7 @@ from src.modules.oracles.common.exceptions import (
     IsNotMemberException,
 )
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
