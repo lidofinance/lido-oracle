@@ -5,9 +5,9 @@ from src.modules.oracles.accounting.types import BatchState
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.services.safe_border import SafeBorder
 from src.types import FinalizationBatches, ReferenceBlockStamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
-from utils.blockstamp import BlockstampBuilder
 
 
 class Withdrawal:

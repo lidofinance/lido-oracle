@@ -13,13 +13,13 @@ from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.events import get_events_in_range
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
-from utils.blockstamp import BlockstampBuilder
 
 
 logger = logging.getLogger(__name__)

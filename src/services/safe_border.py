@@ -7,10 +7,10 @@ from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABI
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
-from utils.blockstamp import BlockstampBuilder
 
 
 class WrongExitPeriod(Exception):
