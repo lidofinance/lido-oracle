@@ -8,7 +8,7 @@ from web3.types import Timestamp
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockDetailsResponse
 from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
-from utils.slot import get_prev_non_missed_slot
+from src.utils.slot import get_prev_non_missed_slot
 
 
 logger = logging.getLogger(__name__)
