@@ -34,11 +34,11 @@ from src.modules.oracles.common.exceptions import (
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
-from src.utils.blockstamp import BlockstampBuilder
 
 
 logger = logging.getLogger(__name__)

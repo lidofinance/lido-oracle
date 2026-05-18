@@ -29,7 +29,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
-    EPBS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)  # EIP-7732; name TBD per final Gloas spec
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
