@@ -66,7 +66,7 @@ def safe_border(
         return_value=OracleReportLimitsFactory.build()
     )
     web3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift = Mock(return_value=100)
-    return SafeBorder(web3, past_blockstamp, chain_config, frame_config)
+    return SafeBorder(web3, Mock(), past_blockstamp, chain_config, frame_config)
 
 
 @pytest.mark.unit

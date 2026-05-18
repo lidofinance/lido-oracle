@@ -31,7 +31,7 @@ from tests.modules.accounting.staking_vault.conftest import (
 @pytest.mark.unit
 class TestGetVaultsFees:
     @pytest.fixture
-    def service(self, web3, monkeypatch):
+    def service(self, web3):
         web3.cc = MagicMock()
         web3.lido_contracts.vault_hub = MagicMock()
         web3.lido_contracts.accounting_oracle = MagicMock()
@@ -42,7 +42,7 @@ class TestGetVaultsFees:
 
         fake_blockstamp = MagicMock()
         fake_blockstamp.block_number = 0
-        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
+        svc._blockstamp_builder = MagicMock(get_non_missed_blockstamp=MagicMock(return_value=fake_blockstamp))  # type: ignore[attr-defined]
 
         return svc
 
@@ -111,7 +111,7 @@ class TestGetVaultsFees:
 
         assert fees[vault_adr].prev_fee == 0
 
-    def test_negative_ref_slot_on_first_report(self, service, monkeypatch):
+    def test_negative_ref_slot_on_first_report(self, service):
         # initial_epoch - frame_epoches <= 0
         vault_adr = VaultAddresses.VAULT_0
         vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
@@ -123,9 +123,10 @@ class TestGetVaultsFees:
 
         # Negative prev_slot -> events should be fetched from 0 block
         blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
-        monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+        service._blockstamp_builder = MagicMock(  # type: ignore[attr-defined]
+            get_non_missed_blockstamp=MagicMock(
+                side_effect=lambda slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot)
+            )
         )
 
         service.get_vaults_fees(
@@ -161,7 +162,7 @@ class TestGetVaultsFees:
             block_timestamps={},
         )
 
-    def test_first_ref_slot_calculate_on_first_report(self, service, monkeypatch):
+    def test_first_ref_slot_calculate_on_first_report(self, service):
         # initial_epoch - frame_epoches > 0
         vault_adr = VaultAddresses.VAULT_0
         vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
@@ -171,9 +172,10 @@ class TestGetVaultsFees:
         service._get_vault_events_for_fees = MagicMock(return_value=({}, set()))
         service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
 
-        monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+        service._blockstamp_builder = MagicMock(  # type: ignore[attr-defined]
+            get_non_missed_blockstamp=MagicMock(
+                side_effect=lambda slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot)
+            )
         )
 
         # First report -> events should be fetched from initial_epoch - frame_epoches

@@ -322,7 +322,7 @@ class TestAttestations:
     def test_checkpoints_processor_prepare_committees(
         self, mock_get_attestation_committees, processor: FrameCheckpointProcessor
     ):
-        raw = processor.cc.get_attestation_committees(processor.finalized_blockstamp, 0)
+        raw = processor.cc.get_attestation_committees(processor.last_finalized_block, 0)
         committees, misses = processor._prepare_attestation_duties(0)
 
         assert len(committees) == 2048

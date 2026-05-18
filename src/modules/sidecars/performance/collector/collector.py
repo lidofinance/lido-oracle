@@ -20,8 +20,9 @@ from src.modules.sidecars.performance.collector.checkpoint import (
 )
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
-from src.types import BlockStamp, EpochNumber
+from src.types import EpochNumber
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.utils.web3converter import ChainConverter
 
@@ -81,14 +82,14 @@ class PerformanceCollector(DaemonModule):
         )
         return ChainConverter(chain_cfg)
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
         converter = self._build_converter()
 
         # NOTE: Finalized slot is the first slot of justifying epoch, so we need to take the previous. But if the first
         # slot of the justifying epoch is empty, blockstamp.slot_number will point to the slot where the last finalized
         # block was created. As a result, finalized_epoch in this case will be less than the actual number of the last
         # finalized epoch. As a result we can have a delay in frame finalization.
-        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_blockstamp.slot_number) - 1)
+        finalized_epoch = EpochNumber(converter.get_epoch_by_slot(last_finalized_block.message.slot) - 1)
 
         self._update_demand_metrics()
 
@@ -107,7 +108,7 @@ class PerformanceCollector(DaemonModule):
             self.cc,
             self.db,
             converter,
-            last_finalized_blockstamp,
+            last_finalized_block,
         )
 
         checkpoint_count = 0

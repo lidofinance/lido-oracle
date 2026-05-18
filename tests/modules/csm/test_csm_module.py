@@ -247,6 +247,7 @@ def test_current_frame_range(module: CSPerformanceOracle, mock_chain_config: NoR
 @pytest.mark.unit
 def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=blockstamp))  # type: ignore[attr-defined]
     module.state = Mock(migrate=Mock())
     module._check_compatibility = Mock(return_value=True)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
@@ -257,7 +258,7 @@ def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain
     module.w3.performance.get_epochs_demand = Mock(return_value=None)
     module.w3.performance.post_epochs_demand = Mock()
 
-    execute_delay = module.execute_module(blockstamp)
+    execute_delay = module.execute_module(Mock())
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.init.assert_called_once_with(10, 20, 4)
@@ -269,6 +270,7 @@ def test_execute_module_posts_new_demand(module: CSPerformanceOracle, mock_chain
 @pytest.mark.unit
 def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformanceOracle, mock_chain_config: NoReturn):
     blockstamp = ReferenceBlockStampFactory.build()
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=blockstamp))  # type: ignore[attr-defined]
     module.state = Mock(migrate=Mock())
     module._check_compatibility = Mock(return_value=True)
     module._get_epochs_range_to_process = Mock(return_value=(10, 20))
@@ -282,7 +284,7 @@ def test_execute_module_skips_demand_post_when_demand_same(module: CSPerformance
     module.w3.performance.get_epochs_demand = Mock(return_value=demand_mock)
     module.w3.performance.post_epochs_demand = Mock()
 
-    execute_delay = module.execute_module(blockstamp)
+    execute_delay = module.execute_module(Mock())
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module.state.init.assert_called_once_with(10, 20, 4)
@@ -495,7 +497,8 @@ def test__collect_data_handles_range_availability(
 
 @pytest.mark.unit
 def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
-    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    module._receive_last_finalized_block = Mock(return_value="finalized")
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(side_effect=lambda x: x))  # type: ignore[attr-defined]
     validator_a = make_validator(0, activation_epoch=0, exit_epoch=10)
     validator_b = make_validator(1, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
@@ -536,7 +539,7 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
 
     module._fulfill_state()
 
-    module._receive_last_finalized_slot.assert_called_once()
+    module._receive_last_finalized_block.assert_called_once()
     module.w3.cc.get_validators.assert_called_once_with("finalized")
 
     module.w3.performance.get_epochs_data.assert_called_once_with(0, 1)
@@ -568,7 +571,8 @@ def test_fulfill_state_handles_epoch_data(module: CSPerformanceOracle):
 @pytest.mark.unit
 def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerformanceOracle):
     inactive_validator = make_validator(5, activation_epoch=10, exit_epoch=20)
-    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    module._receive_last_finalized_block = Mock(return_value="finalized")
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(side_effect=lambda x: x))  # type: ignore[attr-defined]
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[inactive_validator])
     module.w3.performance.get_epochs_data = Mock(
@@ -603,7 +607,8 @@ def test_fulfill_state_raises_on_inactive_missed_attestation(module: CSPerforman
 
 @pytest.mark.unit
 def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceOracle):
-    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    module._receive_last_finalized_block = Mock(return_value="finalized")
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(side_effect=lambda x: x))  # type: ignore[attr-defined]
     validator = make_validator(0, activation_epoch=0, exit_epoch=10)
     module.w3 = Mock()
     module.w3.cc.get_validators = Mock(return_value=[validator])
@@ -643,7 +648,8 @@ def test_fulfill_state_raises_on_inconsistent_sync_misses(module: CSPerformanceO
 
 @pytest.mark.unit
 def test_fulfill_state_skips_inactive_validators_across_epochs(module: CSPerformanceOracle):
-    module._receive_last_finalized_slot = Mock(return_value="finalized")
+    module._receive_last_finalized_block = Mock(return_value="finalized")
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(side_effect=lambda x: x))  # type: ignore[attr-defined]
     active_all = make_validator(0, activation_epoch=0, exit_epoch=10)
     active_late = make_validator(1, activation_epoch=1, exit_epoch=10)
     exit_early = make_validator(2, activation_epoch=0, exit_epoch=1)
@@ -1129,7 +1135,8 @@ def test_execute_module_not_collected(module: CSPerformanceOracle):
     module._prepare_to_collect = Mock()
 
     last_finalized_blockstamp = Mock(slot_number=100500)
-    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=last_finalized_blockstamp))  # type: ignore[attr-defined]
+    execute_delay = module.execute_module(Mock())
 
     module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
@@ -1140,8 +1147,9 @@ def test_execute_module_skips_collecting_if_not_compatible(module: CSPerformance
     module._check_compatibility = Mock(return_value=False)
     module._collect_data = Mock(return_value=False)
     module._prepare_to_collect = Mock()
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=Mock(slot_number=100500)))  # type: ignore[attr-defined]
 
-    execute_delay = module.execute_module(last_finalized_blockstamp=Mock(slot_number=100500))
+    execute_delay = module.execute_module(Mock())
 
     assert execute_delay is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     module._prepare_to_collect.assert_not_called()
@@ -1156,7 +1164,8 @@ def test_execute_module_no_report_blockstamp(module: CSPerformanceOracle):
     module._prepare_to_collect = Mock()
 
     last_finalized_blockstamp = Mock(slot_number=100500)
-    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=last_finalized_blockstamp))  # type: ignore[attr-defined]
+    execute_delay = module.execute_module(Mock())
 
     module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
     module._collect_data.assert_not_called()
@@ -1172,7 +1181,8 @@ def test_execute_module_processed(module: CSPerformanceOracle):
     module._prepare_to_collect = Mock()
 
     last_finalized_blockstamp = Mock(slot_number=100500)
-    execute_delay = module.execute_module(last_finalized_blockstamp=last_finalized_blockstamp)
+    module._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=last_finalized_blockstamp))  # type: ignore[attr-defined]
+    execute_delay = module.execute_module(Mock())
 
     module._prepare_to_collect.assert_called_once_with(last_finalized_blockstamp)
     assert execute_delay is ModuleExecuteDelay.NEXT_SLOT

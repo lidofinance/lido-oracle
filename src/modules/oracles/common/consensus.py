@@ -34,9 +34,8 @@ from src.modules.oracles.common.exceptions import (
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
@@ -70,6 +69,7 @@ class ConsensusModule[W3: Web3Base](ABC):
     def __init__(self, w3: W3, **kwargs):
         super().__init__(**kwargs)
         self.w3 = w3
+        self._blockstamp_builder = BlockstampBuilder(w3.cc, w3.eth)
         self._last_sent_report_hash: HexBytes | None = None
 
         if getattr(self, "report_contract", None) is None:
@@ -252,8 +252,7 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         converter = self._get_web3_converter(last_finalized_blockstamp)
 
-        bs = get_reference_blockstamp(
-            cc=self.w3.cc,
+        bs = self._blockstamp_builder.get_non_missed_reference_blockstamp(
             ref_slot=member_info.current_frame_ref_slot,
             ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
@@ -479,7 +478,7 @@ class ConsensusModule[W3: Web3Base](ABC):
     def _get_latest_blockstamp(self) -> BlockStamp:
         root = self.w3.cc.get_block_root('head').root
         block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
+        bs = self._blockstamp_builder.build_blockstamp(block_details)
         logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
         ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
         ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)

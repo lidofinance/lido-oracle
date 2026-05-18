@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import responses
-from eth_utils import add_0x_prefix
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
@@ -26,9 +25,7 @@ from src.modules.oracles.common.exceptions import (
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
-from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
 
@@ -77,27 +74,20 @@ def oracle(web3):
 
 
 @pytest.mark.unit
-def test_receive_last_finalized_slot(oracle):
+def test_receive_last_finalized_block(oracle):
     block_details = BlockDetailsResponseFactory.build()
-    execution_payload = block_details.message.body.execution_payload
     oracle.w3.cc.get_block_details.return_value = block_details
 
-    slot = oracle._receive_last_finalized_slot()
+    result = oracle._receive_last_finalized_block()
 
-    assert slot == BlockStamp(
-        state_root=block_details.message.state_root,
-        slot_number=block_details.message.slot,
-        block_hash=add_0x_prefix(execution_payload.block_hash),
-        block_number=execution_payload.block_number,
-        block_timestamp=execution_payload.timestamp,
-    )
+    assert result == block_details
 
 
 @pytest.mark.unit
 @responses.activate
 def test_cycle_handler_run_once_per_slot(oracle, web3):
     oracle.is_contracts_addresses_changed = Mock()
-    oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=1))
+    oracle._receive_last_finalized_block = Mock(return_value=MagicMock(message=MagicMock(slot=1)))
     responses.get('http://localhost:8000/pulse/', status=HTTPStatus.OK)
 
     oracle.cycle_handler()
@@ -108,7 +98,7 @@ def test_cycle_handler_run_once_per_slot(oracle, web3):
     assert oracle.call_count == 1
     assert oracle.is_contracts_addresses_changed.call_count == 1
 
-    oracle._receive_last_finalized_slot = Mock(return_value=ReferenceBlockStampFactory.build(slot_number=2))
+    oracle._receive_last_finalized_block = Mock(return_value=MagicMock(message=MagicMock(slot=2)))
     oracle.cycle_handler()
     assert oracle.call_count == 2
     assert oracle.is_contracts_addresses_changed.call_count == 2
@@ -150,13 +140,13 @@ def test_run_as_daemon(oracle):
 def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
-        patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
+        patch.object(oracle, "_receive_last_finalized_block", return_value=MagicMock(message=MagicMock(slot=1111111))),
         patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False),
         patch.object(oracle, "execute_module", side_effect=ex),
     ):
         oracle._cycle()
     # test node availability
-    with patch.object(oracle, "_receive_last_finalized_slot", side_effect=ex):
+    with patch.object(oracle, "_receive_last_finalized_block", side_effect=ex):
         oracle._cycle()
 
 
@@ -172,7 +162,7 @@ def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
 def test_run_cycle_fails_on_critical_exceptions(oracle: OracleModule, ex: Exception):
     oracle.w3.lido_contracts = MagicMock()
     with (
-        patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
+        patch.object(oracle, "_receive_last_finalized_block", return_value=MagicMock(message=MagicMock(slot=1111111))),
         patch.object(oracle.w3.lido_contracts, "has_contract_address_changed", return_value=False),
         patch.object(oracle, "execute_module", side_effect=ex),
         pytest.raises(type(ex), match="Fake exception"),
@@ -180,7 +170,7 @@ def test_run_cycle_fails_on_critical_exceptions(oracle: OracleModule, ex: Except
         oracle._cycle()
     # test node availability
     with (
-        patch.object(oracle, "_receive_last_finalized_slot", side_effect=ex),
+        patch.object(oracle, "_receive_last_finalized_block", side_effect=ex),
         pytest.raises(type(ex), match="Fake exception"),
     ):
         oracle._cycle()
@@ -206,7 +196,7 @@ def test_cycle__successful_execution__records_success_metric(oracle: OracleModul
 
     with (
         patch("src.modules.common.daemon_module.pulse"),
-        patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
+        patch.object(oracle, "_receive_last_finalized_block", return_value=MagicMock(message=MagicMock(slot=1111111))),
         patch.object(oracle, "execute_module", return_value=ModuleExecuteDelay.NEXT_FINALIZED_EPOCH),
     ):
         oracle._cycle()
@@ -220,7 +210,7 @@ def test_cycle__retryable_error__records_error_metric(oracle: OracleModule):
     before = CYCLE_COUNT.labels(result=CycleResult.ERROR.value)._value.get()
 
     with (
-        patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1111111)),
+        patch.object(oracle, "_receive_last_finalized_block", return_value=MagicMock(message=MagicMock(slot=1111111))),
         patch.object(oracle, "execute_module", side_effect=RequestsConnectionError("Fake")),
     ):
         oracle._cycle()
@@ -235,7 +225,7 @@ def test_cycle__slot_below_threshold__records_success_metric(oracle: OracleModul
     success_before = CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get()
     error_before = CYCLE_COUNT.labels(result=CycleResult.ERROR.value)._value.get()
 
-    with patch.object(oracle, "_receive_last_finalized_slot", return_value=MagicMock(slot_number=1)):
+    with patch.object(oracle, "_receive_last_finalized_block", return_value=MagicMock(message=MagicMock(slot=1))):
         oracle._cycle()
 
     assert CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get() == success_before + 1
