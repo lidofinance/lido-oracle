@@ -454,36 +454,6 @@ def test_cut_slashings__full_cycle_later__returns_empty_array():
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("ref_epoch", "slashed_validators", "midterm_penalty_epoch", "expected_bounded"),
-    [
-        (
-            # slashing epoch is determined
-            225,
-            simple_validators(0, 9),
-            4096,
-            simple_validators(0, 9),
-        ),
-        (
-            # slashing epoch is not determined
-            EpochNumber(16000),
-            simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384"),
-            12288,
-            simple_validators(0, 0, exit_epoch="16380", withdrawable_epoch="16384"),
-        ),
-    ],
-)
-def test_get_bound_with_midterm_epoch_slashed_validators(
-    ref_epoch, slashed_validators, midterm_penalty_epoch, expected_bounded
-):
-    result = MidtermSlashingPenalty.get_bound_with_midterm_epoch_slashed_validators(
-        EpochNumber(ref_epoch), slashed_validators, EpochNumber(midterm_penalty_epoch)
-    )
-
-    assert result == expected_bounded
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
     ("lido_validators", "ref_epoch", "expected_len"),
     [
         (

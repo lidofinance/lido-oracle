@@ -252,26 +252,6 @@ class MidtermSlashingPenalty:
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
     @staticmethod
-    def get_bound_with_midterm_epoch_slashed_validators(
-        ref_epoch: EpochNumber,
-        slashed_validators: list[Validator],
-        midterm_penalty_epoch: EpochNumber,
-    ) -> list[Validator]:
-        """
-        Get bounded slashed validators for particular epoch
-        All slashings that happened in the nearest
-        EPOCHS_PER_SLASHINGS_VECTOR epochs before a midterm penalty epoch are
-        considered as bounded.
-        """
-        min_bound_epoch = max(0, midterm_penalty_epoch - EPOCHS_PER_SLASHINGS_VECTOR)
-
-        def is_bound(v: Validator) -> bool:
-            possible_slashing_epochs = MidtermSlashingPenalty.get_possible_slashed_epochs(v, ref_epoch)
-            return any(min_bound_epoch <= epoch <= midterm_penalty_epoch for epoch in possible_slashing_epochs)
-
-        return [v for v in slashed_validators if is_bound(v)]
-
-    @staticmethod
     def get_frame_cl_rebase_from_report_cl_rebase(
         web3_converter: Web3Converter,
         report_cl_rebase: Gwei,
