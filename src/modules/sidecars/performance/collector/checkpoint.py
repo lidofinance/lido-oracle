@@ -21,9 +21,8 @@ from src.modules.common.types import ZERO_HASH
 from src.modules.sidecars.performance.common.db import DutiesDB
 from src.modules.sidecars.performance.common.types import AttDutyMisses, ProposalDuty, SyncDuty
 from src.providers.consensus.client import ConsensusClient
-from src.providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
-from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
-from src.utils.blockstamp import build_blockstamp
+from src.providers.consensus.types import BlockAttestation, BlockDetailsResponse, SyncAggregate, SyncCommittee
+from src.types import BlockRoot, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
@@ -120,19 +119,18 @@ class FrameCheckpointProcessor:
     converter: ChainConverter
 
     db: DutiesDB
-    finalized_blockstamp: BlockStamp
 
     def __init__(
         self,
         cc: ConsensusClient,
         db: DutiesDB,
         converter: ChainConverter,
-        finalized_blockstamp: BlockStamp,
+        last_finalized_block: BlockDetailsResponse,
     ):
         self.cc = cc
         self.converter = converter
         self.db = db
-        self.finalized_blockstamp = finalized_blockstamp
+        self.last_finalized_block = last_finalized_block
         self._metrics_lock = Lock()
         self._last_metrics_refresh = 0.0
 
@@ -329,7 +327,9 @@ class FrameCheckpointProcessor:
     def _prepare_attestation_duties(self, epoch: EpochNumber) -> tuple[AttestationCommittees, AttDutyMisses]:
         committees: AttestationCommittees = {}
         att_misses: AttDutyMisses = set()
-        for committee in self.cc.get_attestation_committees(self.finalized_blockstamp, epoch):
+        for committee in self.cc.get_attestation_committees(
+            (self.last_finalized_block.message.state_root, self.last_finalized_block.message.slot), epoch
+        ):
             committees[(committee.slot, committee.index)] = committee.validators
             att_misses.update(committee.validators)
         return committees, att_misses
@@ -372,12 +372,10 @@ class FrameCheckpointProcessor:
         from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
         logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
-        state_blockstamp = build_blockstamp(
-            get_prev_non_missed_slot(
-                self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            )
+        state_slot = get_prev_non_missed_slot(
+            self.cc, self.converter.get_epoch_first_slot(epoch), self.last_finalized_block.message.slot
         )
-        sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
+        sync_committee = self.cc.get_sync_committee((state_slot.message.state_root, state_slot.message.slot), epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee
         return sync_committee
 
@@ -417,7 +415,7 @@ class FrameCheckpointProcessor:
                 dependent_slot = SlotNumber(int(dependent_slot - 1))
         except SlotOutOfRootsRange:
             dependent_non_missed_slot = get_prev_non_missed_slot(
-                self.cc, dependent_slot, self.finalized_blockstamp.slot_number
+                self.cc, dependent_slot, self.last_finalized_block.message.slot
             ).message.slot
             dependent_root = self.cc.get_block_root(dependent_non_missed_slot).root
             logger.debug(

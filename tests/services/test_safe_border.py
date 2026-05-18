@@ -25,6 +25,7 @@ def test_get_safe_border_epoch(
     SafeBorder._retrieve_constants = Mock()
     sb = SafeBorder(
         w3=Mock(),
+        blockstamp_builder=Mock(),
         blockstamp=Mock(),
         chain_config=Mock(),
         frame_config=Mock(),
@@ -49,7 +50,7 @@ def test_get_safe_border_epoch(
 def test_get_bunker_start_or_last_successful_report_epoch(
     get_bunker_timestamp, slots_per_epoch, last_processing_ref_slot, initial_epoch, expected
 ):
-    SafeBorder._retrieve_constants = Mock
+    SafeBorder._retrieve_constants = Mock()
     SafeBorder._get_negative_rebase_border_epoch = Mock()
     SafeBorder._get_associated_slashings_border_epoch = Mock()
     SafeBorder._get_default_requests_border_epoch = Mock()
@@ -57,11 +58,15 @@ def test_get_bunker_start_or_last_successful_report_epoch(
     web3Mock = Mock()
     web3Mock.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=last_processing_ref_slot)
 
-    chain_config = Mock
+    chain_config = Mock()
     chain_config.slots_per_epoch = slots_per_epoch
-    chain_config.initial_epoch = initial_epoch
 
-    sb = SafeBorder(w3=web3Mock, blockstamp=Mock, chain_config=chain_config, frame_config=Mock)
+    frame_config = Mock()
+    frame_config.initial_epoch = initial_epoch
+
+    sb = SafeBorder(
+        w3=web3Mock, blockstamp_builder=Mock(), blockstamp=Mock(), chain_config=chain_config, frame_config=frame_config
+    )
 
     actual = sb._get_bunker_start_or_last_successful_report_epoch()
 
@@ -139,7 +144,13 @@ def test_find_earliest_slashed_epoch_rounded_to_frame(
     web3Mock = Mock()
     web3Mock.lido_contracts = Mock()
 
-    sb = SafeBorder(w3=web3Mock, blockstamp=blockstamp, chain_config=chain_config, frame_config=frame_config)
+    sb = SafeBorder(
+        w3=web3Mock,
+        blockstamp_builder=Mock(),
+        blockstamp=blockstamp,
+        chain_config=chain_config,
+        frame_config=frame_config,
+    )
 
     actual = sb._find_earliest_slashed_epoch_rounded_to_frame(validators)
 

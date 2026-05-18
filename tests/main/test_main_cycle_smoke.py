@@ -26,7 +26,7 @@ class TestIntegrationMainCycleSmoke:
         variables.CYCLE_SLEEP_IN_SECONDS = 0
 
         # Use last finalized instead of head slot for avoiding calls with non-existent block at the moment of cycle
-        ConsensusModule._get_latest_blockstamp = lambda self: cast(DaemonModule, self)._receive_last_finalized_slot()
+        ConsensusModule._get_latest_blockstamp = lambda self: cast(DaemonModule, self)._receive_last_finalized_block()
 
         if module_name is OracleModuleName.CSM:
             variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]

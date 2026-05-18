@@ -5,7 +5,7 @@ from src.modules.oracles.accounting.types import StakingVaultIpfsReport
 from src.providers.ipfs import CIDv0
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, SlotNumber
-from src.utils.slot import get_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 
 
 # =============================================================================
@@ -41,8 +41,8 @@ class TestIpfsReportSmoke:
 
         # Assert
         if last_processing_ref_slot:
-            ref_block = get_blockstamp(
-                web3_integration.cc, last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot))
+            ref_block = BlockstampBuilder(web3_integration.cc, web3_integration.eth).get_non_missed_blockstamp(
+                last_processing_ref_slot, SlotNumber(int(last_processing_ref_slot))
             )
 
             assert tree.block_number == ref_block.block_number

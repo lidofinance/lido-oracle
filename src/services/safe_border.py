@@ -7,10 +7,10 @@ from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABI
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.slot import get_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
+from utils.blockstamp import BlockstampBuilder
 
 
 class WrongExitPeriod(Exception):
@@ -36,12 +36,18 @@ class SafeBorder(Web3Converter):
     blockstamp: ReferenceBlockStamp
 
     def __init__(
-        self, w3: Web3, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig, frame_config: FrameConfig
+        self, 
+        w3: Web3,
+        blockstamp_builder: BlockstampBuilder,
+        blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+        frame_config: FrameConfig
     ) -> None:
         super().__init__(chain_config, frame_config)
 
         self.w3 = w3
         self.lido_contracts = w3.lido_contracts
+        self._blockstamp_builder = blockstamp_builder
 
         self.blockstamp = blockstamp
 
@@ -243,7 +249,10 @@ class SafeBorder(Web3Converter):
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
+        return self._blockstamp_builder.get_non_missed_blockstamp(
+            last_slot_in_frame,
+            self.blockstamp.ref_slot
+        )
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(

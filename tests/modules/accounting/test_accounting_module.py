@@ -71,17 +71,19 @@ def frame_config() -> FrameConfig:
 
 @pytest.mark.unit
 def test_accounting_execute_module(accounting: Accounting, bs: BlockStamp):
+    accounting._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=bs))  # type: ignore[attr-defined]
     accounting.get_blockstamp_for_report = Mock(return_value=None)
-    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
+    assert accounting.execute_module(Mock()) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
         "execute_module should wait for the next finalized epoch"
     )
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
 
+    accounting._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=bs))  # type: ignore[attr-defined]
     accounting.get_blockstamp_for_report = Mock(return_value=bs)
     accounting.process_report = Mock(return_value=None)
     accounting.process_extra_data = Mock(return_value=None)
     accounting._check_compatibility = Mock(return_value=True)
-    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_SLOT, (
+    assert accounting.execute_module(Mock()) is ModuleExecuteDelay.NEXT_SLOT, (
         "execute_module should wait for the next slot"
     )
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
@@ -666,9 +668,10 @@ def test_is_contracts_addresses_changed(accounting: Accounting):
 
 @pytest.mark.unit
 def test_accounting_execute_module_compatibility_fails(accounting: Accounting, bs: BlockStamp):
+    accounting._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=bs))  # type: ignore[attr-defined]
     accounting.get_blockstamp_for_report = Mock(return_value=bs)
     accounting._check_compatibility = Mock(return_value=False)
-    assert accounting.execute_module(last_finalized_blockstamp=bs) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
+    assert accounting.execute_module(Mock()) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     accounting.get_blockstamp_for_report.assert_called_once_with(bs)
 
 

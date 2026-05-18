@@ -6,10 +6,15 @@ from src.providers.consensus.types import (
     BlockAttestationResponse,
     BlockDetailsResponse,
     Checkpoint,
+    ExecutionPayload,
     SlotAttestationCommittee,
 )
 from src.services.bunker_cases.types import BunkerConfig
+from src.types import BlockHash, BlockNumber, Timestamp
 from tests.factory.web3_factory import Web3DataclassFactory
+
+
+_ZERO_BLOCK_HASH: BlockHash = BlockHash("0x" + "00" * 32)  # type: ignore[arg-type]
 
 
 class ChainConfigFactory(Web3DataclassFactory[ChainConfig]):
@@ -68,5 +73,12 @@ class BlockDetailsResponseFactory(Web3DataclassFactory[BlockDetailsResponse]):
     @classmethod
     def build(cls, **kwargs) -> BlockDetailsResponse:
         instance = super().build(**kwargs)
-        instance.message.body.execution_payload.block_hash = "0x0000000000000000000000000000000000000000"
+        if instance.message.body.execution_payload is None:
+            instance.message.body.execution_payload = ExecutionPayload(
+                parent_hash=_ZERO_BLOCK_HASH,
+                block_number=BlockNumber(0),
+                timestamp=Timestamp(0),
+                block_hash=_ZERO_BLOCK_HASH,
+            )
+        instance.message.body.execution_payload.block_hash = _ZERO_BLOCK_HASH
         return instance

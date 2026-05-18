@@ -29,6 +29,7 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    EPBS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)  # EIP-7732; name TBD per final Gloas spec
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -130,6 +131,16 @@ class ExecutionPayload(Nested, FromResponse):
 
 
 @dataclass
+class SignedExecutionPayloadBid(Nested, FromResponse):
+    """EIP-7732: builder's commitment to the EL block for this slot."""
+    block_hash: BlockHash
+    builder_index: ValidatorIndex
+    slot: SlotNumber
+    parent_block_hash: BlockHash
+    bid_value: Gwei
+
+
+@dataclass
 class Checkpoint(Nested):
     epoch: EpochNumber
     root: BlockRoot
@@ -164,9 +175,21 @@ class SyncAggregate(FromResponse):
 
 @dataclass
 class BeaconBlockBody(Nested, FromResponse):
-    execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
+    # EIP-7732: execution_payload is absent post-fork; signed_execution_payload_bid is absent pre-fork
+    execution_payload: ExecutionPayload | None = None
+    signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Handle Optional nested types that Nested.__post_init__ can't detect via UnionType
+        if isinstance(self.execution_payload, dict):
+            self.execution_payload = ExecutionPayload.from_response(**self.execution_payload)
+        if isinstance(self.signed_execution_payload_bid, dict):
+            self.signed_execution_payload_bid = SignedExecutionPayloadBid.from_response(
+                **self.signed_execution_payload_bid
+            )
 
 
 @dataclass
@@ -266,6 +289,10 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+
+    # EIP-7732: hash of the last *revealed* EL block (= slot N-1 when CL is at slot N).
+    # Absent pre-fork, defaults to empty string.
+    latest_block_hash: BlockHash = field(default_factory=lambda: BlockHash(HexStr('')))  # type: ignore[arg-type]
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

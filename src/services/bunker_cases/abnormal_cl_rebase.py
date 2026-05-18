@@ -14,12 +14,12 @@ from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.events import get_events_in_range
-from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
+from utils.blockstamp import BlockstampBuilder
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ class AbnormalClRebase:
 
     def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
         self.w3 = w3
+        self._blockstamp_builder = BlockstampBuilder(self.w3.cc, self.w3.eth)
         self.c_conf = c_conf
         self.b_conf = b_conf
 
@@ -150,11 +151,11 @@ class AbnormalClRebase:
 
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
-        nearest_blockstamp = get_blockstamp(
-            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        nearest_blockstamp = self._blockstamp_builder.get_non_missed_blockstamp(
+            nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
         )
-        distant_blockstamp = get_blockstamp(
-            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        distant_blockstamp = self._blockstamp_builder.get_non_missed_blockstamp(
+            distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -354,8 +355,7 @@ class AbnormalClRebase:
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(ref_blockstamp)
-        return get_reference_blockstamp(
-            self.w3.cc,
+        return self._blockstamp_builder.get_non_missed_reference_blockstamp(
             last_report_ref_slot,
             ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,

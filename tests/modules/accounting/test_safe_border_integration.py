@@ -34,7 +34,7 @@ def subject(
         return_value=finalization_max_negative_rebase_epoch_shift
     )
 
-    return SafeBorder(web3, past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
+    return SafeBorder(web3, Mock(), past_blockstamp, ChainConfigFactory.build(), FrameConfigFactory.build())
 
 
 @pytest.mark.unit

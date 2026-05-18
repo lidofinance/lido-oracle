@@ -9,6 +9,7 @@ from itertools import batched
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
+from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.constants import UINT64_MAX
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -118,7 +119,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
+        last_finalized_blockstamp = self._blockstamp_builder.build_blockstamp(last_finalized_block)
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -278,7 +280,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
 
     @duration_meter()
     def _fulfill_state(self):  # noqa: C901
-        finalized_blockstamp = self._receive_last_finalized_slot()
+        finalized_block = self._receive_last_finalized_block()
+        finalized_blockstamp = self._blockstamp_builder.build_blockstamp(finalized_block)
         validators = self.w3.cc.get_validators(finalized_blockstamp)
 
         batch_size = variables.PERFORMANCE_COLLECTOR_EPOCHS_BATCH_SIZE

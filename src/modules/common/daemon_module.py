@@ -7,19 +7,18 @@ from dataclasses import asdict
 
 from timeout_decorator import timeout
 
+from providers.consensus.types import BlockDetailsResponse
 from src import variables
 from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import (
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
-    ORACLE_BLOCK_NUMBER,
     ORACLE_SLOT_NUMBER,
     CycleResult,
 )
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
-from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.types import BlockRoot, SlotNumber
 
 
 logger = logging.getLogger(__name__)
@@ -61,9 +60,9 @@ class DaemonModule(ABC):
         cycle_result = CycleResult.ERROR
         try:
             with self.exception_handler():
-                blockstamp = self._receive_last_finalized_slot()
+                block_details = self._receive_last_finalized_block()
 
-                if blockstamp.slot_number <= self._slot_threshold:
+                if block_details.message.slot <= self._slot_threshold:
                     logger.info(
                         {
                             'msg': 'Skipping the report. Waiting for new finalized slot.',
@@ -73,7 +72,7 @@ class DaemonModule(ABC):
                     cycle_result = CycleResult.SUCCESS
                     return
 
-                self.run_cycle(blockstamp)
+                self.run_cycle(block_details)
                 cycle_result = CycleResult.SUCCESS
         finally:
             CYCLE_COUNT.labels(result=cycle_result.value).inc()
@@ -92,26 +91,24 @@ class DaemonModule(ABC):
         logger.info({'msg': f'Cycle end. Sleeping for {variables.CYCLE_SLEEP_IN_SECONDS} seconds.'})
         time.sleep(variables.CYCLE_SLEEP_IN_SECONDS)
 
-    def _receive_last_finalized_slot(self) -> BlockStamp:
+    def _receive_last_finalized_block(self) -> BlockDetailsResponse:
         """Gets last finalized BlockStamp"""
         block_root = BlockRoot(self.cc.get_block_root('finalized').root)
         block_details = self.cc.get_block_details(block_root)
-        bs = build_blockstamp(block_details)
-        logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
-        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
-        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
-        return bs
+        logger.info({'msg': 'Fetch last finalized block details.', 'value': asdict(block_details)})
+        ORACLE_SLOT_NUMBER.labels('finalized').set(block_details.message.slot)
+        return block_details
 
-    def run_cycle(self, last_finalized_blockstamp: BlockStamp):
+    def run_cycle(self, last_finalized_block: BlockDetailsResponse):
         """Base logic for daemon module cycle execution"""
-        logger.info({'msg': 'Execute module.', 'value': last_finalized_blockstamp})
-        result = self.execute_module(last_finalized_blockstamp)
+        logger.info({'msg': 'Execute module.', 'value': last_finalized_block})
+        result = self.execute_module(last_finalized_block)
         pulse()
         if result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH:
-            self._slot_threshold = last_finalized_blockstamp.slot_number
+            self._slot_threshold = last_finalized_block.message.slot
 
     @abstractmethod
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
         """Executes module business logic for a given blockstamp"""
 
     @property
