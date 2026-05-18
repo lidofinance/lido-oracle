@@ -38,7 +38,7 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
-from utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import BlockstampBuilder
 
 
 logger = logging.getLogger(__name__)
