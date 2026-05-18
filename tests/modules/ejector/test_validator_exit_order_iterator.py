@@ -22,7 +22,7 @@ from src.services.exit_order_iterator import (
     WeightsNotUpdatedError,
 )
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.utils.validator_balance import get_predictable_balance
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
@@ -550,7 +550,7 @@ class TestEjectValidatorTotalStake:
         iterator.total_lido_predictable_balance = initial_stake
         iterator.exitable_validators = {gid: [validator]}
 
-        exit_balance = get_predictable_balance(validator)
+        exit_balance = get_predictable_inbound_balance(validator)
 
         iterator._eject_validator(gid)
 

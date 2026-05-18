@@ -31,7 +31,11 @@ from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import get_predictable_balance, get_predictable_full_balance, get_predictable_sweep
+from src.utils.validator_balance import (
+    get_predictable_full_inbound_balance,
+    get_predictable_inbound_balance,
+    get_predictable_inbound_sweep,
+)
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -178,7 +182,7 @@ class Ejector(OracleModule[Web3]):
             for gid, next_validator in validators_iterator:
                 validators_to_eject.append((gid, next_validator))
 
-                val_balance = get_predictable_balance(next_validator)
+                val_balance = get_predictable_inbound_balance(next_validator)
 
                 total_balance_to_eject_gwei += val_balance
 
@@ -225,7 +229,7 @@ class Ejector(OracleModule[Web3]):
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
-                    get_predictable_full_balance,
+                    get_predictable_full_inbound_balance,
                     validators_going_to_exit,
                 ),
                 Gwei(0),
@@ -269,9 +273,9 @@ class Ejector(OracleModule[Web3]):
                 continue
 
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
-                result += get_predictable_full_balance(v)
+                result += get_predictable_full_inbound_balance(v)
             else:
-                result += get_predictable_sweep(v)
+                result += get_predictable_inbound_sweep(v)
 
         return gwei_to_wei(result)
 
