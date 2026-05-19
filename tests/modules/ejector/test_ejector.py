@@ -22,7 +22,7 @@ from src.providers.consensus.types import (
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_balance
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -428,22 +428,22 @@ def test_get_withdrawable_lido_validators_balance(
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     validator = build_extended_validator_with_balance(Gwei(0))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == 0, "Expected zero"
 
     validator = build_extended_validator_with_balance(Gwei(42))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == 42, "Expected validator's balance in gwei"
 
     validator = build_extended_validator_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
 
     validator = build_extended_validator_with_balance(
         Gwei(MAX_EFFECTIVE_BALANCE + 1),
         meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
     )
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == (MAX_EFFECTIVE_BALANCE + 1), "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 

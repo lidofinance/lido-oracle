@@ -18,7 +18,7 @@ from src.providers.execution.contracts.curated_staking_module import CuratedStak
 from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
 from src.services.validator_state import LidoValidatorStateService
 from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
-from src.utils.validator_balance import get_predictable_balance
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.utils.validator_state import get_max_effective_balance, is_on_exit
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
@@ -202,7 +202,7 @@ class ValidatorExitIterator:
 
             # Calculate predictable effective balance by each NO
             for v in validators:
-                validator_predictable_balance = get_predictable_balance(v)
+                validator_predictable_balance = get_predictable_inbound_balance(v)
 
                 # --- Update lido stats ---
                 self.total_lido_predictable_balance += validator_predictable_balance
@@ -426,7 +426,7 @@ class ValidatorExitIterator:
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
 
-        exit_balance = get_predictable_balance(lido_validator)
+        exit_balance = get_predictable_inbound_balance(lido_validator)
 
         # Change lido total
         self.total_lido_predictable_balance -= exit_balance
