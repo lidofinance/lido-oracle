@@ -86,18 +86,18 @@ class TelemetryDataBus(Module):
             )
 
     def update_account_balance_metric(self) -> None:
-        if self._data_bus_w3 is None or variables.ACCOUNT is None:
+        if self._data_bus_w3 is None or variables.TELEMETRY_ACCOUNT is None:
             return
 
-        balance = self._data_bus_w3.eth.get_balance(variables.ACCOUNT.address)
-        TELEMETRY_ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(balance)
+        balance = self._data_bus_w3.eth.get_balance(variables.TELEMETRY_ACCOUNT.address)
+        TELEMETRY_ACCOUNT_BALANCE.labels(address=variables.TELEMETRY_ACCOUNT.address).set(balance)
 
     def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
 
-        if variables.ACCOUNT is None:
+        if variables.TELEMETRY_ACCOUNT is None:
             logger.warning({'msg': 'No account provided. Skipping telemetry send.'})
             return
 
@@ -111,8 +111,8 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        params = build_transaction_params(self._data_bus_w3, tx, variables.ACCOUNT)
-        tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.ACCOUNT)
+        params = build_transaction_params(self._data_bus_w3, tx, variables.TELEMETRY_ACCOUNT)
+        tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.TELEMETRY_ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_account_balance_metric()

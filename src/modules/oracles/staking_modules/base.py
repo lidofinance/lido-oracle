@@ -286,10 +286,7 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
         )
 
         for l_epoch, r_epoch in state.frames:
-            state.save_duties(
-                (l_epoch, r_epoch),
-                self._get_frame_duties(l_epoch, r_epoch, validators_by_index)
-            )
+            state.save_duties((l_epoch, r_epoch), self._get_frame_duties(l_epoch, r_epoch, validators_by_index))
 
         return state
 

@@ -26,11 +26,11 @@ FILEBASE_IPFS_HOST: Final = os.getenv('FILEBASE_IPFS_HOST')
 FILEBASE_IPFS_TOKEN: Final = os.getenv('FILEBASE_IPFS_TOKEN')
 
 # - Account -
-ACCOUNT = None
 MEMBER_PRIV_KEY = from_file_or_env('MEMBER_PRIV_KEY')
+ACCOUNT = Account.from_key(MEMBER_PRIV_KEY) if MEMBER_PRIV_KEY else None  # pylint: disable=no-value-for-parameter
 
-if MEMBER_PRIV_KEY:
-    ACCOUNT = Account.from_key(MEMBER_PRIV_KEY)  # False-positive. pylint: disable=no-value-for-parameter
+TELEMETRY_PRIV_KEY = from_file_or_env('TELEMETRY_PRIV_KEY')
+TELEMETRY_ACCOUNT = Account.from_key(TELEMETRY_PRIV_KEY) if TELEMETRY_PRIV_KEY else ACCOUNT  # pylint: disable=no-value-for-parameter
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')
@@ -208,6 +208,7 @@ PUBLIC_ENV_VARS = {
     key: str(value)
     for key, value in {
         'ACCOUNT': 'Dry' if ACCOUNT is None else ACCOUNT.address,
+        'TELEMETRY_ACCOUNT': 'Dry' if TELEMETRY_ACCOUNT is None else TELEMETRY_ACCOUNT.address,
         'LIDO_LOCATOR_ADDRESS': LIDO_LOCATOR_ADDRESS,
         'DELEGATION_CONTRACT_ADDRESS': DELEGATION_CONTRACT_ADDRESS or 'Disabled',
         'STAKING_MODULE_ADDRESS': STAKING_MODULE_ADDRESS,
@@ -280,6 +281,7 @@ PRIVATE_ENV_VARS = {
     'PERFORMANCE_DB_PASSWORD': PERFORMANCE_DB_PASSWORD,
     'PINATA_DEDICATED_GATEWAY_TOKEN': PINATA_DEDICATED_GATEWAY_TOKEN,
     'MEMBER_PRIV_KEY': MEMBER_PRIV_KEY,
+    'TELEMETRY_PRIV_KEY': TELEMETRY_PRIV_KEY,
     'OPSGENIE_API_KEY': OPSGENIE_API_KEY,
     'OPSGENIE_API_URL': OPSGENIE_API_URL,
 }
