@@ -159,4 +159,4 @@ def init_basic_metrics(w3) -> None:
     if variables.ACCOUNT:
         ACCOUNT_BALANCE.labels(address=variables.ACCOUNT.address).set(w3.eth.get_balance(variables.ACCOUNT.address))
 
-    w3.telemetry_data_bus.update_account_balance_metric()
+    w3.telemetry_data_bus.update_telemetry_account_balance_metric()

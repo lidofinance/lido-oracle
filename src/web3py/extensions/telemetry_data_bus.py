@@ -85,7 +85,7 @@ class TelemetryDataBus(Module):
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
-    def update_account_balance_metric(self) -> None:
+    def update_telemetry_account_balance_metric(self) -> None:
         if self._data_bus_w3 is None or variables.TELEMETRY_ACCOUNT is None:
             return
 
@@ -115,4 +115,4 @@ class TelemetryDataBus(Module):
         tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.TELEMETRY_ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
-        self.update_account_balance_metric()
+        self.update_telemetry_account_balance_metric()

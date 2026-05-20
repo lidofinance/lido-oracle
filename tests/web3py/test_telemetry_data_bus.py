@@ -150,6 +150,6 @@ class TestTelemetryDataBus:
         mock_data_bus_w3.eth.contract.return_value = Mock()
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.update_account_balance_metric()
+        module.update_telemetry_account_balance_metric()
 
         assert TELEMETRY_ACCOUNT_BALANCE.labels(address=account.address)._value.get() == 10**18
