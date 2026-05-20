@@ -147,6 +147,11 @@ def account_from(monkeypatch):
                 "ACCOUNT",
                 Account.from_key(private_key=pk),  # pylint: disable=no-value-for-parameter
             )
+            monkeypatch.setattr(
+                variables,
+                "TELEMETRY_ACCOUNT",
+                Account.from_key(private_key=pk),
+            )
             logger.info(f"TESTRUN Switched to ACCOUNT {variables.ACCOUNT.address}")
             yield
 

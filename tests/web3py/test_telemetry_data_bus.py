@@ -1,3 +1,4 @@
+import importlib
 import json
 from unittest.mock import Mock, patch
 
@@ -11,6 +12,41 @@ from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, Telemetry
 
 DUMMY_RPC = 'http://localhost:8545'
 DUMMY_ADDRESS = '0x1234567890abcdef1234567890abcdef12345678'
+DUMMY_MEMBER_PRIV_KEY = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+
+@pytest.mark.unit
+class TestTelemetryAccount:
+    def test_telemetry_account_falls_back_to_account_when_no_telemetry_priv_key(self, monkeypatch):
+        monkeypatch.setenv('MEMBER_PRIV_KEY', DUMMY_MEMBER_PRIV_KEY)
+        monkeypatch.delenv('TELEMETRY_PRIV_KEY', raising=False)
+
+        import src.variables as vars
+
+        importlib.reload(vars)
+        try:
+            assert vars.TELEMETRY_ACCOUNT is not None
+            assert vars.TELEMETRY_ACCOUNT == vars.ACCOUNT
+        finally:
+            monkeypatch.undo()
+            importlib.reload(vars)
+
+    def test_telemetry_account_uses_telemetry_priv_key_when_provided(self, monkeypatch):
+        dummy_telemetry_key = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        monkeypatch.setenv('MEMBER_PRIV_KEY', DUMMY_MEMBER_PRIV_KEY)
+        monkeypatch.setenv('TELEMETRY_PRIV_KEY', dummy_telemetry_key)
+
+        import src.variables as vars
+
+        importlib.reload(vars)
+        try:
+            assert vars.TELEMETRY_ACCOUNT is not None
+            assert vars.ACCOUNT is not None
+            assert vars.TELEMETRY_ACCOUNT != vars.ACCOUNT
+            assert vars.TELEMETRY_ACCOUNT.address != vars.ACCOUNT.address
+        finally:
+            monkeypatch.undo()
+            importlib.reload(vars)
 
 
 @pytest.mark.unit
@@ -53,7 +89,7 @@ class TestTelemetryDataBus:
     def test_send_telemetry__configured__sends_transaction(
         self, mock_create_web3, mock_validate, mock_build_params, mock_sign_and_send, web3, caplog, monkeypatch
     ):
-        monkeypatch.setattr(variables, 'ACCOUNT', Mock())
+        monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', Mock())
         mock_data_bus_w3 = Mock()
         mock_data_bus_w3.eth.get_balance.return_value = 10**18
         mock_create_web3.return_value = mock_data_bus_w3
@@ -79,7 +115,7 @@ class TestTelemetryDataBus:
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
         assert 'DataBus telemetry sent.' in caplog.text
-        mock_data_bus_w3.eth.get_balance.assert_called_once_with(variables.ACCOUNT.address)
+        mock_data_bus_w3.eth.get_balance.assert_called_once_with(variables.TELEMETRY_ACCOUNT.address)
 
     def test_send_telemetry__not_configured__logs_skipping(self, web3, caplog):
         module = self._create_module(web3)
@@ -91,7 +127,7 @@ class TestTelemetryDataBus:
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
     def test_send_telemetry__no_account__skips_send(self, mock_create_web3, mock_validate, web3, caplog, monkeypatch):
-        monkeypatch.setattr(variables, 'ACCOUNT', None)
+        monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', None)
         mock_data_bus_w3 = Mock()
         mock_create_web3.return_value = mock_data_bus_w3
         mock_data_bus_w3.eth.contract.return_value = Mock()
@@ -107,13 +143,13 @@ class TestTelemetryDataBus:
         self, mock_create_web3, mock_validate, web3, monkeypatch
     ):
         account = Mock(address='0x0000000000000000000000000000000000000001')
-        monkeypatch.setattr(variables, 'ACCOUNT', account)
+        monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', account)
         mock_data_bus_w3 = Mock()
         mock_data_bus_w3.eth.get_balance.return_value = 10**18
         mock_create_web3.return_value = mock_data_bus_w3
         mock_data_bus_w3.eth.contract.return_value = Mock()
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.update_account_balance_metric()
+        module.update_telemetry_account_balance_metric()
 
         assert TELEMETRY_ACCOUNT_BALANCE.labels(address=account.address)._value.get() == 10**18
