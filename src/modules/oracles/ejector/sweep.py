@@ -102,7 +102,7 @@ def predict_withdrawals_number_in_sweep_cycle(
         available_for_validator_sweep = (
             MAX_WITHDRAWALS_PER_PAYLOAD - builder_pending_per_block - partial_slots - len(builder_sweep)
         )
-        available_per_payload = available_for_validator_sweep + actual_partial_cap
+        available_per_payload = available_for_validator_sweep + partial_slots
     else:
         available_for_validator_sweep = MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
         actual_partial_cap = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
@@ -125,25 +125,6 @@ def predict_withdrawals_number_in_sweep_cycle(
         withdrawals_number=len(validators_withdrawals) + pending_partial_in_cycle,
         available_per_payload=available_per_payload,
     )
-
-
-def get_builder_pending_withdrawals(state: BeaconStateView) -> list[Withdrawal]:
-    """
-    Returns builder pending withdrawals that would be processed in one block (priority 1).
-    Mirror of get_builder_withdrawals from Gloas spec.
-    """
-    withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
-    withdrawals: list[Withdrawal] = []
-
-    for withdrawal in state.builder_pending_withdrawals:
-        if len(withdrawals) >= withdrawals_limit:
-            break
-        withdrawals.append(Withdrawal(
-            validator_index=withdrawal.builder_index,
-            amount=int(withdrawal.amount),
-        ))
-
-    return withdrawals
 
 
 def get_builders_sweep_withdrawals(
