@@ -249,6 +249,20 @@ class PendingConsolidation(Nested):
 
 
 @dataclass
+class Builder(Nested, FromResponse):
+    balance: Gwei
+    withdrawable_epoch: EpochNumber
+    execution_address: HexStr
+
+
+@dataclass
+class BuilderPendingWithdrawal(Nested, FromResponse):
+    builder_index: int
+    amount: Gwei
+    fee_recipient: HexStr
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -266,6 +280,11 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+
+    # These fields are new in Gloas (EIP-7732), default values for backward compatibility.
+    builders: list[Builder] = field(default_factory=list)
+    next_withdrawal_builder_index: int = 0
+    builder_pending_withdrawals: list[BuilderPendingWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

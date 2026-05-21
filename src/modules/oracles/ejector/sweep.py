@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from src.constants import (
     FAR_FUTURE_EPOCH,
+    MAX_BUILDERS_PER_WITHDRAWALS_SWEEP,
     MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_ACTIVATION_BALANCE,
@@ -25,78 +26,154 @@ class Withdrawal:
     amount: int
 
 
-def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
-    """
-    This method predicts the average withdrawal delay in epochs.
-    It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
-    """
+@dataclass
+class SweepPrediction:
+    withdrawals_number: int
+    available_per_payload: int
 
-    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state, spec.slots_per_epoch)
+
+def get_sweep_delay_in_epochs(
+    state: BeaconStateView,
+    spec: ChainConfig,
+    is_epbs_active: bool = False,
+) -> int:
+    """
+    Predicts the average withdrawal delay in epochs for a validator in the sweep queue.
+
+    Uses a snapshot of the current state to estimate throughput. All competing priorities
+    (builder_pending, partials, builder_sweep) reduce available_for_validator_sweep in the
+    snapshot. The snapshot is conservative — rates only improve as queues drain over time.
+
+    Average delay = full_sweep_cycle // 2 (cursor is on average halfway to the target validator).
+    """
+    prediction = predict_withdrawals_number_in_sweep_cycle(state, spec.slots_per_epoch, is_epbs_active)
     full_sweep_cycle_in_epochs = math.ceil(
-        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch
+        prediction.withdrawals_number / prediction.available_per_payload / spec.slots_per_epoch
     )
-
     return full_sweep_cycle_in_epochs // 2
 
 
-def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_epoch: int) -> int:
+def predict_withdrawals_number_in_sweep_cycle(
+    state: BeaconStateView,
+    slots_per_epoch: int,
+    is_epbs_active: bool = False,
+) -> SweepPrediction:
     """
-    This method predicts the number of withdrawals that can be performed in a single sweep cycle.
+    Predicts the number of withdrawals in one validator sweep cycle.
     https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 
-    The prediction is based on the following assumptions:
-    - All pending_partial_withdrawals have reached withdrawable_epoch and do not have any processing delays;
-    - All pending_partial_withdrawals are executed before full and partial withdrawals, and the result
-        is immediately reflected in the validators' balances;
-    - The limit MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
+    Post-ePBS: all four priorities compete for per-block budget. Validator sweep (priority 4)
+    uses withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD = 16 with a spec-level guarantee
+    (`assert len(prior_withdrawals) < 16`) that it always gets at least 1 slot per block.
+    Priorities 1–3 share a budget of MAX_WITHDRAWALS_PER_PAYLOAD - 1 = 15.
 
-    It is assumed that MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
-    Even with an extremely low rate of active validators (~0.17% or about 3,500 out of 2,000,000),
-    the probability of encountering fewer than 16 MAX_WITHDRAWALS_PER_PAYLOAD active validators
-    in any group of 16,384 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP consecutive validators is less than 1%.
-    This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
+    Budget breakdown per block (snapshot):
+      builder_pending_per_block = min(queue_size, 15)
+      actual_partial_cap        = min(8, 15 - builder_pending_per_block)
+      builder_sweep_per_block   = get_builders_sweep_withdrawals(prior = pending + partials)
+      available_for_validator   = 16 - builder_pending - partials - builder_sweep  ≥ 1
+
+    The snapshot is conservative: all queues only drain or stay constant over time,
+    so available_for_validator_sweep can only increase.
+
+    Pre-ePBS: available_per_payload = 16 (constant).
+
+    Assumptions:
+    - All pending_partial_withdrawals have reached withdrawable_epoch;
+    - All pending_partial_withdrawals are executed before validator sweep,
+      immediately reflected in validators' balances;
+    - MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
     """
-    pending_partial_withdrawals = get_pending_partial_withdrawals(state)
-    validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
+    pending_partials = get_pending_partial_withdrawals(state)
+    validators_withdrawals = get_validators_withdrawals(state, pending_partials, slots_per_epoch)
 
-    pending_partial_withdrawals_number = len(pending_partial_withdrawals)
-    validators_withdrawals_number = len(validators_withdrawals)
+    if is_epbs_active:
+        builder_pending_per_block = min(len(state.builder_pending_withdrawals), MAX_WITHDRAWALS_PER_PAYLOAD - 1)
+        actual_partial_cap = min(
+            MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
+            (MAX_WITHDRAWALS_PER_PAYLOAD - 1) - builder_pending_per_block,
+        )
+        partial_slots = min(len(pending_partials), actual_partial_cap)
+        builder_sweep = get_builders_sweep_withdrawals(
+            state,
+            prior_count=builder_pending_per_block + partial_slots,
+            slots_per_epoch=slots_per_epoch,
+        )
+        available_for_validator_sweep = (
+            MAX_WITHDRAWALS_PER_PAYLOAD - builder_pending_per_block - partial_slots - len(builder_sweep)
+        )
+        available_per_payload = available_for_validator_sweep + actual_partial_cap
+    else:
+        available_for_validator_sweep = MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+        actual_partial_cap = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+        available_per_payload = MAX_WITHDRAWALS_PER_PAYLOAD
 
-    # Each payload can have no more than MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    # pending partials out of MAX_WITHDRAWALS_PER_PAYLOAD
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    # Each payload can have no more than actual_partial_cap pending partials
+    # out of available_per_payload total cycle slots.
     #
-    #
-    # No partials:   [0 1 2 3], [4 5 6 7], [8 9 0 1], ...
-    #                 ^                         ^ cycle
-    # With partials: [p p 0 1], [p p 2 3], [p p 4 5], [p p 6 7], [p p 8 9], [p p 0 1], ...
-    #                     ^                                                      ^ cycle
-    # [ ] - payload
-    # 0-9 - index of validator being withdrawn
-    #   p - pending partial withdrawal
-    #
-    # Thus, the ratio of the maximum number of `pending_partial_withdrawals` to the remaining number
-    # of `validators_withdrawals` in a single payload is calculated as:
-    #
-    # pending_partial_withdrawals                  MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    # ---------------------------- = ------------------------------------------------------------------------
-    #    validators_withdrawals      MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    # pending_partial_withdrawals        actual_partial_cap
+    # ---------------------------- = ----------------------------
+    #    validators_withdrawals       available_for_validator_sweep
+    partial_withdrawals_max_ratio = actual_partial_cap / available_for_validator_sweep
 
-    partial_withdrawals_max_ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (
-        MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
+    pending_partial_in_cycle = min(
+        len(pending_partials),
+        math.ceil(len(validators_withdrawals) * partial_withdrawals_max_ratio),
     )
 
-    pending_partial_withdrawals_max_number_in_cycle = math.ceil(
-        validators_withdrawals_number * partial_withdrawals_max_ratio
+    return SweepPrediction(
+        withdrawals_number=len(validators_withdrawals) + pending_partial_in_cycle,
+        available_per_payload=available_per_payload,
     )
 
-    pending_partial_withdrawals_number_in_cycle = min(
-        pending_partial_withdrawals_number, pending_partial_withdrawals_max_number_in_cycle
-    )
 
-    withdrawals_number = validators_withdrawals_number + pending_partial_withdrawals_number_in_cycle
+def get_builder_pending_withdrawals(state: BeaconStateView) -> list[Withdrawal]:
+    """
+    Returns builder pending withdrawals that would be processed in one block (priority 1).
+    Mirror of get_builder_withdrawals from Gloas spec.
+    """
+    withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
+    withdrawals: list[Withdrawal] = []
 
-    return withdrawals_number
+    for withdrawal in state.builder_pending_withdrawals:
+        if len(withdrawals) >= withdrawals_limit:
+            break
+        withdrawals.append(Withdrawal(
+            validator_index=withdrawal.builder_index,
+            amount=int(withdrawal.amount),
+        ))
+
+    return withdrawals
+
+
+def get_builders_sweep_withdrawals(
+    state: BeaconStateView,
+    prior_count: int,
+    slots_per_epoch: int,
+) -> list[Withdrawal]:
+    """
+    Returns builder sweep withdrawals that would be processed in one block (priority 3).
+    Mirror of get_builders_sweep_withdrawals from Gloas spec.
+    prior_count: number of withdrawal slots already consumed by higher-priority categories.
+    """
+    if not state.builders:
+        return []
+
+    withdrawals_limit = MAX_WITHDRAWALS_PER_PAYLOAD - 1
+    builders_limit = min(len(state.builders), MAX_BUILDERS_PER_WITHDRAWALS_SWEEP)
+    epoch = epoch_from_slot(state.slot, slots_per_epoch)
+    withdrawals: list[Withdrawal] = []
+    builder_index = state.next_withdrawal_builder_index
+
+    for _ in range(builders_limit):
+        if prior_count + len(withdrawals) >= withdrawals_limit:
+            break
+        builder = state.builders[builder_index]
+        if builder.withdrawable_epoch <= epoch and builder.balance > 0:
+            withdrawals.append(Withdrawal(validator_index=builder_index, amount=int(builder.balance)))
+        builder_index = (builder_index + 1) % len(state.builders)
+
+    return withdrawals
 
 
 def get_pending_partial_withdrawals(state: BeaconStateView) -> list[Withdrawal]:

@@ -44,6 +44,9 @@ GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
+# https://github.com/ethereum/consensus-specs/blob/c94138e73e0e70eb4b27f9be4d4e9325fa1aebf7/specs/gloas/beacon-chain.md
+MAX_BUILDERS_PER_WITHDRAWALS_SWEEP = 2**14
+
 MAX_BLOCK_GAS_LIMIT = 16_000_000
 
 # Lido contracts constants
