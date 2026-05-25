@@ -896,8 +896,9 @@ class TestMetaRegistryContractPassThroughs:
         contract = _mock_contract()
         SubOpTuple = namedtuple("SubNodeOperator", ["node_operator_id", "share"])
         ExtOpTuple = namedtuple("ExternalOperator", ["data"])
-        GroupTuple = namedtuple("OperatorGroup", ["sub_node_operators", "external_operators"])
+        GroupTuple = namedtuple("OperatorGroup", ["name", "sub_node_operators", "external_operators"])
         raw = GroupTuple(
+            name='test',
             sub_node_operators=[SubOpTuple(node_operator_id=1, share=100)],
             external_operators=[ExtOpTuple(data=bytes(10))],
         )
