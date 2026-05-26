@@ -7,7 +7,7 @@ applyTo: "{src/modules/oracles/**/*.py,src/services/**/*.py,src/providers/**/*.p
 Review oracle-specific business logic for correctness and safety.
 
 ## Oracle Cycle Management
-- Check changes don't break 24h/225-epoch accounting cycles or 8h/75-epoch ejector cycles
+- Check changes don't break 24h/225-epoch accounting cycles or 5h/45-epoch ejector cycles
 - Verify report submission sequence preserved: hash → data → extra data
 - Check oracle member coordination and delay slots remain functional
 - Verify logic still uses finalized/reference data where required and does not accidentally switch to head/non-finalized state
