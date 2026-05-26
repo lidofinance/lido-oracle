@@ -277,4 +277,6 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     # Pre-v4 by default: no top-up support, no pending deposits
     web3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
     web3.cc.get_pending_deposits = Mock(return_value=[])
+    # Pre-ePBS by default: EPBS_FORK_EPOCH set to FAR_FUTURE_EPOCH so ePBS correction is inactive
+    web3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=2**64 - 1))
     return AbnormalClRebase(web3, c_conf, b_conf)

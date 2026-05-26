@@ -118,6 +118,8 @@ def test_get_cl_validators_balance(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
+    # Pre-ePBS: EPBS_FORK_EPOCH set to FAR_FUTURE_EPOCH so correction is inactive
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=2**64 - 1))
 
     balance = accounting._get_cl_validators_balance(bs)
 

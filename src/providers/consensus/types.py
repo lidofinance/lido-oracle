@@ -29,6 +29,8 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    # EIP-7732 (Gloas): exact constant name to be confirmed against final spec
+    EPBS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -249,6 +251,19 @@ class PendingConsolidation(Nested):
 
 
 @dataclass
+class ExpectedWithdrawal(Nested, FromResponse):
+    """
+    A single entry in BeaconState.payload_expected_withdrawals (EIP-7732).
+    CL has already deducted these amounts from validator balances via process_withdrawals,
+    but the matching EL credit has not yet arrived in the withdrawal vault.
+    FromResponse ignores extra fields (index, address) from the API response.
+    """
+
+    validator_index: ValidatorIndex
+    amount: Gwei
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -266,6 +281,10 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+
+    # These fields are new in Gloas (EIP-7732), default values for backward compatibility.
+    # Withdrawals CL has deducted but the EL vault has not yet received.
+    payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

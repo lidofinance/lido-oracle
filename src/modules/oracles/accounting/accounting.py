@@ -248,7 +248,23 @@ class Accounting(OracleModule[Web3]):
         validator_balance_sum = Gwei(sum(validator.balance for validator in lido_validators))
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
+        if self._is_epbs_active(blockstamp):
+            # EIP-7732: process_withdrawals deducts CL balances before the EL payload is revealed,
+            # so the withdrawal vault has not yet received these amounts. Add them back to restore
+            # TVL consistency. Only Lido validators' withdrawals go to the Lido withdrawal vault.
+            state = self.w3.cc.get_state_view(blockstamp)
+            lido_indices = {v.index for v in lido_validators}
+            correction = Gwei(sum(
+                w.amount for w in state.payload_expected_withdrawals
+                if w.validator_index in lido_indices
+            ))
+            logger.info({'msg': 'ePBS payload_expected_withdrawals correction.', 'value': correction})
+            validator_balance_sum = Gwei(validator_balance_sum + correction)
+
         return validator_balance_sum
+
+    def _is_epbs_active(self, blockstamp: ReferenceBlockStamp) -> bool:
+        return blockstamp.ref_epoch >= self.w3.cc.get_config_spec().EPBS_FORK_EPOCH
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         """Calculate the total pending balance on the Consensus Layer.
