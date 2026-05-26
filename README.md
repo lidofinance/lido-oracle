@@ -73,7 +73,7 @@ Initiates validator ejection requests to fund withdrawal requests using a specif
 
 **Flow**
 
-Work is divided into frames (~8 hours / 75 epochs):
+Work is divided into frames (~5 hours / 45 epochs):
 - Calculates ETH required for withdrawals.
 - Estimates incoming ETH to protocol.
 - Determines next available validator exit.

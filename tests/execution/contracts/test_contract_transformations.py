@@ -1130,11 +1130,11 @@ class TestHashConsensusContract:
 
     def test_get_frame_config(self):
         contract = _mock_contract()
-        contract.functions.getFrameConfig.return_value.call.return_value = _FrameConfigTuple(1, 75, 0)
+        contract.functions.getFrameConfig.return_value.call.return_value = _FrameConfigTuple(1, 45, 0)
         result = HashConsensusContract.get_frame_config(contract, block_identifier="latest")
         assert isinstance(result, FrameConfig)
         assert result.initial_epoch == 1
-        assert result.epochs_per_frame == 75
+        assert result.epochs_per_frame == 45
 
     def test_get_consensus_state_for_member(self):
         contract = _mock_contract()
