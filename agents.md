@@ -6,12 +6,12 @@ Oracle daemon for the Lido decentralized staking protocol. Monitors state across
 
 Four oracle modules, each with its own reporting frame:
 
-| Module       | Command                                    | Frame             | Purpose                                                 |
-|--------------|--------------------------------------------|-------------------|---------------------------------------------------------|
-| `accounting` | `make run-module ORACLE_MODULE=accounting` | ~24h / 225 epochs | TVL updates, validator status, withdrawals, bunker mode |
-| `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs   | Validator exit requests to fund withdrawals             |
-| `csm`        | `make run-module ORACLE_MODULE=csm`        | 6300 epoches      | Community Staking Module oracle                         |
-| `cm`         | `make run-module ORACLE_MODULE=cm`         | 6300 epoches      | Curated Module V2 oracle                                |
+| Module       | Command                                    | Frame                   | Purpose                                                 |
+|--------------|--------------------------------------------|-------------------------|---------------------------------------------------------|
+| `accounting` | `make run-module ORACLE_MODULE=accounting` | ~24h / 225 epochs       | TVL updates, validator status, withdrawals, bunker mode |
+| `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs         | Validator exit requests to fund withdrawals             |
+| `csm`        | `make run-module ORACLE_MODULE=csm`        | ~28 days / 6300 epoches | Community Staking Module oracle                         |
+| `cm`         | `make run-module ORACLE_MODULE=cm`         | ~28 days / 6300 epoches | Curated Module V2 oracle                                |
 
 Sidecars: `performance_collector`, `performance_web_server`
 
