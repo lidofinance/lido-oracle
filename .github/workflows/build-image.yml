@@ -30,5 +30,6 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v3
         with:
+          context: .
           tags: app:ci
           push: false

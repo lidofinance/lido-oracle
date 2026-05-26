@@ -34,6 +34,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6.15.0
         with:
+          context: .
           push: false
           load: true
           outputs: type=docker,dest=image.tar,rewrite-timestamp=true
@@ -73,6 +74,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6.15.0
         with:
+          context: .
           push: false
           load: true
           outputs: type=docker,dest=image.tar,rewrite-timestamp=true
