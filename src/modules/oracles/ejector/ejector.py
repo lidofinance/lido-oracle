@@ -307,7 +307,7 @@ class Ejector(OracleModule[Web3]):
         blockstamp: ReferenceBlockStamp,
     ) -> EpochNumber:
         """
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+        https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
         per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
@@ -332,7 +332,7 @@ class Ejector(OracleModule[Web3]):
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs(state, chain_config)
 
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
+    # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         active_validators = self._get_active_validators(blockstamp)
         return max(

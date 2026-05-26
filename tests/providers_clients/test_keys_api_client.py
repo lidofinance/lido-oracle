@@ -19,7 +19,7 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 @pytest.mark.integration
 @pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
+    # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#bls-signatures
     BLS_PUBLIC_KEY_SIZE = 48
     BLS_SIGNATURE_SIZE = 96
     BLS_PUBLIC_KEY_PATTERN = re.compile(r'^0x[0-9a-fA-F]{96}$')
