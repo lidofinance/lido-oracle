@@ -230,14 +230,13 @@ class ConsensusModule[W3: Web3Base](ABC):
         Returns:
             Non-missed reference slot blockstamp in case the contract is reportable.
         """
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp, member_info = self._get_latest_data()
 
         # Check if the contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
             return None
 
-        member_info = self.get_member_info(latest_blockstamp)
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if the current slot is higher than the member slot

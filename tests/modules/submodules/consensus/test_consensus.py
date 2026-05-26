@@ -299,8 +299,8 @@ def test_incompatible_contract_version(consensus):
 @pytest.mark.unit
 def test_get_blockstamp_for_report_contract_is_not_reportable(consensus: ConsensusModule, caplog):
     bs = ReferenceBlockStampFactory.build()
-    consensus._get_latest_blockstamp = Mock(return_value=bs)
-    consensus._check_contract_versions = Mock(return_value=True)
+    member_info = MemberInfoFactory.build()
+    consensus._get_latest_data = Mock(return_value=(bs, member_info))
     consensus.is_contract_reportable = Mock(return_value=False)
 
     consensus.get_blockstamp_for_report(bs)
