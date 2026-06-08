@@ -218,33 +218,8 @@ def test_get_validators_withdrawals__empty_validators__returns_empty():
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_sweep_reduces_budget(monkeypatch):
-    """Post-ePBS: builder sweep slots reduce available_for_validator_sweep."""
-    state = Mock(spec=BeaconStateView)
-    state.builder_pending_withdrawals = []
-    num_validator_withdrawals = 10
-    num_builder_sweep = 3  # builder sweep takes 3 of the 15 remaining slots
-
-    with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
-        m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
-        m.setattr(sweep_module, "get_builders_sweep_withdrawals", Mock(return_value=[Mock()] * num_builder_sweep))
-
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
-
-    # builder_pending=0, partials=0, builder_sweep=3
-    # available_for_validator_sweep = 16 - 0 - 0 - 3 = 13
-    # partial_slots = min(0, 8) = 0
-    # available_per_payload = 13 + 0 = 13
-    expected_available_for_validator = MAX_WITHDRAWALS_PER_PAYLOAD - 0 - 0 - num_builder_sweep
-    expected_available_per_payload = expected_available_for_validator + 0  # partial_slots=0
-    assert result.available_per_payload == expected_available_per_payload
-    assert result.withdrawals_number == num_validator_withdrawals
-
-
-@pytest.mark.unit
 def test_predict_withdrawals_number_in_sweep_cycle__epbs_with_partials(monkeypatch):
-    """Post-ePBS: partial_slots (not actual_partial_cap) is added to available_per_payload."""
+    """Post-ePBS: partial withdrawals in the cycle use the cap ratio, available_per_payload = 16 - builder_pending."""
     state = Mock(spec=BeaconStateView)
     state.builder_pending_withdrawals = []
     num_validator_withdrawals = 10
@@ -253,22 +228,19 @@ def test_predict_withdrawals_number_in_sweep_cycle__epbs_with_partials(monkeypat
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
-        m.setattr(sweep_module, "get_builders_sweep_withdrawals", Mock(return_value=[]))
 
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
 
-    # builder_pending=0, partials=5, builder_sweep=0
-    # actual_partial_cap = min(8, 15) = 8
-    # partial_slots = min(5, 8) = 5
-    # available_for_validator_sweep = 16 - 0 - 5 - 0 = 11
-    # available_per_payload = 11 + 5 = 16
+    # builder_pending=0 → available_per_payload = 16 - 0 = 16
+    # actual_partial_cap = min(8, 15) = 8, available_for_validator = 16 - 0 - 8 = 8
+    # ratio = 8/8 = 1 → pending_partial_in_cycle = min(5, ceil(10*1)) = 5
     assert result.available_per_payload == 16
     assert result.withdrawals_number == num_validator_withdrawals + num_pending_partials
 
 
 @pytest.mark.unit
 def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces_partial_cap(monkeypatch):
-    """Post-ePBS: builder_pending reduces actual_partial_cap, leaving fewer slots for partials."""
+    """Post-ePBS: builder_pending reduces actual_partial_cap and available_per_payload."""
     state = Mock(spec=BeaconStateView)
     state.builder_pending_withdrawals = [Mock()] * 10  # consumes 10 of 15 slots
     num_validator_withdrawals = 10
@@ -277,14 +249,11 @@ def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
-        m.setattr(sweep_module, "get_builders_sweep_withdrawals", Mock(return_value=[]))
 
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
 
-    # builder_pending=10, actual_partial_cap = min(8, 15-10) = 5
-    # partial_slots = min(8, 5) = 5
-    # available_for_validator_sweep = 16 - 10 - 5 - 0 = 1
-    # available_per_payload = 1 + 5 = 6
+    # builder_pending=10 → available_per_payload = 16 - 10 = 6
+    # actual_partial_cap = min(8, 15-10) = 5
     assert result.available_per_payload == 6
 
 
@@ -292,21 +261,16 @@ def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces
 def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces_budget(monkeypatch):
     """Post-ePBS: large builder_pending queue reduces partial cap and validator sweep slots."""
     state = Mock(spec=BeaconStateView)
-    # builder_pending fills 15 slots → actual_partial_cap = 0, builder_sweep = 0, validator = 1
     state.builder_pending_withdrawals = [Mock()] * 100
     num_validator_withdrawals = 10
 
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
-        m.setattr(sweep_module, "get_builders_sweep_withdrawals", Mock(return_value=[]))
 
         result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
 
-    # builder_pending_per_block = min(100, 15) = 15
-    # actual_partial_cap = min(8, 15-15) = 0
-    # builder_sweep prior_count = 15 + 0 = 15 → returns [] (limit reached)
-    # available_for_validator_sweep = 16 - 15 - 0 - 0 = 1
-    # available_per_payload = 1 + 0 = 1
+    # builder_pending_per_block = min(100, 15) = 15 → available_per_payload = 16 - 15 = 1
+    # actual_partial_cap = min(8, 0) = 0 → ratio = 0 → no partials added
     assert result.available_per_payload == 1
-    assert result.withdrawals_number == num_validator_withdrawals  # ratio=0 → no partials added
+    assert result.withdrawals_number == num_validator_withdrawals
