@@ -27,7 +27,10 @@ from src.variables import (
     PERFORMANCE_WEB_SERVER_API_PORT,
     PERFORMANCE_WEB_SERVER_DB_CONNECTION_TIMEOUT,
     PERFORMANCE_WEB_SERVER_DB_STATEMENT_TIMEOUT_MS,
+    PERFORMANCE_WEB_SERVER_LIMIT_CONCURRENCY,
+    PERFORMANCE_WEB_SERVER_LIMIT_MAX_REQUESTS,
     PERFORMANCE_WEB_SERVER_REQUEST_TIMEOUT,
+    PERFORMANCE_WEB_SERVER_TIMEOUT_KEEP_ALIVE,
     PERFORMANCE_WEB_SERVER_WORKERS,
 )
 
@@ -186,11 +189,9 @@ def serve():
         host=PERFORMANCE_WEB_SERVER_API_HOST,
         port=PERFORMANCE_WEB_SERVER_API_PORT,
         workers=PERFORMANCE_WEB_SERVER_WORKERS,
-        # Keep our application logging configuration (JSON formatter) instead of
-        # uvicorn's default plain-text logging config.
+        # Keep our JSON logging config instead of uvicorn's plain-text default.
         log_config=None,
-        # The `limit_max_requests` parameter is a tricky one: it defines how many requests to serve before terminating
-        # the worker, meaning, let's say with this param set to 100, the web server would serve 100 requests and then
-        # exit. It exists to prevent excessive memory growth which should be handled by other means.
-        limit_max_requests=None,
+        limit_max_requests=PERFORMANCE_WEB_SERVER_LIMIT_MAX_REQUESTS,
+        limit_concurrency=PERFORMANCE_WEB_SERVER_LIMIT_CONCURRENCY,
+        timeout_keep_alive=PERFORMANCE_WEB_SERVER_TIMEOUT_KEEP_ALIVE,
     )
