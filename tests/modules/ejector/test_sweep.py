@@ -6,13 +6,11 @@ import pytest
 import src.modules.oracles.ejector.sweep as sweep_module
 from src.constants import (
     FAR_FUTURE_EPOCH,
-    MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_ACTIVATION_BALANCE,
 )
 from src.modules.common.types import ChainConfig
 from src.modules.oracles.ejector.sweep import (
-    SweepPrediction,
     Withdrawal,
     get_pending_partial_withdrawals,
     get_sweep_delay_in_epochs,
@@ -30,11 +28,12 @@ def test_get_sweep_delay_in_epochs(monkeypatch):
     spec = Mock(spec=ChainConfig)
     spec.slots_per_epoch = 12
     predicted_withdrawals = 1000
-    predicted = SweepPrediction(
-        withdrawals_number=predicted_withdrawals, available_per_payload=MAX_WITHDRAWALS_PER_PAYLOAD
-    )
     with monkeypatch.context() as m:
-        m.setattr(sweep_module, "predict_withdrawals_number_in_sweep_cycle", Mock(return_value=predicted))
+        m.setattr(
+            sweep_module,
+            "predict_withdrawals_number_in_sweep_cycle",
+            Mock(return_value=(predicted_withdrawals, MAX_WITHDRAWALS_PER_PAYLOAD)),
+        )
         result = get_sweep_delay_in_epochs(state, spec)
 
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
@@ -95,8 +94,8 @@ def test_only_validators_withdrawals():
         pending_partial_withdrawals=[],
         slashings=[],
     )
-    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
-    assert result.withdrawals_number == 2
+    withdrawals_number, _ = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    assert withdrawals_number == 2
 
 
 @pytest.mark.unit
@@ -108,8 +107,8 @@ def test_combined_withdrawals():
         pending_partial_withdrawals=[],
         slashings=[],
     )
-    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
-    assert result.withdrawals_number == 10
+    withdrawals_number, _ = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    assert withdrawals_number == 10
 
 
 @pytest.mark.unit
@@ -170,38 +169,16 @@ def test_get_pending_partial_withdrawals__no_excess_balance__returns_empty():
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_number_in_sweep_cycle__pending_partials_exceed_ratio__capped(monkeypatch):
-    """Pending partials in a sweep cycle are capped by the MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP ratio."""
-    state = Mock(spec=BeaconStateView)
-    num_validator_withdrawals = 5
-    num_pending_partials = 20
-
-    with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
-        m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
-
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
-
-    # ratio = 8 / (16 - 8) = 1.0  →  max_pending = ceil(5 * 1.0) = 5
-    ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP / (
-        MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
-    )
-    max_pending = math.ceil(num_validator_withdrawals * ratio)
-    assert result.withdrawals_number == num_validator_withdrawals + min(num_pending_partials, max_pending)
-
-
-@pytest.mark.unit
 def test_predict_withdrawals_number_in_sweep_cycle__empty_state__returns_zero(monkeypatch):
-    """Empty state (no validators, no pending partials) produces zero withdrawals."""
+    """Empty state (no validators) produces zero withdrawals."""
     state = Mock(spec=BeaconStateView)
 
     with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[]))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
+        withdrawals_number, _ = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
 
-    assert result.withdrawals_number == 0
+    assert withdrawals_number == 0
 
 
 @pytest.mark.unit
@@ -218,59 +195,71 @@ def test_get_validators_withdrawals__empty_validators__returns_empty():
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_number_in_sweep_cycle__epbs_with_partials(monkeypatch):
-    """Post-ePBS: partial withdrawals in the cycle use the cap ratio, available_per_payload = 16 - builder_pending."""
+def test_predict_withdrawals_number_in_sweep_cycle__available_per_payload_is_max(monkeypatch):
+    """Pre-ePBS: available_per_payload is MAX_WITHDRAWALS_PER_PAYLOAD."""
+    state = Mock(spec=BeaconStateView)
+    num_validator_withdrawals = 10
+
+    with monkeypatch.context() as m:
+        m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
+
+        withdrawals_number, available_per_payload = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
+
+    assert available_per_payload == MAX_WITHDRAWALS_PER_PAYLOAD
+    assert withdrawals_number == num_validator_withdrawals
+
+
+@pytest.mark.unit
+def test_predict_withdrawals_number_in_sweep_cycle__epbs_no_builder_pending(monkeypatch):
+    """Post-ePBS: no builder_pending → available_per_payload = MAX_WITHDRAWALS_PER_PAYLOAD."""
     state = Mock(spec=BeaconStateView)
     state.builder_pending_withdrawals = []
     num_validator_withdrawals = 10
-    num_pending_partials = 5  # fewer than actual_partial_cap=8
 
     with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
+        withdrawals_number, available_per_payload = sweep_module.predict_withdrawals_number_in_sweep_cycle(
+            state, 32, is_epbs_active=True
+        )
 
-    # builder_pending=0 → available_per_payload = 16 - 0 = 16
-    # actual_partial_cap = min(8, 15) = 8, available_for_validator = 16 - 0 - 8 = 8
-    # ratio = 8/8 = 1 → pending_partial_in_cycle = min(5, ceil(10*1)) = 5
-    assert result.available_per_payload == 16
-    assert result.withdrawals_number == num_validator_withdrawals + num_pending_partials
+    assert available_per_payload == MAX_WITHDRAWALS_PER_PAYLOAD
+    assert withdrawals_number == num_validator_withdrawals
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces_partial_cap(monkeypatch):
-    """Post-ePBS: builder_pending reduces actual_partial_cap and available_per_payload."""
+def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces_available(monkeypatch):
+    """Post-ePBS: builder_pending reduces available_per_payload; partial cap is not subtracted."""
     state = Mock(spec=BeaconStateView)
-    state.builder_pending_withdrawals = [Mock()] * 10  # consumes 10 of 15 slots
+    state.builder_pending_withdrawals = [Mock()] * 3
     num_validator_withdrawals = 10
-    num_pending_partials = 8  # more than the reduced cap
 
     with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
+        withdrawals_number, available_per_payload = sweep_module.predict_withdrawals_number_in_sweep_cycle(
+            state, 32, is_epbs_active=True
+        )
 
-    # builder_pending=10 → available_per_payload = 16 - 10 = 6
-    # actual_partial_cap = min(8, 15-10) = 5
-    assert result.available_per_payload == 6
+    # builder_pending_per_block = min(3, 15) = 3 → available = 16 - 3 = 13
+    assert available_per_payload == MAX_WITHDRAWALS_PER_PAYLOAD - 3
+    assert withdrawals_number == num_validator_withdrawals
 
 
 @pytest.mark.unit
-def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_reduces_budget(monkeypatch):
-    """Post-ePBS: large builder_pending queue reduces partial cap and validator sweep slots."""
+def test_predict_withdrawals_number_in_sweep_cycle__epbs_builder_pending_saturated(monkeypatch):
+    """Post-ePBS: builder_pending capped at MAX_WITHDRAWALS_PER_PAYLOAD - 1 → available = 1."""
     state = Mock(spec=BeaconStateView)
     state.builder_pending_withdrawals = [Mock()] * 100
     num_validator_withdrawals = 10
 
     with monkeypatch.context() as m:
-        m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_epbs_active=True)
+        withdrawals_number, available_per_payload = sweep_module.predict_withdrawals_number_in_sweep_cycle(
+            state, 32, is_epbs_active=True
+        )
 
-    # builder_pending_per_block = min(100, 15) = 15 → available_per_payload = 16 - 15 = 1
-    # actual_partial_cap = min(8, 0) = 0 → ratio = 0 → no partials added
-    assert result.available_per_payload == 1
-    assert result.withdrawals_number == num_validator_withdrawals
+    # builder_pending_per_block = min(100, 15) = 15 → available = 16 - 15 = 1
+    assert available_per_payload == 1
+    assert withdrawals_number == num_validator_withdrawals
