@@ -262,7 +262,8 @@ class Distribution:
             # It means that validator was active during the frame and got slashed and didn't meet the exit
             # epoch, so we should not count such validator for operator's share.
             log_validator.slashed = True
-            return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
+            strikes = 1 if threshold > 0 else 0
+            return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=strikes)
 
         performance = perf_coeffs.calc_performance(duties)
 

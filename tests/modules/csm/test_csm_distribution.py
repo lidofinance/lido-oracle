@@ -1314,6 +1314,17 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
             1,
             ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1),
         ),
+        (
+            ValidatorDuties(
+                attestation=DutyAccumulator(assigned=1, included=1),
+                proposal=DutyAccumulator(assigned=1, included=1),
+                sync=DutyAccumulator(assigned=1, included=1),
+            ),
+            True,
+            0,
+            1,
+            ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=0),
+        ),
     ],
 )
 @pytest.mark.unit
