@@ -25,7 +25,7 @@ from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.services.exit_order_iterator import ValidatorExitIterator
+from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
@@ -128,7 +128,13 @@ class Ejector(OracleModule[Web3]):
         if not report_blockstamp or not self._check_compatibility(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self.process_report(report_blockstamp)
+        try:
+            self.process_report(report_blockstamp)
+        except WeightsNotUpdatedError as error:
+            logger.error(
+                {'msg': 'Weights are not updated. Skipping report until next finalized epoch.', 'error': str(error)}
+            )
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         return ModuleExecuteDelay.NEXT_SLOT
 
     @lru_cache(maxsize=1)
