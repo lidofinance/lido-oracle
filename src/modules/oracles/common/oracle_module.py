@@ -21,6 +21,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
+from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
@@ -91,6 +92,10 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except CountOfKeysDiffersException as error:
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
+        except WeightsNotUpdatedError as error:
+            logger.error(
+                {'msg': 'Staking module weights are not updated. Waiting for the next frame.', 'error': str(error)}
+            )
         except Web3Exception as error:
             logger.error({'msg': 'Web3py exception.', 'error': str(error)})
         except IPFSError as error:

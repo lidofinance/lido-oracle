@@ -26,6 +26,7 @@ from src.modules.oracles.common.exceptions import (
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
+from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -144,6 +145,7 @@ def test_run_as_daemon(oracle):
         SlotNotFinalized("Fake exception"),
         InconsistentData("Fake exception"),
         KeysOutdatedException("Fake exception"),
+        WeightsNotUpdatedError("Fake exception"),
     ],
     ids=lambda param: f"{type(param).__name__}",
 )
