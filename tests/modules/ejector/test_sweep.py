@@ -5,18 +5,15 @@ import pytest
 
 import src.modules.oracles.ejector.sweep as sweep_module
 from src.constants import (
-    FAR_FUTURE_EPOCH,
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_ACTIVATION_BALANCE,
 )
 from src.modules.common.types import ChainConfig
 from src.modules.oracles.ejector.sweep import (
-    Withdrawal,
-    get_pending_partial_withdrawals,
     get_sweep_delay_in_epochs,
     get_validators_withdrawals,
 )
-from src.providers.consensus.types import BeaconStateView, PendingPartialWithdrawal
+from src.providers.consensus.types import BeaconStateView
 from src.types import Gwei
 from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
@@ -40,8 +37,8 @@ def test_get_sweep_delay_in_epochs(monkeypatch):
         assert result == expected_delay
 
 
-@pytest.fixture()
-def fake_beacon_state_view():
+@pytest.mark.unit
+def test_get_validators_withdrawals():
     validators = [
         LidoValidatorFactory.build_with_balance(Gwei(1000)),
         LidoValidatorFactory.build_with_balance(Gwei(MIN_ACTIVATION_BALANCE + 1)),
@@ -49,40 +46,18 @@ def fake_beacon_state_view():
     ]
     min_withdraw_epoch = min([v.validator.withdrawable_epoch for v in validators])
     min_withdraw_slot = min_withdraw_epoch * 12 - 10
-    pending_partial_withdrawals = [
-        PendingPartialWithdrawal(validator_index=0, amount=500, withdrawable_epoch=1),
-        PendingPartialWithdrawal(validator_index=1, amount=700, withdrawable_epoch=1),
-    ]
-    return BeaconStateViewFactory.build_with_validators(
+    state = BeaconStateViewFactory.build_with_validators(
         validators=validators,
-        pending_partial_withdrawals=pending_partial_withdrawals,
+        pending_partial_withdrawals=[],
         slashings=[],
         slot=min_withdraw_slot,
     )
-
-
-@pytest.mark.unit
-def test_get_pending_partial_withdrawals(fake_beacon_state_view):
-    result = get_pending_partial_withdrawals(fake_beacon_state_view)
-    assert len(result) == 1
+    result = get_validators_withdrawals(state, 12)
+    assert len(result) == 2
     assert result[0].validator_index == 1
     assert result[0].amount == 1
-
-
-@pytest.mark.unit
-def test_get_validators_withdrawals(fake_beacon_state_view):
-    result = get_validators_withdrawals(
-        fake_beacon_state_view,
-        [
-            Withdrawal(validator_index=1, amount=1),
-            Withdrawal(validator_index=2, amount=1),
-            Withdrawal(validator_index=2, amount=1),
-        ],
-        32,
-    )
-    assert len(result) == 1
-    assert result[0].validator_index == 2
-    assert result[0].amount == 10
+    assert result[1].validator_index == 2
+    assert result[1].amount == 12
 
 
 @pytest.mark.unit
@@ -112,63 +87,6 @@ def test_combined_withdrawals():
 
 
 @pytest.mark.unit
-def test_get_pending_partial_withdrawals__exiting_validator__returns_empty():
-    """Validators with exit_epoch != FAR_FUTURE_EPOCH are excluded from pending partial withdrawals."""
-    validator = LidoValidatorFactory.build(
-        balance=Gwei(MIN_ACTIVATION_BALANCE + 100),
-        validator=ValidatorStateFactory.build(
-            effective_balance=MIN_ACTIVATION_BALANCE,
-            exit_epoch=10,
-        ),
-    )
-    state = BeaconStateViewFactory.build_with_validators(
-        validators=[validator],
-        pending_partial_withdrawals=[PendingPartialWithdrawal(validator_index=0, amount=100, withdrawable_epoch=1)],
-        slashings=[],
-        slot=32,
-    )
-    assert get_pending_partial_withdrawals(state) == []
-
-
-@pytest.mark.unit
-def test_get_pending_partial_withdrawals__low_effective_balance__returns_empty():
-    """Validators with effective_balance < MIN_ACTIVATION_BALANCE are excluded."""
-    validator = LidoValidatorFactory.build(
-        balance=Gwei(MIN_ACTIVATION_BALANCE + 100),
-        validator=ValidatorStateFactory.build(
-            effective_balance=MIN_ACTIVATION_BALANCE - 1,
-            exit_epoch=FAR_FUTURE_EPOCH,
-        ),
-    )
-    state = BeaconStateViewFactory.build_with_validators(
-        validators=[validator],
-        pending_partial_withdrawals=[PendingPartialWithdrawal(validator_index=0, amount=100, withdrawable_epoch=1)],
-        slashings=[],
-        slot=32,
-    )
-    assert get_pending_partial_withdrawals(state) == []
-
-
-@pytest.mark.unit
-def test_get_pending_partial_withdrawals__no_excess_balance__returns_empty():
-    """Validators with balance == MIN_ACTIVATION_BALANCE have no excess to withdraw."""
-    validator = LidoValidatorFactory.build(
-        balance=Gwei(MIN_ACTIVATION_BALANCE),
-        validator=ValidatorStateFactory.build(
-            effective_balance=MIN_ACTIVATION_BALANCE,
-            exit_epoch=FAR_FUTURE_EPOCH,
-        ),
-    )
-    state = BeaconStateViewFactory.build_with_validators(
-        validators=[validator],
-        pending_partial_withdrawals=[PendingPartialWithdrawal(validator_index=0, amount=100, withdrawable_epoch=1)],
-        slashings=[],
-        slot=32,
-    )
-    assert get_pending_partial_withdrawals(state) == []
-
-
-@pytest.mark.unit
 def test_predict_withdrawals_number_in_sweep_cycle__empty_state__returns_zero(monkeypatch):
     """Empty state (no validators) produces zero withdrawals."""
     state = Mock(spec=BeaconStateView)
@@ -191,7 +109,7 @@ def test_get_validators_withdrawals__empty_validators__returns_empty():
         pending_partial_withdrawals=[],
         slashings=[],
     )
-    assert get_validators_withdrawals(state, [], 32) == []
+    assert get_validators_withdrawals(state, 32) == []
 
 
 @pytest.mark.unit

@@ -1,11 +1,8 @@
 import math
-from collections import defaultdict
 from dataclasses import dataclass
 
 from src.constants import (
-    FAR_FUTURE_EPOCH,
     MAX_WITHDRAWALS_PER_PAYLOAD,
-    MIN_ACTIVATION_BALANCE,
 )
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
@@ -27,7 +24,7 @@ class Withdrawal:
 def get_sweep_delay_in_epochs(
     state: BeaconStateView,
     spec: ChainConfig,
-    is_epbs_active: bool = False,
+    is_epbs_active: bool = False,  # feature flag: set to True once glamsterdam slot is known
 ) -> int:
     """
     Predicts the average withdrawal delay in epochs for a validator in the sweep queue.
@@ -63,7 +60,7 @@ def predict_withdrawals_number_in_sweep_cycle(
 
     Assumption: MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP is never reached.
     """
-    validators_withdrawals = get_validators_withdrawals(state, [], slots_per_epoch)
+    validators_withdrawals = get_validators_withdrawals(state, slots_per_epoch)
 
     if is_epbs_active:
         builder_pending_per_block = min(len(state.builder_pending_withdrawals), MAX_WITHDRAWALS_PER_PAYLOAD - 1)
@@ -74,33 +71,8 @@ def predict_withdrawals_number_in_sweep_cycle(
     return len(validators_withdrawals), available_per_payload
 
 
-def get_pending_partial_withdrawals(state: BeaconStateView) -> list[Withdrawal]:
-    """
-    This method returns withdrawals that can be performed from `state.pending_partial_withdrawals`
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
-    """
-    withdrawals: list[Withdrawal] = []
-
-    for withdrawal in state.pending_partial_withdrawals:
-        index = withdrawal.validator_index
-        validator = state.validators[index]
-        has_sufficient_effective_balance = validator.effective_balance >= MIN_ACTIVATION_BALANCE
-        has_excess_balance = state.balances[index] > MIN_ACTIVATION_BALANCE
-
-        if validator.exit_epoch == FAR_FUTURE_EPOCH and has_sufficient_effective_balance and has_excess_balance:
-            withdrawable_balance = min(state.balances[index] - MIN_ACTIVATION_BALANCE, withdrawal.amount)
-            withdrawals.append(
-                Withdrawal(
-                    validator_index=index,
-                    amount=withdrawable_balance,
-                )
-            )
-
-    return withdrawals
-
-
 def get_validators_withdrawals(
-    state: BeaconStateView, partial_withdrawals: list[Withdrawal], slots_per_epoch: int
+    state: BeaconStateView, slots_per_epoch: int
 ) -> list[Withdrawal]:
     """
     This method returns fully and partial withdrawals that can be performed for validators
@@ -108,14 +80,9 @@ def get_validators_withdrawals(
     """
     epoch = epoch_from_slot(state.slot, slots_per_epoch)
     withdrawals = []
-    partially_withdrawn_map: dict[int, int] = defaultdict(int)
-
-    for withdrawal in partial_withdrawals:
-        partially_withdrawn_map[withdrawal.validator_index] += withdrawal.amount
 
     for validator_index, validator in enumerate(state.indexed_validators):
-        partially_withdrawn_balance = Gwei(partially_withdrawn_map.get(validator_index, 0))
-        balance = Gwei(state.balances[validator_index] - partially_withdrawn_balance)
+        balance = Gwei(state.balances[validator_index])
 
         if is_fully_withdrawable_validator(validator.validator, balance, epoch):
             withdrawals.append(Withdrawal(validator_index=validator_index, amount=balance))
