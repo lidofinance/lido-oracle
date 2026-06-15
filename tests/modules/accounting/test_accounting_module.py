@@ -7,6 +7,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
@@ -29,8 +30,9 @@ from src.modules.oracles.accounting.types import (
     VaultsTreeCid,
     VaultsTreeRoot,
 )
+from src.providers.consensus.types import ExpectedWithdrawal
 from src.services.withdrawal import Withdrawal
-from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, StakingModuleId
+from src.types import BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import NodeOperatorId, StakingModule
 from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -119,11 +121,35 @@ def test_get_cl_validators_balance(accounting: Accounting):
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
     # Pre-ePBS: EPBS_FORK_EPOCH set to FAR_FUTURE_EPOCH so correction is inactive
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=2**64 - 1))
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
 
     balance = accounting._get_cl_validators_balance(bs)
 
     assert balance == sum(val.balance for val in validators)
+
+
+@pytest.mark.unit
+def test_get_cl_validators_balance_epbs_active(accounting: Accounting):
+    bs = ReferenceBlockStampFactory.build()
+    lido_validators = LidoValidatorFactory.batch(3)
+    accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=lido_validators)
+    # ePBS active: EPBS_FORK_EPOCH <= ref_epoch
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=bs.ref_epoch))
+
+    lido_indices = {v.index for v in lido_validators}
+    non_lido_index = ValidatorIndex(max(lido_indices) + 1)
+    state = Mock()
+    state.payload_expected_withdrawals = [
+        ExpectedWithdrawal(validator_index=ValidatorIndex(lido_validators[0].index), amount=Gwei(500)),
+        ExpectedWithdrawal(validator_index=ValidatorIndex(lido_validators[1].index), amount=Gwei(300)),
+        ExpectedWithdrawal(validator_index=non_lido_index, amount=Gwei(9999)),
+    ]
+    accounting.w3.cc.get_state_view = Mock(return_value=state)
+
+    balance = accounting._get_cl_validators_balance(bs)
+
+    raw = sum(v.balance for v in lido_validators)
+    assert balance == raw + 500 + 300
 
 
 @pytest.mark.unit

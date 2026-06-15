@@ -7,7 +7,7 @@ ARG SOURCE_DATE_EPOCH
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     libffi-dev=3.4.8-2 \
     g++=4:14.2.0-1 \
-    curl=8.14.1-2+deb13u2 \
+    curl=8.14.1-2+deb13u3 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /var/cache/* \

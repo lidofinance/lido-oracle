@@ -4,7 +4,7 @@ import pytest
 from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
-from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.consensus.types import ExpectedWithdrawal, Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import EpochNumber, Gwei, ValidatorIndex
@@ -370,7 +370,7 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case.w3.lido_contracts = Mock()
     abnormal_case.w3.cc.get_validators_no_cache = Mock()
     # Pre-ePBS by default
-    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=2**64 - 1))
+    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
 
     monkeypatch.setattr(
         LidoValidatorsProvider,
@@ -438,11 +438,55 @@ def test_get_lido_validators_balance_with_vault_post_electra(
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     abnormal_case.w3.cc.get_config_spec = Mock(
-        return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch, EPBS_FORK_EPOCH=2**64 - 1)
+        return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch, EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH)
     )
     result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
 
     assert result == expected_result
+
+
+@pytest.mark.unit
+def test_get_lido_validators_balance_with_vault_epbs_active_ref_blockstamp(
+    abnormal_case,
+    mock_get_withdrawal_vault_balance,
+):
+    blockstamp = simple_ref_blockstamp(40)
+    lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
+    lido_indices = {v.index for v in lido_validators}
+    non_lido_index = ValidatorIndex(max(lido_indices) + 1)
+
+    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=blockstamp.ref_epoch))
+    state = Mock()
+    state.payload_expected_withdrawals = [
+        ExpectedWithdrawal(validator_index=ValidatorIndex(lido_validators[0].index), amount=Gwei(1_000_000)),
+        ExpectedWithdrawal(validator_index=ValidatorIndex(lido_validators[1].index), amount=Gwei(2_000_000)),
+        ExpectedWithdrawal(validator_index=non_lido_index, amount=Gwei(9_000_000)),
+    ]
+    abnormal_case.w3.cc.get_state_view = Mock(return_value=state)
+
+    # 98001157445 is the pre-ePBS result for blockstamp(40); correction adds only the two Lido withdrawals
+    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+
+    assert result == 98001157445 + 1_000_000 + 2_000_000
+
+
+@pytest.mark.unit
+def test_get_lido_validators_balance_with_vault_epbs_active_non_ref_blockstamp(
+    abnormal_case,
+    mock_get_withdrawal_vault_balance,
+):
+    blockstamp = simple_blockstamp(40)
+    lido_validators = abnormal_case.w3.cc.get_validators(simple_ref_blockstamp(40))[3:6]
+
+    abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=EpochNumber(0)))
+    get_state_view = Mock()
+    abnormal_case.w3.cc.get_state_view = get_state_view
+
+    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+
+    # get_state_view must not be called for a plain BlockStamp (no correction)
+    get_state_view.assert_not_called()
+    assert result == 98001157445
 
 
 @pytest.mark.unit
