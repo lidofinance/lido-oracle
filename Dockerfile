@@ -51,6 +51,9 @@ RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     git=1:2.47.3-0+deb13u1 \
     htop=3.4.1-5 \
+    # curl is only used here in development. The Debian repo updates it
+    # often, so a pinned version can disappear and break the build. The
+    # development stage does not run in pipelines, so this is safe here.
     curl=8.14.1-2+deb13u3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
