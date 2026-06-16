@@ -371,11 +371,9 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
 
 @pytest.mark.unit
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
-    consensus.w3.cc.get_block_root = Mock(return_value=Mock(root=""))
-    consensus.w3.cc.get_block_details = Mock()
     bs = ReferenceBlockStampFactory.build()
     with monkeypatch.context() as m:
-        m.setattr(consensus_module, "build_blockstamp", Mock(return_value=bs))
+        m.setattr(consensus_module, "get_blockstamp_by_state", Mock(return_value=bs))
         chain_config = cast(ChainConfig, ChainConfigFactory.build())
         consensus.get_chain_config = Mock(return_value=chain_config)
         bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())
