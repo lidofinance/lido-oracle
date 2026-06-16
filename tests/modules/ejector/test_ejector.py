@@ -21,6 +21,7 @@ from src.providers.consensus.types import (
     BeaconStateView,
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
 from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import (
@@ -107,6 +108,20 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
         "execute_module should wait for the next slot"
     )
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
+    ejector.process_report.assert_called_once_with(blockstamp)
+
+
+@pytest.mark.unit
+def test_execute_module__weights_not_updated__returns_next_finalized_epoch(
+    ejector: Ejector, blockstamp: BlockStamp
+) -> None:
+    ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
+    ejector._check_compatibility = Mock(return_value=True)
+    ejector.process_report = Mock(side_effect=WeightsNotUpdatedError("Fake exception"))
+
+    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+
+    assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, "execute_module should wait for the next finalized epoch"
     ejector.process_report.assert_called_once_with(blockstamp)
 
 
