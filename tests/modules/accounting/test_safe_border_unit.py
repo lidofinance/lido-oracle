@@ -114,7 +114,7 @@ def test_get_negative_rebase_border_epoch_bunker_not_started_yet(safe_border, pa
 def test_get_negative_rebase_border_epoch_max(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     max_negative_rebase_shift = (
-        safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift()
+        safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift('latest')
     )
     test_epoch = ref_epoch - max_negative_rebase_shift - 1
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=test_epoch * SLOTS_PER_EPOCH * SLOT_TIME)

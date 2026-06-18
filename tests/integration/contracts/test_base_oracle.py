@@ -10,7 +10,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 @pytest.mark.integration
 def test_base_oracle_via_vebo(validators_exit_bus_oracle_contract, caplog):
     """Tests BaseOracleContract methods via ValidatorsExitBusOracle (mainnet)."""
-    role = validators_exit_bus_oracle_contract.submit_data_role()
+    role = validators_exit_bus_oracle_contract.submit_data_role('latest')
     assert isinstance(role, bytes) and len(role) == 32
     caplog.clear()
 

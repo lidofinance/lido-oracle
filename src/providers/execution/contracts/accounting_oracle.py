@@ -16,7 +16,7 @@ class AccountingOracleContract(BaseOracleContract):
     abi_path = './assets/AccountingOracle.json'
 
     @lru_cache(maxsize=1)
-    def get_processing_state(self, block_identifier: BlockIdentifier = 'latest') -> AccountingProcessingState:
+    def get_processing_state(self, block_identifier: BlockIdentifier) -> AccountingProcessingState:
         """
         Returns data processing state for the current reporting frame.
         """

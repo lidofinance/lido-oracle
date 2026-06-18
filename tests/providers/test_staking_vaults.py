@@ -26,13 +26,15 @@ class TestStakingVaultsContractsSmoke:
         assert len(events) == 0
 
     def test_vault_lazy_oracle_get_report(self, web3_integration):
-        report = web3_integration.lido_contracts.lazy_oracle.get_latest_report_data()
+        report = web3_integration.lido_contracts.lazy_oracle.get_latest_report_data('latest')
         assert report is not None
 
     def test_get_vaults(self, web3_integration):
-        vaults = web3_integration.lido_contracts.lazy_oracle.get_all_vaults()
+        vaults = web3_integration.lido_contracts.lazy_oracle.get_all_vaults('latest')
         assert len(vaults) != 0
 
     def test_get_slashing_reserve(self, web3_integration):
-        slashing_reserve = web3_integration.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift()
+        slashing_reserve = web3_integration.lido_contracts.oracle_daemon_config.slashing_reserve_we_right_shift(
+            'latest'
+        )
         assert slashing_reserve != 0

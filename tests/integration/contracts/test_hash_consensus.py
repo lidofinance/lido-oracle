@@ -9,7 +9,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 @pytest.mark.mainnet
 @pytest.mark.integration
 def test_hash_consensus_contract(hash_consensus_contract, caplog):
-    members, _ = hash_consensus_contract.get_members()
+    members, _ = hash_consensus_contract.get_members('latest')
     assert members, "Expected at least one committee member on mainnet"
     member_address = members[0]
     caplog.clear()

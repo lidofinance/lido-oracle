@@ -19,7 +19,7 @@ def skip_locator(web3):
 
 @pytest.fixture()
 def skip_csm(web3_cs_module):
-    contract_version = web3_cs_module.staking_module.oracle.get_contract_version()
+    contract_version = web3_cs_module.staking_module.oracle.get_contract_version('latest')
     if contract_version != CSPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
         pytest.skip(
             f'Staking module contract version {contract_version} is not compatible with CSM '
@@ -29,7 +29,7 @@ def skip_csm(web3_cs_module):
 
 @pytest.fixture()
 def skip_cm(web3_curated_module):
-    contract_version = web3_curated_module.staking_module.oracle.get_contract_version()
+    contract_version = web3_curated_module.staking_module.oracle.get_contract_version('latest')
     if contract_version != CMPerformanceOracle.COMPATIBLE_CONTRACT_VERSION:
         pytest.skip(
             f'Staking module contract version {contract_version} is not compatible with Curated Module '

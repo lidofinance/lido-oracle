@@ -141,6 +141,14 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
     result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
 
     assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
+    # Compatibility check reads versions both at the report block and at the chain head
+    vebo = ejector.w3.lido_contracts.validators_exit_bus_oracle
+    vebo.get_contract_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_contract_version.assert_any_call('latest')
+    vebo.get_consensus_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_consensus_version.assert_any_call('latest')
+    # Pause state is intentionally checked at the chain head
+    vebo.is_paused.assert_called_once_with('latest')
 
 
 @pytest.mark.unit
@@ -490,6 +498,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert processing_state.current_frame_ref_slot == 100
     assert processing_state.processing_deadline_time == 200
     assert processing_state.data_submitted is False
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -500,6 +509,7 @@ def test_ejector_get_processing_state(ejector: Ejector):
     result = ejector._get_processing_state(bs)
 
     assert accounting_processing_state == result
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -577,6 +587,10 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     # 2.5 frames → 25 // 10 = 2 frames
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
 
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
+
 
 @pytest.mark.unit
 def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
@@ -595,6 +609,10 @@ def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
     # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
     assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
+
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
 
 
 class ForcedIterator:

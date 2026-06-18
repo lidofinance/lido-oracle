@@ -480,7 +480,7 @@ def test_get_shares_to_burn(
     assert out == shares_data.cover_shares + shares_data.non_cover_shares, (
         "get_shares_to_burn returned unexpected value"
     )
-    call_mock.assert_called_once()
+    call_mock.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -629,6 +629,7 @@ def test_accounting_get_processing_state_no_yet_init_epoch(accounting: Accountin
     assert processing_state.processing_deadline_time == 200
     assert processing_state.main_data_submitted is False
     assert processing_state.main_data_hash == ZERO_HASH
+    accounting.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -639,6 +640,7 @@ def test_accounting_get_processing_state(accounting: Accounting):
     result = accounting._get_processing_state(bs)
 
     assert accounting_processing_state == result
+    accounting.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 # ---- refresh_contracts / is_contracts_addresses_changed ----
@@ -823,6 +825,9 @@ def test_get_extra_data(accounting: Accounting, ref_bs: ReferenceBlockStamp):
 
     assert result is expected_result
     mock_collect.assert_called_once_with(exited_validators, 10, 20)
+    accounting.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits.assert_called_once_with(
+        ref_bs.block_hash
+    )
 
 
 # ---- _handle_vaults_report ----
