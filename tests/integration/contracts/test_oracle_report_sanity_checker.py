@@ -11,7 +11,7 @@ def test_oracle_report_sanity_checker(oracle_report_sanity_checker_contract, cap
     check_contract(
         oracle_report_sanity_checker_contract,
         [
-            ('get_oracle_report_limits', None, make_checker(OracleReportLimits)),
+            ('get_oracle_report_limits', ('latest',), make_checker(OracleReportLimits)),
         ],
         caplog,
     )

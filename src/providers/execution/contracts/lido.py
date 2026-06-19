@@ -15,7 +15,7 @@ class LidoContract(ContractInterface):
     abi_path = './assets/Lido.json'
 
     @lru_cache(maxsize=1)
-    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier) -> Wei:
         """
         Return the amount of ETH reserved to satisfy withdrawals, in wei.
         """
@@ -32,7 +32,7 @@ class LidoContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def total_supply(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def total_supply(self, block_identifier: BlockIdentifier) -> Wei:
         """
         return the amount of tokens in existence.
 
@@ -52,7 +52,7 @@ class LidoContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def get_beacon_stat(self, block_identifier: BlockIdentifier = 'latest') -> BeaconStat:
+    def get_beacon_stat(self, block_identifier: BlockIdentifier) -> BeaconStat:
         """
         Returns the key values related to Consensus Layer side of the contract. It historically contains beacon
 

@@ -1116,6 +1116,7 @@ def test_is_main_data_submitted(module: CSPerformanceOracle, last_ref_slot: int,
     )
 
     assert module.is_main_data_submitted(blockstamp) is expected
+    module.w3.staking_module.get_last_processing_ref_slot.assert_called_once_with(blockstamp)
 
 
 @pytest.mark.parametrize("submitted", [True, False])

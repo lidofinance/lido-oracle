@@ -168,27 +168,27 @@ def test_staking_module_module_report(
     frame_index_as_processed,
     account_from,
 ):
-    current_contract_version = module.report_contract.get_contract_version()
+    current_contract_version = module.report_contract.get_contract_version('latest')
     if current_contract_version != module.COMPATIBLE_CONTRACT_VERSION:
         pytest.skip(
             f"Contract version {current_contract_version} does not match expected {module.COMPATIBLE_CONTRACT_VERSION}"
         )
 
-    current_consensus_version = module.report_contract.get_consensus_version()
+    current_consensus_version = module.report_contract.get_consensus_version('latest')
     if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
         pytest.skip(
             f"Consensus version {current_consensus_version} does not match expected "
             f"{module.COMPATIBLE_CONSENSUS_VERSION}"
         )
 
-    assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
+    assert module.report_contract.get_last_processing_ref_slot('latest') == 0, "Last processing ref slot should be 0"
     if frame_index_as_processed is not None:
         process_frame_index(frame_index_as_processed)
 
     members = set_oracle_members(count=2)
 
     report_frame = None
-    to_distribute_before_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
+    to_distribute_before_report = module.w3.staking_module.fee_distributor.shares_to_distribute('latest')
 
     switch_finalized, _ = running_finalized_slots
     # pylint:disable=duplicate-code
@@ -202,7 +202,7 @@ def test_staking_module_module_report(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
 
-    last_processing_after_report = module.w3.staking_module.oracle.get_last_processing_ref_slot()
+    last_processing_after_report = module.w3.staking_module.oracle.get_last_processing_ref_slot('latest')
     assert last_processing_after_report == report_frame.ref_slot, (
         "Last processing ref slot should equal to initial ref slot"
     )
@@ -212,7 +212,7 @@ def test_staking_module_module_report(
     if to_distribute_before_report == 0:
         return
 
-    to_distribute_after_report = module.w3.staking_module.fee_distributor.shares_to_distribute()
+    to_distribute_after_report = module.w3.staking_module.fee_distributor.shares_to_distribute('latest')
     assert to_distribute_after_report < to_distribute_before_report, "Shares to distribute should decrease"
 
     nos_count = int(module.w3.staking_module.module.functions.getNodeOperatorsCount().call())
