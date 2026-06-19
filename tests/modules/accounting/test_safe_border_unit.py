@@ -316,6 +316,10 @@ def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     epoch = slot // safe_border.chain_config.slots_per_epoch
 
     assert safe_border._get_last_finalized_withdrawal_request_epoch() == epoch
+    safe_border.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status.assert_called_once_with(
+        3,
+        safe_border.blockstamp.block_hash,
+    )
 
 
 @pytest.mark.unit
