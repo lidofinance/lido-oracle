@@ -19,6 +19,9 @@ from src.utils.validator_state import (
 from src.utils.web3converter import epoch_from_slot
 
 
+USUAL_BUILDER_WITHDRAWALS = 1  # The usual number of builder withdrawals per block, used for sweep delay estimation.
+
+
 @dataclass
 class Withdrawal:
     validator_index: int
@@ -41,7 +44,9 @@ def get_sweep_delay_in_epochs(
     # Under Glamsterdam (EIP-7732), one slot per payload is reserved for builder withdrawals.
     # We assume exactly 1 builder withdrawal per block in the general case rather than reading
     # the live builder_pending_withdrawals queue, which can fluctuate and be influenced externally.
-    available_per_payload = MAX_WITHDRAWALS_PER_PAYLOAD - 1 if is_gloas_active else MAX_WITHDRAWALS_PER_PAYLOAD
+    available_per_payload = (
+        MAX_WITHDRAWALS_PER_PAYLOAD - USUAL_BUILDER_WITHDRAWALS if is_gloas_active else MAX_WITHDRAWALS_PER_PAYLOAD
+    )
     full_sweep_cycle_in_epochs = math.ceil(
         withdrawals_number_in_sweep_cycle / available_per_payload / spec.slots_per_epoch
     )
