@@ -251,20 +251,6 @@ class PendingConsolidation(Nested):
 
 
 @dataclass
-class Builder(Nested, FromResponse):
-    balance: Gwei
-    withdrawable_epoch: EpochNumber
-    execution_address: HexStr
-
-
-@dataclass
-class BuilderPendingWithdrawal(Nested, FromResponse):
-    builder_index: int
-    amount: Gwei
-    fee_recipient: HexStr
-
-
-@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
