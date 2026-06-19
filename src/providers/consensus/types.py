@@ -29,6 +29,8 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    # EIP-7732 (Glamsterdam): exact constant name to be confirmed against final spec
+    EPBS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -280,11 +282,6 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
-
-    # These fields are new in Gloas (EIP-7732), default values for backward compatibility.
-    builders: list[Builder] = field(default_factory=list)
-    next_withdrawal_builder_index: int = 0
-    builder_pending_withdrawals: list[BuilderPendingWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
