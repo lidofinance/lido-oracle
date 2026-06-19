@@ -1296,24 +1296,6 @@ cython = ["cython (>=0.29)"]
 test = ["pytest"]
 
 [[package]]
-name = "dag-cbor"
-version = "0.3.3"
-description = "Python implementation of the DAG-CBOR codec."
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
-files = [
-    {file = "dag-cbor-0.3.3.tar.gz", hash = "sha256:d8d1e7c7a022af758932e5343b7a2c9d7afa1cc64860246cae22f90cab1c9d8a"},
-    {file = "dag_cbor-0.3.3-py3-none-any.whl", hash = "sha256:e0d1c45427ed1fa21bbd103163d4b250f4ce9066337d6ffb976da1fac3a67454"},
-]
-
-[package.dependencies]
-multiformats = ">=0.3.1"
-typing-extensions = ">=4.6.0"
-typing-validation = ">=1.1.0"
-
-[[package]]
 name = "decorator"
 version = "5.2.1"
 description = "Decorators for Humans"
@@ -4200,26 +4182,26 @@ files = [
 
 [[package]]
 name = "requests"
-version = "2.32.5"
+version = "2.34.2"
 description = "Python HTTP for Humans."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main", "dev"]
 markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
 files = [
-    {file = "requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6"},
-    {file = "requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf"},
+    {file = "requests-2.34.2-py3-none-any.whl", hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"},
+    {file = "requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed"},
 ]
 
 [package.dependencies]
-certifi = ">=2017.4.17"
+certifi = ">=2023.5.7"
 charset_normalizer = ">=2,<4"
 idna = ">=2.5,<4"
-urllib3 = ">=1.21.1,<3"
+urllib3 = ">=1.26,<3"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
+use-chardet-on-py3 = ["chardet (>=3.0.2,<8)"]
 
 [[package]]
 name = "responses"
@@ -5177,4 +5159,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<3.15"
-content-hash = "9af87f806b2e91a9b4efab9d9f43193689d262be553fc49c9e4db12dbe1e4c6a"
+content-hash = "ac4cc466f53e808e2a14127e79d95a1091e3a2aedb71ee30bdc1d61c0679570c"

@@ -123,6 +123,22 @@ class WithdrawalQueueNftContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
+    def max_steth_withdrawal_amount(self, block_identifier: BlockIdentifier) -> Wei:
+        """
+        Returns the max amount of stETH that can be requested per single withdrawal request.
+        """
+        response = self.functions.MAX_STETH_WITHDRAWAL_AMOUNT().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `MAX_STETH_WITHDRAWAL_AMOUNT()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return Wei(response)
+
+    @lru_cache(maxsize=1)
     def max_batches_length(self, block_identifier: BlockIdentifier = 'latest') -> int:
         """
         maximal length of the batch array provided for prefinalization.

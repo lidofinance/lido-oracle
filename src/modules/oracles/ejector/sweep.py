@@ -55,7 +55,7 @@ def predict_withdrawals_number_in_sweep_cycle(
 ) -> int:
     """
     This method predicts the number of withdrawals that can be performed in a single sweep cycle.
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
 
     The prediction is based on the following assumptions:
     - All pending_partial_withdrawals have reached withdrawable_epoch and do not have any processing delays;
@@ -83,7 +83,7 @@ def predict_withdrawals_number_in_sweep_cycle(
 
     # Each payload can have no more than MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
     # pending partials out of MAX_WITHDRAWALS_PER_PAYLOAD
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     #
     #
     # No partials:   [0 1 2 3], [4 5 6 7], [8 9 0 1], ...
@@ -121,7 +121,7 @@ def predict_withdrawals_number_in_sweep_cycle(
 def get_pending_partial_withdrawals(state: BeaconStateView) -> list[Withdrawal]:
     """
     This method returns withdrawals that can be performed from `state.pending_partial_withdrawals`
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     """
     withdrawals: list[Withdrawal] = []
 
@@ -153,7 +153,7 @@ def get_validators_withdrawals(
 ) -> list[Withdrawal]:
     """
     This method returns fully and partial withdrawals that can be performed for validators
-    https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
+    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
     """
     epoch = epoch_from_slot(state.slot, slots_per_epoch)
     withdrawals = []

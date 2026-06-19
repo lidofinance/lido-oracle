@@ -129,7 +129,7 @@ class SafeBorder(Web3Converter):
         validators_slashed = filter_slashed_validators(validators)
 
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
-        # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
+        # See more here https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
         validators_slashed_non_withdrawable = filter_non_withdrawable_validators(
             validators_slashed, self.blockstamp.ref_epoch

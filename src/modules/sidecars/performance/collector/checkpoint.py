@@ -232,7 +232,7 @@ class FrameCheckpointProcessor:
         block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber, root_slot: SlotNumber
     ) -> BlockRoot | None:
         # From spec
-        # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_block_root_at_slot
+        # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_block_root_at_slot
         if not root_slot < checkpoint_slot <= root_slot + SLOTS_PER_HISTORICAL_ROOT:
             raise SlotOutOfRootsRange("Slot is out of the state block roots range")
         return block_roots[root_slot % SLOTS_PER_HISTORICAL_ROOT]
@@ -427,7 +427,7 @@ class FrameCheckpointProcessor:
 
 
 def process_sync(sync_aggregate: SyncAggregate, sync_duties: list[SyncDuty]) -> list[SyncDuty]:
-    # Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#syncaggregate
+    # Spec: https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#syncaggregate
     sync_bits = hex_bitvector_to_list(sync_aggregate.sync_committee_bits)
     # No need to process set bits because they mean that validator has participated successfully.
     for index_in_committee in get_unset_indices(sync_bits):

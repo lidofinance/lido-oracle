@@ -76,29 +76,81 @@ def test_get_epochs_data(client: PerformanceClient):
     raw = [
         {
             "epoch": 100,
-            "attestations": [],
-            "proposals_vids": [],
-            "proposals_flags": [],
-            "syncs_vids": [],
-            "syncs_misses": [],
+            "missed_attestation_vids": [101, 203],
+            "proposals_vids": [101, 305],
+            "proposals_flags": [True, False],
+            "syncs_vids": [101, 203, 305],
+            "syncs_misses": [0, 2, 1],
         },
         {
             "epoch": 101,
-            "attestations": [],
+            "missed_attestation_vids": [],
+            "proposals_vids": [203],
+            "proposals_flags": [True],
+            "syncs_vids": [101, 407],
+            "syncs_misses": [3, 0],
+        },
+        {
+            "epoch": 102,
+            "missed_attestation_vids": [407],
             "proposals_vids": [],
             "proposals_flags": [],
+            "syncs_vids": [203, 305, 407],
+            "syncs_misses": [0, 0, 5],
+        },
+        {
+            "epoch": 103,
+            "missed_attestation_vids": [101, 407],
+            "proposals_vids": [407, 101],
+            "proposals_flags": [False, True],
             "syncs_vids": [],
             "syncs_misses": [],
         },
     ]
     client._get = Mock(return_value=(raw, {}))
 
-    result = client.get_epochs_data(EpochNumber(100), EpochNumber(101))
+    result = list(client.get_epochs_data(EpochNumber(100), EpochNumber(103)))
+    returned_epochs = [EpochNumber(epoch_data.epoch) for epoch_data in result]
 
-    assert result == [Duty(epoch=100), Duty(epoch=101)]
+    assert result == [
+        Duty(
+            epoch=100,
+            missed_attestation_vids=[101, 203],
+            proposals_vids=[101, 305],
+            proposals_flags=[True, False],
+            syncs_vids=[101, 203, 305],
+            syncs_misses=[0, 2, 1],
+        ),
+        Duty(
+            epoch=101,
+            missed_attestation_vids=[],
+            proposals_vids=[203],
+            proposals_flags=[True],
+            syncs_vids=[101, 407],
+            syncs_misses=[3, 0],
+        ),
+        Duty(
+            epoch=102,
+            missed_attestation_vids=[407],
+            proposals_vids=[],
+            proposals_flags=[],
+            syncs_vids=[203, 305, 407],
+            syncs_misses=[0, 0, 5],
+        ),
+        Duty(
+            epoch=103,
+            missed_attestation_vids=[101, 407],
+            proposals_vids=[407, 101],
+            proposals_flags=[False, True],
+            syncs_vids=[],
+            syncs_misses=[],
+        ),
+    ]
+
+    assert returned_epochs == list(range(100, 104))
     client._get.assert_called_once_with(
         "v1/epochs",
-        query_params={"from": 100, "to": 101},
+        query_params={"from": 100, "to": 103},
         validate_response=data_is_list,
     )
 

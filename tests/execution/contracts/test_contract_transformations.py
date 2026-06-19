@@ -896,8 +896,9 @@ class TestMetaRegistryContractPassThroughs:
         contract = _mock_contract()
         SubOpTuple = namedtuple("SubNodeOperator", ["node_operator_id", "share"])
         ExtOpTuple = namedtuple("ExternalOperator", ["data"])
-        GroupTuple = namedtuple("OperatorGroup", ["sub_node_operators", "external_operators"])
+        GroupTuple = namedtuple("OperatorGroup", ["name", "sub_node_operators", "external_operators"])
         raw = GroupTuple(
+            name='test',
             sub_node_operators=[SubOpTuple(node_operator_id=1, share=100)],
             external_operators=[ExtOpTuple(data=bytes(10))],
         )
@@ -1129,11 +1130,11 @@ class TestHashConsensusContract:
 
     def test_get_frame_config(self):
         contract = _mock_contract()
-        contract.functions.getFrameConfig.return_value.call.return_value = _FrameConfigTuple(1, 75, 0)
+        contract.functions.getFrameConfig.return_value.call.return_value = _FrameConfigTuple(1, 45, 0)
         result = HashConsensusContract.get_frame_config(contract, block_identifier="latest")
         assert isinstance(result, FrameConfig)
         assert result.initial_epoch == 1
-        assert result.epochs_per_frame == 75
+        assert result.epochs_per_frame == 45
 
     def test_get_consensus_state_for_member(self):
         contract = _mock_contract()

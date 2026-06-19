@@ -3,7 +3,6 @@ import signal
 import time
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
-from dataclasses import asdict
 
 from timeout_decorator import timeout
 
@@ -12,14 +11,12 @@ from src.metrics.healthcheck_server import pulse
 from src.metrics.prometheus.basic import (
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
-    ORACLE_BLOCK_NUMBER,
-    ORACLE_SLOT_NUMBER,
     CycleResult,
 )
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
-from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.types import BlockStamp, SlotNumber
+from src.utils.blockstamp import get_blockstamp_by_state
 
 
 logger = logging.getLogger(__name__)
@@ -94,13 +91,7 @@ class DaemonModule(ABC):
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         """Gets last finalized BlockStamp"""
-        block_root = BlockRoot(self.cc.get_block_root('finalized').root)
-        block_details = self.cc.get_block_details(block_root)
-        bs = build_blockstamp(block_details)
-        logger.info({'msg': 'Fetch last finalized BlockStamp.', 'value': asdict(bs)})
-        ORACLE_SLOT_NUMBER.labels('finalized').set(bs.slot_number)
-        ORACLE_BLOCK_NUMBER.labels('finalized').set(bs.block_number)
-        return bs
+        return get_blockstamp_by_state(self.cc, 'finalized')
 
     def run_cycle(self, last_finalized_blockstamp: BlockStamp):
         """Base logic for daemon module cycle execution"""

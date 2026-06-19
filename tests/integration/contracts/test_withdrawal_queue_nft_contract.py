@@ -16,6 +16,7 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
             ('get_withdrawal_status', (1,), make_checker(WithdrawalRequestStatus)),
             ('get_last_request_id', None, make_checker(int)),
             ('is_paused', None, make_checker(bool)),
+            ('max_steth_withdrawal_amount', ('latest',), make_checker(int)),
             ('max_batches_length', None, make_checker(int)),
             (
                 'calculate_finalization_batches',
