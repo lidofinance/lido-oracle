@@ -15,7 +15,7 @@ def test_burner(burner_contract, caplog):
         [
             (
                 'get_shares_requested_to_burn',
-                None,
+                ('latest',),
                 check_shares,
             ),
         ],

@@ -9,7 +9,7 @@ def test_cs_fee_oracle(cs_fee_oracle_contract, caplog):
     check_contract(
         cs_fee_oracle_contract,
         [
-            ("is_paused", None, make_checker(bool)),
+            ("is_paused", ('latest',), make_checker(bool)),
         ],
         caplog,
     )
@@ -20,7 +20,7 @@ def test_cs_fee_oracle_v2(cs_fee_oracle_contract, caplog):
     check_contract(
         cs_fee_oracle_contract,
         [
-            ("strikes", None, make_checker(ChecksumAddress)),
+            ("strikes", ('latest',), make_checker(ChecksumAddress)),
         ],
         caplog,
     )
