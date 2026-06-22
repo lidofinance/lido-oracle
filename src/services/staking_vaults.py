@@ -67,7 +67,7 @@ class StakingVaultsService:
     def __init__(self, w3: Web3) -> None:
         self.w3 = w3
 
-    def get_vaults(self, block_identifier: BlockIdentifier = 'latest') -> VaultsMap:
+    def get_vaults(self, block_identifier: BlockIdentifier) -> VaultsMap:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
         return VaultsMap({v.vault: v for v in vaults})
 
@@ -76,8 +76,8 @@ class StakingVaultsService:
         vaults: VaultsMap,
         validators: list[Validator],
         pending_deposits: list[PendingDeposit],
-        block_identifier: BlockIdentifier = 'latest',
         epbs_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
+        block_identifier: BlockIdentifier,
     ) -> VaultTotalValueMap:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.

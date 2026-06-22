@@ -10,13 +10,14 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
     check_contract(
         withdrawal_queue_nft_contract,
         [
-            ('unfinalized_steth', None, make_checker(int)),
-            ('bunker_mode_since_timestamp', None, make_checker(int)),
-            ('get_last_finalized_request_id', None, make_checker(int)),
-            ('get_withdrawal_status', (1,), make_checker(WithdrawalRequestStatus)),
-            ('get_last_request_id', None, make_checker(int)),
-            ('is_paused', None, make_checker(bool)),
-            ('max_batches_length', None, make_checker(int)),
+            ('unfinalized_steth', ('latest',), make_checker(int)),
+            ('bunker_mode_since_timestamp', ('latest',), make_checker(int)),
+            ('get_last_finalized_request_id', ('latest',), make_checker(int)),
+            ('get_withdrawal_status', (1, 'latest'), make_checker(WithdrawalRequestStatus)),
+            ('get_last_request_id', ('latest',), make_checker(int)),
+            ('is_paused', ('latest',), make_checker(bool)),
+            ('max_steth_withdrawal_amount', ('latest',), make_checker(int)),
+            ('max_batches_length', ('latest',), make_checker(int)),
             (
                 'calculate_finalization_batches',
                 (

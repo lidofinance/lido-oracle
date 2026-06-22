@@ -25,13 +25,17 @@ from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
-from src.services.exit_order_iterator import ValidatorExitIterator
+from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import get_predictable_balance, get_predictable_full_balance, get_predictable_sweep
+from src.utils.validator_balance import (
+    get_predictable_full_inbound_balance,
+    get_predictable_inbound_balance,
+    get_predictable_inbound_sweep,
+)
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
@@ -124,7 +128,13 @@ class Ejector(OracleModule[Web3]):
         if not report_blockstamp or not self._check_compatibility(report_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
-        self.process_report(report_blockstamp)
+        try:
+            self.process_report(report_blockstamp)
+        except WeightsNotUpdatedError as error:
+            logger.error(
+                {'msg': 'Weights are not updated. Skipping report until next finalized epoch.', 'error': str(error)}
+            )
+            return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
         return ModuleExecuteDelay.NEXT_SLOT
 
     @lru_cache(maxsize=1)
@@ -178,7 +188,7 @@ class Ejector(OracleModule[Web3]):
             for gid, next_validator in validators_iterator:
                 validators_to_eject.append((gid, next_validator))
 
-                val_balance = get_predictable_balance(next_validator)
+                val_balance = get_predictable_inbound_balance(next_validator)
 
                 total_balance_to_eject_gwei += val_balance
 
@@ -225,7 +235,7 @@ class Ejector(OracleModule[Web3]):
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
-                    get_predictable_full_balance,
+                    get_predictable_full_inbound_balance,
                     validators_going_to_exit,
                 ),
                 Gwei(0),
@@ -269,9 +279,9 @@ class Ejector(OracleModule[Web3]):
                 continue
 
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
-                result += get_predictable_full_balance(v)
+                result += get_predictable_full_inbound_balance(v)
             else:
-                result += get_predictable_sweep(v)
+                result += get_predictable_inbound_sweep(v)
 
         return gwei_to_wei(result)
 
@@ -303,7 +313,7 @@ class Ejector(OracleModule[Web3]):
         blockstamp: ReferenceBlockStamp,
     ) -> EpochNumber:
         """
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
+        https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
         per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
@@ -328,7 +338,7 @@ class Ejector(OracleModule[Web3]):
         state = self.w3.cc.get_state_view(blockstamp)
         return get_sweep_delay_in_epochs(state, chain_config)
 
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#get_total_active_balance
+    # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         active_validators = self._get_active_validators(blockstamp)
         return max(
@@ -343,7 +353,14 @@ class Ejector(OracleModule[Web3]):
         """
         Calculates the amount of ETH locked for depositing for a given epoches_number.
         """
-        reserve_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
+        deposit_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
+        max_wr_wei = self.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount(blockstamp.block_hash)
+
+        # Withdrawn ETH lands in the Withdrawal Vault or EL rewards vault and only reaches
+        # the buffer after WRs are fulfilled — so it cannot be redirected to deposits unless
+        # the first WR in line exceeds the available buffer. In that worst case, at most `max_wr_wei` per
+        # frame can flow into the buffer for deposits instead of fulfilling withdrawals
+        reserve_per_frame = min(deposit_per_frame, max_wr_wei)
 
         consensus_contract = cast(
             HashConsensusContract,

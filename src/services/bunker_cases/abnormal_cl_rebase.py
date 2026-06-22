@@ -120,23 +120,25 @@ class AbnormalClRebase:
         logger.info({"msg": f"Normal CL rebase: {normal_cl_rebase} Gwei"})
         return Gwei(normal_cl_rebase)
 
-    def _is_negative_specific_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> bool:  
-      """
-      Calculate CL rebase from nearest and distant epochs to ref epoch given the changes in withdrawal vault
-      """                                             
-      logger.info({"msg": "Calculating nearest and distant CL rebase"})
-                                                                                                                                    
-      nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
-                            
-      # dict preserves insertion order and deduplicates by block_number
-      for bs in {nearest_blockstamp.block_number: nearest_blockstamp,
-                 distant_blockstamp.block_number: distant_blockstamp}.values():
-          rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
-          logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
-          if rebase < 0:
-            return True
-                                                                                                                                    
-      return False 
+    def _is_negative_specific_cl_rebase(self, blockstamp: ReferenceBlockStamp) -> bool:
+        """
+        Calculate CL rebase from nearest and distant epochs to ref epoch given the changes in withdrawal vault
+        """
+        logger.info({"msg": "Calculating nearest and distant CL rebase"})
+
+        nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
+
+        # dict preserves insertion order and deduplicates by block_number
+        for bs in {
+            nearest_blockstamp.block_number: nearest_blockstamp,
+            distant_blockstamp.block_number: distant_blockstamp,
+        }.values():
+            rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
+            logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
+            if rebase < 0:
+                return True
+
+        return False
 
     def _get_nearest_and_distant_blockstamps(
         self, ref_blockstamp: ReferenceBlockStamp
@@ -192,7 +194,7 @@ class AbnormalClRebase:
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
-        # Capital injected via deposits: new validators (pre-v4) 
+        # Capital injected via deposits: new validators (pre-v4)
         # or new validators + top-ups (post-v4)
         injected_capital = self._calculate_injected_capital(prev_blockstamp, ref_blockstamp, prev_lido_validators)
 
@@ -297,9 +299,7 @@ class AbnormalClRebase:
         last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
 
         if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
-            return AbnormalClRebase.calculate_validators_count_diff_in_gwei(
-                prev_lido_validators, self.lido_validators
-            )
+            return AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_lido_validators, self.lido_validators)
 
         lido_pubkeys = {key.key for key in self.lido_keys}
         lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
@@ -316,10 +316,12 @@ class AbnormalClRebase:
             genesis_fork_version=genesis_fork_version,
         )
 
-        deposited_in_window = wei_to_gwei(Wei(
-            self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
-            - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
-        ))
+        deposited_in_window = wei_to_gwei(
+            Wei(
+                self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
+                - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
+            )
+        )
 
         current_pending = self._sum_valid_lido_pending(
             blockstamp=ref_blockstamp,
@@ -354,10 +356,10 @@ class AbnormalClRebase:
                 total = Gwei(total + d.amount)
 
         valid = LidoValidatorsProvider._collect_valid_pending_deposits(
-            pending_deposits, 
-            filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys, 
-            lido_wc_list=lido_wc_list, 
-            genesis_fork_version=genesis_fork_version
+            pending_deposits,
+            filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys,
+            lido_wc_list=lido_wc_list,
+            genesis_fork_version=genesis_fork_version,
         )
         for deposits in valid.values():
             total = Gwei(total + sum(d.amount for d in deposits))

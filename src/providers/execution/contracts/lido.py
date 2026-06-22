@@ -15,7 +15,7 @@ class LidoContract(ContractInterface):
     abi_path = './assets/Lido.json'
 
     @lru_cache(maxsize=1)
-    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier) -> Wei:
         """
         Return the amount of ETH reserved to satisfy withdrawals, in wei.
         """
@@ -32,7 +32,7 @@ class LidoContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def total_supply(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def total_supply(self, block_identifier: BlockIdentifier) -> Wei:
         """
         return the amount of tokens in existence.
 
@@ -52,7 +52,7 @@ class LidoContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def get_beacon_stat(self, block_identifier: BlockIdentifier = 'latest') -> BeaconStat:
+    def get_beacon_stat(self, block_identifier: BlockIdentifier) -> BeaconStat:
         """
         Returns the key values related to Consensus Layer side of the contract. It historically contains beacon
 
@@ -86,8 +86,7 @@ class LidoContract(ContractInterface):
         return int(response)
 
     def get_deposited_for_current_report(self, block_identifier: BlockIdentifier) -> Wei:
-        """Lido v4+: ETH deposited by Lido since the last oracle report, in wei.
-        """
+        """Lido v4+: ETH deposited by Lido since the last oracle report, in wei."""
         response = self.functions.getBalanceStats().call(block_identifier=block_identifier)
         logger.info(
             {
@@ -97,7 +96,9 @@ class LidoContract(ContractInterface):
                 'to': self.address,
             }
         )
-        return Wei(response[3]) # https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
+        return Wei(
+            response[3]
+        )  # https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
 
     def get_deposits_reserve_target(self, block_identifier: BlockIdentifier) -> Wei:
         """

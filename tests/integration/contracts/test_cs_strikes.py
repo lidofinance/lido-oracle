@@ -9,8 +9,8 @@ def test_cs_strikes(cs_strikes_contract, caplog):
     check_contract(
         cs_strikes_contract,
         [
-            ("tree_root", None, make_checker(HexBytes)),
-            ("tree_cid", None, make_checker(str)),
+            ("tree_root", ('latest',), make_checker(HexBytes)),
+            ("tree_cid", ('latest',), make_checker(str)),
         ],
         caplog,
     )

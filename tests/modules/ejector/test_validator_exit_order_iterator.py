@@ -11,7 +11,7 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
 )
 from src.modules.common.types import ChainConfig
-from src.providers.execution.contracts.meta_registry import ExternalOperator, OperatorGroup, SubNodeOperator
+from src.providers.execution.contracts.meta_registry import ExternalOperator, SubNodeOperator
 from src.services.exit_order_iterator import (
     InvalidCuratedModuleConfigError,
     NodeOperatorAlreadyGroupedError,
@@ -22,9 +22,10 @@ from src.services.exit_order_iterator import (
     WeightsNotUpdatedError,
 )
 from src.types import Gwei, NodeOperatorId, StakingModuleId
-from src.utils.validator_balance import get_predictable_balance
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.meta_registry import OperatorGroupFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
@@ -429,7 +430,7 @@ class TestProcessGroup:
             (sm_v1.id, no_ext1.id): nos_ext1,
             (sm_v1.id, no_ext2.id): nos_ext2,
         }
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[
                 SubNodeOperator(node_operator_id=no_int1.id, share=50),
                 SubNodeOperator(node_operator_id=no_int2.id, share=50),
@@ -486,7 +487,7 @@ class TestProcessGroup:
         }
 
         # Group has the already-grouped NO in sub_node_operators AND a valid external NO
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
             external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
@@ -497,7 +498,7 @@ class TestProcessGroup:
             iterator._process_group(group, cm_v1, cm_v2)
 
         # Same NO in external and internal
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
             external_operators=[ExternalOperator(data=self._make_ext_data(sm_v2.id, no_int.id))],
         )
@@ -514,7 +515,7 @@ class TestProcessGroup:
         nos_ext = NodeOperatorStats(node_operator=no_ext, module_stats=ms_v1, external_operator_group=Mock())
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
         iterator.node_operators_stats = {(sm_v1.id, no_ext.id): nos_ext}
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[],
             external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
@@ -550,7 +551,7 @@ class TestEjectValidatorTotalStake:
         iterator.total_lido_predictable_balance = initial_stake
         iterator.exitable_validators = {gid: [validator]}
 
-        exit_balance = get_predictable_balance(validator)
+        exit_balance = get_predictable_inbound_balance(validator)
 
         iterator._eject_validator(gid)
 
@@ -777,7 +778,7 @@ class TestProcessGroupExternalNotInCMv1:
         nos_ext = NodeOperatorStats(node_operator=no_ext, module_stats=ms_other)
         iterator.module_stats = {sm_v2.id: StakingModuleStats(staking_module=sm_v2), sm_other.id: ms_other}
         iterator.node_operators_stats = {(sm_other.id, no_ext.id): nos_ext}
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[],
             external_operators=[ExternalOperator(data=self._make_ext_data(sm_other.id, no_ext.id))],
         )
@@ -791,28 +792,28 @@ class TestProcessGroupExternalNotInCMv1:
 @pytest.mark.unit
 class TestOperatorGroupIsFulfilled:
     def test_is_fulfilled__both_non_empty__returns_true(self):
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=NodeOperatorId(1), share=100)],
             external_operators=[ExternalOperator(data=bytes(10))],
         )
         assert group.has_connection() is True
 
     def test_is_fulfilled__empty_sub_operators__returns_false(self):
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[],
             external_operators=[ExternalOperator(data=bytes(10))],
         )
         assert group.has_connection() is False
 
     def test_is_fulfilled__empty_external_operators__returns_false(self):
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=NodeOperatorId(1), share=100)],
             external_operators=[],
         )
         assert group.has_connection() is False
 
     def test_is_fulfilled__both_empty__returns_false(self):
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[],
             external_operators=[],
         )
@@ -938,7 +939,7 @@ class TestDecreaseAffectedStake:
         no_ext1 = make_node_operator(20, sm_v1)
         no_ext2 = make_node_operator(21, sm_v1)
 
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
             external_operators=[
                 ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext1.id)),
@@ -996,7 +997,7 @@ class TestDecreaseAffectedStake:
         no_int1 = make_node_operator(10, sm_v2)
         no_int2 = make_node_operator(11, sm_v2)
 
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[
                 SubNodeOperator(node_operator_id=no_int1.id, share=50),
                 SubNodeOperator(node_operator_id=no_int2.id, share=50),
@@ -1056,7 +1057,7 @@ class TestDecreaseAffectedStake:
 
         no_int = make_node_operator(10, sm_v2)
         # Group with no external operators — not fulfilled
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
             external_operators=[],
         )
@@ -1087,7 +1088,7 @@ class TestDecreaseAffectedStake:
         ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
 
         no_ext = make_node_operator(20, sm_v1)
-        unfulfilled_group = OperatorGroup(sub_node_operators=[], external_operators=[])
+        unfulfilled_group = OperatorGroupFactory.build(sub_node_operators=[], external_operators=[])
 
         nos_ext = NodeOperatorStats(
             node_operator=no_ext,
@@ -1125,7 +1126,7 @@ class TestProcessGroupUnfulfilled:
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: StakingModuleStats(staking_module=sm_v1)}
         iterator.node_operators_stats = {(sm_v2.id, no1.id): nos1}
 
-        group = OperatorGroup(
+        group = OperatorGroupFactory.build(
             sub_node_operators=[SubNodeOperator(node_operator_id=no1.id, share=100)],
             external_operators=[],
         )

@@ -197,7 +197,7 @@ def test_init_basic_metrics__all_labels__metrics_exist(web3):
             assert CYCLE_COUNT.labels(result=result.value) is not None
         assert LAST_CYCLE_TIMESTAMP.labels(result=CycleResult.SUCCESS.value)._value.get() > 0
         assert ACCOUNT_BALANCE.labels(address='0x0000000000000000000000000000000000000001')._value.get() >= 0
-        web3.telemetry_data_bus.update_account_balance_metric.assert_called_once()
+        web3.telemetry_data_bus.update_telemetry_account_balance_metric.assert_called_once()
 
 
 @pytest.mark.unit

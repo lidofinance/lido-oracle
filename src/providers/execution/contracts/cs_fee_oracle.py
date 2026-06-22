@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class CSFeeOracleContract(BaseOracleContract):
     abi_path = "./assets/CSFeeOracle.json"
 
-    def is_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:
+    def is_paused(self, block_identifier: BlockIdentifier) -> bool:
         """Returns whether the contract is paused"""
 
         resp = self.functions.isPaused().call(block_identifier=block_identifier)
@@ -26,7 +26,7 @@ class CSFeeOracleContract(BaseOracleContract):
         )
         return resp
 
-    def strikes(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+    def strikes(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Return the address of the CSStrikes contract"""
 
         resp = self.functions.STRIKES().call(block_identifier=block_identifier)

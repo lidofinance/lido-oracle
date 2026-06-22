@@ -58,14 +58,14 @@ def missed_initial_frame(frame_config: FrameConfig):
 )
 def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from):
     # Skip if consensus version is different
-    current_consensus_version = module.report_contract.get_consensus_version()
+    current_consensus_version = module.report_contract.get_consensus_version('latest')
     if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
         pytest.skip(
             f"Consensus version {current_consensus_version} does not match expected "
             f"{module.COMPATIBLE_CONSENSUS_VERSION}"
         )
 
-    assert module.report_contract.get_last_processing_ref_slot() == 0, "Last processing ref slot should be 0"
+    assert module.report_contract.get_last_processing_ref_slot('latest') == 0, "Last processing ref slot should be 0"
     members = set_oracle_members(count=2)
 
     report_frame = None
@@ -79,7 +79,7 @@ def test_lido_module_report(module, set_oracle_members, running_finalized_slots,
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
         )
 
-    last_processing_after_report = module.report_contract.get_last_processing_ref_slot()
+    last_processing_after_report = module.report_contract.get_last_processing_ref_slot('latest')
     assert last_processing_after_report == report_frame.ref_slot, (
         "Last processing ref slot should equal to report ref slot"
     )

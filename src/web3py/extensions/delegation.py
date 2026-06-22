@@ -82,7 +82,7 @@ class DelegationModule(Module):
             logger.warning({'msg': 'Skipping delegation validation - ACCOUNT is not set'})
             return
 
-        current_delegatee = self.delegation_contract.get_delegatee()
+        current_delegatee = self.delegation_contract.get_delegatee('latest')
         oracle_address = cast(ChecksumAddress, variables.ACCOUNT.address)
 
         if current_delegatee == '0x0000000000000000000000000000000000000000':
@@ -97,7 +97,7 @@ class DelegationModule(Module):
                 f"Admin must call assignDelegate({oracle_address})"
             )
 
-        admin_address = self.delegation_contract.get_admin()
+        admin_address = self.delegation_contract.get_admin('latest')
 
         logger.info(
             {

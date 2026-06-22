@@ -267,7 +267,7 @@ class ExpectedWithdrawal(Nested, FromResponse):
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
-    @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#beaconstate
+    @see https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#beaconstate
     """
 
     slot: SlotNumber

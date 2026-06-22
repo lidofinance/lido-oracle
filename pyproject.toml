@@ -32,7 +32,6 @@ json-stream-rs-tokenizer = {version = "^0.5.0", python = ">=3.14,<3.15"}  # Pyth
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
-dag-cbor="^0.3.3"
 ipld-dag-pb = "^0.0.1"
 fastapi = "^0.121.3"
 uvicorn = "^0.38.0"
@@ -41,6 +40,7 @@ psycopg2-binary = "^2.9.11"
 prometheus-fastapi-instrumentator = "^7.1.0"
 ssz = "^0.5.2"
 py-ecc = "^8.0.0"
+requests = "^2.34.2"
 
 [tool.poetry.group.dev.dependencies]
 faker = "^37.3.0"
@@ -173,10 +173,6 @@ extend-select = [
     # complexity
     "C90",
 ]
-
-# Note: CI is configured to only check changed files in PRs
-# See .github/workflows/tests.yml for implementation
-# Pre-commit hooks will enforce these rules on all staged files
 
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true

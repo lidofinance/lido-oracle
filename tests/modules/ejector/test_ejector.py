@@ -21,8 +21,9 @@ from src.providers.consensus.types import (
     BeaconStateView,
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
+from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_balance
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -111,6 +112,20 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 @pytest.mark.unit
+def test_execute_module__weights_not_updated__returns_next_finalized_epoch(
+    ejector: Ejector, blockstamp: BlockStamp
+) -> None:
+    ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
+    ejector._check_compatibility = Mock(return_value=True)
+    ejector.process_report = Mock(side_effect=WeightsNotUpdatedError("Fake exception"))
+
+    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+
+    assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, "execute_module should wait for the next finalized epoch"
+    ejector.process_report.assert_called_once_with(blockstamp)
+
+
+@pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.report_contract.abi = ExitBusOracleContract.load_abi(ExitBusOracleContract.abi_path)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(
@@ -126,6 +141,14 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
     result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
 
     assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
+    # Compatibility check reads versions both at the report block and at the chain head
+    vebo = ejector.w3.lido_contracts.validators_exit_bus_oracle
+    vebo.get_contract_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_contract_version.assert_any_call('latest')
+    vebo.get_consensus_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_consensus_version.assert_any_call('latest')
+    # Pause state is intentionally checked at the chain head
+    vebo.is_paused.assert_called_once_with('latest')
 
 
 @pytest.mark.unit
@@ -428,22 +451,22 @@ def test_get_withdrawable_lido_validators_balance(
 @pytest.mark.unit
 def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     validator = build_extended_validator_with_balance(Gwei(0))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == 0, "Expected zero"
 
     validator = build_extended_validator_with_balance(Gwei(42))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == 42, "Expected validator's balance in gwei"
 
     validator = build_extended_validator_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
 
     validator = build_extended_validator_with_balance(
         Gwei(MAX_EFFECTIVE_BALANCE + 1),
         meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
     )
-    result = get_predictable_balance(validator)
+    result = get_predictable_inbound_balance(validator)
     assert result == (MAX_EFFECTIVE_BALANCE + 1), "Expect MAX_EFFECTIVE_BALANCE + 1"
 
 
@@ -475,6 +498,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert processing_state.current_frame_ref_slot == 100
     assert processing_state.processing_deadline_time == 200
     assert processing_state.data_submitted is False
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -485,6 +509,7 @@ def test_ejector_get_processing_state(ejector: Ejector):
     result = ejector._get_processing_state(bs)
 
     assert accounting_processing_state == result
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -545,6 +570,9 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     reserve_per_frame = Wei(10 * GWEI_TO_WEI)
     epochs_per_frame = 10
     ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(
+        return_value=Wei(1000 * GWEI_TO_WEI)
+    )
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
     mock_consensus = Mock()
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
@@ -558,6 +586,33 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
     # 2.5 frames → 25 // 10 = 2 frames
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
+
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
+
+
+@pytest.mark.unit
+def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
+) -> None:
+    deposit_per_frame = Wei(100 * GWEI_TO_WEI)
+    max_wr_wei = Wei(30 * GWEI_TO_WEI)
+    epochs_per_frame = 10
+    ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=deposit_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(return_value=max_wr_wei)
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
+    mock_consensus = Mock()
+    mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
+    ejector.w3.eth.contract = Mock(return_value=mock_consensus)
+
+    # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
+
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
 
 
 class ForcedIterator:

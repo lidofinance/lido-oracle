@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [8.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.0.0) - 2026-05
+
+### MaxEB, Delegation, and On-chain Telemetry
+
+### Changed
+- **Accounting**: Added MaxEB (EIP-7251) support — accounting module now handles validators with increased effective balance limits introduced in Pectra. Delegation contract integration added via `DELEGATION_CONTRACT_ADDRESS`, enabling the oracle to account for delegated stake in reports.
+- **Ejector**: Updated exit order iterator to support meta groups and MaxEB validator semantics. Exit queue ordering is now aware of grouped validator sets and their consolidated balances.
+- **CSM / CM**: Meta group interface updated to align with new staking module contracts. Reserve-deposit logic revised to allow non-zero rebate when distribution is zero.
+- **Performance sidecars**: Performance collector gains a range info endpoint and caching for `_get_last_report` to reduce redundant node calls. Epoch batch processing is more efficient with iterator-based data fetching.
+
+### Added
+- On-chain telemetry: oracles now submit lightweight telemetry reports to a Data Bus contract on startup and after each report cycle. Telemetry is fire-and-forget with deduplication by report hash and supports a separate `TELEMETRY_ACCOUNT` key.
+- Filebase IPFS provider added as an alternative to Kubo/Pinata. Storacha provider removed.
+- `generate-build-info` Makefile target — embeds version, branch, and commit hash into `build-info.json` for reproducible build verification.
+
+### Fixed
+- Abnormal CL rebase calculation corrected for edge cases involving overwritten slashings after a full slashings buffer cycle.
+
 ## [7.1.0 VaultOS](https://github.com/lidofinance/lido-oracle/releases/tag/7.1.0) - 2026-02
 
 ### Fixed

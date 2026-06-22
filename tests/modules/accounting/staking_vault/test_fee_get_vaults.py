@@ -110,6 +110,9 @@ class TestGetVaultsFees:
         )
 
         assert fees[vault_adr].prev_fee == 0
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_negative_ref_slot_on_first_report(self, service, monkeypatch):
         # initial_epoch - frame_epoches <= 0
@@ -159,6 +162,9 @@ class TestGetVaultsFees:
             pre_total_pooled_ether=0,
             pre_total_shares=0,
             block_timestamps={},
+        )
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
         )
 
     def test_first_ref_slot_calculate_on_first_report(self, service, monkeypatch):
@@ -210,6 +216,9 @@ class TestGetVaultsFees:
             pre_total_shares=0,
             block_timestamps={},
         )
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_raises_if_liability_shares_mismatch(self, service, vault_hub_mock):
         # Setup
@@ -254,6 +263,9 @@ class TestGetVaultsFees:
                 chain_config=MagicMock(genesis_time=0, seconds_per_slot=FeeTestConstants.SECONDS_PER_SLOT),
                 current_frame=FrameNumber(0),
             )
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_prev_fee_reset_after_reconnect(self, service, vault_hub_mock):
         # Setup
@@ -303,6 +315,9 @@ class TestGetVaultsFees:
 
         # Assert
         assert fees[vault_adr].prev_fee == 0
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_no_events_liquidity_fee(self, service, vault_hub_mock):
         # Setup
@@ -363,6 +378,9 @@ class TestGetVaultsFees:
             fee_bp=FeeTestConstants.LIQUIDITY_FEE_BP,
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee.to_integral_value(ROUND_UP))
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_fee_elapsed_time_uses_ref_slot_seconds(self, service, vault_hub_mock):
         # Setup
@@ -403,6 +421,9 @@ class TestGetVaultsFees:
 
         # Assert
         assert fees[vault_adr].infra_fee == 2 * FeeTestConstants.SECONDS_PER_SLOT
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_fee_elapsed_time_missing_slots_at_start(self, service, vault_hub_mock):
         # Setup
@@ -447,6 +468,9 @@ class TestGetVaultsFees:
         # Assert
         expected_fee = StakingVaultsService.calc_fee_value(Decimal(total_value), time_elapsed_seconds, Decimal(1), 1)
         assert fees[vault_adr].infra_fee == int(expected_fee)
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_fee_elapsed_time_missing_slots_at_end_with_event(self, service, vault_hub_mock):
         # Setup
@@ -523,6 +547,9 @@ class TestGetVaultsFees:
             2,
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee)
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_fee_elapsed_time_missing_slots_in_middle(self, service, vault_hub_mock):
         # Setup
@@ -618,6 +645,9 @@ class TestGetVaultsFees:
             )
         )
         assert fees[vault_adr].liquidity_fee == int(expected_fee)
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_raises_if_time_elapsed_negative(self, service):
         # Setup
@@ -642,6 +672,9 @@ class TestGetVaultsFees:
                 chain_config=chain_config,
                 current_frame=FrameNumber(0),
             )
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
 
     def test_no_events_skip_block_timestamp_lookup(self, service, vault_hub_mock):
         # Setup
@@ -678,3 +711,6 @@ class TestGetVaultsFees:
 
         # Assert
         service.w3.eth.get_block.assert_not_called()
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
+            blockstamp.block_hash
+        )
