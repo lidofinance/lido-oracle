@@ -46,6 +46,7 @@ class ExternalOperator:
 
 @dataclass
 class OperatorGroup(Nested, FromResponse):
+    name: str
     sub_node_operators: list[SubNodeOperator]
     external_operators: list[ExternalOperator]
 

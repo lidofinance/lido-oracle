@@ -10,10 +10,10 @@ def test_cs_fee_distributor(cs_fee_distributor_contract, caplog):
     check_contract(
         cs_fee_distributor_contract,
         [
-            ("oracle", None, make_checker(ChecksumAddress)),
-            ("shares_to_distribute", None, make_checker(int)),
-            ("tree_root", None, make_checker(HexBytes)),
-            ("tree_cid", None, make_checker(str)),
+            ("oracle", ('latest',), make_checker(ChecksumAddress)),
+            ("shares_to_distribute", ('latest',), make_checker(int)),
+            ("tree_root", ('latest',), make_checker(HexBytes)),
+            ("tree_cid", ('latest',), make_checker(str)),
         ],
         caplog,
     )

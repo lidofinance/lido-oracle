@@ -10,16 +10,16 @@ def test_lido_locator_contract(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
-            ('lido', None, make_checker(ChecksumAddress)),
-            ('accounting_oracle', None, make_checker(ChecksumAddress)),
-            ('staking_router', None, make_checker(ChecksumAddress)),
-            ('validator_exit_bus_oracle', None, make_checker(ChecksumAddress)),
-            ('withdrawal_queue', None, make_checker(ChecksumAddress)),
-            ('oracle_report_sanity_checker', None, make_checker(ChecksumAddress)),
-            ('oracle_daemon_config', None, make_checker(ChecksumAddress)),
-            ('burner', None, make_checker(ChecksumAddress)),
-            ('withdrawal_vault', None, make_checker(ChecksumAddress)),
-            ('el_rewards_vault', None, make_checker(ChecksumAddress)),
+            ('lido', ('latest',), make_checker(ChecksumAddress)),
+            ('accounting_oracle', ('latest',), make_checker(ChecksumAddress)),
+            ('staking_router', ('latest',), make_checker(ChecksumAddress)),
+            ('validator_exit_bus_oracle', ('latest',), make_checker(ChecksumAddress)),
+            ('withdrawal_queue', ('latest',), make_checker(ChecksumAddress)),
+            ('oracle_report_sanity_checker', ('latest',), make_checker(ChecksumAddress)),
+            ('oracle_daemon_config', ('latest',), make_checker(ChecksumAddress)),
+            ('burner', ('latest',), make_checker(ChecksumAddress)),
+            ('withdrawal_vault', ('latest',), make_checker(ChecksumAddress)),
+            ('el_rewards_vault', ('latest',), make_checker(ChecksumAddress)),
         ],
         caplog,
     )
@@ -31,9 +31,9 @@ def test_lido_locator_contract_testnet(lido_locator_contract, caplog):
     check_contract(
         lido_locator_contract,
         [
-            ('accounting', None, make_checker(ChecksumAddress)),
-            ('vault_hub', None, make_checker(ChecksumAddress)),
-            ('lazy_oracle', None, make_checker(ChecksumAddress)),
+            ('accounting', ('latest',), make_checker(ChecksumAddress)),
+            ('vault_hub', ('latest',), make_checker(ChecksumAddress)),
+            ('lazy_oracle', ('latest',), make_checker(ChecksumAddress)),
         ],
         caplog,
     )

@@ -8,11 +8,7 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.metrics.prometheus.basic import (
-    ACCOUNT_BALANCE,
-    ORACLE_BLOCK_NUMBER,
-    ORACLE_SLOT_NUMBER,
-)
+from src.metrics.prometheus.basic import ACCOUNT_BALANCE
 from src.metrics.prometheus.business import (
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
@@ -34,7 +30,7 @@ from src.modules.oracles.common.exceptions import (
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.utils.blockstamp import get_blockstamp_by_state
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -230,14 +226,13 @@ class ConsensusModule[W3: Web3Base](ABC):
         Returns:
             Non-missed reference slot blockstamp in case the contract is reportable.
         """
-        latest_blockstamp = self._get_latest_blockstamp()
+        latest_blockstamp, member_info = self._get_latest_data()
 
         # Check if the contract is currently reportable
         if not self.is_contract_reportable(latest_blockstamp):
             logger.info({'msg': 'Contract is not reportable.'})
             return None
 
-        member_info = self.get_member_info(latest_blockstamp)
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if the current slot is higher than the member slot
@@ -477,13 +472,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        root = self.w3.cc.get_block_root('head').root
-        block_details = self.w3.cc.get_block_details(root)
-        bs = build_blockstamp(block_details)
-        logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
-        ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
-        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
-        return bs
+        return get_blockstamp_by_state(self.w3.cc, 'head')
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:

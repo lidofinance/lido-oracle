@@ -83,7 +83,7 @@ services:
       - "${PERFORMANCE_COLLECTOR_HEALTH_PORT:-9010}:9010"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   performance-web:
     build: .
@@ -103,7 +103,7 @@ services:
       - "${PERFORMANCE_WEB_PORT:-9020}:9020"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9020/health"]
 
   # ---------------------------------------------------------------------------
   # Oracle Services
@@ -138,7 +138,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   ejector-oracle:
     build: .
@@ -154,13 +154,22 @@ services:
       KEYS_API_URI: ${KEYS_API_URI:-}
       PROMETHEUS_PORT: 9000
       HEALTHCHECK_SERVER_PORT: 9010
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
+      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
     ports:
       - "${EJECTOR_ORACLE_PROMETHEUS_PORT:-9004}:9000"
       - "${EJECTOR_ORACLE_HEALTH_PORT:-9014}:9010"
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   csm-oracle:
     build: .
@@ -200,7 +209,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   cm-oracle:
     build: .
@@ -240,7 +249,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
 volumes:
   postgres-data:

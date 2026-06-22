@@ -114,7 +114,7 @@ def test_get_negative_rebase_border_epoch_bunker_not_started_yet(safe_border, pa
 def test_get_negative_rebase_border_epoch_max(safe_border, past_blockstamp):
     ref_epoch = past_blockstamp.ref_slot // SLOTS_PER_EPOCH
     max_negative_rebase_shift = (
-        safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift()
+        safe_border.w3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift('latest')
     )
     test_epoch = ref_epoch - max_negative_rebase_shift - 1
     safe_border._get_bunker_mode_start_timestamp = Mock(return_value=test_epoch * SLOTS_PER_EPOCH * SLOT_TIME)
@@ -316,6 +316,10 @@ def test_get_last_finalized_withdrawal_request_epoch(safe_border):
     epoch = slot // safe_border.chain_config.slots_per_epoch
 
     assert safe_border._get_last_finalized_withdrawal_request_epoch() == epoch
+    safe_border.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status.assert_called_once_with(
+        3,
+        safe_border.blockstamp.block_hash,
+    )
 
 
 @pytest.mark.unit

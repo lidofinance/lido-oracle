@@ -15,10 +15,12 @@ def gloas_balance_correction(
     """
     return Gwei(sum(w.amount for w in expected_withdrawals if w.validator_index in lido_indices))
 
-
-def get_predictable_full_balance(validator: LidoValidator) -> Gwei:
+def get_predictable_full_inbound_balance(validator: LidoValidator) -> Gwei:
     """
-    Calculates the total balance of a validator including pending deposits and consolidations.
+    Returns the predicted balance using only incoming flows: current balance,
+    pending top-ups, and consolidations where the validator is the target.
+
+    Outgoing consolidations and withdrawals are NOT subtracted.
     """
     total_balance = validator.balance
 
@@ -31,21 +33,22 @@ def get_predictable_full_balance(validator: LidoValidator) -> Gwei:
     return total_balance
 
 
-def get_predictable_balance(validator: LidoValidator) -> Gwei:
+def get_predictable_inbound_balance(validator: LidoValidator) -> Gwei:
     """
-    Computes the effective validator balance, accounting for pending sweeps of any excess balance above the effective
-    balance.
+    Same as `get_predictable_full_inbound_balance`, but capped at the
+    validator's max effective balance. Any amount above the cap is treated
+    as sweepable and not included here.
     """
     max_effective_balance = get_max_effective_balance(validator.validator)
-    predictable_full_balance = get_predictable_full_balance(validator)
+    predictable_full_balance = get_predictable_full_inbound_balance(validator)
     return min(predictable_full_balance, max_effective_balance)
 
 
-def get_predictable_sweep(validator: LidoValidator) -> Gwei:
+def get_predictable_inbound_sweep(validator: LidoValidator) -> Gwei:
     """
     Computes the expected sweep payout for a validator, based on the excess balance above the effective balance.
     """
-    predictable_full_balance = get_predictable_full_balance(validator)
+    predictable_full_balance = get_predictable_full_inbound_balance(validator)
     max_effective_balance = get_max_effective_balance(validator.validator)
 
     effective_balance = min(predictable_full_balance, max_effective_balance)

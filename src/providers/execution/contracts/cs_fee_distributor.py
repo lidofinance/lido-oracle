@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class CSFeeDistributorContract(ContractInterface):
     abi_path = "./assets/CSFeeDistributor.json"
 
-    def oracle(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+    def oracle(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Returns the address of the CSFeeOracle contract"""
 
         resp = self.functions.ORACLE().call(block_identifier=block_identifier)
@@ -27,7 +27,7 @@ class CSFeeDistributorContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    def shares_to_distribute(self, block_identifier: BlockIdentifier = "latest") -> Wei:
+    def shares_to_distribute(self, block_identifier: BlockIdentifier) -> Wei:
         """Returns the amount of shares that are pending to be distributed"""
 
         resp = self.functions.pendingSharesToDistribute().call(block_identifier=block_identifier)
@@ -40,7 +40,7 @@ class CSFeeDistributorContract(ContractInterface):
         )
         return resp
 
-    def tree_root(self, block_identifier: BlockIdentifier = "latest") -> HexBytes:
+    def tree_root(self, block_identifier: BlockIdentifier) -> HexBytes:
         """Root of the latest published Merkle tree"""
 
         resp = self.functions.treeRoot().call(block_identifier=block_identifier)
@@ -53,7 +53,7 @@ class CSFeeDistributorContract(ContractInterface):
         )
         return HexBytes(resp)
 
-    def tree_cid(self, block_identifier: BlockIdentifier = "latest") -> str:
+    def tree_cid(self, block_identifier: BlockIdentifier) -> str:
         """CID of the latest published Merkle tree"""
 
         resp = self.functions.treeCid().call(block_identifier=block_identifier)
