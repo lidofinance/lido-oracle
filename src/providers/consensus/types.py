@@ -30,7 +30,7 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
     # EIP-7732 (Gloas): exact constant name to be confirmed against final spec
-    EPBS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
+    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass

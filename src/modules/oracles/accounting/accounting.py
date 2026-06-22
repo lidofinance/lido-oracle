@@ -49,7 +49,7 @@ from src.types import (
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import epbs_balance_correction
+from src.utils.validator_balance import gloas_balance_correction
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 
@@ -253,8 +253,8 @@ class Accounting(OracleModule[Web3]):
         if self.w3.cc.is_gloas(blockstamp.ref_epoch):
             state = self.w3.cc.get_state_view(blockstamp)
             lido_indices = {v.index for v in lido_validators}
-            correction = epbs_balance_correction(state.payload_expected_withdrawals, lido_indices)
-            logger.info({'msg': 'ePBS payload_expected_withdrawals correction.', 'value': correction})
+            correction = gloas_balance_correction(state.payload_expected_withdrawals, lido_indices)
+            logger.info({'msg': 'Gloas payload_expected_withdrawals correction.', 'value': correction})
             validator_balance_sum = Gwei(validator_balance_sum + correction)
 
         return validator_balance_sum
@@ -487,17 +487,17 @@ class Accounting(OracleModule[Web3]):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
-        epbs_correction_by_index: dict[ValidatorIndex, Gwei] = {}
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] = {}
         if self.w3.cc.is_gloas(blockstamp.ref_epoch):
             state = self.w3.cc.get_state_view(blockstamp)
-            epbs_correction_by_index = {w.validator_index: w.amount for w in state.payload_expected_withdrawals}
+            gloas_correction_by_index = {w.validator_index: w.amount for w in state.payload_expected_withdrawals}
 
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
-            epbs_correction_by_index=epbs_correction_by_index,
+            gloas_correction_by_index=gloas_correction_by_index,
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)

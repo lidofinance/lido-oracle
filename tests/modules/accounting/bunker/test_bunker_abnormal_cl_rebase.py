@@ -444,7 +444,7 @@ def test_get_lido_validators_balance_with_vault_post_electra(
 
 
 @pytest.mark.unit
-def test_get_lido_validators_balance_with_vault_epbs_active_ref_blockstamp(
+def test_get_lido_validators_balance_with_vault_gloas_active_ref_blockstamp(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
 ):
@@ -462,14 +462,14 @@ def test_get_lido_validators_balance_with_vault_epbs_active_ref_blockstamp(
     ]
     abnormal_case.w3.cc.get_state_view = Mock(return_value=state)
 
-    # 98001157445 is the pre-ePBS result for blockstamp(40); correction adds only the two Lido withdrawals
+    # 98001157445 is the pre-Gloas result for blockstamp(40); correction adds only the two Lido withdrawals
     result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
 
     assert result == 98001157445 + 1_000_000 + 2_000_000
 
 
 @pytest.mark.unit
-def test_get_lido_validators_balance_with_vault_epbs_active_non_ref_blockstamp(
+def test_get_lido_validators_balance_with_vault_gloas_active_non_ref_blockstamp(
     abnormal_case,
     mock_get_withdrawal_vault_balance,
 ):

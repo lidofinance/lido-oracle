@@ -127,7 +127,7 @@ def test_get_cl_validators_balance(accounting: Accounting):
 
 
 @pytest.mark.unit
-def test_get_cl_validators_balance_epbs_active(accounting: Accounting):
+def test_get_cl_validators_balance_gloas_active(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     lido_validators = LidoValidatorFactory.batch(3)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=lido_validators)
@@ -806,7 +806,7 @@ def test_get_balances_by_modules(accounting: Accounting, ref_bs: ReferenceBlockS
 
 
 @pytest.mark.unit
-def test_get_balances_by_modules_epbs_active(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+def test_get_balances_by_modules_gloas_active(accounting: Accounting, ref_bs: ReferenceBlockStamp):
     sm1 = Mock(staking_module_address='addr1', id=StakingModuleId(1))
     sm2 = Mock(staking_module_address='addr2', id=StakingModuleId(2))
     accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(

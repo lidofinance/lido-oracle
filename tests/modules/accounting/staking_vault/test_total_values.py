@@ -608,7 +608,7 @@ class TestCalculateVaultTotalValue:
         # Assert
         assert result == int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
 
-    def test_epbs_correction_applied_to_eligible_validators(self):
+    def test_gloas_correction_applied_to_eligible_validators(self):
         vault_balance = gwei_to_wei(Gwei(0))
         v1 = ValidatorFactory.build_active(
             withdrawal_credentials=WithdrawalCredentials.WC_0,
@@ -632,7 +632,7 @@ class TestCalculateVaultTotalValue:
             total_pending_amount_by_pubkey={},
             vault_validator_statuses={},
             vault_unmatched_pending_deposit_statuses={},
-            epbs_correction_by_index=corrections,
+            gloas_correction_by_index=corrections,
         )
 
         expected = int(gwei_to_wei(Gwei(32_000_000_000 + 500_000_000 + 31_000_000_000)))

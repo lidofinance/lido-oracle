@@ -77,7 +77,7 @@ class StakingVaultsService:
         validators: list[Validator],
         pending_deposits: list[PendingDeposit],
         block_identifier: BlockIdentifier = 'latest',
-        epbs_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
     ) -> VaultTotalValueMap:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
@@ -124,7 +124,7 @@ class StakingVaultsService:
             block_identifier=block_identifier,
         )
 
-        corrections = epbs_correction_by_index or {}
+        corrections = gloas_correction_by_index or {}
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
             vault_total = self._calculate_vault_total_value(
@@ -135,7 +135,7 @@ class StakingVaultsService:
                 vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(
                     vault_address, {}
                 ),
-                epbs_correction_by_index=corrections,
+                gloas_correction_by_index=corrections,
             )
 
             total_values[vault_address] = Wei(vault_total)
@@ -230,7 +230,7 @@ class StakingVaultsService:
         total_pending_amount_by_pubkey: dict[str, Gwei],
         vault_validator_statuses: dict[str, ValidatorStatus],
         vault_unmatched_pending_deposit_statuses: dict[str, ValidatorStatus],
-        epbs_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
     ) -> int:
         """
         Calculates total value for a single vault.
@@ -280,13 +280,13 @@ class StakingVaultsService:
 
         """
         vault_total = int(vault_aggregated_balance)
-        corrections = epbs_correction_by_index or {}
+        corrections = gloas_correction_by_index or {}
 
         for validator in vault_validators:
             validator_pubkey = validator.validator.pubkey
             validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
-            epbs_corr = corrections.get(validator.index, Gwei(0))
-            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount + epbs_corr))
+            gloas_corr = corrections.get(validator.index, Gwei(0))
+            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount + gloas_corr))
 
             # Include validator balance and all pending deposits in TV when validator is eligible for activation or
             # has already passed activation
