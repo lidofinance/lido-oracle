@@ -7,7 +7,6 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
-from src.constants import FAR_FUTURE_EPOCH
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
@@ -120,8 +119,7 @@ def test_get_cl_validators_balance(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     validators = LidoValidatorFactory.batch(10)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
-    # Pre-ePBS: EPBS_FORK_EPOCH set to FAR_FUTURE_EPOCH so correction is inactive
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
+    accounting.w3.cc.is_gloas = Mock(return_value=False)
 
     balance = accounting._get_cl_validators_balance(bs)
 
@@ -133,8 +131,7 @@ def test_get_cl_validators_balance_epbs_active(accounting: Accounting):
     bs = ReferenceBlockStampFactory.build()
     lido_validators = LidoValidatorFactory.batch(3)
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=lido_validators)
-    # ePBS active: EPBS_FORK_EPOCH <= ref_epoch
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=bs.ref_epoch))
+    accounting.w3.cc.is_gloas = Mock(return_value=True)
 
     lido_indices = {v.index for v in lido_validators}
     non_lido_index = ValidatorIndex(max(lido_indices) + 1)
@@ -800,7 +797,7 @@ def test_get_balances_by_modules(accounting: Accounting, ref_bs: ReferenceBlockS
         (StakingModuleId(2), NodeOperatorId(0)): [Mock(balance=300)],
     }
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value=balances_by_no)
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
+    accounting.w3.cc.is_gloas = Mock(return_value=False)
 
     sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
@@ -823,7 +820,7 @@ def test_get_balances_by_modules_epbs_active(accounting: Accounting, ref_bs: Ref
         (StakingModuleId(2), NodeOperatorId(0)): [v3],
     }
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value=balances_by_no)
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=ref_bs.ref_epoch))
+    accounting.w3.cc.is_gloas = Mock(return_value=True)
     non_lido_index = ValidatorIndex(99)
     state = Mock()
     state.payload_expected_withdrawals = [
@@ -862,7 +859,7 @@ def test_get_node_operator_balances(accounting: Accounting, ref_bs: ReferenceBlo
     accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
         return_value={module_address: module}
     )
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
+    accounting.w3.cc.is_gloas = Mock(return_value=False)
 
     sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
@@ -928,7 +925,7 @@ def test_handle_vaults_report_non_empty_vaults(
     accounting.get_frame_number_by_slot = Mock(return_value=10)
     accounting.w3.cc.get_validators = Mock(return_value=[])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
-    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
+    accounting.w3.cc.is_gloas = Mock(return_value=False)
     accounting.get_chain_config = Mock(return_value=chain_config)
     accounting.get_frame_config = Mock(return_value=frame_config)
     accounting.simulate_full_rebase = Mock(return_value=simulation)

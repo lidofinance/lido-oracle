@@ -274,8 +274,6 @@ class BeaconStateView(Nested, FromResponse):
     validators: list[ValidatorState]
     balances: list[Gwei]
     slashings: list[Gwei]
-
-    # These fields are new in Electra, so here are default values for backward compatibility.
     exit_balance_to_consume: Gwei = Gwei(0)
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
@@ -283,7 +281,6 @@ class BeaconStateView(Nested, FromResponse):
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
     # These fields are new in Gloas (EIP-7732), default values for backward compatibility.
-    # Withdrawals CL has deducted but the EL vault has not yet received.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property

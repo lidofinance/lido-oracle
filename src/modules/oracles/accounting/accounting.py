@@ -250,7 +250,7 @@ class Accounting(OracleModule[Web3]):
         validator_balance_sum = Gwei(sum(validator.balance for validator in lido_validators))
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
-        if self._is_epbs_active(blockstamp):
+        if self.w3.cc.is_gloas(blockstamp.ref_epoch):
             state = self.w3.cc.get_state_view(blockstamp)
             lido_indices = {v.index for v in lido_validators}
             correction = epbs_balance_correction(state.payload_expected_withdrawals, lido_indices)
@@ -258,9 +258,6 @@ class Accounting(OracleModule[Web3]):
             validator_balance_sum = Gwei(validator_balance_sum + correction)
 
         return validator_balance_sum
-
-    def _is_epbs_active(self, blockstamp: ReferenceBlockStamp) -> bool:
-        return blockstamp.ref_epoch >= self.w3.cc.get_config_spec().EPBS_FORK_EPOCH
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         """Calculate the total pending balance on the Consensus Layer.
@@ -315,9 +312,7 @@ class Accounting(OracleModule[Web3]):
             for validator in validators:
                 module_stats[module_id] += validator.balance
 
-        if self._is_epbs_active(blockstamp):
-            # EIP-7732: distribute the same correction per module so per-module balances
-            # stay consistent with the corrected total in cl_validators_balance_gwei.
+        if self.w3.cc.is_gloas(blockstamp.ref_epoch):
             state = self.w3.cc.get_state_view(blockstamp)
             validator_to_module = {
                 v.index: module_id
@@ -493,8 +488,7 @@ class Accounting(OracleModule[Web3]):
         simulation = self.simulate_full_rebase(blockstamp)
 
         epbs_correction_by_index: dict[ValidatorIndex, Gwei] = {}
-        if self._is_epbs_active(blockstamp):
-            # EIP-7732: distribute per-validator corrections so vault TVs stay accurate.
+        if self.w3.cc.is_gloas(blockstamp.ref_epoch):
             state = self.w3.cc.get_state_view(blockstamp)
             epbs_correction_by_index = {w.validator_index: w.amount for w in state.payload_expected_withdrawals}
 
