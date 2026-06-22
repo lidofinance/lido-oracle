@@ -44,10 +44,12 @@ from src.types import (
     Gwei,
     ReferenceBlockStamp,
     StakingModuleId,
+    ValidatorIndex,
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
+from src.utils.validator_balance import epbs_balance_correction
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 
@@ -249,15 +251,9 @@ class Accounting(OracleModule[Web3]):
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
         if self._is_epbs_active(blockstamp):
-            # EIP-7732: process_withdrawals deducts CL balances before the EL payload is revealed,
-            # so the withdrawal vault has not yet received these amounts. Add them back to restore
-            # TVL consistency. Only Lido validators' withdrawals go to the Lido withdrawal vault.
             state = self.w3.cc.get_state_view(blockstamp)
             lido_indices = {v.index for v in lido_validators}
-            correction = Gwei(sum(
-                w.amount for w in state.payload_expected_withdrawals
-                if w.validator_index in lido_indices
-            ))
+            correction = epbs_balance_correction(state.payload_expected_withdrawals, lido_indices)
             logger.info({'msg': 'ePBS payload_expected_withdrawals correction.', 'value': correction})
             validator_balance_sum = Gwei(validator_balance_sum + correction)
 
@@ -318,6 +314,20 @@ class Accounting(OracleModule[Web3]):
         for (module_id, _), validators in validators_by_no.items():
             for validator in validators:
                 module_stats[module_id] += validator.balance
+
+        if self._is_epbs_active(blockstamp):
+            # EIP-7732: distribute the same correction per module so per-module balances
+            # stay consistent with the corrected total in cl_validators_balance_gwei.
+            state = self.w3.cc.get_state_view(blockstamp)
+            validator_to_module = {
+                v.index: module_id
+                for (module_id, _), validators in validators_by_no.items()
+                for v in validators
+            }
+            for w in state.payload_expected_withdrawals:
+                module_id = validator_to_module.get(w.validator_index)
+                if module_id is not None:
+                    module_stats[module_id] = Gwei(module_stats[module_id] + w.amount)
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
@@ -482,11 +492,18 @@ class Accounting(OracleModule[Web3]):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
+        epbs_correction_by_index: dict[ValidatorIndex, Gwei] = {}
+        if self._is_epbs_active(blockstamp):
+            # EIP-7732: distribute per-validator corrections so vault TVs stay accurate.
+            state = self.w3.cc.get_state_view(blockstamp)
+            epbs_correction_by_index = {w.validator_index: w.amount for w in state.payload_expected_withdrawals}
+
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
+            epbs_correction_by_index=epbs_correction_by_index,
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)

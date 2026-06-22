@@ -17,6 +17,7 @@ from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
+from src.utils.validator_balance import epbs_balance_correction
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
@@ -230,10 +231,7 @@ class AbnormalClRebase:
             if blockstamp.ref_epoch >= spec.EPBS_FORK_EPOCH:
                 state = self.w3.cc.get_state_view(blockstamp)
                 lido_indices = {v.index for v in lido_validators}
-                correction = Gwei(sum(
-                    w.amount for w in state.payload_expected_withdrawals
-                    if w.validator_index in lido_indices
-                ))
+                correction = epbs_balance_correction(state.payload_expected_withdrawals, lido_indices)
                 real_cl_balance = Gwei(real_cl_balance + correction)
 
         withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))

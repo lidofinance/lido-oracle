@@ -800,11 +800,45 @@ def test_get_balances_by_modules(accounting: Accounting, ref_bs: ReferenceBlockS
         (StakingModuleId(2), NodeOperatorId(0)): [Mock(balance=300)],
     }
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value=balances_by_no)
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
 
     sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
     assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
     assert balances == [Gwei(300), Gwei(300)]
+
+
+@pytest.mark.unit
+def test_get_balances_by_modules_epbs_active(accounting: Accounting, ref_bs: ReferenceBlockStamp):
+    sm1 = Mock(staking_module_address='addr1', id=StakingModuleId(1))
+    sm2 = Mock(staking_module_address='addr2', id=StakingModuleId(2))
+    accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
+        return_value={'addr1': sm1, 'addr2': sm2}
+    )
+    v1 = Mock(balance=100, index=ValidatorIndex(1))
+    v2 = Mock(balance=200, index=ValidatorIndex(2))
+    v3 = Mock(balance=300, index=ValidatorIndex(3))
+    balances_by_no = {
+        (StakingModuleId(1), NodeOperatorId(0)): [v1, v2],
+        (StakingModuleId(2), NodeOperatorId(0)): [v3],
+    }
+    accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value=balances_by_no)
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=ref_bs.ref_epoch))
+    non_lido_index = ValidatorIndex(99)
+    state = Mock()
+    state.payload_expected_withdrawals = [
+        ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(50)),
+        ExpectedWithdrawal(validator_index=ValidatorIndex(3), amount=Gwei(70)),
+        ExpectedWithdrawal(validator_index=non_lido_index, amount=Gwei(9999)),
+    ]
+    accounting.w3.cc.get_state_view = Mock(return_value=state)
+
+    sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
+
+    assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
+    # module 1: 100 + 200 + 50 (correction for v1) = 350
+    # module 2: 300 + 70 (correction for v3) = 370
+    assert balances == [Gwei(350), Gwei(370)]
 
 
 # ---- get_node_operator_balances ----
@@ -828,6 +862,7 @@ def test_get_node_operator_balances(accounting: Accounting, ref_bs: ReferenceBlo
     accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
         return_value={module_address: module}
     )
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
 
     sm_ids, balances = accounting._get_balances_by_modules(ref_bs)
 
@@ -893,6 +928,7 @@ def test_handle_vaults_report_non_empty_vaults(
     accounting.get_frame_number_by_slot = Mock(return_value=10)
     accounting.w3.cc.get_validators = Mock(return_value=[])
     accounting.w3.cc.get_pending_deposits = Mock(return_value=[])
+    accounting.w3.cc.get_config_spec = Mock(return_value=Mock(EPBS_FORK_EPOCH=FAR_FUTURE_EPOCH))
     accounting.get_chain_config = Mock(return_value=chain_config)
     accounting.get_frame_config = Mock(return_value=frame_config)
     accounting.simulate_full_rebase = Mock(return_value=simulation)
