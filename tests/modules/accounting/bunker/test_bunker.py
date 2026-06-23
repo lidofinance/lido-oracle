@@ -1,10 +1,10 @@
-from typing import Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from unittest.mock import Mock
 
 import pytest
 from web3.types import Wei
 
-from src.modules.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
+from src.modules.oracles.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
 from src.providers.consensus.types import BeaconStateView
 from src.services.bunker import BunkerService
 from src.types import ReferenceBlockStamp
@@ -165,7 +165,7 @@ class TestIsBunkerMode:
     def mock_validators(self, bunker: BunkerService) -> Sequence[LidoValidator]:
         validators = LidoValidatorFactory.batch(5)
         bunker.w3.cc.get_validators = Mock(return_value=validators)
-        bunker.w3.lido_validators.get_lido_validators = Mock(return_value=validators[:2])
+        bunker.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators[:2])
         return validators
 
     @pytest.fixture

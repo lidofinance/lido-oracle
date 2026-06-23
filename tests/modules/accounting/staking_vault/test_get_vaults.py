@@ -11,6 +11,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -18,7 +19,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestGetVaults:
-
     def test_get_vaults_uses_specific_block_identifier(self, web3):
         # Setup
         vault_0 = VaultInfoFactory.build(

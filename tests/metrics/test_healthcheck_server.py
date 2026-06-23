@@ -1,23 +1,21 @@
 # pylint: disable=protected-access
 import unittest
-import pytest
-
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from io import BytesIO
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 import responses
 
 import src.metrics.healthcheck_server
-from src.metrics.healthcheck_server import pulse, PulseRequestHandler
 from src import variables
+from src.metrics.healthcheck_server import PulseRequestHandler, pulse
 
 
 @pytest.mark.unit
 class TestPulseFunction(unittest.TestCase):
-
     @responses.activate
     @patch('src.variables.HEALTHCHECK_SERVER_PORT', 8000)
     def test_pulse_success(self):

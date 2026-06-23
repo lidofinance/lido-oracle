@@ -1,0 +1,259 @@
+# Usage:
+#   Local development:    docker compose up -d
+#   External PostgreSQL:  PERFORMANCE_DB_HOST=your-host docker compose up -d performance-collector performance-web
+#   Run init-db only:     docker compose --profile init up init-db
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+x-performance-db-env: &performance-db-env
+  PERFORMANCE_DB_HOST: ${PERFORMANCE_DB_HOST:-postgres}
+  PERFORMANCE_DB_PORT: ${PERFORMANCE_DB_PORT:-5432}
+  PERFORMANCE_DB_NAME: ${PERFORMANCE_DB_NAME:-performance}
+  PERFORMANCE_DB_USER: ${PERFORMANCE_DB_USER:-performance}
+  PERFORMANCE_DB_PASSWORD: ${PERFORMANCE_DB_PASSWORD:-performance}
+  PERFORMANCE_DB_POOL_SIZE: ${PERFORMANCE_DB_POOL_SIZE:-10}
+  PERFORMANCE_DB_MAX_OVERFLOW: ${PERFORMANCE_DB_MAX_OVERFLOW:-20}
+  PERFORMANCE_DB_POOL_RECYCLE_SECONDS: ${PERFORMANCE_DB_POOL_RECYCLE_SECONDS:-3600}
+
+services:
+  # ---------------------------------------------------------------------------
+  # Database Layer
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16
+    container_name: staking-module-oracle-postgres
+    environment:
+      POSTGRES_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PERFORMANCE_DB_ADMIN_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # One-time database initialization (creates user and database)
+  # For external PostgreSQL: set PERFORMANCE_DB_HOST to your external host
+  init-db:
+    image: postgres:16
+    container_name: staking-module-oracle-init-db
+    profiles: ["init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *performance-db-env
+      PERFORMANCE_DB_ADMIN_USER: ${PERFORMANCE_DB_ADMIN_USER:-postgres}
+      PERFORMANCE_DB_ADMIN_PASSWORD: ${PERFORMANCE_DB_ADMIN_PASSWORD:-postgres}
+    volumes:
+      - ./scripts/init_performance_db.sh:/scripts/init_performance_db.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/init_performance_db.sh"]
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Performance Sidecar
+  # ---------------------------------------------------------------------------
+
+  performance-collector:
+    build: .
+    restart: unless-stopped
+    container_name: staking-module-oracle-performance-collector
+    command: ["-m", "src.main", "performance_collector"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
+        required: false
+    environment:
+      <<: *performance-db-env
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      MAX_CYCLE_LIFETIME_IN_SECONDS: ${MAX_CYCLE_LIFETIME_IN_SECONDS:-60000}
+    ports:
+      - "${PERFORMANCE_COLLECTOR_PROMETHEUS_PORT:-9000}:9000"
+      - "${PERFORMANCE_COLLECTOR_HEALTH_PORT:-9010}:9010"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  performance-web:
+    build: .
+    restart: unless-stopped
+    container_name: staking-module-oracle-performance-web
+    command: ["-m", "src.main", "performance_web_server"]
+    cpus: 1.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
+        required: false
+    environment:
+      <<: *performance-db-env
+    ports:
+      - "${PERFORMANCE_WEB_PORT:-9020}:9020"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
+
+  # ---------------------------------------------------------------------------
+  # Oracle Services
+  # ---------------------------------------------------------------------------
+
+  accounting-oracle:
+    build: .
+    container_name: accounting-oracle
+    command: ["-m", "src.main", "accounting"]
+    environment:
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
+      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${ACCOUNTING_ORACLE_PROMETHEUS_PORT:-9003}:9000"
+      - "${ACCOUNTING_ORACLE_HEALTH_PORT:-9013}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  ejector-oracle:
+    build: .
+    container_name: ejector-oracle
+    command: ["-m", "src.main", "ejector"]
+    environment:
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
+      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
+    ports:
+      - "${EJECTOR_ORACLE_PROMETHEUS_PORT:-9004}:9000"
+      - "${EJECTOR_ORACLE_HEALTH_PORT:-9014}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  csm-oracle:
+    build: .
+    container_name: csm-oracle
+    command: ["-m", "src.main", "csm"]
+    depends_on:
+      performance-collector:
+        condition: service_healthy
+      performance-web:
+        condition: service_healthy
+    environment:
+      STAKING_MODULE_ADDRESS: ${CS_MODULE_ADDRESS:-}
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
+      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
+      HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
+      HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
+      IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${CSM_ORACLE_PROMETHEUS_PORT:-9001}:9000"
+      - "${CSM_ORACLE_HEALTH_PORT:-9011}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+  cm-oracle:
+    build: .
+    container_name: cm-oracle
+    command: ["-m", "src.main", "cm"]
+    depends_on:
+      performance-collector:
+        condition: service_healthy
+      performance-web:
+        condition: service_healthy
+    environment:
+      STAKING_MODULE_ADDRESS: ${CURATED_MODULE_ADDRESS:-}
+      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
+      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
+      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
+      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
+      TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
+      KEYS_API_URI: ${KEYS_API_URI:-}
+      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
+      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
+      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
+      PINATA_JWT: ${PINATA_JWT:-}
+      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
+      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
+      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
+      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
+      KUBO_HOST: ${KUBO_HOST:-}
+      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
+      HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
+      HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
+      IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
+      PROMETHEUS_PORT: 9000
+      HEALTHCHECK_SERVER_PORT: 9010
+    ports:
+      - "${CM_ORACLE_PROMETHEUS_PORT:-9002}:9000"
+      - "${CM_ORACLE_HEALTH_PORT:-9012}:9010"
+    restart: unless-stopped
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+
+volumes:
+  postgres-data:
+
+networks:
+  default:
+    name: oracle-network

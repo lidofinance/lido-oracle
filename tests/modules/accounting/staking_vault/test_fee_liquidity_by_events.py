@@ -18,6 +18,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultRebalancedEventFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -25,7 +26,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestCalculateLiquidityFeeByEvents:
-
     def test_with_events(self):
         # Setup
         vault_adr = VaultAddresses.VAULT_0

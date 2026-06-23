@@ -1,5 +1,4 @@
 import logging
-from functools import cached_property
 from typing import cast
 
 from web3 import Web3
@@ -30,6 +29,7 @@ from src.providers.execution.contracts.withdrawal_queue_nft import (
 from src.types import BlockStamp, ELVaultBalance, SlotNumber, WithdrawalVaultBalance
 from src.utils.cache import global_lru_cache as lru_cache
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,9 +52,12 @@ class LidoContracts(Module):
 
     def __setattr__(self, key, value):
         current_value = getattr(self, key, None)
-        if isinstance(current_value, Contract) and isinstance(value, Contract):
-            if value.address != current_value.address:
-                logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
+        if (
+            isinstance(current_value, Contract)
+            and isinstance(value, Contract)
+            and value.address != current_value.address
+        ):
+            logger.info({'msg': f'Contract {key} has been changed to {value.address}'})
         super().__setattr__(key, value)
 
     def has_contract_address_changed(self) -> bool:
@@ -68,7 +71,7 @@ class LidoContracts(Module):
         self.lido_locator: LidoLocatorContract = cast(
             LidoLocatorContract,
             self.w3.eth.contract(
-                address=variables.LIDO_LOCATOR_ADDRESS, # type: ignore
+                address=variables.LIDO_LOCATOR_ADDRESS,  # type: ignore
                 ContractFactoryClass=LidoLocatorContract,
                 decode_tuples=True,
             ),
@@ -146,9 +149,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def accounting(self) -> AccountingContract:
-        return cast(
+        self.accounting = cast(
             AccountingContract,
             self.w3.eth.contract(
                 address=self.lido_locator.accounting(),
@@ -157,9 +158,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def lazy_oracle(self) -> LazyOracleContract:
-        return cast(
+        self.lazy_oracle = cast(
             LazyOracleContract,
             self.w3.eth.contract(
                 address=self.lido_locator.lazy_oracle(),
@@ -168,9 +167,7 @@ class LidoContracts(Module):
             ),
         )
 
-    @cached_property
-    def vault_hub(self) -> VaultHubContract:
-        return cast(
+        self.vault_hub = cast(
             VaultHubContract,
             self.w3.eth.contract(
                 address=self.lido_locator.vault_hub(),
@@ -185,17 +182,25 @@ class LidoContracts(Module):
         return self.get_withdrawal_balance_no_cache(blockstamp)
 
     def get_withdrawal_balance_no_cache(self, blockstamp: BlockStamp) -> WithdrawalVaultBalance:
-        return WithdrawalVaultBalance(Wei(self.w3.eth.get_balance(
-            self.lido_locator.withdrawal_vault(blockstamp.block_hash),
-            block_identifier=blockstamp.block_hash,
-        )))
+        return WithdrawalVaultBalance(
+            Wei(
+                self.w3.eth.get_balance(
+                    self.lido_locator.withdrawal_vault(blockstamp.block_hash),
+                    block_identifier=blockstamp.block_hash,
+                )
+            )
+        )
 
     @lru_cache(maxsize=1)
     def get_el_vault_balance(self, blockstamp: BlockStamp) -> ELVaultBalance:
-        return ELVaultBalance(Wei(self.w3.eth.get_balance(
-            self.lido_locator.el_rewards_vault(blockstamp.block_hash),
-            block_identifier=blockstamp.block_hash,
-        )))
+        return ELVaultBalance(
+            Wei(
+                self.w3.eth.get_balance(
+                    self.lido_locator.el_rewards_vault(blockstamp.block_hash),
+                    block_identifier=blockstamp.block_hash,
+                )
+            )
+        )
 
     @lru_cache(maxsize=1)
     def get_accounting_last_processing_ref_slot(self, blockstamp: BlockStamp) -> SlotNumber:

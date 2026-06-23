@@ -3,7 +3,7 @@ from unittest.mock import ANY, MagicMock, call
 import pytest
 
 from src.constants import MIN_DEPOSIT_AMOUNT
-from src.modules.accounting.types import ValidatorStage
+from src.modules.oracles.accounting.types import ValidatorStage
 from src.services.staking_vaults import StakingVaultsService
 from src.types import Gwei, SlotNumber
 from src.utils.units import gwei_to_wei
@@ -16,6 +16,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultAddresses,
     WithdrawalCredentials,
 )
+
 
 # =============================================================================
 # Helper Functions
@@ -39,7 +40,6 @@ def configure_validator_statuses(web3, validator_statuses):
 
 @pytest.mark.unit
 class TestGetVaultsTotalValues:
-
     def test_basic_calculation_with_validators_and_pending_deposits(self, web3, default_vaults_map):
         # Setup
         validators = [
@@ -244,10 +244,9 @@ class TestGetVaultsTotalValues:
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesWithValidatorStatuses:
-
     def test_predeposited_validator_counts_1_eth(self, web3, default_vaults_map):
         # Setup
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99002'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99002'
 
         validators = [
             ValidatorFactory.build(
@@ -276,7 +275,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
     def test_activated_validator_counts_full_balance_plus_pending(self, web3, default_vaults_map):
         # Setup
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99005'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99005'
 
         validators = [
             ValidatorFactory.build(
@@ -315,7 +314,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
     def test_proven_validator_not_counted(self, web3, default_vaults_map):
         # Setup
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99003'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99003'
 
         validators = [
             ValidatorFactory.build(
@@ -341,7 +340,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
     def test_predeposited_validator_with_pending_deposit_no_double_count(self, web3, default_vaults_map):
         # Setup
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
 
         validators = [
             ValidatorFactory.build(
@@ -378,7 +377,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
     def test_doppelganger_pubkey_not_counted(self, web3, default_vaults_map):
         # Setup
-        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb' '7b476d9b5e418fea99001'
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99001'
 
         validators = [
             ValidatorFactory.build(
@@ -406,7 +405,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesEdgeCases:
-
     def test_unmatched_pending_deposit_non_predeposited_stage_ignored(self, web3, default_vaults_map):
         # Setup
         pending_pubkey = '0x1234'
@@ -464,7 +462,6 @@ class TestGetVaultsTotalValuesEdgeCases:
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesDefaults:
-
     def test_defaults_and_logging(self, web3, monkeypatch, default_vaults_map):
         # Setup
         service = StakingVaultsService(web3)
@@ -501,7 +498,6 @@ class TestGetVaultsTotalValuesDefaults:
 
 @pytest.mark.unit
 class TestCalculateVaultTotalValue:
-
     def test_mixed_validators_and_unmatched_pending(self):
         # Setup
         vault_balance = gwei_to_wei(Gwei(10_000_000_000))

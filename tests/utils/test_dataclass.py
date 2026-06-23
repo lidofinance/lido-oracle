@@ -1,9 +1,11 @@
+from collections.abc import Iterable
 from dataclasses import dataclass, is_dataclass
-from typing import Any, Iterable
+from typing import Any
 
 import pytest
 
 from src.utils.dataclass import DecodeToDataclassException, FromResponse, Nested, list_of_dataclasses
+
 
 pytestmark = pytest.mark.unit
 

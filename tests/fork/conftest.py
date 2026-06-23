@@ -1,10 +1,12 @@
 import json
 import logging
+import os
 import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast, get_args
+from unittest.mock import Mock, patch
 
 import pytest
 import xdist
@@ -16,10 +18,10 @@ from web3.types import RPCEndpoint
 from web3_multi_provider import MultiProvider
 
 from src import variables
-from src.main import ipfs_providers
-from src.modules.submodules.consensus import ConsensusModule
-from src.modules.submodules.oracle_module import BaseModule
-from src.modules.submodules.types import FrameConfig
+from src.modules.common.types import FrameConfig
+from src.modules.oracles.common.consensus import ConsensusModule
+from src.modules.oracles.common.oracle_module import OracleModule
+from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, BlockRootResponse
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
@@ -37,12 +39,14 @@ from src.variables import (
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
+    FallbackProviderModule,
     KeysAPIClientModule,
-    LazyCSM,
     LidoContracts,
     LidoValidatorsProvider,
     TransactionUtils,
 )
+from src.web3py.extensions.staking_module import StakingModuleContracts
+
 
 logger = logging.getLogger('fork_tests')
 
@@ -104,27 +108,15 @@ def set_delay_and_sleep(monkeypatch):
 @pytest.fixture(autouse=True)
 def patch_csm_contract_load(monkeypatch):
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_MAX_RETRIES",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES",
         3,
     )
     monkeypatch.setattr(
-        "src.web3py.extensions.CSM.CONTRACT_LOAD_RETRY_DELAY",
+        "src.web3py.extensions.StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY",
         0,
     )
-    logger.info("TESTRUN Patched CSM CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
+    logger.info("TESTRUN Patched Staking Module CONTRACT_LOAD_MAX_RETRIES to 3 and CONTRACT_LOAD_RETRY_DELAY to 0")
     yield
-
-
-@pytest.fixture(autouse=True)
-def set_cache_path(monkeypatch, testrun_path):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "CACHE_PATH",
-            Path(testrun_path),
-        )
-        logger.info(f"TESTRUN Set CACHE_PATH to {testrun_path}")
-        yield
 
 
 @pytest.fixture(scope='session')
@@ -155,6 +147,11 @@ def account_from(monkeypatch):
                 "ACCOUNT",
                 Account.from_key(private_key=pk),  # pylint: disable=no-value-for-parameter
             )
+            monkeypatch.setattr(
+                variables,
+                "TELEMETRY_ACCOUNT",
+                Account.from_key(private_key=pk),
+            )
             logger.info(f"TESTRUN Switched to ACCOUNT {variables.ACCOUNT.address}")
             yield
 
@@ -177,6 +174,15 @@ def real_cl_client():
         HTTP_REQUEST_TIMEOUT_CONSENSUS,
         HTTP_REQUEST_RETRY_COUNT_CONSENSUS,
         HTTP_REQUEST_SLEEP_BEFORE_RETRY_IN_SECONDS_CONSENSUS,
+    )
+
+
+@pytest.fixture
+def real_el_client():
+    return FallbackProviderModule(
+        variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
     )
 
 
@@ -246,7 +252,9 @@ def anvil_port():
 
 
 @pytest.fixture()
-def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvil_port: int):
+def forked_el_client(blockstamp_for_forking: BlockStamp | None, testrun_path: str, anvil_port: int):
+    fork_rpc_url = variables.EXECUTION_CLIENT_URI[0]
+
     cli_params = [
         'anvil',
         '--port',
@@ -255,13 +263,26 @@ def forked_el_client(blockstamp_for_forking: BlockStamp, testrun_path: str, anvi
         f'{testrun_path}/localhost.json',
         '--auto-impersonate',
         '-f',
-        variables.EXECUTION_CLIENT_URI[0],
-        '--fork-block-number',
-        str(blockstamp_for_forking.block_number),
+        fork_rpc_url,
     ]
+
+    if blockstamp_for_forking is not None:
+        fork_block_number = int(blockstamp_for_forking.block_number)
+        smoke_web3 = Web3(MultiProvider([fork_rpc_url], request_kwargs={'timeout': 30}))
+
+        assert smoke_web3.is_connected(), f"TESTRUN EL smoke check failed: cannot connect to {fork_rpc_url}"
+        try:
+            block_number = smoke_web3.eth.get_block(fork_block_number)['number']
+        except Exception as error:
+            raise AssertionError(f"TESTRUN EL smoke check failed: {error}") from error
+        assert int(block_number) == fork_block_number, "TESTRUN EL smoke check failed: unexpected block number"
+
+        cli_params += ['--fork-block-number', str(fork_block_number)]
+
     with subprocess.Popen(cli_params, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT) as process:
         time.sleep(5)
-        logger.info(f"TESTRUN Started fork on {anvil_port=} from {blockstamp_for_forking.block_number=}")
+        fork_label = 'latest' if blockstamp_for_forking is None else blockstamp_for_forking.block_number
+        logger.info(f"TESTRUN Started fork on {anvil_port=} from block={fork_label}")
         web3 = Web3(MultiProvider([f'http://127.0.0.1:{anvil_port}'], request_kwargs={'timeout': 5 * 60}))
         tweak_w3_contracts(web3)
         web3.provider.make_request(RPCEndpoint('anvil_setBlockTimestampInterval'), [12])
@@ -280,13 +301,44 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'lido_contracts': LidoContracts,
             'lido_validators': LidoValidatorsProvider,
             'transaction': TransactionUtils,
-            "csm": LazyCSM,  # type: ignore[dict-item]
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
-            "ipfs": lambda: mocked_ipfs_client,
+            'ipfs': lambda: mocked_ipfs_client,
         }
     )
     yield forked_el_client
+
+
+@pytest.fixture()
+def cs_module_address() -> str:
+    address = os.getenv("CS_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CS_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def curated_module_address() -> str:
+    address = os.getenv("CURATED_MODULE_ADDRESS")
+    if not address:
+        pytest.skip("CURATED_MODULE_ADDRESS is not set")
+    return address
+
+
+@pytest.fixture()
+def web3_cs_module(web3, cs_module_address):
+    web3.attach_modules({'delegation': lambda: Mock(is_enabled=lambda: False)})  # type: ignore[dict-item]
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", cs_module_address):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
+
+
+@pytest.fixture()
+def web3_curated_module(web3, curated_module_address):
+    web3.attach_modules({'delegation': lambda: Mock(is_enabled=lambda: False)})  # type: ignore[dict-item]
+    with patch.object(variables, "STAKING_MODULE_ADDRESS", curated_module_address):
+        web3.attach_modules({'staking_module': StakingModuleContracts})
+        yield web3
 
 
 @pytest.fixture()
@@ -329,7 +381,7 @@ def running_finalized_slots(request):
 
 
 @pytest.fixture()
-def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):
+def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finalized_slot, running_finalized_slots):  # noqa: C901
     _, current = running_finalized_slots
 
     class PatchedConsensusClient(ConsensusClient):
@@ -404,7 +456,7 @@ def patched_cl_client(monkeypatch, forked_el_client, real_cl_client, real_finali
 
 
 @pytest.fixture()
-def module(request) -> BaseModule | ConsensusModule:
+def module(request) -> OracleModule | ConsensusModule:
     module = request.getfixturevalue(request.param.__name__)
     yield module
 
@@ -468,6 +520,19 @@ def new_hash_consensus(  # pylint: disable=too-many-positional-arguments
     forked_el_client.provider.make_request('anvil_setStorageAt', [report_contract.address, storage_slot, bytes(32)])
 
     yield new_consensus
+
+
+@pytest.fixture()
+def process_frame_index(forked_el_client, report_contract, frame_config):
+    def _set_last_processed(frame_index: int):
+        storage_slot = forked_el_client.keccak(text="lido.BaseOracle.lastProcessingRefSlot")
+        ref_slot = 32 * (frame_config.initial_epoch + frame_index * frame_config.epochs_per_frame) - 1
+        logger.info(f"TESTRUN Set Last Processed Ref Slot to {ref_slot}")
+        forked_el_client.provider.make_request(
+            'anvil_setStorageAt', [report_contract.address, storage_slot, int(ref_slot).to_bytes(32, byteorder='big')]
+        )
+
+    return _set_last_processed
 
 
 @pytest.fixture()

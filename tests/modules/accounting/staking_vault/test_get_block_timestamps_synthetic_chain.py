@@ -5,6 +5,7 @@ from eth_typing import BlockNumber
 
 from src.utils.block import get_block_timestamps
 
+
 SECONDS_PER_SLOT = 12
 BLOCKS_PER_DAY = 7200
 MAX_RPC_CALLS = 500
@@ -55,7 +56,6 @@ def _make_web3_mock(get_block):
 
 @pytest.mark.unit
 class TestBlockTimestampsSyntheticChain:
-
     def test_full_day_no_missed_slots(self):
         # Setup
         first_block = 10_000

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lido-oracle"
-version = "7.1.0"
+version = "8.0.0"
 description = "Oracle daemon for the Lido decentralized staking protocol. It collects consensus-layer data — including the number of active validators and their aggregated balances — and securely reports this information to the Lido dApp smart contracts operating on the execution layer."
 authors = [
     "Dmitry Chernukhin",
@@ -16,46 +16,54 @@ authors = [
     "Yuri Tkachenko",
 ]
 license = "GPL 3.0"
+package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.14,<3.15"
 prometheus-client = "^0.21.1"
 timeout-decorator = "^0.5.0"
-pytest = "^7.2.1"
-pytest-xdist = "^3.2.1"
+pytest = "^9.0.2"
+pytest-xdist = "^3.8.0"
 more-itertools = "^10.1.0"
 web3 = "^7.8.0"
-web3-multi-provider = { version = "^2.2.1", extras = ["metrics"] }
+web3-multi-provider = { version = "^2.2.7", extras = ["metrics"] }
 json-stream = "^2.3.2"
+json-stream-rs-tokenizer = {version = "^0.5.0", python = ">=3.14,<3.15"}  # Python 3.14 support
 oz-merkle-tree = { git = "https://github.com/lidofinance/oz-merkle-tree", rev = "f4ad6e006b8daf05ce2ce255e123eb9f923d8ef8" }
 multiformats = "^0.3.1"
 protobuf="^6.31.1"
-dag-cbor="^0.3.3"
 ipld-dag-pb = "^0.0.1"
+fastapi = "^0.121.3"
+uvicorn = "^0.38.0"
+sqlmodel = "^0.0.27"
+psycopg2-binary = "^2.9.11"
+prometheus-fastapi-instrumentator = "^7.1.0"
+ssz = "^0.5.2"
+py-ecc = "^8.0.0"
 
 [tool.poetry.group.dev.dependencies]
+faker = "^37.3.0"
 base58 = "^2.1.1"
 ipfshttpclient = "^0.7.0"
 pydantic = "^2.4.0"
-pytest-cov = "^4.0.0"
-polyfactory = "^2.19.0"
-# {{{ stubs for mypy
+pytest-cov = "^7.0.0"
+polyfactory = "^3.2.0"
+# {{{ type stubs
 types-requests = "^2.28.11.15"
 types-setuptools = "^67.6.0.0"
 types-urllib3 = "^1.26.25.8"
 types-protobuf = "^6.30.2"
 # }}}
 hypothesis = "^6.68.2"
-black = "^24.8"
-pylint = "^3.2.3"
-mypy = "^1.10.0"
+ruff = "^0.14.0"
+pyright = "^1.1.390"
 responses = "^0.25.7"
-eth-tester = "^0.12.1b1"
+eth-tester = {version = "^0.13.0b1", extras = ["py-evm"]}
 pre-commit = "3.8"
 ipython = "^9.0"
-isort = "^6.0.1"
 conventional-pre-commit = "^4.0.0"
 mutmut = "^2.5.1"
+httpx = "^0.28.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -63,12 +71,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 markers = [
-    "unit: tests with using mocks and don't make external requests",
-    "integration: tests with using providers",
-    "e2e: complex tests with using providers and real Ethereum network",
-    "fork: tests with using forked Ethereum network",
-    "mainnet: tests that depends on mainnet",
-    "testnet: tests that depends on testnet",
+    "unit: tests using mocks without external requests",
+    "integration: tests involving external providers",
+    "mainnet: integration tests reliant on the mainnet",
+    "testnet: integration tests reliant on the testnet",
+    "fork: integration tests using a forked Ethereum network",
 ]
 addopts = "-s -vv --strict-markers"
 
@@ -78,10 +85,6 @@ branch = true
 [tool.pylint.master]
 ignore-patterns = ".*_pb2\\.py"
 generated-members = "unixfs_pb2.Data,merkledag_pb2.PBNode"
-
-[tool.pylint.format]
-max-line-length = "120"
-min-similarity-lines = 6
 
 [tool.pylint."messages control"]
 disable = [
@@ -117,43 +120,70 @@ disable = [
     "too-many-positional-arguments",
 ]
 
-[tool.mypy]
-python_version = "3.12"
-strict_equality = true
-mypy_path = "stubs"
-disable_error_code = "valid-type,name-defined"
-
-[[tool.mypy.overrides]]
-module = "src.web3py.contract_tweak"
-ignore_errors = true  # skipped because of extensive copy-paste from the upstream
-
-[tool.black]
-line-length = 120
-skip-string-normalization = true
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+stubPath = "stubs"
+exclude = [
+    "**/__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist"
+]
+ignore = [
+    "src/web3py/contract_tweak.py",  # skipped because of extensive copy-paste from the upstream
+    "src/utils/car/schemes/unixfs_pb2.py"  # generated protobuf file
+]
 
 [tool.ruff]
 line-length = 120
+target-version = "py314"
+
+# Exclude directories and protobuf generated files
+exclude = [
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "*_pb2.py",  # Protobuf generated files
+]
+
+[tool.ruff.lint]
+extend-select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # complexity
+    "C90",
+]
 
 [tool.ruff.format]
+# Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"
+# Match black's behavior
+indent-style = "space"
+skip-magic-trailing-comma = false
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
+[tool.ruff.lint.isort]
+# Equivalent to isort's profile = "black" and combine_as_imports = true
+combine-as-imports = true
+lines-after-imports = 2
 
 [tool.mutmut]
 paths_to_mutate = "src/"

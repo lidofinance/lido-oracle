@@ -14,4 +14,3 @@ Describe how you tested the changes:
 ## Checklist
 - [ ] Documentation updated (if required)
 - [ ] New tests added (if applicable)
-- [ ] `CSM_STATE_VERSION` is bumped (if the new version affects data in the cache)

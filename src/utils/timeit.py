@@ -1,7 +1,7 @@
 import time
+from collections.abc import Callable
 from functools import wraps
 from types import SimpleNamespace
-from typing import Callable
 
 
 type Arguments = SimpleNamespace
@@ -15,7 +15,7 @@ def timeit(log_fn: Callable[[Arguments, Duration], None]):
             start_time = time.time()
             result = func(*args, **kwargs)
             execution_time = time.time() - start_time
-            arguments = SimpleNamespace(**dict(zip(func.__code__.co_varnames, args)), **kwargs)
+            arguments = SimpleNamespace(**dict(zip(func.__code__.co_varnames, args, strict=False)), **kwargs)
             log_fn(arguments, execution_time)
             return result
 

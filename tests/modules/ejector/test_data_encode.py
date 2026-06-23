@@ -1,10 +1,11 @@
 import random
 import string
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import pytest
 
-from src.modules.ejector.data_encode import (
+from src.modules.oracles.ejector.data_encode import (
+    KEY_INDEX_LENGTH,
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,
     VALIDATOR_INDEX_LENGTH,
@@ -12,7 +13,7 @@ from src.modules.ejector.data_encode import (
     encode_data,
     sort_validators_to_eject,
 )
-from src.types import StakingModuleId, NodeOperatorId
+from src.types import NodeOperatorId, StakingModuleId
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.no_registry import LidoValidatorFactory
 
@@ -22,6 +23,7 @@ RECORD_LENGTH = sum(
         MODULE_ID_LENGTH,
         NODE_OPERATOR_ID_LENGTH,
         VALIDATOR_INDEX_LENGTH,
+        KEY_INDEX_LENGTH,
         VALIDATOR_PUB_KEY_LENGTH,
     ]
 )
@@ -79,6 +81,7 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
                 MODULE_ID_LENGTH,
                 NODE_OPERATOR_ID_LENGTH,
                 VALIDATOR_INDEX_LENGTH,
+                KEY_INDEX_LENGTH,
                 VALIDATOR_PUB_KEY_LENGTH,
             )
         )
@@ -86,7 +89,8 @@ def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
         assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
         assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
         assert int.from_bytes(chunks[2]) == _val.index, "Validator's index mismatch"
-        assert chunks[3] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
+        assert int.from_bytes(chunks[3]) == _val.lido_id.index, "Key index mismatch"
+        assert chunks[4] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
 
 
 @pytest.mark.unit
@@ -238,7 +242,7 @@ def _slice_bytes(data: bytes, *segs: int) -> Iterable[bytes]:
 @pytest.mark.parametrize(
     "validators_to_eject",
     [
-        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10))],
+        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10), strict=True)],
         [
             [(1, 0), LidoValidatorFactory.build(index=13)],
             [(0, 1), LidoValidatorFactory.build(index=12)],

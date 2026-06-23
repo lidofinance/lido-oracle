@@ -14,6 +14,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -21,7 +22,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestCalculateVaultFeeComponents:
-
     def test_no_events_uses_liability_shares(self):
         vault_info = VaultInfoFactory.build_with_fees(
             vault=VaultAddresses.VAULT_0,

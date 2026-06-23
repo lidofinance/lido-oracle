@@ -1,9 +1,9 @@
 repos:
   - repo: local
     hooks:
-      - id: black-only-tests
-        name: Run Black on tests/ using Poetry
-        entry: poetry run black tests
+      - id: ruff-format-tests
+        name: Run Ruff format on tests/ using Poetry
+        entry: poetry run ruff format tests
         language: system
         types: [python]
         pass_filenames: false
@@ -14,29 +14,29 @@ repos:
         entry: poetry run conventional-pre-commit
         language: system
         stages: [commit-msg]
-      - id: isort-poetry
-        name: isort
-        entry: poetry run isort
+      - id: ruff-check-imports
+        name: ruff check imports
+        entry: poetry run ruff check --select I --fix
         language: system
         types: [python]
         stages: [pre-commit]
-      - id: mypy
-        name: mypy
-        entry: poetry run mypy
+      - id: pyright
+        name: pyright
+        entry: poetry run pyright
         language: system
         types: [python]
         files: '^(src)/'
         stages: [commit]
-      - id: pylint
-        name: pylint
-        entry: poetry run pylint src tests
+      - id: ruff
+        name: ruff check
+        entry: poetry run ruff check src tests
         language: system
         types: [python]
         files: '^(src|test)/'
         stages: [commit]
       - id: pytest-unit
         name: Run pytest unit tests
-        entry: poetry run pytest tests -m "not integration and not e2e"
+        entry: poetry run pytest tests -m "unit"
         language: system
         pass_filenames: false
         stages: [commit]

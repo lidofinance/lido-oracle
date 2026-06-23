@@ -1,4 +1,5 @@
 import pytest
+
 from src.utils.lazy_object_proxy import LazyObjectProxy
 
 
@@ -41,7 +42,6 @@ class Counter:
 
 @pytest.mark.unit
 class TestUnitLazyObjectProxy:
-
     def test_lazy_init__access_attr__lazy_inited(self):
         is_object_created = False
 
@@ -53,7 +53,7 @@ class TestUnitLazyObjectProxy:
         proxy = LazyObjectProxy(factory)
 
         assert not is_object_created
-        proxy.value
+        _ = proxy.value
         assert is_object_created
 
     def test_methods__call_methods__methods_calls_init_object(self):
@@ -86,7 +86,7 @@ class TestUnitLazyObjectProxy:
         del proxy.value
 
         with pytest.raises(AttributeError):
-            proxy.value
+            _ = proxy.value
 
     def test_delete__delete_protected__error(self):
         proxy = LazyObjectProxy(lambda: Counter(5))

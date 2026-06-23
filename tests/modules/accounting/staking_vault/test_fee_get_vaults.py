@@ -6,7 +6,7 @@ from eth_typing import BlockNumber
 from web3.types import Wei
 
 from src.constants import SECONDS_IN_YEAR, TOTAL_BASIS_POINTS
-from src.modules.submodules.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
@@ -22,6 +22,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -29,7 +30,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestGetVaultsFees:
-
     @pytest.fixture
     def service(self, web3, monkeypatch):
         web3.cc = MagicMock()

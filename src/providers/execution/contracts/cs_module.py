@@ -8,6 +8,7 @@ from src.constants import UINT64_MAX
 
 from ..base_interface import ContractInterface
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,10 +20,10 @@ class CSModuleContract(ContractInterface):
     def accounting(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
         """Returns the address of the CSAccounting contract"""
 
-        resp = self.functions.accounting().call(block_identifier=block_identifier)
+        resp = self.functions.ACCOUNTING().call(block_identifier=block_identifier)
         logger.info(
             {
-                "msg": "Call `accounting()`.",
+                "msg": "Call `ACCOUNTING()`.",
                 "value": resp,
                 "block_identifier": repr(block_identifier),
             }

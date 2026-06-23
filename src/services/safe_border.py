@@ -1,9 +1,11 @@
 import math
-from typing import Iterable
+from collections.abc import Iterable
+
+from eth_typing import HexStr
 
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.submodules.consensus import ChainConfig, FrameConfig
+from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -30,17 +32,11 @@ class SafeBorder(Web3Converter):
     2. Negative rebase border
     3. Associated slashing border
     """
-    chain_config: ChainConfig
-    frame_config: FrameConfig
+
     blockstamp: ReferenceBlockStamp
-    converter: Web3Converter
 
     def __init__(
-        self,
-        w3: Web3,
-        blockstamp: ReferenceBlockStamp,
-        chain_config: ChainConfig,
-        frame_config: FrameConfig
+        self, w3: Web3, blockstamp: ReferenceBlockStamp, chain_config: ChainConfig, frame_config: FrameConfig
     ) -> None:
         super().__init__(chain_config, frame_config)
 
@@ -48,17 +44,17 @@ class SafeBorder(Web3Converter):
         self.lido_contracts = w3.lido_contracts
 
         self.blockstamp = blockstamp
-        self.chain_config = chain_config
-        self.frame_config = frame_config
 
-        self.converter = Web3Converter(chain_config, frame_config)
         self._retrieve_constants()
 
     def _retrieve_constants(self):
-        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(self.blockstamp.block_hash)
+        limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
+            self.blockstamp.block_hash
+        )
 
         self.finalization_default_shift = math.ceil(
-            limits_list.request_timestamp_margin / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
+            limits_list.request_timestamp_margin
+            / (self.chain_config.slots_per_epoch * self.chain_config.seconds_per_slot)
         )
 
     @duration_meter()
@@ -129,13 +125,15 @@ class SafeBorder(Web3Converter):
 
     @duration_meter()
     def _get_earliest_slashed_epoch_among_incomplete_slashings(self) -> EpochNumber | None:
-        validators = self.w3.lido_validators.get_lido_validators(self.blockstamp)
+        validators = self.w3.lido_validators.get_active_lido_validators(self.blockstamp)
         validators_slashed = filter_slashed_validators(validators)
 
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
         # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
-        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(validators_slashed, self.blockstamp.ref_epoch)
+        validators_slashed_non_withdrawable = filter_non_withdrawable_validators(
+            validators_slashed, self.blockstamp.ref_epoch
+        )
 
         if not validators_slashed_non_withdrawable:
             return None
@@ -175,7 +173,7 @@ class SafeBorder(Web3Converter):
         Returns the earliest slashed epoch for the given validators rounded to the frame
         """
         last_finalized_request_id_epoch = self._get_last_finalized_withdrawal_request_epoch()
-        earliest_activation_epoch = min((v.validator.activation_epoch for v in validators))
+        earliest_activation_epoch = min(v.validator.activation_epoch for v in validators)
         # Since we are looking for the safe border epoch, we can start from the last finalized withdrawal request epoch
         # or the earliest activation epoch among the given validators for optimization
         start_epoch = max(last_finalized_request_id_epoch, earliest_activation_epoch)
@@ -189,7 +187,7 @@ class SafeBorder(Web3Converter):
         start_frame = self.get_frame_by_epoch(EpochNumber(start_epoch))
         end_frame = self.get_frame_by_epoch(EpochNumber(end_epoch))
 
-        slashed_pubkeys = set(v.validator.pubkey for v in validators)
+        slashed_pubkeys: set[HexStr] = {HexStr(v.validator.pubkey) for v in validators}
 
         # Since the border will be rounded to the frame, we are iterating over the frames
         # to avoid unnecessary queries
@@ -205,15 +203,15 @@ class SafeBorder(Web3Converter):
         epoch_number = self.get_epoch_by_slot(slot_number)
         return epoch_number
 
-    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[str]) -> bool:
+    def _slashings_in_frame(self, frame: FrameNumber, slashed_pubkeys: set[HexStr]) -> bool:
         """
-        Returns number of slashed validators for the frame for the given validators
-        Slashed flag can't be undone, so we can only look at the last slot
+        Returns True if there are any slashed validators for the frame for the given validators;
+        since the slashed flag is permanent, we only need to examine the last slot in the frame.
         """
         last_slot_in_frame = self.get_frame_last_slot(frame)
         last_slot_in_frame_blockstamp = self._get_blockstamp(last_slot_in_frame)
 
-        lido_validators = self.w3.lido_validators.get_lido_validators(last_slot_in_frame_blockstamp)
+        lido_validators = self.w3.lido_validators.get_active_lido_validators(last_slot_in_frame_blockstamp)
         slashed_validators = filter_slashed_validators(
             v for v in lido_validators if v.validator.pubkey in slashed_pubkeys
         )
@@ -221,7 +219,9 @@ class SafeBorder(Web3Converter):
         return len(slashed_validators) > 0
 
     def _get_bunker_mode_start_timestamp(self) -> int | None:
-        start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(self.blockstamp.block_hash)
+        start_timestamp = self.w3.lido_contracts.withdrawal_queue_nft.bunker_mode_since_timestamp(
+            self.blockstamp.block_hash
+        )
 
         if start_timestamp > self.blockstamp.block_timestamp:
             return None
@@ -229,12 +229,16 @@ class SafeBorder(Web3Converter):
         return start_timestamp
 
     def _get_last_finalized_withdrawal_request_epoch(self) -> EpochNumber:
-        last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(self.blockstamp.block_hash)
+        last_finalized_request_id = self.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id(
+            self.blockstamp.block_hash
+        )
         if last_finalized_request_id == 0:
             # request with id: 0 is reserved by protocol. No requests were finalized.
             return EpochNumber(0)
 
-        last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(last_finalized_request_id)
+        last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(
+            last_finalized_request_id
+        )
 
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
@@ -243,7 +247,8 @@ class SafeBorder(Web3Converter):
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
-            self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch)
+            self.get_frame_by_epoch(epoch) * self.frame_config.epochs_per_frame + self.frame_config.initial_epoch
+        )
 
 
 def filter_slashed_validators(validators: Iterable[Validator]) -> list[Validator]:

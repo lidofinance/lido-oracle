@@ -3,13 +3,19 @@
 import random
 import string
 import time
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
-from src.main import ipfs_providers
-from src.providers.ipfs import Pinata, Storacha, LidoIPFS
+from src.modules.oracles.common.runtime import ipfs_providers
+from src.providers.ipfs import Filebase, LidoIPFS, Pinata
 from src.utils.car.converter import DEFAULT_CHUNK_SIZE
 
-REQUIRED_PROVIDERS = (Pinata, Storacha, LidoIPFS)
+
+REQUIRED_PROVIDERS = (
+    Filebase,
+    Pinata,
+    LidoIPFS,
+)
 
 SMALL_CONTENT_SIZE = DEFAULT_CHUNK_SIZE - 1000
 LARGE_CONTENT_SIZE = int(DEFAULT_CHUNK_SIZE * 3.5)
@@ -40,7 +46,7 @@ def _get_and_validate_providers():
     return configured_providers
 
 
-def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[str]:
+def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[str]:  # noqa: C901
     """Test IPFS providers with specific content size.
 
     Returns list of error messages.
@@ -63,7 +69,6 @@ def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[s
 
         # Check content between different IPFS providers
         for download_provider in configured_providers:
-
             # LidoIPFS can only download content uploaded via LidoIPFS (by design)
             if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
                 continue
@@ -90,7 +95,6 @@ def _check_ipfs_provider_with(configured_providers, content_size: int) -> list[s
         # Check CID's between different IPFS providers
         # Separate cycle to avoid corruption of fetched content checking
         for download_provider in configured_providers:
-
             # LidoIPFS can only download content uploaded via LidoIPFS (by design)
             if isinstance(download_provider, LidoIPFS) and not isinstance(upload_provider, LidoIPFS):
                 continue
@@ -136,13 +140,9 @@ def check_ipfs_providers():
     configured_providers = _get_and_validate_providers()
     all_errors = []
 
-    all_errors.extend(_check_ipfs_provider_with(
-        configured_providers, SMALL_CONTENT_SIZE
-    ))
+    all_errors.extend(_check_ipfs_provider_with(configured_providers, SMALL_CONTENT_SIZE))
 
-    all_errors.extend(_check_ipfs_provider_with(
-        configured_providers, LARGE_CONTENT_SIZE
-    ))
+    all_errors.extend(_check_ipfs_provider_with(configured_providers, LARGE_CONTENT_SIZE))
 
-    numbered_errors = [f"{i+1}. {error}" for i, error in enumerate(all_errors)]
+    numbered_errors = [f"{i + 1}. {error}" for i, error in enumerate(all_errors)]
     assert not all_errors, f"Provider issues found ({len(all_errors)} total):\n" + "\n".join(numbered_errors)

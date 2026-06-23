@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup poetry
         run: >
@@ -24,7 +24,7 @@ jobs:
           echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
         env:
           POETRY_HOME: "/opt/poetry"
-          POETRY_VERSION: 1.3.2
+          POETRY_VERSION: 2.3.2
 
       - name: Install dependencies
         run: |
@@ -32,7 +32,8 @@ jobs:
 
       - name: Test with pytest
         timeout-minutes: 60
-        run: poetry run pytest --cov=src tests
+        # Fork tests running in separate workflow
+        run: poetry run pytest --cov=src -m 'not fork' tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
@@ -40,26 +41,28 @@ jobs:
           TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
           TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
           TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
-          CSM_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+          CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+          CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
           PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
           LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
           LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
-          STORACHA_AUTH_SECRET: ${{ secrets.STORACHA_AUTH_SECRET }}
-          STORACHA_AUTHORIZATION: ${{ secrets.STORACHA_AUTHORIZATION }}
-          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}
 
   linters:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup poetry
         run: >
@@ -67,17 +70,17 @@ jobs:
           echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
         env:
           POETRY_HOME: "/opt/poetry"
-          POETRY_VERSION: 1.3.2
+          POETRY_VERSION: 2.3.2
 
       - name: Install dependencies
         run: |
           poetry install --no-interaction --with=dev
 
-      - name: Lint with black
-        run: poetry run black --check tests
+      - name: Lint with ruff format
+        run: poetry run ruff format --check --diff tests
 
-      - name: Lint with pylint
-        run: poetry run pylint src tests
+      - name: Lint with ruff check
+        run: poetry run ruff check .
 
-      - name: Lint mypy
-        run: poetry run mypy src
+      - name: Lint with pyright
+        run: poetry run pyright src

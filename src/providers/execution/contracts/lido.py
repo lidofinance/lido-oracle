@@ -1,11 +1,12 @@
 import logging
 
-from web3.types import Wei, BlockIdentifier
+from web3.types import BlockIdentifier, Wei
 
-from src.modules.accounting.types import BeaconStat
+from src.modules.oracles.accounting.types import BeaconStat
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,21 +15,20 @@ class LidoContract(ContractInterface):
     abi_path = './assets/Lido.json'
 
     @lru_cache(maxsize=1)
-    def get_buffered_ether(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def get_withdrawals_reserve(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
         """
-        Get the amount of Ether temporary buffered on this contract balance
-        Buffered balance is kept on the contract from the moment the funds are received from user
-        until the moment they are actually sent to the official Deposit contract.
-        return amount of buffered funds in wei
+        Return the amount of ETH reserved to satisfy withdrawals, in wei.
         """
-        response = self.functions.getBufferedEther().call(block_identifier=block_identifier)
+        response = self.functions.getWithdrawalsReserve().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `getBufferedEther()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getWithdrawalsReserve()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -41,12 +41,14 @@ class LidoContract(ContractInterface):
         """
         response = self.functions.totalSupply().call(block_identifier=block_identifier)
 
-        logger.info({
-            'msg': 'Call `totalSupply()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `totalSupply()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return Wei(response)
 
     @lru_cache(maxsize=1)
@@ -61,10 +63,56 @@ class LidoContract(ContractInterface):
         response = self.functions.getBeaconStat().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, BeaconStat)
 
-        logger.info({
-            'msg': 'Call `getBeaconStat()`.',
-            'value': response,
-            'block_identifier': repr(block_identifier),
-            'to': self.address,
-        })
+        logger.info(
+            {
+                'msg': 'Call `getBeaconStat()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return response
+
+    def get_contract_version(self, block_identifier: BlockIdentifier) -> int:
+        response = self.functions.getContractVersion().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `getContractVersion()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return int(response)
+
+    def get_deposited_for_current_report(self, block_identifier: BlockIdentifier) -> Wei:
+        """Lido v4+: ETH deposited by Lido since the last oracle report, in wei."""
+        response = self.functions.getBalanceStats().call(block_identifier=block_identifier)
+        logger.info(
+            {
+                'msg': 'Call `getBalanceStats()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return Wei(
+            response[3]
+        )  # https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
+
+    def get_deposits_reserve_target(self, block_identifier: BlockIdentifier) -> Wei:
+        """
+        Returns the amount of ETH reserved for deposits every AO frame.
+        """
+        response = self.functions.getDepositsReserveTarget().call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `getDepositsReserveTarget()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+
+        return Wei(response)

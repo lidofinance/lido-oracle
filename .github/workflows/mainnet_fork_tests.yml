@@ -21,10 +21,12 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    env:
+      FORGE_REV: v1.5.1
     steps:
       - uses: actions/checkout@v3
 
-      # TODO: Remove after upgrade to CSM v2 on Mainnet.
+      # TODO: Remove after upgrade to CSM v3 on Mainnet.
       - name: Checkout CSM repo
         uses: actions/checkout@v4
         with:
@@ -35,6 +37,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FORGE_REV }}
 
       - name: Install node
         uses: actions/setup-node@v4
@@ -54,10 +58,10 @@ jobs:
         working-directory: testruns/community-staking-module
         run: just build
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup poetry
         run: >
@@ -65,7 +69,7 @@ jobs:
           echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
         env:
           POETRY_HOME: "/opt/poetry"
-          POETRY_VERSION: 1.3.2
+          POETRY_VERSION: 2.3.2
 
       - name: Install Python dependencies
         run: |
@@ -77,13 +81,16 @@ jobs:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
           KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
+          TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
+          TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
           LIDO_LOCATOR_ADDRESS: "0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb"
-          CSM_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+          CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+          # CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
           PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
           LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
           LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
-          STORACHA_AUTH_SECRET: ${{ secrets.STORACHA_AUTH_SECRET }}
-          STORACHA_AUTHORIZATION: ${{ secrets.STORACHA_AUTHORIZATION }}
-          STORACHA_SPACE_DID: ${{ secrets.STORACHA_SPACE_DID }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}

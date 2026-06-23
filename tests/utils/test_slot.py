@@ -5,7 +5,7 @@ import pytest
 
 from src.providers.http_provider import NotOkResponse
 from src.types import SlotNumber
-from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot, get_non_missed_slot_header
+from src.utils.slot import NoSlotsAvailable, get_prev_non_missed_slot
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
@@ -65,10 +65,10 @@ def test_get_third_non_missed_slot_backward(web3):
     # Mock get_block_header to fail twice, succeed on the third call with first_non_missed_slot
     # then return parent_slot for the fourth call to get parent_header of first_non_missed_slot
     def get_block_header(state_id):
-        setattr(get_block_header, "call_count", getattr(get_block_header, "call_count", 0) + 1)
-        if getattr(get_block_header, "call_count") < missed_slots_count:
+        get_block_header.call_count = getattr(get_block_header, "call_count", 0) + 1
+        if get_block_header.call_count < missed_slots_count:
             raise NotOkResponse("No slots", status=HTTPStatus.NOT_FOUND, text="text")
-        elif getattr(get_block_header, "call_count") == missed_slots_count:
+        elif get_block_header.call_count == missed_slots_count:
             return BlockHeaderFullResponseFactory.build(
                 data={
                     "header": {

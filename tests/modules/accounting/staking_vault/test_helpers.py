@@ -14,6 +14,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -21,7 +22,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestPendingDepositHelpers:
-
     def test_get_total_pending_amount_by_pubkey(self):
         # Setup
         pending = [
@@ -40,7 +40,6 @@ class TestPendingDepositHelpers:
 
 @pytest.mark.unit
 class TestValidatorFilteringHelpers:
-
     def test_get_non_eligible_for_activation_pubkeys(self):
         # Setup
         validators = [
@@ -112,7 +111,6 @@ class TestValidatorFilteringHelpers:
 
 @pytest.mark.unit
 class TestStatusFetchingHelpers:
-
     def test_get_pubkey_statuses_by_vault_groups_statuses(self, web3):
         # Setup
         status_vault_0 = ValidatorStatusFactory.build_predeposited(VaultAddresses.VAULT_0)

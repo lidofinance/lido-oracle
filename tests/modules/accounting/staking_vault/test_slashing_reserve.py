@@ -5,8 +5,8 @@ import pytest
 from eth_typing import ChecksumAddress, HexAddress, HexStr
 
 from src.constants import TOTAL_BASIS_POINTS
-from src.modules.accounting.types import VaultsMap
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
+from src.modules.oracles.accounting.types import VaultsMap
 from src.providers.consensus.types import Validator
 from src.services.staking_vaults import StakingVaultsService
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -17,6 +17,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     VaultInfoFactory,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -24,7 +25,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestGetVaultsSlashingReserve:
-
     def test_slashing_reserve_calculation(self, web3):
         # Setup
         mock_ref_epoch = EpochNumber(40_000)

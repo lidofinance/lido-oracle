@@ -1,6 +1,9 @@
 from http import HTTPStatus
 from typing import Any, Literal, cast
 
+from requests import Response
+from web3_multi_provider import HTTPSessionManagerProxy
+
 from src import variables
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import CL_REQUESTS_DURATION
@@ -14,6 +17,7 @@ from src.providers.consensus.types import (
     BlockHeaderResponseData,
     BlockRootResponse,
     GenesisResponse,
+    PendingConsolidation,
     PendingDeposit,
     ProposerDuties,
     SlotAttestationCommittee,
@@ -32,6 +36,7 @@ from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 
+
 logger = logging.getLogger(__name__)
 
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
@@ -47,7 +52,9 @@ class ConsensusClient(HTTPProvider):
     https://ethereum.github.io/beacon-APIs/
 
     state_id
-    State identifier. Can be one of: "head" (canonical head in node's view), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.
+    State identifier. Can be one of:
+    "head" (canonical head in node's view), "genesis", "finalized", "justified",
+    <slot>, <hex encoded stateRoot with 0x prefix>.
     """
 
     PROVIDER_EXCEPTION = ConsensusClientError
@@ -64,16 +71,34 @@ class ConsensusClient(HTTPProvider):
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
     API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
 
+    def __init__(
+        self, hosts: list[str], timeout: int, retry_total: int = 3, retry_backoff_factor: int = 3, chain_id: int = 1
+    ) -> None:
+        super().__init__(
+            hosts, request_timeout=timeout, retry_total=retry_total, retry_backoff_factor=retry_backoff_factor
+        )
+        self._init_session_managers(hosts, chain_id)
+
+    def _init_session_managers(self, hosts: list[str], chain_id: int) -> None:
+        self._session_managers = {
+            host: HTTPSessionManagerProxy(chain_id=chain_id, uri=host, network='beacon', layer='cl') for host in hosts
+        }
+
+    def _make_get_request(self, host: str, endpoint: str, **kwargs) -> Response:
+        session_manager = self._session_managers.get(host) or next(iter(self._session_managers.values()))
+        return session_manager._timed_call(self.session.get, self._urljoin(host, endpoint), **kwargs)
+
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
-        data, _ = self._get(self.API_GET_SPEC, retval_validator=data_is_dict)
+        data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
-    def get_genesis(self):
+    @lru_cache(maxsize=1)
+    def get_genesis(self) -> GenesisResponse:
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
         """
-        data, _ = self._get(self.API_GET_GENESIS, retval_validator=data_is_dict)
+        data, _ = self._get(self.API_GET_GENESIS, validate_response=data_is_dict)
         return GenesisResponse.from_response(**data)
 
     def get_block_root(self, state_id: SlotNumber | BlockRoot | LiteralState) -> BlockRootResponse:
@@ -86,7 +111,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_ROOT,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BlockRootResponse.from_response(**data)
 
@@ -97,7 +122,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_HEADER,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         resp = BlockHeaderFullResponse.from_response(data=BlockHeaderResponseData.from_response(**data), **meta_data)
         return resp
@@ -109,11 +134,13 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BlockDetailsResponse.from_response(**data)
 
-    @lru_cache(maxsize=variables.CSM_ORACLE_MAX_CONCURRENCY * 32 * 2)  # threads count * blocks * epochs to check duties
+    @lru_cache(
+        maxsize=variables.PERFORMANCE_COLLECTOR_MAX_CONCURRENCY * 32 * 2
+    )  # threads count * blocks * epochs to check duties
     def get_block_attestations_and_sync(
         self, state_id: SlotNumber | BlockRoot
     ) -> tuple[list[BlockAttestation], SyncAggregate]:
@@ -122,7 +149,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_BLOCK_DETAILS,
             path_params=(state_id,),
             force_raise=self.__raise_last_missed_slot_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
 
         attestations = [
@@ -148,7 +175,7 @@ class ConsensusClient(HTTPProvider):
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error,
-                retval_validator=data_is_list,
+                validate_response=data_is_list,
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
@@ -170,7 +197,7 @@ class ConsensusClient(HTTPProvider):
                 path_params=(blockstamp.state_root,),
                 query_params={'epoch': epoch},
                 force_raise=self.__raise_on_prysm_error,
-                retval_validator=data_is_dict,
+                validate_response=data_is_dict,
             )
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
@@ -180,7 +207,7 @@ class ConsensusClient(HTTPProvider):
                 )
             else:
                 raise error
-        return SyncCommittee.from_response(**data)
+        return SyncCommittee.from_response(**data)  # type: ignore[arg-type]
 
     @list_of_dataclasses(ProposerDuties.from_response)
     def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
@@ -199,7 +226,7 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(
             self.API_GET_PROPOSER_DUTIES,
             path_params=(epoch,),
-            retval_validator=data_is_list_and_dependent_root_matches,
+            validate_response=data_is_list_and_dependent_root_matches,
         )
         return data
 
@@ -209,9 +236,10 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_STATE,
             path_params=(state_id,),
             stream=True,
-            retval_validator=data_is_transient_dict,
+            validate_response=data_is_transient_dict,
+            stream_consumer=lambda d: list(d["block_roots"]),
         )
-        return list(data["block_roots"])
+        return data
 
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view(blockstamp).indexed_validators
@@ -250,6 +278,12 @@ class ConsensusClient(HTTPProvider):
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
 
+    def get_pending_consolidations(self, blockstamp: BlockStamp) -> list[PendingConsolidation]:
+        return self.get_state_view(blockstamp).pending_consolidations
+
+    def get_validators_by_indexes(self, blockstamp: BlockStamp) -> dict[int, Validator]:
+        return {validator.index: validator for validator in self.get_state_view(blockstamp).indexed_validators}
+
     def get_validator_state(self, state_id: SlotNumber, validator_id: int) -> Validator:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator"""
         data, _ = self._get(
@@ -266,7 +300,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_STATE,
             path_params=(state_id,),
             force_raise=self.__raise_on_prysm_error,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return data
 
@@ -274,7 +308,7 @@ class ConsensusClient(HTTPProvider):
         """
         Prysm can't return validators by state root if it is old enough, but it can return them via slot number.
 
-        raise error immediately if this is prysm specific exception
+        Raise the error immediately if this is a prysm specific exception
         """
         last_error = errors[-1]
         if isinstance(last_error, NotOkResponse) and self.PRYSM_STATE_NOT_FOUND_ERROR in last_error.text:
@@ -294,7 +328,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_ATTESTATION_COMMITTEES,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
-            retval_validator=data_is_list,
+            validate_response=data_is_list,
         )
         return data
 
@@ -309,7 +343,7 @@ class ConsensusClient(HTTPProvider):
             self.API_GET_SYNC_COMMITTEE,
             path_params=(blockstamp.slot_number,),
             query_params={'epoch': epoch},
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return data
 
@@ -329,6 +363,6 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get_without_fallbacks(
             self.hosts[provider_index],
             self.API_GET_SPEC,
-            retval_validator=data_is_dict,
+            validate_response=data_is_dict,
         )
         return BeaconSpecResponse.from_response(**data).DEPOSIT_CHAIN_ID

@@ -5,7 +5,7 @@ import pytest
 from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
@@ -16,6 +16,7 @@ from src.web3py.extensions.lido_validators import (
     StakingModule,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+
 
 TESTING_REF_EPOCH = 100
 
@@ -41,6 +42,8 @@ def lido_validators(web3):
         priority_exit_share_threshold=0,
         max_deposits_per_block=0,
         min_deposit_block_distance=0,
+        withdrawal_credentials_type=0,
+        validators_balance_gwei=Gwei(0),
     )
 
     web3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm])
@@ -72,14 +75,15 @@ def lido_validators(web3):
         ]
     )
 
-    def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0):
+    def validator(index: int, exit_epoch: int, pubkey: HexStr, activation_epoch: int = 0, consolidating_as_source=None):
         return LidoValidator(
             lido_id=LidoKey(
+                index=index,
                 key=pubkey,
-                depositSignature="",
-                operatorIndex=NodeOperatorId(-1),
+                deposit_signature="",
+                operator_index=NodeOperatorId(-1),
                 used=True,
-                moduleAddress="",
+                module_address="",
             ),
             **asdict(
                 Validator(
@@ -97,6 +101,9 @@ def lido_validators(web3):
                     ),
                 )
             ),
+            pending_topups=[],
+            consolidating_as_source=consolidating_as_source,
+            consolidating_as_target=[],
         )
 
     web3.lido_validators.get_lido_validators_by_node_operators = Mock(
@@ -175,8 +182,9 @@ def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, cha
         ref_slot=15392,
         ref_epoch=481,
     )
-    recently_requested_validators = validator_state.get_recently_requested_but_not_exited_validators(
-        blockstamp, chain_config
+    recently_requested_validators = validator_state.get_recently_requested_but_not_exiting_validators(
+        chain_config,
+        blockstamp,
     )
     web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 

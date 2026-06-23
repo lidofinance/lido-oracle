@@ -9,6 +9,7 @@ from tests.modules.accounting.staking_vault.conftest import (
     WithdrawalCredentials,
 )
 
+
 # =============================================================================
 # Tests
 # =============================================================================
@@ -16,7 +17,6 @@ from tests.modules.accounting.staking_vault.conftest import (
 
 @pytest.mark.unit
 class TestGetValidatorsByVault:
-
     def test_single_validator(self, default_vaults_map):
         # Setup
         validators = [

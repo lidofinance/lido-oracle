@@ -3,10 +3,10 @@ from unittest.mock import Mock
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.submodules.types import ChainConfig
+from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import Validator, ValidatorState
-from src.services.bunker import BunkerService
 from src.providers.keys.types import LidoKey
+from src.services.bunker import BunkerService
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
@@ -254,6 +254,13 @@ def blockstamp():
     return simple_ref_blockstamp(10)
 
 
+@pytest.fixture(autouse=True)
+def reset_upgrade_cache():
+    AbnormalClRebase._upgrade_confirmed_at_block = None
+    yield
+    AbnormalClRebase._upgrade_confirmed_at_block = None
+
+
 @pytest.fixture
 def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     c_conf = ChainConfig(
@@ -267,4 +274,7 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
         rebase_check_nearest_epoch_distance=4,
         rebase_check_distant_epoch_distance=25,
     )
+    # Pre-v4 by default: no top-up support, no pending deposits
+    web3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+    web3.cc.get_pending_deposits = Mock(return_value=[])
     return AbnormalClRebase(web3, c_conf, b_conf)

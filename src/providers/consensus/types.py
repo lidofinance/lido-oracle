@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
 
-from eth_typing import BlockNumber
+from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
@@ -18,20 +18,70 @@ from src.types import (
 )
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
+from src.utils.validator_state import get_max_effective_balance
 
 
 @dataclass
 class BeaconSpecResponse(Nested, FromResponse):
     DEPOSIT_CHAIN_ID: int
     SLOTS_PER_EPOCH: int
-    SECONDS_PER_SLOT: int
     DEPOSIT_CONTRACT_ADDRESS: str
     SLOTS_PER_HISTORICAL_ROOT: int
+    SLOT_DURATION_MS: int = 0
+    SECONDS_PER_SLOT: int = 0
+
+    class NeitherSlotDurationFieldPresent(Exception):
+        pass
+
+    class UnsupportedSlotDuration(Exception):
+        pass
+
+    class InconsistentSlotDuration(Exception):
+        pass
+
+    def __post_init__(self):
+        """
+        Consensus clients may provide either SECONDS_PER_SLOT (legacy) or SLOT_DURATION_MS
+        (per consensus-specs#4926). This method ensures both fields are populated.
+
+        Raises UnsupportedSlotDuration for fractional slot durations (e.g., 12500ms = 12.5s).
+        While SLOT_DURATION_MS technically enables sub-second precision, fractional slot
+        durations are extremely unlikely in practice - all networks use whole seconds.
+        Oracle explicitly rejects them to prevent silent timing calculation errors.
+
+        See: https://github.com/ethereum/consensus-specs/pull/4926
+        """
+        super().__post_init__()
+        if self.SLOT_DURATION_MS == 0 and self.SECONDS_PER_SLOT == 0:
+            raise BeaconSpecResponse.NeitherSlotDurationFieldPresent(
+                "CL spec response contains neither SECONDS_PER_SLOT nor SLOT_DURATION_MS"
+            )
+
+        if self.SLOT_DURATION_MS != 0:
+            if self.SLOT_DURATION_MS % 1000 != 0:
+                raise BeaconSpecResponse.UnsupportedSlotDuration(
+                    f"Non-integer slot duration not supported: {self.SLOT_DURATION_MS}ms "
+                    f"({self.SLOT_DURATION_MS / 1000}s). Oracle requires whole-second slot durations."
+                )
+
+            if self.SECONDS_PER_SLOT != 0 and self.SLOT_DURATION_MS != self.SECONDS_PER_SLOT * 1000:
+                raise BeaconSpecResponse.InconsistentSlotDuration(
+                    f"Inconsistent slot duration fields: {self.SLOT_DURATION_MS=} "
+                    f"does not match {self.SECONDS_PER_SLOT=}."
+                )
+
+        if self.SLOT_DURATION_MS == 0:
+            self.SLOT_DURATION_MS = int(self.SECONDS_PER_SLOT * 1000)
+
+        if self.SECONDS_PER_SLOT == 0:
+            self.SECONDS_PER_SLOT = self.SLOT_DURATION_MS // 1000
 
 
 @dataclass
 class GenesisResponse(Nested, FromResponse):
     genesis_time: int
+    genesis_validators_root: HexStr
+    genesis_fork_version: HexStr
 
 
 @dataclass
@@ -139,6 +189,12 @@ class ValidatorState(Nested, FromResponse):
     exit_epoch: EpochNumber
     withdrawable_epoch: EpochNumber
 
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.effective_balance > get_max_effective_balance(self):
+            raise ValueError(f"Validator {self} has invalid effective balance")
+
 
 @dataclass
 class Validator(Nested, FromResponse):
@@ -174,11 +230,22 @@ class PendingPartialWithdrawal(Nested):
 
 @dataclass
 class PendingDeposit(Nested):
-    pubkey: str
-    withdrawal_credentials: str
+    pubkey: HexStr
+    withdrawal_credentials: HexStr
     amount: Gwei
-    signature: str
+    signature: HexStr
     slot: SlotNumber
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.pubkey = HexStr(self.pubkey.lower())
+        self.withdrawal_credentials = HexStr(self.withdrawal_credentials.lower())
+
+
+@dataclass
+class PendingConsolidation(Nested):
+    source_index: int
+    target_index: int
 
 
 @dataclass
@@ -198,6 +265,7 @@ class BeaconStateView(Nested, FromResponse):
     earliest_exit_epoch: EpochNumber = EpochNumber(0)
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
+    pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
