@@ -66,6 +66,21 @@ COPY pyproject.toml poetry.lock ./
 RUN python3 -m venv "$VENV_PATH" && \
     VIRTUAL_ENV="$VENV_PATH" poetry install --no-root --with dev
 
+# Test stage: same venv and source as production, plus dev dependencies, so CI
+# can run the suite against the same code that ships. Must NOT be the last stage:
+# infra builds the Dockerfile without --target and pushes the last stage to the
+# registry, which has to stay `production`.
+FROM base AS test
+
+ARG POETRY_VERSION
+RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
+
+COPY --from=builder $VENV_PATH $VENV_PATH
+WORKDIR /app
+COPY . .
+
+RUN VIRTUAL_ENV="$VENV_PATH" poetry install --no-root --with dev
+
 FROM base AS production
 
 COPY --from=builder $VENV_PATH $VENV_PATH

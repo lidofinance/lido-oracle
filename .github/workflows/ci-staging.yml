@@ -9,17 +9,61 @@ on:
       - ".github/**"
       - "README.md"
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
-  # test:
-  #   ...
-
   deploy:
     runs-on: ubuntu-latest
-    # needs: test
     name: Build and deploy
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Build test image
+        run: docker build --target test -t oracle:test .
+
+      - name: Test the image with pytest
+        timeout-minutes: 60
+        # Fork tests run in a separate workflow.
+        run: >
+          docker run --rm
+          -e EXECUTION_CLIENT_URI
+          -e CONSENSUS_CLIENT_URI
+          -e KEYS_API_URI
+          -e TESTNET_EXECUTION_CLIENT_URI
+          -e TESTNET_CONSENSUS_CLIENT_URI
+          -e TESTNET_KAPI_URI
+          -e CS_MODULE_ADDRESS
+          -e CURATED_MODULE_ADDRESS
+          -e PINATA_JWT
+          -e PINATA_DEDICATED_GATEWAY_URL
+          -e PINATA_DEDICATED_GATEWAY_TOKEN
+          -e LIDO_IPFS_TOKEN
+          -e LIDO_IPFS_HOST
+          -e FILEBASE_IPFS_HOST
+          -e FILEBASE_IPFS_TOKEN
+          oracle:test
+          pytest -m 'not fork' tests
+        env:
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
+          TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
+          TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
+          CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+          CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
+          PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
+          LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
+          LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}
+
       - name: Staging deploy
         uses: lidofinance/dispatch-workflow@v1
         env:
