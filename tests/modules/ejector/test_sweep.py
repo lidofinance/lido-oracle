@@ -250,18 +250,23 @@ def test_get_validators_withdrawals__empty_validators__returns_empty():
 
 
 @pytest.mark.unit
-def test_get_sweep_delay_in_epochs__gloas__uses_max_withdrawals_minus_one_as_denominator(monkeypatch):
-    """Post-Glamsterdam: exactly one slot is reserved for builder withdrawals (fixed assumption)."""
+def test_get_sweep_delay_in_epochs__gloas__skips_builder_withdrawals(monkeypatch):
+    """Post-Glamsterdam: builder withdrawal slots are not deducted; full MAX_WITHDRAWALS_PER_PAYLOAD is used.
+
+    Uses n=901, slots_per_epoch=12 to distinguish the two formulas:
+      ÷ MAX_WITHDRAWALS_PER_PAYLOAD     → ceil(901/16/12)//2 = 5//2 = 2  (correct)
+      ÷ (MAX_WITHDRAWALS_PER_PAYLOAD-1) → ceil(901/15/12)//2 = 6//2 = 3  (old, wrong)
+    """
     state = Mock(spec=BeaconStateView)
     spec = Mock(spec=ChainConfig)
     spec.slots_per_epoch = 12
-    predicted_withdrawals = 1000
+    predicted_withdrawals = 901
 
     with monkeypatch.context() as m:
         m.setattr(sweep_module, "predict_withdrawals_number_in_sweep_cycle", Mock(return_value=predicted_withdrawals))
         result = get_sweep_delay_in_epochs(state, spec, is_gloas_active=True)
 
-    expected = math.ceil(predicted_withdrawals / (MAX_WITHDRAWALS_PER_PAYLOAD - 1) / spec.slots_per_epoch) // 2
+    expected = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
     assert result == expected
 
 
