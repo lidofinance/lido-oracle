@@ -23,7 +23,7 @@ jobs:
           persist-credentials: false
 
       - name: Build test image
-        run: docker build --target test -t oracle:test .
+        run: docker build --target testing -t oracle:testing .
 
       - name: Test the image with pytest
         timeout-minutes: 60
@@ -45,7 +45,7 @@ jobs:
           -e LIDO_IPFS_HOST
           -e FILEBASE_IPFS_HOST
           -e FILEBASE_IPFS_TOKEN
-          oracle:test
+          oracle:testing
           pytest -m 'not fork' tests
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
