@@ -30,7 +30,17 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
 
 ### Step-by-Step Instructions
 1. **Make sure that previous reproducible oracle and buildkit images, containers, and vaults are removed**
-2. **Clone the Repository into a new fresh directory**
+2. **Set the Correct Umask**
+
+   The `umask` defines default file permissions. They are applied to every file created from now on (including the
+   cloned sources) and become part of the image layers. A wrong value produces different layer hashes and breaks
+   reproducibility. Set it to `0022`, matching GitHub Actions, before cloning the repository.
+
+   ```bash
+   umask        # check current value, expected: 0022
+   umask 0022   # set it if the value differs (applies to the current shell only)
+   ```
+3. **Clone the Repository into a new fresh directory**
    ```bash
    mkdir lido-oracle-build
    cd lido-oracle-build
@@ -40,12 +50,12 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    ⚠️ Note: Do not open the directory in an IDE (e.g., VS Code, PyCharm) or run any scripts from the repository at 
    this stage. Tools like IDEs may generate hidden files (e.g., .vscode/, .idea/) or trigger automatic 
    dependency resolution, which can introduce non-deterministic elements into the build.
-3. **Checkout to the Target Branch**
+4. **Checkout to the Target Branch**
    ```bash
    git checkout master  # or the specific branch/tag you want to build
    ```
 
-4. **Perform the Build**
+5. **Perform the Build**
    ```bash
    make reproducible-build-oracle
    ```
@@ -60,7 +70,7 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    ⚠️ Note: The `build-info.json` file is automatically generated and included in `.gitignore`.
    You do not need to manually create or manage this file.
 
-5. **Compare with an Image from Docker Registry**
+6. **Compare with an Image from Docker Registry**
    ```bash
    # Pull the image from the registry (replace <registry> and <tag> as needed)
    docker pull lidofinance/oracle:<tag>
