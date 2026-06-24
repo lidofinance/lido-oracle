@@ -27,9 +27,9 @@ jobs:
 
       - name: Test the image with pytest
         timeout-minutes: 60
-        # Fork tests run in a separate workflow.
         run: >
           docker run --rm
+          -v "$PWD/tests:/app/tests"
           -e EXECUTION_CLIENT_URI
           -e CONSENSUS_CLIENT_URI
           -e KEYS_API_URI

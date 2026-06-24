@@ -29,6 +29,7 @@ jobs:
         timeout-minutes: 60
         run: >
           docker run --rm
+          -v "$PWD/tests:/app/tests"
           -e EXECUTION_CLIENT_URI
           -e CONSENSUS_CLIENT_URI
           -e KEYS_API_URI
