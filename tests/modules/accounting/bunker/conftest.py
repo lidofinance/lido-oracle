@@ -277,4 +277,5 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     # Pre-v4 by default: no top-up support, no pending deposits
     web3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
     web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.is_gloas = Mock(return_value=False)
     return AbnormalClRebase(web3, c_conf, b_conf)
