@@ -198,9 +198,9 @@ def test_staking_module_module_report(
             # NOTE: reporters using the same cache
             with account_from(private_key):
                 module.cycle_handler()
-        report_frame = module.get_initial_or_current_frame(
-            module._receive_last_finalized_slot()  # pylint: disable=protected-access
-        )
+        _block = module._receive_last_finalized_block()  # pylint: disable=protected-access
+        _bs = module._blockstamp_builder.build_blockstamp(_block)  # pylint: disable=protected-access
+        report_frame = module.get_initial_or_current_frame(_bs)
 
     last_processing_after_report = module.w3.staking_module.oracle.get_last_processing_ref_slot('latest')
     assert last_processing_after_report == report_frame.ref_slot, (

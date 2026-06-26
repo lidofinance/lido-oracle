@@ -75,8 +75,8 @@ def mock_get_used_lido_keys(abnormal_case):
 
 
 @pytest.fixture
-def mock_get_blockstamp(monkeypatch):
-    def _get_blockstamp(_, ref_slot, last_finalized_slot_number):
+def mock_get_blockstamp(abnormal_case):
+    def _get_blockstamp(ref_slot, last_finalized_slot_number):
         slots = {
             0: simple_blockstamp(0),
             10: simple_blockstamp(10),
@@ -89,7 +89,7 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[ref_slot]
 
-    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
+    def _get_reference_blockstamp(ref_slot, last_finalized_slot_number, ref_epoch):
         slots = {
             0: simple_ref_blockstamp(0),
             10: simple_ref_blockstamp(10),
@@ -102,12 +102,9 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[ref_slot]
 
-    monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_blockstamp', Mock(side_effect=_get_blockstamp)
-    )
-    monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp',
-        Mock(side_effect=_get_reference_blockstamp),
+    abnormal_case._blockstamp_builder = Mock(  # type: ignore[attr-defined]
+        get_non_missed_blockstamp=Mock(side_effect=_get_blockstamp),
+        get_non_missed_reference_blockstamp=Mock(side_effect=_get_reference_blockstamp),
     )
 
 

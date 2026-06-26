@@ -28,7 +28,7 @@ from src.modules.oracles.staking_modules.common.state import NetworkDuties, Stat
 from src.modules.oracles.staking_modules.common.tree import RewardsTree, StrikesTree, Tree
 from src.modules.oracles.staking_modules.common.types import ReportData, RewardsShares, StrikesList, StrikesValidator
 from src.modules.sidecars.performance.common.db import Duty
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import BlockDetailsResponse, Validator
 from src.providers.execution.contracts.cs_fee_oracle import CSFeeOracleContract
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
@@ -116,7 +116,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.staking_module.has_contract_address_changed()
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
+        last_finalized_blockstamp = self._blockstamp_builder.build_blockstamp(last_finalized_block)
         if not self._check_compatibility(last_finalized_blockstamp):
             return ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
 
@@ -272,7 +273,8 @@ class SMPerformanceOracle(OracleModule[Web3StakingModule]):
     def _get_duties_state(
         self, report_l_epoch: EpochNumber, report_r_epoch: EpochNumber, epochs_per_frame: int
     ) -> State:
-        finalized_blockstamp = self._receive_last_finalized_slot()
+        finalized_block = self._receive_last_finalized_block()
+        finalized_blockstamp = self._blockstamp_builder.build_blockstamp(finalized_block)
         validators_by_index = self.w3.cc.get_validators_by_indexes(finalized_blockstamp)
 
         state = State(report_l_epoch, report_r_epoch, epochs_per_frame)

@@ -5,6 +5,7 @@ from src.modules.oracles.accounting.types import BatchState
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.services.safe_border import SafeBorder
 from src.types import FinalizationBatches, ReferenceBlockStamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
 
@@ -20,12 +21,13 @@ class Withdrawal:
     def __init__(
         self,
         w3: Web3,
+        blockstamp_builder: BlockstampBuilder,
         blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
         frame_config: FrameConfig,
     ) -> None:
         self.w3 = w3
-        self.safe_border_service = SafeBorder(self.w3, blockstamp, chain_config, frame_config)
+        self.safe_border_service = SafeBorder(self.w3, blockstamp_builder, blockstamp, chain_config, frame_config)
 
         self.chain_config = chain_config
         self.frame_config = frame_config

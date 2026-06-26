@@ -9,7 +9,6 @@ from web3.exceptions import ContractCustomError
 
 from src import variables
 from src.modules.common.types import ChainConfig
-from src.modules.oracles.common import consensus as consensus_module
 from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.providers.consensus.types import BeaconSpecResponse
@@ -384,28 +383,27 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
 @pytest.mark.unit
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
     bs = ReferenceBlockStampFactory.build()
-    with monkeypatch.context() as m:
-        m.setattr(consensus_module, "get_blockstamp_by_state", Mock(return_value=bs))
-        chain_config = cast(ChainConfig, ChainConfigFactory.build())
-        consensus.get_chain_config = Mock(return_value=chain_config)
-        bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())
-        consensus.w3.cc.get_config_spec = Mock(return_value=bc_spec)
-        consensus.w3.cc.get_genesis = Mock(return_value=Mock(genesis_time=chain_config.genesis_time))
+    consensus._blockstamp_builder = Mock(build_blockstamp=Mock(return_value=bs))  # type: ignore[attr-defined]
+    chain_config = cast(ChainConfig, ChainConfigFactory.build())
+    consensus.get_chain_config = Mock(return_value=chain_config)
+    bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())
+    consensus.w3.cc.get_config_spec = Mock(return_value=bc_spec)
+    consensus.w3.cc.get_genesis = Mock(return_value=Mock(genesis_time=chain_config.genesis_time))
 
+    consensus.check_contract_configs()
+
+    # broken path
+    chain_config = cast(
+        ChainConfig,
+        ChainConfigFactory.build(
+            seconds_per_slot=14,
+            slots_per_epoch=2,
+            genesis_time=1,
+        ),
+    )
+    consensus.get_chain_config = Mock(return_value=chain_config)
+    with pytest.raises(ValueError):
         consensus.check_contract_configs()
-
-        # broken path
-        chain_config = cast(
-            ChainConfig,
-            ChainConfigFactory.build(
-                seconds_per_slot=14,
-                slots_per_epoch=2,
-                genesis_time=1,
-            ),
-        )
-        consensus.get_chain_config = Mock(return_value=chain_config)
-        with pytest.raises(ValueError):
-            consensus.check_contract_configs()
 
 
 @pytest.mark.unit

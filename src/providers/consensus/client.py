@@ -41,6 +41,8 @@ logger = logging.getLogger(__name__)
 
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
+type StateRootSlotNumber = tuple[StateRoot, SlotNumber]
+
 
 class ConsensusClientError(NotOkResponse):
     pass
@@ -166,16 +168,21 @@ class ConsensusClient(HTTPProvider):
     @list_of_dataclasses(SlotAttestationCommittee.from_response)
     def get_attestation_committees(
         self,
-        blockstamp: BlockStamp,
+        state_root_slot_number: tuple[StateRoot, SlotNumber] | BlockStamp,
         epoch: EpochNumber | None = None,
         committee_index: int | None = None,
         slot: SlotNumber | None = None,
     ) -> list[SlotAttestationCommittee]:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees"""
+        if isinstance(state_root_slot_number, BlockStamp):
+            state_root = state_root_slot_number.state_root
+            slot_number = state_root_slot_number.slot_number
+        else:
+            state_root, slot_number = state_root_slot_number
         try:
             data, _ = self._get(
                 self.API_GET_ATTESTATION_COMMITTEES,
-                path_params=(blockstamp.state_root,),
+                path_params=(state_root,),
                 query_params={'epoch': epoch, 'index': committee_index, 'slot': slot},
                 force_raise=self.__raise_on_prysm_error,
                 validate_response=data_is_list,
@@ -183,7 +190,7 @@ class ConsensusClient(HTTPProvider):
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 data = self._get_attestation_committees_with_prysm(
-                    blockstamp,
+                    state_root_slot_number,
                     epoch,
                     committee_index,
                     slot,
@@ -192,12 +199,19 @@ class ConsensusClient(HTTPProvider):
                 raise error
         return cast(list[SlotAttestationCommittee], data)
 
-    def get_sync_committee(self, blockstamp: BlockStamp, epoch: EpochNumber) -> SyncCommittee:
+    def get_sync_committee(
+        self, state_root_slot_number: StateRootSlotNumber | BlockStamp, epoch: EpochNumber
+    ) -> SyncCommittee:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees"""
+        if isinstance(state_root_slot_number, BlockStamp):
+            state_root = state_root_slot_number.state_root
+            slot_number = state_root_slot_number.slot_number
+        else:
+            state_root, slot_number = state_root_slot_number
         try:
             data, _ = self._get(
                 self.API_GET_SYNC_COMMITTEE,
-                path_params=(blockstamp.state_root,),
+                path_params=(state_root,),
                 query_params={'epoch': epoch},
                 force_raise=self.__raise_on_prysm_error,
                 validate_response=data_is_dict,
@@ -205,7 +219,7 @@ class ConsensusClient(HTTPProvider):
         except NotOkResponse as error:
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
                 data = self._get_sync_committee_with_prysm(
-                    blockstamp,
+                    slot_number,
                     epoch,
                 )
             else:
@@ -244,8 +258,8 @@ class ConsensusClient(HTTPProvider):
         )
         return data
 
-    def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
-        return self.get_state_view(blockstamp).indexed_validators
+    def get_validators(self, state_root_slot_number: StateRootSlotNumber | BlockStamp) -> list[Validator]:
+        return self.get_state_view(state_root_slot_number).indexed_validators
 
     def get_validators_no_cache(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view_no_cache(blockstamp).indexed_validators
@@ -253,26 +267,31 @@ class ConsensusClient(HTTPProvider):
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
     @lru_cache(maxsize=1)
-    def get_state_view(self, blockstamp: BlockStamp) -> BeaconStateView:
-        return self.get_state_view_no_cache(blockstamp)
+    def get_state_view(self, state_root_slot_number: StateRootSlotNumber | BlockStamp) -> BeaconStateView:
+        return self.get_state_view_no_cache(state_root_slot_number)
 
-    def get_state_view_no_cache(self, blockstamp: BlockStamp) -> BeaconStateView:
+    def get_state_view_no_cache(self, state_root_slot_number: StateRootSlotNumber | BlockStamp) -> BeaconStateView:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
+        if isinstance(state_root_slot_number, BlockStamp):
+            state_root = state_root_slot_number.state_root
+            slot_number = state_root_slot_number.slot_number
+        else:
+            state_root, slot_number = state_root_slot_number
 
         logger.info(
             {
                 'msg': 'Getting state...',
                 'url': self.API_GET_STATE,
-                'slot_number': blockstamp.slot_number,
-                'state_root': blockstamp.state_root,
+                'slot_number': slot_number,
+                'state_root': state_root,
             }
         )
         try:
-            data = self._get_state_by_state_id(blockstamp.state_root)
+            data = self._get_state_by_state_id(state_root)
         except NotOkResponse as error:
             # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                data = self._get_state_by_state_id(blockstamp.slot_number)
+                data = self._get_state_by_state_id(slot_number)
             else:
                 raise
 
@@ -320,16 +339,20 @@ class ConsensusClient(HTTPProvider):
 
     def _get_attestation_committees_with_prysm(
         self,
-        blockstamp: BlockStamp,
+        state_root_slot_number: tuple[StateRoot, SlotNumber] | BlockStamp,
         epoch: EpochNumber | None = None,
         index: int | None = None,
         slot: SlotNumber | None = None,
     ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number
+        if isinstance(state_root_slot_number, BlockStamp):
+            slot_number = state_root_slot_number.slot_number
+        else:
+            _, slot_number = state_root_slot_number
         data, _ = self._get(
             self.API_GET_ATTESTATION_COMMITTEES,
-            path_params=(blockstamp.slot_number,),
+            path_params=(slot_number,),
             query_params={'epoch': epoch, 'index': index, 'slot': slot},
             validate_response=data_is_list,
         )
@@ -337,14 +360,14 @@ class ConsensusClient(HTTPProvider):
 
     def _get_sync_committee_with_prysm(
         self,
-        blockstamp: BlockStamp,
+        slot_number: SlotNumber,
         epoch: EpochNumber,
     ) -> list[dict]:
         # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
         # Trying to get committees by slot number
         data, _ = self._get(
             self.API_GET_SYNC_COMMITTEE,
-            path_params=(blockstamp.slot_number,),
+            path_params=(slot_number,),
             query_params={'epoch': epoch},
             validate_response=data_is_dict,
         )

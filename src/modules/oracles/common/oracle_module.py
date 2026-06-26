@@ -18,10 +18,10 @@ from src.modules.oracles.common.exceptions import (
     IsNotMemberException,
 )
 from src.providers.consensus.client import ConsensusClient
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.http_provider import NotOkResponse
 from src.providers.ipfs import IPFSError
 from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedException
-from src.types import BlockStamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
@@ -51,10 +51,10 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
         """Consensus client from w3"""
         return self.w3.cc
 
-    def run_cycle(self, last_finalized_blockstamp: BlockStamp):
+    def run_cycle(self, last_finalized_block: BlockDetailsResponse):
         """Override to add Oracle-specific logic before execution"""
         self.refresh_contracts_if_address_change()
-        super().run_cycle(last_finalized_blockstamp)
+        super().run_cycle(last_finalized_block)
 
     @contextmanager
     def exception_handler(self) -> Iterator[None]:  # noqa: C901

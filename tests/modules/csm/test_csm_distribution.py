@@ -313,6 +313,8 @@ def test_calculate_distribution(
     # Mocking the data from EL
     w3 = Mock(
         spec=Web3StakingModule,
+        cc=Mock(),
+        eth=Mock(),
         staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
     )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(side_effect=shares_to_distribute)
@@ -342,6 +344,8 @@ def test_calculate_distribution_handles_invalid_distribution():
     # Mocking the data from EL
     w3 = Mock(
         spec=Web3StakingModule,
+        cc=Mock(),
+        eth=Mock(),
         staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
     )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
@@ -373,6 +377,8 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
     # Mocking the data from EL
     w3 = Mock(
         spec=Web3StakingModule,
+        cc=Mock(),
+        eth=Mock(),
         staking_module=Mock(spec=StakingModuleContracts, fee_distributor=Mock(spec=CSFeeDistributorContract)),
     )
     w3.staking_module.fee_distributor.shares_to_distribute = Mock(return_value=500)
@@ -1115,7 +1121,7 @@ def test_calculate_distribution_in_frame(
 ):
     log = FramePerfLog(blockstamp=..., frame=...)
     # Mocking the data from EL
-    w3 = Mock(spec=Web3StakingModule, staking_module=Mock(spec=StakingModuleContracts))
+    w3 = Mock(spec=Web3StakingModule, cc=Mock(), eth=Mock(), staking_module=Mock(spec=StakingModuleContracts))
     w3.staking_module.get_curve_params = mocked_curve_params
 
     frame = (EpochNumber(0), EpochNumber(31))
@@ -1194,6 +1200,7 @@ def test_get_module_validators_raises_for_operator_module_address_mismatch():
         staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
         kac=Mock(),
         cc=Mock(),
+        eth=Mock(),
     )
     w3.kac.get_used_module_operators_keys.return_value = {
         "module": {"id": 1},
@@ -1224,6 +1231,7 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
         staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
         kac=Mock(),
         cc=Mock(),
+        eth=Mock(),
     )
     w3.kac.get_used_module_operators_keys.return_value = {
         "module": {"id": 1},
@@ -1663,7 +1671,7 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
 
 @pytest.mark.unit
 def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
-    w3 = Mock(spec=Web3StakingModule, staking_module=Mock())
+    w3 = Mock(spec=Web3StakingModule, cc=Mock(), eth=Mock(), staking_module=Mock())
     reward_share_data = Mock()
     reward_share_data.get_for = Mock(side_effect=lambda k: {1: 1.0, 2: 0.9, 3: 0.8, 4: 0.7, 5: 0.6, 6: 0.5}[k])
     w3.staking_module.get_curve_params = Mock(

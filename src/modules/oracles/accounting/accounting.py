@@ -33,6 +33,7 @@ from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
+from src.providers.consensus.types import BlockDetailsResponse
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
@@ -89,11 +90,12 @@ class Accounting(OracleModule[Web3]):
     def is_contracts_addresses_changed(self) -> bool:
         return self.w3.lido_contracts.has_contract_address_changed()
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
         """
         Execute the accounting module's reporting cycle.
         Includes reporting of the main data and the extra data.
         """
+        last_finalized_blockstamp = self._blockstamp_builder.build_blockstamp(last_finalized_block)
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if not report_blockstamp or not self._check_compatibility(report_blockstamp):
@@ -350,7 +352,7 @@ class Accounting(OracleModule[Web3]):
         )
         logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
-        withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
+        withdrawal_service = Withdrawal(self.w3, self._blockstamp_builder, blockstamp, chain_config, frame_config)
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             share_rate,

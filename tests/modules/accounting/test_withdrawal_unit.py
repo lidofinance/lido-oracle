@@ -30,7 +30,7 @@ def subject(web3, past_blockstamp, chain_config, frame_config):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
     )
-    return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
+    return Withdrawal(web3, Mock(), past_blockstamp, chain_config, frame_config)
 
 
 @pytest.mark.unit

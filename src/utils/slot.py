@@ -5,8 +5,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockDetailsResponse, BlockHeaderFullResponse
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp, build_reference_blockstamp
+from src.types import SlotNumber
 
 
 logger = logging.getLogger(__name__)
@@ -113,31 +112,6 @@ def get_prev_non_missed_slot(
 
     _check_block_header(parent_header)
     return cc.get_block_details(parent_header.data.root)
-
-
-def get_blockstamp(
-    cc: ConsensusClient,
-    slot: SlotNumber,
-    last_finalized_slot_number: SlotNumber,
-):
-    """Get first non-missed slot header and generates blockstamp for it"""
-    logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
-    existed_slot = get_prev_non_missed_slot(cc, slot, last_finalized_slot_number)
-    logger.info({'msg': f'Resolved to slot: {existed_slot.message.slot}'})
-    return build_blockstamp(existed_slot)
-
-
-def get_reference_blockstamp(
-    cc: ConsensusClient,
-    ref_slot: SlotNumber,
-    last_finalized_slot_number: SlotNumber,
-    ref_epoch: EpochNumber,
-) -> ReferenceBlockStamp:
-    """Get first non-missed slot header and generates reference blockstamp for it"""
-    logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
-    existed_slot = get_prev_non_missed_slot(cc, ref_slot, last_finalized_slot_number)
-    logger.info({'msg': f'Resolved to slot: {existed_slot.message.slot}'})
-    return build_reference_blockstamp(existed_slot, ref_slot, ref_epoch)
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):
