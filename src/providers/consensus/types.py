@@ -132,16 +132,6 @@ class ExecutionPayload(Nested, FromResponse):
 
 
 @dataclass
-class SignedExecutionPayloadBid(Nested, FromResponse):
-    """EIP-7732: builder's commitment to the EL block for this slot."""
-    block_hash: BlockHash
-    builder_index: ValidatorIndex
-    slot: SlotNumber
-    parent_block_hash: BlockHash
-    bid_value: Gwei
-
-
-@dataclass
 class Checkpoint(Nested):
     epoch: EpochNumber
     root: BlockRoot
@@ -178,19 +168,14 @@ class SyncAggregate(FromResponse):
 class BeaconBlockBody(Nested, FromResponse):
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
-    # EIP-7732: execution_payload is absent post-fork; signed_execution_payload_bid is absent pre-fork
+    # EIP-7732: execution_payload is absent post-fork
     execution_payload: ExecutionPayload | None = None
-    signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
 
     def __post_init__(self):
         super().__post_init__()
-        # Handle Optional nested types that Nested.__post_init__ can't detect via UnionType
+        # Handle Optional nested type that Nested.__post_init__ can't detect via UnionType
         if isinstance(self.execution_payload, dict):
             self.execution_payload = ExecutionPayload.from_response(**self.execution_payload)
-        if isinstance(self.signed_execution_payload_bid, dict):
-            self.signed_execution_payload_bid = SignedExecutionPayloadBid.from_response(
-                **self.signed_execution_payload_bid
-            )
 
 
 @dataclass

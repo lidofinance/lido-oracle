@@ -22,7 +22,7 @@ from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.ejector.data_encode import encode_data
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
-from src.providers.consensus.types import BeaconStateView, Validator
+from src.providers.consensus.types import BeaconStateView, BlockDetailsResponse, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
@@ -122,7 +122,8 @@ class Ejector(OracleModule[Web3]):
             requests_submitted=0,
         )
 
-    def execute_module(self, last_finalized_blockstamp: BlockStamp) -> ModuleExecuteDelay:
+    def execute_module(self, last_finalized_block: BlockDetailsResponse) -> ModuleExecuteDelay:
+        last_finalized_blockstamp = self._blockstamp_builder.build_blockstamp(last_finalized_block)
         report_blockstamp = self.get_blockstamp_for_report(last_finalized_blockstamp)
 
         if not report_blockstamp or not self._check_compatibility(report_blockstamp):

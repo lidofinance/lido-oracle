@@ -95,8 +95,11 @@ def set_consensus(ejector):
 
 @pytest.mark.unit
 def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> None:
+    ejector._blockstamp_builder = Mock()
+    ejector._blockstamp_builder.build_blockstamp.return_value = blockstamp
+
     ejector.get_blockstamp_for_report = Mock(return_value=None)
-    assert ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
+    assert ejector.execute_module(Mock()) is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, (
         "execute_module should wait for the next finalized epoch"
     )
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
@@ -104,7 +107,7 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector.process_report = Mock(return_value=None)
     ejector._check_compatibility = Mock(return_value=True)
-    assert ejector.execute_module(last_finalized_blockstamp=blockstamp) is ModuleExecuteDelay.NEXT_SLOT, (
+    assert ejector.execute_module(Mock()) is ModuleExecuteDelay.NEXT_SLOT, (
         "execute_module should wait for the next slot"
     )
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
@@ -115,11 +118,13 @@ def test_ejector_execute_module(ejector: Ejector, blockstamp: BlockStamp) -> Non
 def test_execute_module__weights_not_updated__returns_next_finalized_epoch(
     ejector: Ejector, blockstamp: BlockStamp
 ) -> None:
+    ejector._blockstamp_builder = Mock()
+    ejector._blockstamp_builder.build_blockstamp.return_value = blockstamp
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector._check_compatibility = Mock(return_value=True)
     ejector.process_report = Mock(side_effect=WeightsNotUpdatedError("Fake exception"))
 
-    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+    result = ejector.execute_module(Mock())
 
     assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH, "execute_module should wait for the next finalized epoch"
     ejector.process_report.assert_called_once_with(blockstamp)
@@ -127,6 +132,8 @@ def test_execute_module__weights_not_updated__returns_next_finalized_epoch(
 
 @pytest.mark.unit
 def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStamp) -> None:
+    ejector._blockstamp_builder = Mock()
+    ejector._blockstamp_builder.build_blockstamp.return_value = blockstamp
     ejector.report_contract.abi = ExitBusOracleContract.load_abi(ExitBusOracleContract.abi_path)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_contract_version = Mock(
         return_value=ejector.COMPATIBLE_CONTRACT_VERSION
@@ -138,7 +145,7 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
     ejector.build_report = Mock(return_value=(1, 294271, 0, 1, b''))
     ejector.w3.lido_contracts.validators_exit_bus_oracle.is_paused = Mock(return_value=True)
 
-    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+    result = ejector.execute_module(Mock())
 
     assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
     # Compatibility check reads versions both at the report block and at the chain head
@@ -554,10 +561,12 @@ def test_refresh_contracts__updates_report_contract_from_w3(ejector: Ejector) ->
 def test_execute_module__compatibility_check_fails__returns_next_finalized_epoch(
     ejector: Ejector, blockstamp: BlockStamp
 ) -> None:
+    ejector._blockstamp_builder = Mock()
+    ejector._blockstamp_builder.build_blockstamp.return_value = blockstamp
     ejector.get_blockstamp_for_report = Mock(return_value=blockstamp)
     ejector._check_compatibility = Mock(return_value=False)
 
-    result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
+    result = ejector.execute_module(Mock())
 
     assert result is ModuleExecuteDelay.NEXT_FINALIZED_EPOCH
     ejector.get_blockstamp_for_report.assert_called_once_with(blockstamp)
