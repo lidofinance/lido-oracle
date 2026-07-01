@@ -244,3 +244,61 @@ def test_get_validators_withdrawals__empty_validators__returns_empty():
     result = get_validators_withdrawals(state, [], 32)
 
     assert result == []
+
+
+# --- Glamsterdam (EIP-7732) code path tests ---
+
+
+@pytest.mark.unit
+def test_get_sweep_delay_in_epochs__gloas__skips_builder_withdrawals(monkeypatch):
+    """Post-Glamsterdam: builder withdrawal slots are not deducted; full MAX_WITHDRAWALS_PER_PAYLOAD is used.
+
+    Uses n=901, slots_per_epoch=12 to distinguish the two formulas:
+      ÷ MAX_WITHDRAWALS_PER_PAYLOAD     → ceil(901/16/12)//2 = 5//2 = 2  (correct)
+      ÷ (MAX_WITHDRAWALS_PER_PAYLOAD-1) → ceil(901/15/12)//2 = 6//2 = 3  (old, wrong)
+    """
+    state = Mock(spec=BeaconStateView)
+    spec = Mock(spec=ChainConfig)
+    spec.slots_per_epoch = 12
+    predicted_withdrawals = 901
+
+    with monkeypatch.context() as m:
+        m.setattr(sweep_module, "predict_withdrawals_number_in_sweep_cycle", Mock(return_value=predicted_withdrawals))
+        result = get_sweep_delay_in_epochs(state, spec, is_gloas_active=True)
+
+    expected = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
+    assert result == expected
+
+
+@pytest.mark.unit
+def test_predict_withdrawals_number_in_sweep_cycle__gloas__excludes_pending_partials(monkeypatch):
+    """Post-Glamsterdam: pending partials are excluded; only validator withdrawals are counted."""
+    state = Mock(spec=BeaconStateView)
+    num_validator_withdrawals = 10
+
+    with monkeypatch.context() as m:
+        m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
+        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_gloas_active=True)
+
+    assert result == num_validator_withdrawals
+
+
+@pytest.mark.unit
+def test_predict_withdrawals_number_in_sweep_cycle__gloas__passes_empty_partials_to_get_validators_withdrawals(
+    monkeypatch,
+):
+    """Post-Glamsterdam: get_validators_withdrawals is called with an empty partial list."""
+    state = Mock(spec=BeaconStateView)
+    captured: list = []
+
+    def capture(s, partials, slots):
+        captured.append(partials)
+        return []
+
+    with monkeypatch.context() as m:
+        m.setattr(sweep_module, "get_validators_withdrawals", capture)
+        sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_gloas_active=True)
+
+    assert captured == [[]], (
+        "get_validators_withdrawals must be called with empty partial_withdrawals under Glamsterdam"
+    )

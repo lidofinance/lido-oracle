@@ -336,7 +336,7 @@ class Ejector(OracleModule[Web3]):
         """Returns the number of epochs that will take to sweep all validators in the chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config)
+        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas(blockstamp.ref_epoch))
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
