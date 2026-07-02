@@ -390,17 +390,29 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> dict[SlotNumber, ProposalDuty]:
         duties = {}
-        dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
-        proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
+        # v1's dependent_root is the last slot of epoch-1; v2's is the last slot of epoch-2
+        # (fork-invariant, see https://github.com/ethereum/beacon-APIs/pull/563). Both are
+        # computed up front since we don't know which endpoint the CL node will answer with.
+        dependent_root_v1 = self._get_dependent_root_for_proposer_duties(
+            epoch, checkpoint_block_roots, checkpoint_slot, epochs_back=1
+        )
+        dependent_root_v2 = self._get_dependent_root_for_proposer_duties(
+            epoch, checkpoint_block_roots, checkpoint_slot, epochs_back=2
+        )
+        proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root_v1, dependent_root_v2)
         for duty in proposer_duties:
             duties[duty.slot] = ProposalDuty(validator_index=duty.validator_index, is_proposed=False)
         return duties
 
     def _get_dependent_root_for_proposer_duties(
-        self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
+        self,
+        epoch: EpochNumber,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber,
+        epochs_back: int,
     ) -> BlockRoot:
         dependent_root = None
-        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - epochs_back))
         try:
             while not dependent_root:
                 dependent_root = self._select_block_root_by_slot(
