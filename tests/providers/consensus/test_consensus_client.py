@@ -264,7 +264,7 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
         consensus_client.get_sync_committee(bs, EpochNumber(0))
 
     with raises:
-        consensus_client.get_proposer_duties(EpochNumber(0), Mock())
+        consensus_client.get_proposer_duties(EpochNumber(0), Mock(), Mock())
 
     with raises:
         consensus_client.get_state_block_roots(SlotNumber(0))
@@ -288,4 +288,71 @@ def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClie
     consensus_client.session.get = Mock(return_value=resp)
 
     with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
-        consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+        consensus_client.get_proposer_duties(EpochNumber(0), "0x02", "0x02")
+
+
+@pytest.mark.unit
+def test_get_proposer_duties_uses_v2_when_available(consensus_client: ConsensusClient):
+    resp = requests.Response()
+    resp.status_code = 200
+    resp._content = b'{"data": [], "dependent_root": "0x02"}'
+
+    consensus_client.session.get = Mock(return_value=resp)
+
+    result = consensus_client.get_proposer_duties(EpochNumber(0), "0x01", "0x02")
+
+    assert result == []
+    called_url = consensus_client.session.get.call_args.args[0]
+    assert 'eth/v2/validator/duties/proposer' in called_url
+
+
+@pytest.mark.unit
+def test_get_proposer_duties_falls_back_to_v1_when_v2_not_found(consensus_client: ConsensusClient):
+    v2_not_found = requests.Response()
+    v2_not_found.status_code = 404
+    v2_not_found._content = b'{"message": "not found"}'
+
+    v1_ok = requests.Response()
+    v1_ok.status_code = 200
+    v1_ok._content = b'{"data": [], "dependent_root": "0x01"}'
+
+    def fake_get(url, **_kwargs):
+        return v2_not_found if 'v2' in url else v1_ok
+
+    consensus_client.session.get = Mock(side_effect=fake_get)
+
+    result = consensus_client.get_proposer_duties(EpochNumber(0), "0x01", "0x02")
+
+    assert result == []
+
+
+@pytest.mark.unit
+def test_get_proposer_duties_v1_fallback_logs_mismatch_instead_of_raising(consensus_client: ConsensusClient):
+    v2_not_found = requests.Response()
+    v2_not_found.status_code = 404
+    v2_not_found._content = b'{"message": "not found"}'
+
+    v1_mismatched_root = requests.Response()
+    v1_mismatched_root.status_code = 200
+    v1_mismatched_root._content = b'{"data": [], "dependent_root": "0xdead"}'
+
+    def fake_get(url, **_kwargs):
+        return v2_not_found if 'v2' in url else v1_mismatched_root
+
+    consensus_client.session.get = Mock(side_effect=fake_get)
+
+    result = consensus_client.get_proposer_duties(EpochNumber(0), "0x01", "0x02")
+
+    assert result == []
+
+
+@pytest.mark.unit
+def test_get_proposer_duties_does_not_fall_back_on_non_404_v2_error(consensus_client: ConsensusClient):
+    resp = requests.Response()
+    resp.status_code = 500
+    resp._content = b'{"message": "internal error"}'
+
+    consensus_client.session.get = Mock(return_value=resp)
+
+    with pytest.raises(NotOkResponse):
+        consensus_client.get_proposer_duties(EpochNumber(0), "0x01", "0x02")

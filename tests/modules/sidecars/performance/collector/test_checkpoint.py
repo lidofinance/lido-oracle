@@ -618,11 +618,11 @@ class TestProposeDuties:
         epoch = EpochNumber(10)
         checkpoint_slot = processor.converter.get_epoch_first_slot(EpochNumber(epoch + 2))
         checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
-        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
-        assert dependent_slot == SlotNumber(int(processor.converter.get_epoch_first_slot(epoch) - 1))
+        dependent_slot_v1 = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        assert dependent_slot_v1 == SlotNumber(int(processor.converter.get_epoch_first_slot(epoch) - 1))
         fallback_root = cast(BlockRoot, "0x" + "11" * 32)
 
-        prev_slot_response = mock_prev_slot_response(dependent_slot)
+        prev_slot_response = mock_prev_slot_response(dependent_slot_v1)
         processor.cc.get_block_root = Mock(return_value=Mock(root=fallback_root))
 
         proposer_duty = Mock(slot=processor.converter.get_epoch_first_slot(epoch), validator_index=1)
@@ -634,9 +634,11 @@ class TestProposeDuties:
         ) as get_prev_non_missed_slot_mock:
             duties = processor._prepare_propose_duties(epoch, checkpoint_block_roots, checkpoint_slot)
 
-        get_prev_non_missed_slot_mock.assert_called_once()
-        processor.cc.get_block_root.assert_called_once_with(dependent_slot)
-        processor.cc.get_proposer_duties.assert_called_once_with(epoch, fallback_root)
+        # Called once for the v1 dependent root (epoch-1) and once for v2 (epoch-2) —
+        # both fall back to the CL since checkpoint_block_roots is all None.
+        assert get_prev_non_missed_slot_mock.call_count == 2
+        assert processor.cc.get_block_root.call_count == 2
+        processor.cc.get_proposer_duties.assert_called_once_with(epoch, fallback_root, fallback_root)
 
         expected_duties = {
             processor.converter.get_epoch_first_slot(epoch): ProposalDuty(validator_index=1, is_proposed=False),
@@ -658,6 +660,27 @@ class TestProposeDuties:
             epoch,
             checkpoint_block_roots,
             checkpoint_slot,
+            epochs_back=1,
+        )
+
+        assert dependent_root == expected_root
+
+    def test_get_dependent_root_for_proposer_duties__epochs_back_two__returns_v2_state_root(
+        self,
+        processor: FrameCheckpointProcessor,
+    ):
+        epoch = EpochNumber(10)
+        checkpoint_slot = processor.converter.get_epoch_first_slot(EpochNumber(epoch + 2))
+        checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
+        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 2))
+        expected_root = cast(BlockRoot, "0x" + "44" * 32)
+        checkpoint_block_roots[dependent_slot % SLOTS_PER_HISTORICAL_ROOT] = expected_root
+
+        dependent_root = processor._get_dependent_root_for_proposer_duties(
+            epoch,
+            checkpoint_block_roots,
+            checkpoint_slot,
+            epochs_back=2,
         )
 
         assert dependent_root == expected_root
@@ -683,6 +706,7 @@ class TestProposeDuties:
                 epoch,
                 checkpoint_block_roots,
                 checkpoint_slot,
+                epochs_back=1,
             )
 
         processor.cc.get_block_root.assert_called_once_with(non_missed_slot)
