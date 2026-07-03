@@ -5,7 +5,7 @@ import pytest
 from src.constants import MIN_DEPOSIT_AMOUNT
 from src.modules.oracles.accounting.types import ValidatorStage
 from src.services.staking_vaults import StakingVaultsService
-from src.types import Gwei, SlotNumber
+from src.types import Gwei, SlotNumber, ValidatorIndex
 from src.utils.units import gwei_to_wei
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
@@ -647,3 +647,33 @@ class TestCalculateVaultTotalValue:
 
         # Assert
         assert result == int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+
+    def test_gloas_correction_applied_to_eligible_validators(self):
+        vault_balance = gwei_to_wei(Gwei(0))
+        v1 = ValidatorFactory.build_active(
+            withdrawal_credentials=WithdrawalCredentials.WC_0,
+            balance=Gwei(32_000_000_000),
+            index=ValidatorIndex(10),
+        )
+        v2 = ValidatorFactory.build_active(
+            withdrawal_credentials=WithdrawalCredentials.WC_0,
+            balance=Gwei(31_000_000_000),
+            index=ValidatorIndex(11),
+        )
+        non_vault_index = ValidatorIndex(99)
+        corrections = {
+            ValidatorIndex(10): Gwei(500_000_000),
+            non_vault_index: Gwei(9_999_999_999),
+        }
+
+        result = StakingVaultsService._calculate_vault_total_value(
+            vault_aggregated_balance=vault_balance,
+            vault_validators=[v1, v2],
+            total_pending_amount_by_pubkey={},
+            vault_validator_statuses={},
+            vault_unmatched_pending_deposit_statuses={},
+            gloas_correction_by_index=corrections,
+        )
+
+        expected = int(gwei_to_wei(Gwei(32_000_000_000 + 500_000_000 + 31_000_000_000)))
+        assert result == expected

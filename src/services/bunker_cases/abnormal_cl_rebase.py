@@ -17,6 +17,7 @@ from src.utils.events import get_events_in_range
 from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
+from src.utils.validator_balance import gloas_balance_correction
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
@@ -218,9 +219,21 @@ class AbnormalClRebase:
         lido_validators: Sequence[LidoValidator],
     ) -> Gwei:
         """
-        Get Lido validator balance with withdrawals vault balance
+        Get Lido validator balance with withdrawals vault balance.
+
+        On a ReferenceBlockStamp after EIP-7732 activation, CL balances are already reduced
+        by payload_expected_withdrawals while the vault has not yet received them. The correction
+        is applied only to the ref-blockstamp: by the time the oracle ref-slot is reached, any
+        previous blockstamp's in-flight withdrawals are already in the vault.
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
+
+        if isinstance(blockstamp, ReferenceBlockStamp) and self.w3.cc.is_gloas(blockstamp.ref_epoch):
+            state = self.w3.cc.get_state_view(blockstamp)
+            lido_indices = {v.index for v in lido_validators}
+            correction = gloas_balance_correction(state.payload_expected_withdrawals, lido_indices)
+            real_cl_balance = Gwei(real_cl_balance + correction)
+
         withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
         total_balance = real_cl_balance + withdrawals_vault_balance
         return Gwei(total_balance)

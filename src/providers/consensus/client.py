@@ -93,6 +93,9 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
+    def is_gloas(self, ref_epoch: EpochNumber) -> bool:
+        return ref_epoch >= self.get_config_spec().GLOAS_FORK_EPOCH
+
     @lru_cache(maxsize=1)
     def get_genesis(self) -> GenesisResponse:
         """

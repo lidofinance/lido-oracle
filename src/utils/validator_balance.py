@@ -1,7 +1,19 @@
-from src.types import Gwei
+from src.providers.consensus.types import ExpectedWithdrawal
+from src.types import Gwei, ValidatorIndex
 from src.utils.validator_state import get_max_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
 
+
+def gloas_balance_correction(
+    expected_withdrawals: list[ExpectedWithdrawal],
+    lido_indices: set[ValidatorIndex],
+) -> Gwei:
+    """Sum of Glamsterdam (EIP-7732) pending withdrawal amounts for the given Lido validator indices.
+
+    Under Gloas, process_withdrawals deducts CL balances before the EL payload delivers
+    the matching credits to the withdrawal vault. Adding this back restores TVL consistency.
+    """
+    return Gwei(sum(w.amount for w in expected_withdrawals if w.validator_index in lido_indices))
 
 def get_predictable_full_inbound_balance(validator: LidoValidator) -> Gwei:
     """
