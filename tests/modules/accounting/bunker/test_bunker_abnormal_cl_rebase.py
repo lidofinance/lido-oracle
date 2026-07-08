@@ -1,9 +1,9 @@
 from unittest.mock import Mock
 
 import pytest
-from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
+from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
@@ -494,23 +494,26 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("deposited_ref_wei", "deposited_prev_wei", "old_pending_gwei", "current_pending_gwei", "expected_gwei"),
+    ("deposited_ref_wei", "old_pending_gwei", "current_pending_gwei", "expected_gwei"),
     [
         # Top-up 32 ETH to existing validator; no pending deposits
-        (32 * 10**18, 0, 0, 0, 32 * 10**9),
+        (32 * 10**18, 0, 0, 32 * 10**9),
         # Top-up 64 ETH, 32 ETH still pending at ref
-        (64 * 10**18, 0, 0, 32 * 10**9, 32 * 10**9),
-        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in window
-        (64 * 10**18, 0, 32 * 10**9, 0, 96 * 10**9),
-        # No deposits in window, no pending changes
-        (0, 0, 0, 0, 0),
+        (64 * 10**18, 0, 32 * 10**9, 32 * 10**9),
+        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited since last report
+        (64 * 10**18, 32 * 10**9, 0, 96 * 10**9),
+        # deposited_since_last_report only resets when a report is processed on-chain, so a
+        # single read at ref already reflects the full amount since the last report — it is
+        # not diffed against a reading at prev_blockstamp
+        (100 * 10**18, 0, 0, 100 * 10**9),
+        # No deposits since last report, no pending changes
+        (0, 0, 0, 0),
     ],
 )
 def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     web3,
     monkeypatch,
     deposited_ref_wei,
-    deposited_prev_wei,
     old_pending_gwei,
     current_pending_gwei,
     expected_gwei,
@@ -548,9 +551,7 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     pending_at_ref = [make_deposit(current_pending_gwei)] if current_pending_gwei else []
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
 
-    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(
-        side_effect=[Wei(deposited_ref_wei), Wei(deposited_prev_wei)]
-    )
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(return_value=BalanceStats(0, 0, deposited_ref_wei, 0))
 
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
@@ -595,7 +596,7 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
     # Invalid deposit comes first in queue (by deposit index), valid one second.
     # With frontrun-detection logic: invalid sig → skipped; valid sig + correct WC → counted.
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[invalid_deposit, valid_deposit], []])
-    abnormal_case.w3.lido_contracts.lido.get_deposited_for_current_report = Mock(side_effect=[Wei(0), Wei(0)])
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(return_value=BalanceStats(0, 0, 0, 0))
 
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 

@@ -153,6 +153,14 @@ class BeaconStat:
     beacon_balance: int
 
 
+@dataclass
+class BalanceStats:
+    cl_validators_balance_at_last_report: int
+    cl_pending_balance_at_last_report: int
+    deposited_since_last_report: int
+    deposited_for_current_report: int
+
+
 @dataclass(frozen=True)
 class ReportSimulationPayload:
     timestamp: int
