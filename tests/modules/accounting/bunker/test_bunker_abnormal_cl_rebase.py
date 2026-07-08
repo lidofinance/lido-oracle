@@ -498,6 +498,7 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
 @pytest.mark.parametrize(
     (
         "ref_deposited_since_last_report_wei",
+        "ref_deposited_for_current_report_wei",
         "prev_deposited_since_last_report_wei",
         "prev_deposited_for_current_report_wei",
         "old_pending_gwei",
@@ -505,28 +506,35 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
         "expected_gwei",
     ),
     [
-        # Top-up 32 ETH to existing validator; no pending deposits, no backlog at prev
-        (32 * 10**18, 0, 0, 0, 0, 32 * 10**9),
+        # Top-up 32 ETH to existing validator; no pending deposits, no backlog anywhere
+        (32 * 10**18, 0, 0, 0, 0, 0, 32 * 10**9),
         # Top-up 64 ETH, 32 ETH still pending at ref
-        (64 * 10**18, 0, 0, 0, 32 * 10**9, 32 * 10**9),
+        (64 * 10**18, 0, 0, 0, 0, 32 * 10**9, 32 * 10**9),
         # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in [prev, ref]
-        (64 * 10**18, 0, 0, 32 * 10**9, 0, 96 * 10**9),
-        # Plain intra-frame delta, no backlog at prev (prev_deposited_for_current_report == 0)
-        (100 * 10**18, 40 * 10**18, 0, 0, 0, 60 * 10**9),
+        (64 * 10**18, 0, 0, 0, 32 * 10**9, 0, 96 * 10**9),
+        # Plain intra-frame delta, no backlog anywhere
+        (100 * 10**18, 0, 40 * 10**18, 0, 0, 0, 60 * 10**9),
         # A backlog of 40 ETH exists at prev (deposited_for_current_report == deposited_since_last_report
         # there, i.e. nothing deposited yet in the frame active at prev) and gets settled/reset before
         # ref is read, so ref's deposited_since_last_report (60 ETH) no longer includes that backlog.
         # A naive diff (60 - 40 = 20 ETH) would under-count; subtracting prev's own backlog back in
         # recovers the true 60 ETH deposited in [prev, ref].
-        (60 * 10**18, 40 * 10**18, 40 * 10**18, 0, 0, 60 * 10**9),
+        (60 * 10**18, 0, 40 * 10**18, 40 * 10**18, 0, 0, 60 * 10**9),
+        # Same 40 ETH backlog exists at BOTH prev and ref (no report ever settles in [prev, ref], so it's
+        # never cleared). Subtracting deposited_for_current_report from both ends cancels the backlog on
+        # both sides; a formula that only corrected prev (deposited_since_last_report(ref) minus prev's
+        # adjusted value) would wrongly return 100 ETH here instead of the true 60 ETH deposited in
+        # [prev, ref].
+        (100 * 10**18, 40 * 10**18, 40 * 10**18, 40 * 10**18, 0, 0, 60 * 10**9),
         # No deposits in [prev, ref], no pending changes
-        (0, 0, 0, 0, 0, 0),
+        (0, 0, 0, 0, 0, 0, 0),
     ],
 )
 def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     web3,
     monkeypatch,
     ref_deposited_since_last_report_wei,
+    ref_deposited_for_current_report_wei,
     prev_deposited_since_last_report_wei,
     prev_deposited_for_current_report_wei,
     old_pending_gwei,
@@ -570,7 +578,7 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
 
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
         side_effect=[
-            BalanceStats(0, 0, ref_deposited_since_last_report_wei, 0),
+            BalanceStats(0, 0, ref_deposited_since_last_report_wei, ref_deposited_for_current_report_wei),
             BalanceStats(0, 0, prev_deposited_since_last_report_wei, prev_deposited_for_current_report_wei),
         ]
     )

@@ -321,12 +321,17 @@ class AbnormalClRebase:
         prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
         # depositedSinceLastReport(refSlot) − depositedSinceLastReport(slot_x) + depositedForCurrentReport(slot_x) =
         #  (a + c)  −  (b + a)  +  b =  c − b + b =  c
-        deposited_in_window = wei_to_gwei(
-            Wei(
-                ref_balance_stats.deposited_since_last_report
-                - (prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report)
-            )
+        # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
+        # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
+        # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
+        # ref share the same frame (see _validate_distant_slot_within_ref_frame).
+        ref_deposited_in_frame = (
+            ref_balance_stats.deposited_since_last_report - ref_balance_stats.deposited_for_current_report
         )
+        prev_deposited_in_frame = (
+            prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report
+        )
+        deposited_in_window = wei_to_gwei(Wei(ref_deposited_in_frame - prev_deposited_in_frame))
 
         current_pending = self._sum_valid_lido_pending(
             blockstamp=ref_blockstamp,
