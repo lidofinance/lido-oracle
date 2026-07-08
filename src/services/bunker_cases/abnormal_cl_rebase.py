@@ -303,7 +303,10 @@ class AbnormalClRebase:
             genesis_fork_version=genesis_fork_version,
         )
         deposited_in_window = wei_to_gwei(
-            Wei(self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash).deposited_since_last_report)
+            Wei(
+                self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash).deposited_since_last_report
+                - self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash).deposited_since_last_report
+            )
         )
 
         current_pending = self._sum_valid_lido_pending(
