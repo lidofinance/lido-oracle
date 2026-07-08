@@ -91,7 +91,7 @@ class BunkerService:
             logger.info({"msg": "Bunker ON. High midterm slashing penalty"})
             return True
 
-        abnormal_cl_rebase = AbnormalClRebase(self.w3, chain_config, bunker_config).is_abnormal_cl_rebase(
+        abnormal_cl_rebase = AbnormalClRebase(self.w3, chain_config, bunker_config, frame_config).is_abnormal_cl_rebase(
             blockstamp, all_validators, lido_validators, current_report_cl_rebase
         )
         if abnormal_cl_rebase:

@@ -8,7 +8,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import EventData, Wei
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
-from src.modules.common.types import ChainConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
@@ -18,6 +18,7 @@ from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
 
@@ -32,10 +33,11 @@ class AbnormalClRebase:
     lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
 
-    def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
+    def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig, frame_config: FrameConfig):
         self.w3 = w3
         self.c_conf = c_conf
         self.b_conf = b_conf
+        self._web3_converter = Web3Converter(c_conf, frame_config)
 
     def is_abnormal_cl_rebase(
         self,
@@ -151,6 +153,7 @@ class AbnormalClRebase:
         )
 
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
+        self._validate_distant_slot_within_ref_frame(distant_slot, ref_blockstamp.ref_slot)
 
         nearest_blockstamp = get_blockstamp(
             self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
@@ -160,6 +163,18 @@ class AbnormalClRebase:
         )
 
         return nearest_blockstamp, distant_blockstamp
+
+    def _validate_distant_slot_within_ref_frame(self, distant_slot: SlotNumber, ref_slot: SlotNumber) -> None:
+        """distant_slot must stay within the same reporting frame as ref_slot: _calculate_injected_capital's
+        deposit accounting assumes at most one report can settle between distant/nearest_slot and ref_slot,
+        which no longer holds once distant_slot reaches back into an already-processed frame.
+        """
+        frame_first_slot = self._web3_converter.get_frame_first_slot(self._web3_converter.get_frame_by_slot(ref_slot))
+        if distant_slot < frame_first_slot:
+            raise ValueError(
+                f"{distant_slot=} is before the start of the current reporting frame ({frame_first_slot=}) "
+                f"for {ref_slot=} — rebase_check_distant_epoch_distance is too large"
+            )
 
     def _calculate_cl_rebase_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
@@ -302,10 +317,14 @@ class AbnormalClRebase:
             lido_wc_list=lido_wc_list,
             genesis_fork_version=genesis_fork_version,
         )
+        ref_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash)
+        prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
+        # depositedSinceLastReport(refSlot) − depositedSinceLastReport(slot_x) + depositedForCurrentReport(slot_x) =
+        #  (a + c)  −  (b + a)  +  b =  c − b + b =  c
         deposited_in_window = wei_to_gwei(
             Wei(
-                self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash).deposited_since_last_report
-                - self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash).deposited_since_last_report
+                ref_balance_stats.deposited_since_last_report
+                - (prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report)
             )
         )
 

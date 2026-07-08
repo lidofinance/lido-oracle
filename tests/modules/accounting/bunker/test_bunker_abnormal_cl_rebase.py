@@ -11,7 +11,7 @@ from src.types import EpochNumber, Gwei, ValidatorIndex
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory
+from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
@@ -364,7 +364,9 @@ def test_calculate_cl_rebase_between_blocks(
 ):
     prev_blockstamp = ReferenceBlockStampFactory.build(block_number=8)
     ref_blockstamp = ReferenceBlockStampFactory.build(block_number=88)
-    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
     abnormal_case.lido_keys = Mock()
     abnormal_case.w3.cc = Mock()
     abnormal_case.w3.lido_contracts = Mock()
@@ -494,34 +496,48 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("deposited_ref_wei", "deposited_prev_wei", "old_pending_gwei", "current_pending_gwei", "expected_gwei"),
+    (
+        "ref_deposited_since_last_report_wei",
+        "prev_deposited_since_last_report_wei",
+        "prev_deposited_for_current_report_wei",
+        "old_pending_gwei",
+        "current_pending_gwei",
+        "expected_gwei",
+    ),
     [
-        # Top-up 32 ETH to existing validator; no pending deposits
-        (32 * 10**18, 0, 0, 0, 32 * 10**9),
+        # Top-up 32 ETH to existing validator; no pending deposits, no backlog at prev
+        (32 * 10**18, 0, 0, 0, 0, 32 * 10**9),
         # Top-up 64 ETH, 32 ETH still pending at ref
-        (64 * 10**18, 0, 0, 32 * 10**9, 32 * 10**9),
-        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in window
-        (64 * 10**18, 0, 32 * 10**9, 0, 96 * 10**9),
-        # deposited_since_last_report already nonzero at prev (prev_blockstamp is the
-        # nearest/distant intra-frame sample, not the last-report blockstamp) — only the
-        # delta since prev should count
-        (100 * 10**18, 40 * 10**18, 0, 0, 60 * 10**9),
-        # No deposits in window, no pending changes
-        (0, 0, 0, 0, 0),
+        (64 * 10**18, 0, 0, 0, 32 * 10**9, 32 * 10**9),
+        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in [prev, ref]
+        (64 * 10**18, 0, 0, 32 * 10**9, 0, 96 * 10**9),
+        # Plain intra-frame delta, no backlog at prev (prev_deposited_for_current_report == 0)
+        (100 * 10**18, 40 * 10**18, 0, 0, 0, 60 * 10**9),
+        # A backlog of 40 ETH exists at prev (deposited_for_current_report == deposited_since_last_report
+        # there, i.e. nothing deposited yet in the frame active at prev) and gets settled/reset before
+        # ref is read, so ref's deposited_since_last_report (60 ETH) no longer includes that backlog.
+        # A naive diff (60 - 40 = 20 ETH) would under-count; subtracting prev's own backlog back in
+        # recovers the true 60 ETH deposited in [prev, ref].
+        (60 * 10**18, 40 * 10**18, 40 * 10**18, 0, 0, 60 * 10**9),
+        # No deposits in [prev, ref], no pending changes
+        (0, 0, 0, 0, 0, 0),
     ],
 )
 def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     web3,
     monkeypatch,
-    deposited_ref_wei,
-    deposited_prev_wei,
+    ref_deposited_since_last_report_wei,
+    prev_deposited_since_last_report_wei,
+    prev_deposited_for_current_report_wei,
     old_pending_gwei,
     current_pending_gwei,
     expected_gwei,
 ):
     prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
     ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
-    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
 
     lido_pubkey = '0xabc'
     lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
@@ -554,8 +570,8 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
 
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
         side_effect=[
-            BalanceStats(0, 0, deposited_ref_wei, 0),
-            BalanceStats(0, 0, deposited_prev_wei, 0),
+            BalanceStats(0, 0, ref_deposited_since_last_report_wei, 0),
+            BalanceStats(0, 0, prev_deposited_since_last_report_wei, prev_deposited_for_current_report_wei),
         ]
     )
 
@@ -569,7 +585,9 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
     """Invalid-signature deposits in old_pending must not inflate injected_capital."""
     prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
     ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
-    abnormal_case = AbnormalClRebase(web3, ChainConfigFactory.build(), BunkerConfigFactory.build())
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
 
     lido_pubkey = '0xabc'
     lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
