@@ -586,6 +586,8 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
     assert result == Gwei(expected_gwei)
+    # The v4 upgrade check must read the contract version at the last report block
+    abnormal_case.w3.lido_contracts.lido.get_contract_version.assert_called_once_with(last_report_bs.block_number)
 
 
 @pytest.mark.unit
@@ -657,6 +659,8 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
 
     # Only the valid 1000 ETH deposit should be counted; invalid 1 ETH excluded
     assert result == Gwei(1000 * 10**9)
+    # The v4 upgrade check must read the contract version at the last report block
+    abnormal_case.w3.lido_contracts.lido.get_contract_version.assert_called_once_with(last_report_bs.block_number)
 
 
 @pytest.mark.unit

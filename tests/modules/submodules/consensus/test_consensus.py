@@ -231,6 +231,9 @@ def test_first_frame_is_not_yet_started(web3, consensus, caplog, use_account):
     assert member_info.current_frame_ref_slot == first_frame.ref_slot
     assert member_info.deadline_slot == first_frame.report_processing_deadline_slot
 
+    # Frame resolution must be pinned to the report block, not the chain head
+    consensus_contract.get_current_frame.assert_called_once_with(bs.block_hash)
+
 
 @pytest.mark.unit
 def test_get_blockstamp_for_report_slot_deadline_missed(web3, consensus, caplog, set_no_account):
@@ -284,6 +287,12 @@ def test_contract_upgrade_before_report_submited(consensus, contract_version, co
 
     assert expected == consensus._check_compatibility(bs)
 
+    # Versions are read both at the report block and at the chain head, then compared
+    consensus.report_contract.get_contract_version.assert_any_call(bs.block_hash)
+    consensus.report_contract.get_contract_version.assert_any_call('latest')
+    consensus.report_contract.get_consensus_version.assert_any_call(bs.block_hash)
+    consensus.report_contract.get_consensus_version.assert_any_call('latest')
+
 
 @pytest.mark.unit
 def test_incompatible_contract_version(consensus):
@@ -294,6 +303,9 @@ def test_incompatible_contract_version(consensus):
 
     with pytest.raises(IncompatibleOracleVersion):
         consensus._check_compatibility(bs)
+
+    # The first compatibility read must be pinned to the report block
+    consensus.report_contract.get_contract_version.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -371,11 +383,9 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
 
 @pytest.mark.unit
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
-    consensus.w3.cc.get_block_root = Mock(return_value=Mock(root=""))
-    consensus.w3.cc.get_block_details = Mock()
     bs = ReferenceBlockStampFactory.build()
     with monkeypatch.context() as m:
-        m.setattr(consensus_module, "build_blockstamp", Mock(return_value=bs))
+        m.setattr(consensus_module, "get_blockstamp_by_state", Mock(return_value=bs))
         chain_config = cast(ChainConfig, ChainConfigFactory.build())
         consensus.get_chain_config = Mock(return_value=chain_config)
         bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())

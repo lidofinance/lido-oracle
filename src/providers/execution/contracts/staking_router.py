@@ -17,7 +17,7 @@ class StakingRouterContract(ContractInterface):
     abi_path = './assets/StakingRouter.json'
 
     @lru_cache(maxsize=1)
-    def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_contract_version(self, block_identifier: BlockIdentifier) -> int:
         response = self.functions.getContractVersion().call(block_identifier=block_identifier)
         logger.debug(
             {
@@ -30,7 +30,7 @@ class StakingRouterContract(ContractInterface):
         return response
 
     def get_all_node_operator_digests(
-        self, module: StakingModule, block_identifier: BlockIdentifier = 'latest'
+        self, module: StakingModule, block_identifier: BlockIdentifier
     ) -> list[NodeOperator]:
         """
         Returns node operator digests for each node operator in staking module

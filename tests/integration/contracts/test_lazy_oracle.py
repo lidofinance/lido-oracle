@@ -10,9 +10,13 @@ def test_lazy_oracle_contract_call(lazy_oracle_contract, caplog):
     check_contract(
         lazy_oracle_contract,
         [
-            ('get_vaults_count', None, lambda response: check_value_type(response, int)),
-            ('get_latest_report_data', None, lambda response: check_value_type(response, OnChainIpfsVaultReportData)),
-            ('get_vaults', (0, 10), lambda response: check_value_type(response, list)),
+            ('get_vaults_count', ('latest',), lambda response: check_value_type(response, int)),
+            (
+                'get_latest_report_data',
+                ('latest',),
+                lambda response: check_value_type(response, OnChainIpfsVaultReportData),
+            ),
+            ('get_vaults', (0, 10, 'latest'), lambda response: check_value_type(response, list)),
             (
                 'get_validator_statuses',
                 (
@@ -21,6 +25,7 @@ def test_lazy_oracle_contract_call(lazy_oracle_contract, caplog):
                         "0xa5d9411ef615c74c9240634905d5ddd46dc40a87a09e8cc0332afddb246d291303e452a850917eefe09b3b8c70a307ce",
                     ],
                     5,
+                    'latest',
                 ),
                 lambda response: check_value_type(response, dict),
             ),

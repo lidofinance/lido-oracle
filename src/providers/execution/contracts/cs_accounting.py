@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class CSAccountingContract(ContractInterface):
     abi_path = "./assets/CSAccounting.json"
 
-    def fee_distributor(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+    def fee_distributor(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Returns the address of the CSFeeDistributor contract"""
 
         resp = self.functions.FEE_DISTRIBUTOR().call(block_identifier=block_identifier)
@@ -30,7 +30,7 @@ class CSAccountingContract(ContractInterface):
         return Web3.to_checksum_address(resp)
 
     @lru_cache()
-    def get_bond_curve_id(self, node_operator_id: NodeOperatorId, block_identifier: BlockIdentifier = "latest") -> int:
+    def get_bond_curve_id(self, node_operator_id: NodeOperatorId, block_identifier: BlockIdentifier) -> int:
         """Returns the curve ID"""
 
         resp = self.functions.getBondCurveId(node_operator_id).call(block_identifier=block_identifier)

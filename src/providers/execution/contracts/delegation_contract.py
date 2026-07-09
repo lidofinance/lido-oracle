@@ -38,7 +38,7 @@ class DelegationContract(ContractInterface):
         )
         return tx
 
-    def get_admin(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+    def get_admin(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Get current admin address"""
         response = self.functions.admin().call(block_identifier=block_identifier)
         logger.info(
@@ -46,7 +46,7 @@ class DelegationContract(ContractInterface):
         )
         return Web3.to_checksum_address(response)
 
-    def get_delegatee(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+    def get_delegatee(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Get current delegatee address"""
         response = self.functions.delegatee().call(block_identifier=block_identifier)
         logger.info(

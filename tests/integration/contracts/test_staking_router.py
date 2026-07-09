@@ -20,11 +20,11 @@ def test_staking_router(staking_router_contract, caplog):
             ),
             (
                 'get_all_node_operator_digests',
-                (StakingModuleFactory.build(id=1),),
+                (StakingModuleFactory.build(id=1), 'latest'),
                 lambda response: check_value_type(response, list)
                 and map(lambda sm: check_value_type(sm, NodeOperator), response),
             ),
-            ('get_contract_version', None, lambda response: check_value_type(response, int)),
+            ('get_contract_version', ('latest',), lambda response: check_value_type(response, int)),
         ],
         caplog,
     )
