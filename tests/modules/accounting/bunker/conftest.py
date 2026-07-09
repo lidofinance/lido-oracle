@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
-from src.modules.common.types import ChainConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.bunker import BunkerService
@@ -274,7 +274,10 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
         rebase_check_nearest_epoch_distance=4,
         rebase_check_distant_epoch_distance=25,
     )
+    # Large enough that every ref_slot used across these tests (up to ~444444) stays in frame 0,
+    # comfortably ahead of any rebase_check_{nearest,distant}_epoch_distance used in tests.
+    frame_config = FrameConfig(initial_epoch=0, epochs_per_frame=1_000_000, fast_lane_length_slots=0)
     # Pre-v4 by default: no top-up support, no pending deposits
     web3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
     web3.cc.get_pending_deposits = Mock(return_value=[])
-    return AbnormalClRebase(web3, c_conf, b_conf)
+    return AbnormalClRebase(web3, c_conf, b_conf, frame_config)
