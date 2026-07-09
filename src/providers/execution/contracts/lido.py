@@ -86,16 +86,9 @@ class LidoContract(ContractInterface):
         return int(response)
 
     def get_balance_stats(self, block_identifier: BlockIdentifier) -> BalanceStats:
-        """Lido v4+: balance/deposit accounting state. See
-        https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
-
-        `deposited_since_last_report` (`depositedPostReport`) only resets when a report is
-        actually processed on-chain, so diffing two readings taken within the same (still
-        unsettled) reporting frame gives the deposits made strictly between those two blocks.
-
-        Do not use `deposited_for_current_report` for that purpose: it is re-derived against
-        the *current* HashConsensus frame on every read, so two readings taken within the same
-        open frame always come out equal to each other — diffing them always yields 0.
+        """Lido v4+: balance/deposit accounting state. See field docs on `BalanceStats` for what
+        each value means and https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
+        for the on-chain source.
         """
         response = self.functions.getBalanceStats().call(block_identifier=block_identifier)
         response = named_tuple_to_dataclass(response, BalanceStats)

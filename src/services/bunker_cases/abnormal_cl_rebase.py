@@ -319,8 +319,6 @@ class AbnormalClRebase:
         )
         ref_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash)
         prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
-        # depositedSinceLastReport(refSlot) − depositedSinceLastReport(slot_x) + depositedForCurrentReport(slot_x) =
-        #  (a + c)  −  (b + a)  +  b =  c − b + b =  c
         # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
         # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
         # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
