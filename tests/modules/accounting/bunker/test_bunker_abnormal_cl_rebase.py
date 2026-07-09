@@ -7,7 +7,7 @@ from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import EpochNumber, Gwei, ValidatorIndex
+from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -586,6 +586,29 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
     assert result == Gwei(expected_gwei)
+
+
+@pytest.mark.unit
+def test_calculate_injected_capital__v4__prev_slot_before_ref_frame__raises(web3):
+    """prev_blockstamp here stands in for either the nearest or distant blockstamp resolved by
+    _get_nearest_and_distant_blockstamps — get_blockstamp can walk it back past a missed slot into
+    an already-processed frame, which breaks the deposited_since_last_report/deposited_for_current_report
+    diffing this function relies on. Checked here (not in _get_nearest_and_distant_blockstamps) so it
+    covers both the nearest and distant case, against the resolved slot rather than the pre-resolution one.
+    """
+    # ChainConfigFactory/FrameConfigFactory defaults: slots_per_epoch=32, epochs_per_frame=10,
+    # initial_epoch=0 -> 320-slot frames. ref_blockstamp's default ref_slot=294271 sits in the frame
+    # starting at slot 294080; prev_blockstamp's slot_number=294079 is one slot before it.
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10, slot_number=SlotNumber(294079))
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
+    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build())
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+
+    with pytest.raises(ValueError, match="prev_slot=294079 is before the start of the current reporting frame"):
+        abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
 
 @pytest.mark.unit

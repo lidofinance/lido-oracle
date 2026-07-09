@@ -153,7 +153,6 @@ class AbnormalClRebase:
         )
 
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
-        self._validate_distant_slot_within_ref_frame(distant_slot, ref_blockstamp.ref_slot)
 
         nearest_blockstamp = get_blockstamp(
             self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
@@ -164,16 +163,18 @@ class AbnormalClRebase:
 
         return nearest_blockstamp, distant_blockstamp
 
-    def _validate_distant_slot_within_ref_frame(self, distant_slot: SlotNumber, ref_slot: SlotNumber) -> None:
-        """distant_slot must stay within the same reporting frame as ref_slot: _calculate_injected_capital's
-        deposit accounting assumes at most one report can settle between distant/nearest_slot and ref_slot,
-        which no longer holds once distant_slot reaches back into an already-processed frame.
+    def _validate_prev_slot_within_ref_frame(self, prev_slot: SlotNumber, ref_slot: SlotNumber) -> None:
+        """prev_slot (nearest or distant blockstamp's resolved slot) must stay within the same reporting
+        frame as ref_slot: _calculate_injected_capital's deposit accounting assumes at most one report can
+        settle between prev_slot and ref_slot, which no longer holds once prev_slot reaches back into an
+        already-processed frame.
         """
         frame_first_slot = self._web3_converter.get_frame_first_slot(self._web3_converter.get_frame_by_slot(ref_slot))
-        if distant_slot < frame_first_slot:
+        if prev_slot < frame_first_slot:
             raise ValueError(
-                f"{distant_slot=} is before the start of the current reporting frame ({frame_first_slot=}) "
-                f"for {ref_slot=} — rebase_check_distant_epoch_distance is too large"
+                f"{prev_slot=} is before the start of the current reporting frame ({frame_first_slot=}) "
+                f"for {ref_slot=} — rebase_check_nearest_epoch_distance/rebase_check_distant_epoch_distance "
+                "is too large"
             )
 
     def _calculate_cl_rebase_between_blocks(
@@ -303,6 +304,8 @@ class AbnormalClRebase:
         if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
             return AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_lido_validators, self.lido_validators)
 
+        self._validate_prev_slot_within_ref_frame(prev_blockstamp.slot_number, ref_blockstamp.ref_slot)
+
         lido_pubkeys = {key.key for key in self.lido_keys}
         lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
         genesis_fork_version = hex_str_to_bytes(self.w3.cc.get_genesis().genesis_fork_version)
@@ -322,7 +325,7 @@ class AbnormalClRebase:
         # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
         # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
         # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
-        # ref share the same frame (see _validate_distant_slot_within_ref_frame).
+        # ref share the same frame (see _validate_prev_slot_within_ref_frame).
         ref_deposited_in_frame = (
             ref_balance_stats.deposited_since_last_report - ref_balance_stats.deposited_for_current_report
         )
