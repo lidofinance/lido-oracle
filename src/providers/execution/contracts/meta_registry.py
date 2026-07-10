@@ -92,5 +92,7 @@ class MetaRegistryContract(ContractInterface):
         return response
 
     def get_all_groups(self, block_identifier: BlockIdentifier) -> list[OperatorGroup]:
+        # Group IDs are one-based: the contract reserves NO_GROUP_ID = 0
+        # and creates real groups with IDs 1..groupsCount.
         all_groups = self.get_operator_groups_count(block_identifier)
-        return [self.get_operator_group(group_id, block_identifier) for group_id in range(all_groups)]
+        return [self.get_operator_group(group_id, block_identifier) for group_id in range(1, all_groups + 1)]
