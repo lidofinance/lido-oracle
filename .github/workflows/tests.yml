@@ -13,27 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.14"
-
-      - name: Setup poetry
-        run: >
-          curl -sSL https://install.python-poetry.org | python - &&
-          echo "$POETRY_HOME/bin" >> "$GITHUB_PATH"
-        env:
-          POETRY_HOME: "/opt/poetry"
-          POETRY_VERSION: 2.3.2
-
-      - name: Install dependencies
-        run: |
-          poetry install --no-interaction --with=dev
-
-      - name: Test with pytest
+      - name: Build and test image
         timeout-minutes: 60
-        # Fork tests running in separate workflow
-        run: poetry run pytest --cov=src -m 'not fork' tests
+        uses: ./.github/actions/test-image
+        with:
+          pytest-args: "--cov=src -m 'not fork' tests"
         env:
           EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
           CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
@@ -41,8 +25,6 @@ jobs:
           TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
           TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
           TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
-          CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
-          CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
           PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
