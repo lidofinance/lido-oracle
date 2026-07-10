@@ -8,23 +8,43 @@ on:
         default: ""
         required: false
         type: string
+      skip-tests:
+        description: "Deploy without running tests"
+        default: false
+        required: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
-  # test:
-  #   ...
-
   deploy:
     runs-on: ubuntu-latest
-    # needs: test
     name: Build and deploy
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           persist-credentials: false
+
+      - name: Build and test image
+        if: ${{ !inputs.skip-tests }}
+        timeout-minutes: 60
+        uses: ./.github/actions/test-image
+        env:
+          EXECUTION_CLIENT_URI: ${{ secrets.EXECUTION_CLIENT_URI }}
+          CONSENSUS_CLIENT_URI: ${{ secrets.CONSENSUS_CLIENT_URI }}
+          KEYS_API_URI: ${{ secrets.KEYS_API_URI }}
+          TESTNET_EXECUTION_CLIENT_URI: ${{ secrets.TESTNET_EXECUTION_CLIENT_URI }}
+          TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
+          TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
+          PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}
+          LIDO_IPFS_TOKEN: ${{ secrets.LIDO_IPFS_TOKEN }}
+          LIDO_IPFS_HOST: ${{ secrets.LIDO_IPFS_HOST }}
+          FILEBASE_IPFS_HOST: ${{ secrets.FILEBASE_IPFS_HOST }}
+          FILEBASE_IPFS_TOKEN: ${{ secrets.FILEBASE_IPFS_TOKEN }}
 
       - name: Tag name
         id: tag_name

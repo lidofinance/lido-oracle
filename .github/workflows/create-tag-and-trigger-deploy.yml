@@ -9,6 +9,11 @@ on:
         description: 'Tag version (e.g., 1.2.3)'
         required: true
         type: string
+      skip-tests:
+        description: 'Deploy without running tests'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -55,3 +60,4 @@ jobs:
     secrets: inherit
     with:
       tag: ${{ needs.bump.outputs.tag }}
+      skip-tests: ${{ inputs.skip-tests || false }}

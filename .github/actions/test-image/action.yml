@@ -1,0 +1,43 @@
+name: Build and test image
+description: >
+  Build the testing Docker image and run the test suite inside it.
+  Expects the required secrets to be set as env vars on the calling step.
+
+inputs:
+  pytest-args:
+    description: "Arguments passed to pytest inside the image"
+    default: "-m 'not fork' tests"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Build test image
+      shell: bash
+      run: docker build --target testing -t oracle:testing .
+
+    - name: Test the image with pytest
+      shell: bash
+      run: >
+        docker run --rm
+        -v "$PWD/tests:/app/tests"
+        -e EXECUTION_CLIENT_URI
+        -e CONSENSUS_CLIENT_URI
+        -e KEYS_API_URI
+        -e TESTNET_EXECUTION_CLIENT_URI
+        -e TESTNET_CONSENSUS_CLIENT_URI
+        -e TESTNET_KAPI_URI
+        -e CS_MODULE_ADDRESS
+        -e CURATED_MODULE_ADDRESS
+        -e PINATA_JWT
+        -e PINATA_DEDICATED_GATEWAY_URL
+        -e PINATA_DEDICATED_GATEWAY_TOKEN
+        -e LIDO_IPFS_TOKEN
+        -e LIDO_IPFS_HOST
+        -e FILEBASE_IPFS_HOST
+        -e FILEBASE_IPFS_TOKEN
+        oracle:testing
+        pytest ${{ inputs.pytest-args }}
+      env:
+        CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
+        CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
