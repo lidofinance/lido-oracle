@@ -56,8 +56,14 @@ class TreeTestBase[LeafType: Iterable](ABC):
 
     @pytest.mark.unit
     def test_new__input_order__does_not_affect_encoding(self):
-        forward = self.cls.new(list(self.values))
-        reverse = self.cls.new(list(reversed(self.values)))
+        # Arrange
+        values = list(self.values)
+
+        # Act
+        forward = self.cls.new(values)
+        reverse = self.cls.new(list(reversed(values)))
+
+        # Assert
         assert forward.root == reverse.root
         assert forward.values == reverse.values
         assert forward.encode() == reverse.encode()
