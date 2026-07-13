@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from web3.exceptions import ContractCustomError
@@ -239,6 +239,69 @@ class TestGetValidatorsToEject:
             )
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert [v[1].index for v in result] == [validators[0][1].index], "Unexpected validators to eject"
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__exact_coverage_after_first_validator__ejects_only_first(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator_with_balance(32)),
+        ]
+        first_validator_balance_wei = get_predictable_inbound_balance(validators[0][1]) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_wei
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index], "Exact coverage must not eject extra validator"
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__exact_coverage_after_second_validator__ejects_two(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(5)), build_extended_validator_with_balance(32)),
+        ]
+        first_two_validators_balance_wei = (
+            get_predictable_inbound_balance(validators[0][1]) + get_predictable_inbound_balance(validators[1][1])
+        ) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_two_validators_balance_wei
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+            "Exact coverage after second validator must eject exactly two"
+        )
 
 
 @pytest.mark.unit
