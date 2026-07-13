@@ -28,7 +28,7 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, ValidatorIndex
+from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
@@ -235,15 +235,12 @@ class Ejector(OracleModule[Web3]):
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
-                    get_predictable_full_inbound_balance,
+                    get_predictable_inbound_balance,
                     validators_going_to_exit,
                 ),
                 Gwei(0),
             )
         )
-
-        # must be excluded from the sweep total below to avoid double-counting their excess balance.
-        going_to_withdraw_indices = frozenset(v.index for v in validators_going_to_exit)
 
         withdrawal_epoch = self._get_predicted_withdrawable_epoch(
             going_to_withdraw_balance_gwei + to_exit_gwei,
@@ -257,9 +254,7 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        future_withdrawals = self._get_withdrawable_lido_validators_balance(
-            withdrawal_epoch, blockstamp, going_to_withdraw_indices
-        )
+        future_withdrawals = self._get_withdrawable_lido_validators_balance(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate future withdrawals sum.', 'value': future_withdrawals})
 
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
@@ -274,21 +269,13 @@ class Ejector(OracleModule[Web3]):
         )
 
     @lru_cache(maxsize=1)
-    def _get_withdrawable_lido_validators_balance(
-        self,
-        on_epoch: EpochNumber,
-        blockstamp: BlockStamp,
-        exclude_indices: frozenset[ValidatorIndex],
-    ) -> Wei:
+    def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
 
         result = Gwei(0)
 
         for v in lido_validators:
             if v.consolidating_as_source:
-                continue
-
-            if v.index in exclude_indices:
                 continue
 
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
