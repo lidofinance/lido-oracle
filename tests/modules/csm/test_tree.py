@@ -54,6 +54,14 @@ class TreeTestBase[LeafType: Iterable](ABC):
         loaded = StandardMerkleTree.load(tree.dump())
         assert loaded.root == tree.root
 
+    @pytest.mark.unit
+    def test_new__input_order__does_not_affect_encoding(self):
+        forward = self.cls.new(list(self.values))
+        reverse = self.cls.new(list(reversed(self.values)))
+        assert forward.root == reverse.root
+        assert forward.values == reverse.values
+        assert forward.encode() == reverse.encode()
+
 
 class TestRewardsTree(TreeTestBase[RewardsTreeLeaf]):
     cls = RewardsTree
