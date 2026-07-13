@@ -23,7 +23,7 @@ from src.providers.consensus.types import (
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_inbound_balance
+from src.utils.validator_balance import get_predictable_inbound_balance, get_predictable_inbound_sweep
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -433,10 +433,10 @@ def test_get_withdrawable_lido_validators_balance(
             Mock(side_effect=lambda _1, b, _2: b > 32),
         )
 
-        result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
+        result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp, frozenset())
         assert result == 42 * GWEI_TO_WEI, "Unexpected withdrawable amount"
 
-        ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
+        ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp, frozenset())
         ejector.w3.lido_validators.get_active_lido_validators.assert_called_once()
 
 
@@ -738,8 +738,37 @@ def test_get_withdrawable_lido_validators_balance__consolidating_as_source__excl
         )
         # Use a different epoch to avoid LRU cache collision with other tests
         result = ejector._get_withdrawable_lido_validators_balance(
-            EpochNumber(ref_blockstamp.ref_epoch + 1), ref_blockstamp
+            EpochNumber(ref_blockstamp.ref_epoch + 1), ref_blockstamp, frozenset()
         )
 
     # Only the normal validator contributes; consolidating_as_source is skipped
     assert result == normal_validator.balance * GWEI_TO_WEI
+
+
+@pytest.mark.unit
+def test_get_withdrawable_lido_validators_balance__excluded_index__not_double_counted(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # This validator is assumed to be recently requested to exit and already counted
+    # via going_to_withdraw_balance_gwei, so it must be excluded here.
+    excluded_validator = build_extended_validator_with_balance(Gwei(42))
+    included_validator = build_extended_validator_with_balance(Gwei(42))
+
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[excluded_validator, included_validator])
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            ejector_module,
+            "is_fully_withdrawable_validator",
+            Mock(return_value=False),
+        )
+        result = ejector._get_withdrawable_lido_validators_balance(
+            EpochNumber(ref_blockstamp.ref_epoch + 2),
+            ref_blockstamp,
+            frozenset([excluded_validator.index]),
+        )
+
+    expected = get_predictable_inbound_sweep(included_validator)
+    assert result == expected * GWEI_TO_WEI, "Excluded validator's balance must not be counted"
