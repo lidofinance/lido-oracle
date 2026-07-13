@@ -259,6 +259,68 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
 
 
+class TestGetPredictedElBalance:
+    """
+    Covers the going-to-exit balance leg of `_get_predicted_el_balance`: validators recently
+    requested to exit but not yet exiting must contribute only their capped (sweep-excluded)
+    balance, both to the returned EL balance and to the churn/withdrawal-epoch prediction —
+    otherwise the excess above the effective balance cap (which is separately swept) gets
+    double-counted.
+    """
+
+    @pytest.fixture(autouse=True)
+    def mock_common(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_total_el_balance = Mock(return_value=Wei(0))
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+    @pytest.mark.unit
+    def test_going_to_exit_validator_above_cap__returned_balance_uses_capped_amount(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Regular (non-compounding) validator sitting above its 32 ETH effective balance cap,
+        # e.g. because it hasn't been swept yet.
+        balance = Gwei(40 * 10**9)
+        going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE)
+        capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
+
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[going_to_exit_validator]
+        )
+
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        assert result == capped_balance * GWEI_TO_WEI, (
+            "Only the capped portion of a going-to-exit validator's balance should count — "
+            "the excess above the cap is already accounted for via the sweep and must not be added twice"
+        )
+
+    @pytest.mark.unit
+    def test_going_to_exit_validator_above_cap__withdrawal_epoch_prediction_uses_capped_amount(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        balance = Gwei(40 * 10**9)
+        going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE)
+        capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
+        to_exit_gwei = Gwei(5 * 10**9)
+
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[going_to_exit_validator]
+        )
+
+        ejector._get_predicted_el_balance(to_exit_gwei, ref_blockstamp)
+
+        ejector._get_predicted_withdrawable_epoch.assert_called_once_with(capped_balance + to_exit_gwei, ref_blockstamp)
+
+
 class TestPredictedWithdrawableEpoch:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
