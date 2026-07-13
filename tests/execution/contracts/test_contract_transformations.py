@@ -5,7 +5,7 @@ pass-through methods (to maintain coverage without integration tests).
 
 from collections import namedtuple
 from typing import cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, Hash32
@@ -866,6 +866,7 @@ class TestMetaRegistryGetAllGroups:
         contract.get_operator_group.assert_any_call(1, "latest")
         contract.get_operator_group.assert_any_call(2, "latest")
         contract.get_operator_group.assert_any_call(3, "latest")
+        assert call(0, "latest") not in contract.get_operator_group.call_args_list
 
     def test_single_group(self):
         contract = _mock_contract()
