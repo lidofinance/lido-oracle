@@ -1,3 +1,4 @@
+from src.constants import EFFECTIVE_BALANCE_INCREMENT
 from src.types import Gwei
 from src.utils.validator_state import get_max_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
@@ -30,6 +31,26 @@ def get_predictable_inbound_balance(validator: LidoValidator) -> Gwei:
     max_effective_balance = get_max_effective_balance(validator.validator)
     predictable_full_balance = get_predictable_full_inbound_balance(validator)
     return min(predictable_full_balance, max_effective_balance)
+
+
+def get_predictable_effective_balance(validator: LidoValidator) -> Gwei:
+    """
+    Same as `get_predictable_inbound_balance`, but the pre-cap balance is floored to the
+    nearest `EFFECTIVE_BALANCE_INCREMENT` first, matching the quantization the real chain
+    applies to `effective_balance` during epoch processing.
+
+    Intended for churn/exit-epoch prediction, where the chain compares against a
+    quantized effective balance.
+
+    Note this is still an approximation of a future value: `balance` keeps growing between
+    now and whenever the validator's exit actually gets processed on-chain, and the real
+    `effective_balance` only updates once that growth crosses a hysteresis threshold
+    (`process_effective_balance_updates`) — so it won't always match exactly either way.
+    """
+    max_effective_balance = get_max_effective_balance(validator.validator)
+    predictable_full_balance = get_predictable_full_inbound_balance(validator)
+    floored_balance = Gwei(predictable_full_balance - predictable_full_balance % EFFECTIVE_BALANCE_INCREMENT)
+    return min(floored_balance, max_effective_balance)
 
 
 def get_predictable_inbound_sweep(validator: LidoValidator) -> Gwei:
