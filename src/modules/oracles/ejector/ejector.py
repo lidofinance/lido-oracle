@@ -194,7 +194,7 @@ class Ejector(OracleModule[Web3]):
 
                 predictable_el_balance = self._get_predicted_el_balance(total_balance_to_eject_gwei, blockstamp)
 
-                if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) > to_withdraw_amount:
+                if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) >= to_withdraw_amount:
                     break
         else:
             logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
@@ -235,7 +235,7 @@ class Ejector(OracleModule[Web3]):
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
-                    get_predictable_full_inbound_balance,
+                    get_predictable_inbound_balance,
                     validators_going_to_exit,
                 ),
                 Gwei(0),
