@@ -23,7 +23,7 @@ from src.providers.consensus.types import (
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_inbound_balance
+from src.utils.validator_balance import get_predictable_effective_balance, get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -303,6 +303,36 @@ class TestGetValidatorsToEject:
             "Exact coverage after second validator must eject exactly two"
         )
 
+    @pytest.mark.unit
+    def test_churn_input_uses_floored_balance__el_comparison_uses_raw_balance(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(10**18))
+        ejector._get_predicted_el_balance = Mock(return_value=Wei(0))
+
+        # Compounding validator below its 2048 ETH cap with a sub-1-ETH remainder — its raw
+        # (capped) balance and its floored balance differ.
+        balance = Gwei(100 * 10**9 + 500_000_000)
+        validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)
+        validators = [((StakingModuleId(0), NodeOperatorId(1)), validator)]
+
+        with monkeypatch.context() as m:
+            ejector.get_consensus_version = Mock(return_value=3)
+            val_iter = iter(SimpleIterator(validators))
+            m.setattr(
+                ejector_module.ValidatorExitIterator,
+                "__iter__",
+                Mock(return_value=val_iter),
+            )
+            ejector.get_validators_to_eject(ref_blockstamp)
+
+        ejector._get_predicted_el_balance.assert_any_call(Gwei(100 * 10**9), ref_blockstamp)
+
 
 @pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
@@ -382,6 +412,29 @@ class TestGetPredictedElBalance:
         ejector._get_predicted_el_balance(to_exit_gwei, ref_blockstamp)
 
         ejector._get_predicted_withdrawable_epoch.assert_called_once_with(capped_balance + to_exit_gwei, ref_blockstamp)
+
+    @pytest.mark.unit
+    def test_going_to_exit_compounding_validator_with_remainder__el_balance_keeps_it_churn_input_floors_it(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Compounding validator well below its 2048 ETH cap, with rewards accrued past a whole
+        # ETH — real effective_balance would be quantized to EFFECTIVE_BALANCE_INCREMENT once the
+        # chain processes the exit, but the raw balance is not.
+        balance = Gwei(100 * 10**9 + 500_000_000)
+        going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE_ELECTRA)
+
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[going_to_exit_validator]
+        )
+
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        assert result == balance * GWEI_TO_WEI, (
+            "The predicted EL balance must keep the sub-increment remainder — it's real ETH regardless of rounding"
+        )
+        ejector._get_predicted_withdrawable_epoch.assert_called_once_with(Gwei(100 * 10**9), ref_blockstamp)
 
 
 class TestPredictedWithdrawableEpoch:
@@ -585,6 +638,34 @@ def test_get_predicted_withdrawable_balance(ejector: Ejector) -> None:
     )
     result = get_predictable_inbound_balance(validator)
     assert result == (MAX_EFFECTIVE_BALANCE + 1), "Expect MAX_EFFECTIVE_BALANCE + 1"
+
+
+@pytest.mark.unit
+def test_get_predictable_effective_balance(ejector: Ejector) -> None:
+    validator = build_extended_validator_with_balance(Gwei(0))
+    assert get_predictable_effective_balance(validator) == 0, "Expected zero"
+
+    # Regular validator: whenever balance exceeds the 32 ETH cap it's clamped there directly,
+    # so flooring to EFFECTIVE_BALANCE_INCREMENT has no additional effect.
+    validator = build_extended_validator_with_balance(Gwei(MAX_EFFECTIVE_BALANCE + 1))
+    assert get_predictable_effective_balance(validator) == MAX_EFFECTIVE_BALANCE, "Expect MAX_EFFECTIVE_BALANCE"
+
+    # Compounding validator sitting below its 2048 ETH cap with a sub-1-ETH remainder: the raw
+    # balance is not yet quantized like a real effective_balance would be, so it must be floored.
+    validator = build_extended_validator_with_balance(
+        Gwei(MAX_EFFECTIVE_BALANCE + 1),
+        meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
+    )
+    assert get_predictable_effective_balance(validator) == MAX_EFFECTIVE_BALANCE, (
+        "Expect the sub-increment remainder to be floored away, unlike get_predictable_inbound_balance"
+    )
+
+    # A remainder well under the cap should floor down to the nearest whole ETH too.
+    validator = build_extended_validator_with_balance(
+        Gwei(100 * 10**9 + 500_000_000),
+        meb=MAX_EFFECTIVE_BALANCE_ELECTRA,
+    )
+    assert get_predictable_effective_balance(validator) == Gwei(100 * 10**9), "Expect floor to nearest whole ETH"
 
 
 @pytest.mark.unit

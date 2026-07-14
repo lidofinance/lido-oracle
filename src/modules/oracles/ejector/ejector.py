@@ -32,6 +32,7 @@ from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, Re
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
+    get_predictable_effective_balance,
     get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
     get_predictable_inbound_sweep,
@@ -176,6 +177,7 @@ class Ejector(OracleModule[Web3]):
 
         validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
         total_balance_to_eject_gwei = Gwei(0)
+        total_churn_balance_to_eject_gwei = Gwei(0)
         validators_iterator = iter(
             ValidatorExitIterator(
                 w3=self.w3,
@@ -189,10 +191,12 @@ class Ejector(OracleModule[Web3]):
                 validators_to_eject.append((gid, next_validator))
 
                 val_balance = get_predictable_inbound_balance(next_validator)
+                val_churn_balance = get_predictable_effective_balance(next_validator)
 
                 total_balance_to_eject_gwei += val_balance
+                total_churn_balance_to_eject_gwei += val_churn_balance
 
-                predictable_el_balance = self._get_predicted_el_balance(total_balance_to_eject_gwei, blockstamp)
+                predictable_el_balance = self._get_predicted_el_balance(total_churn_balance_to_eject_gwei, blockstamp)
 
                 if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) >= to_withdraw_amount:
                     break
@@ -215,7 +219,7 @@ class Ejector(OracleModule[Web3]):
 
         return validators_to_eject
 
-    def _get_predicted_el_balance(self, to_exit_gwei: Gwei, blockstamp: ReferenceBlockStamp) -> Wei:
+    def _get_predicted_el_balance(self, to_exit_churn_gwei: Gwei, blockstamp: ReferenceBlockStamp) -> Wei:
         chain_config = self.get_chain_config(blockstamp)
 
         total_available_balance = self._get_total_el_balance(blockstamp)
@@ -242,8 +246,18 @@ class Ejector(OracleModule[Web3]):
             )
         )
 
+        going_to_withdraw_churn_balance_gwei = Gwei(
+            sum(
+                map(
+                    get_predictable_effective_balance,
+                    validators_going_to_exit,
+                ),
+                Gwei(0),
+            )
+        )
+
         withdrawal_epoch = self._get_predicted_withdrawable_epoch(
-            going_to_withdraw_balance_gwei + to_exit_gwei,
+            going_to_withdraw_churn_balance_gwei + to_exit_churn_gwei,
             blockstamp,
         )
         logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
