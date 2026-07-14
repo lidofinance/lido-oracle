@@ -235,7 +235,7 @@ class Ejector(OracleModule[Web3]):
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
-                    get_predictable_full_inbound_balance,
+                    get_predictable_inbound_balance,
                     validators_going_to_exit,
                 ),
                 Gwei(0),
