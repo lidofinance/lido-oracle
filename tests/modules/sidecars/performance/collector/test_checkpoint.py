@@ -634,9 +634,11 @@ class TestProposeDuties:
         ) as get_prev_non_missed_slot_mock:
             duties = processor._prepare_propose_duties(epoch, checkpoint_block_roots, checkpoint_slot)
 
-        get_prev_non_missed_slot_mock.assert_called_once()
-        processor.cc.get_block_root.assert_called_once_with(dependent_slot)
-        processor.cc.get_proposer_duties.assert_called_once_with(epoch, fallback_root)
+        # Both the v1 (epoch-1) and v2 (epoch-2) dependent roots are resolved via the CL fallback,
+        # so the fallback path runs twice and both roots resolve to fallback_root.
+        assert get_prev_non_missed_slot_mock.call_count == 2
+        processor.cc.get_block_root.assert_any_call(dependent_slot)
+        processor.cc.get_proposer_duties.assert_called_once_with(epoch, fallback_root, fallback_root)
 
         expected_duties = {
             processor.converter.get_epoch_first_slot(epoch): ProposalDuty(validator_index=1, is_proposed=False),
@@ -658,6 +660,7 @@ class TestProposeDuties:
             epoch,
             checkpoint_block_roots,
             checkpoint_slot,
+            epochs_back=1,
         )
 
         assert dependent_root == expected_root
@@ -683,6 +686,7 @@ class TestProposeDuties:
                 epoch,
                 checkpoint_block_roots,
                 checkpoint_slot,
+                epochs_back=1,
             )
 
         processor.cc.get_block_root.assert_called_once_with(non_missed_slot)
