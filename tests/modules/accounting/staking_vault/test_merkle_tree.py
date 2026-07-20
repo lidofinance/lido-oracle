@@ -148,6 +148,9 @@ class TestTreeEncoder:
             'ref_slot': 123450,
             'slot_number': 123456,
             'state_root': 'state_root',
+            'child_state_root': None,
+            'child_slot': None,
+            'withdrawal_correction_needed': False,
         }
 
     def test_encode_invalid_type_raises(self):

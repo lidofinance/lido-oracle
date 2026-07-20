@@ -1,12 +1,14 @@
 import logging
 from http import HTTPStatus
 
+from web3.eth import Eth
+
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockDetailsResponse, BlockHeaderFullResponse
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp, build_reference_blockstamp
+from src.utils.blockstamp import GloasChild, build_blockstamp, build_reference_blockstamp
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,11 @@ class NoSlotsAvailable(Exception):
 
 class SlotNotFinalized(Exception):
     pass
+
+
+class ChildSlotNotFinalized(Exception):
+    """Raised when a block's child (needed to resolve the EIP-7732 execution anchor) is not yet
+    finalized. Callers building a report treat this like an unfinalized ref slot: wait and retry."""
 
 
 def get_non_missed_slot_header(
@@ -115,16 +122,60 @@ def get_prev_non_missed_slot(
     return cc.get_block_details(parent_header.data.root)
 
 
+def get_next_non_missed_slot(
+    cc: ConsensusClient,
+    slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+) -> BlockDetailsResponse:
+    """Get the first non-missed block strictly after `slot` (its child).
+
+    Under EIP-7732 this child's state carries the confirmed execution anchor and complete
+    pending_deposits for its parent block. Raises ChildSlotNotFinalized when no finalized block
+    exists after `slot` yet (the report should wait, exactly as it does for an unfinalized ref slot).
+    """
+    if slot >= last_finalized_slot_number:
+        raise ChildSlotNotFinalized(
+            f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'
+        )
+    # get_non_missed_slot_header scans forward and returns the first existing header in the range,
+    # which for a start of `slot + 1` is exactly the first non-missed block after `slot`.
+    _, existing_header = get_non_missed_slot_header(cc, SlotNumber(slot + 1), last_finalized_slot_number)
+    return cc.get_block_details(existing_header.data.root)
+
+
+def _resolve_gloas_child(
+    cc: ConsensusClient,
+    slot_details: BlockDetailsResponse,
+    last_finalized_slot_number: SlotNumber,
+) -> GloasChild | None:
+    """Resolve the child anchor for a post-EIP-7732 block; None for pre-fork blocks.
+
+    Pre-fork blocks embed their execution payload, so no child lookup is needed and behavior is
+    unchanged. Post-fork the child's state supplies the execution anchor and pending_deposits.
+    """
+    if slot_details.message.body.execution_payload is not None:
+        return None
+    child = get_next_non_missed_slot(cc, slot_details.message.slot, last_finalized_slot_number)
+    child_state = cc.get_state_view((child.message.state_root, child.message.slot))
+    return GloasChild(
+        state_root=child.message.state_root,
+        slot=child.message.slot,
+        latest_block_hash=child_state.latest_block_hash,
+    )
+
+
 def get_blockstamp(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
+    el: Eth | None = None,
 ):
     """Get first non-missed slot header and generates blockstamp for it"""
     logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
     existed_slot = get_prev_non_missed_slot(cc, slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {existed_slot.message.slot}'})
-    return build_blockstamp(existed_slot)
+    child = _resolve_gloas_child(cc, existed_slot, last_finalized_slot_number)
+    return build_blockstamp(existed_slot, cc=cc, el=el, child=child)
 
 
 def get_reference_blockstamp(
@@ -132,12 +183,14 @@ def get_reference_blockstamp(
     ref_slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
     ref_epoch: EpochNumber,
+    el: Eth | None = None,
 ) -> ReferenceBlockStamp:
     """Get first non-missed slot header and generates reference blockstamp for it"""
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
     existed_slot = get_prev_non_missed_slot(cc, ref_slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {existed_slot.message.slot}'})
-    return build_reference_blockstamp(existed_slot, ref_slot, ref_epoch)
+    child = _resolve_gloas_child(cc, existed_slot, last_finalized_slot_number)
+    return build_reference_blockstamp(existed_slot, ref_slot, ref_epoch, cc=cc, el=el, child=child)
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):

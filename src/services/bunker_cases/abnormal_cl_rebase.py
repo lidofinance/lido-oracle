@@ -153,10 +153,10 @@ class AbnormalClRebase:
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
         nearest_blockstamp = get_blockstamp(
-            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
         distant_blockstamp = get_blockstamp(
-            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -361,6 +361,7 @@ class AbnormalClRebase:
             last_report_ref_slot,
             ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            el=self.w3.eth,
         )
 
     @staticmethod

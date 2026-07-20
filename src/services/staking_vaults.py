@@ -829,6 +829,7 @@ class StakingVaultsService:
             cc=self.w3.cc,
             slot=from_ref_slot,
             last_finalized_slot_number=blockstamp.slot_number,
+            el=self.w3.eth,
         ).block_number
 
         # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.

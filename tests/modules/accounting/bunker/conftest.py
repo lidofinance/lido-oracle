@@ -76,7 +76,7 @@ def mock_get_used_lido_keys(abnormal_case):
 
 @pytest.fixture
 def mock_get_blockstamp(monkeypatch):
-    def _get_blockstamp(_, ref_slot, last_finalized_slot_number):
+    def _get_blockstamp(_, ref_slot, last_finalized_slot_number, el=None):
         slots = {
             0: simple_blockstamp(0),
             10: simple_blockstamp(10),
@@ -89,7 +89,7 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[ref_slot]
 
-    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
+    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch, el=None):
         slots = {
             0: simple_ref_blockstamp(0),
             10: simple_ref_blockstamp(10),

@@ -114,6 +114,7 @@ def blockstamp(web3, finalized_blockstamp, request):
         last_report_ref_slot,
         ref_epoch=EpochNumber(last_report_ref_slot // cc_config.SLOTS_PER_EPOCH),
         last_finalized_slot_number=finalized_blockstamp.slot_number,
+        el=web3.eth,
     )
 
 
@@ -121,13 +122,14 @@ def blockstamp(web3, finalized_blockstamp, request):
 def finalized_blockstamp(web3):
     block_root = BlockRoot(web3.cc.get_block_root('finalized').root)
     block_details = web3.cc.get_block_details(block_root)
-    bs = build_blockstamp(block_details)
+    bs = build_blockstamp(block_details, cc=web3.cc, el=web3.eth)
     cc_config = web3.cc.get_config_spec()
     return get_reference_blockstamp(
         web3.cc,
         bs.slot_number,
         ref_epoch=EpochNumber(bs.slot_number // cc_config.SLOTS_PER_EPOCH),
         last_finalized_slot_number=bs.slot_number,
+        el=web3.eth,
     )
 
 

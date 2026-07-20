@@ -128,7 +128,7 @@ class TestGetVaultsFees:
         blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
         monkeypatch.setattr(
             "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+            lambda cc, slot, last_finalized_slot_number, el=None: BlockStampFactory.build(block_number=slot),
         )
 
         service.get_vaults_fees(
@@ -179,7 +179,7 @@ class TestGetVaultsFees:
 
         monkeypatch.setattr(
             "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+            lambda cc, slot, last_finalized_slot_number, el=None: BlockStampFactory.build(block_number=slot),
         )
 
         # First report -> events should be fetched from initial_epoch - frame_epoches

@@ -243,7 +243,7 @@ class SafeBorder(Web3Converter):
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
+        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot, el=self.w3.eth)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
