@@ -45,6 +45,8 @@ class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
+    # Default to "Gloas never active" so factory-built specs are pre-fork unless a test sets it.
+    GLOAS_FORK_EPOCH = 2**64 - 1
 
 
 class SlotAttestationCommitteeFactory(Web3DataclassFactory[SlotAttestationCommittee]):

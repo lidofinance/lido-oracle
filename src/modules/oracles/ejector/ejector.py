@@ -39,6 +39,7 @@ from src.utils.validator_balance import (
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
+    get_exit_churn_limit,
     is_active_validator,
     is_fully_withdrawable_validator,
 )
@@ -316,7 +317,14 @@ class Ejector(OracleModule[Web3]):
         https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
-        per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
+        total_active_balance = self._get_total_active_balance(blockstamp)
+        if self.w3.cc.is_gloas(blockstamp.ref_epoch):
+            # EIP-8061 removes the cap on the exit churn limit and halves the quotient. Using the old
+            # capped formula post-fork overestimates withdrawal_epoch, which makes the ejector
+            # under-request exits (the unsafe direction).
+            per_epoch_churn = get_exit_churn_limit(total_active_balance)
+        else:
+            per_epoch_churn = get_activation_exit_churn_limit(total_active_balance)
         # New epoch for exits.
         if state.earliest_exit_epoch < earliest_exit_epoch:
             exit_balance_to_consume = per_epoch_churn
@@ -336,7 +344,7 @@ class Ejector(OracleModule[Web3]):
         """Returns the number of epochs that will take to sweep all validators in the chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config)
+        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas(blockstamp.ref_epoch))
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:

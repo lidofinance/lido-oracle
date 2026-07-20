@@ -98,6 +98,16 @@ class ConsensusClient(HTTPProvider):
         data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
+    def is_gloas(self, epoch: EpochNumber) -> bool:
+        """Whether the given epoch is at or after the Glamsterdam/EIP-7732 (Gloas) fork.
+
+        Defaults to False on networks whose config does not yet announce GLOAS_FORK_EPOCH.
+        Only the churn and sweep projections need this: they change behaviour at the fork with
+        nothing in the observed data to key off. Blockstamp construction reads the fork off the
+        block shape instead — see src/utils/blockstamp.py.
+        """
+        return epoch >= self.get_config_spec().GLOAS_FORK_EPOCH
+
     @lru_cache(maxsize=1)
     def get_genesis(self) -> GenesisResponse:
         """

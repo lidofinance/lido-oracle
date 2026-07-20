@@ -29,6 +29,10 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    # Glamsterdam/EIP-7732 (Gloas) activation epoch. Defaults to "never" so the fork-gated
+    # ejector paths stay inactive on pre-fork networks. Exact spec constant name to be confirmed
+    # against the final consensus-specs config before mainnet activation.
+    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
