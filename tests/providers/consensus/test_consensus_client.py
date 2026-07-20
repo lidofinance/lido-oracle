@@ -264,7 +264,7 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
         consensus_client.get_sync_committee(bs, EpochNumber(0))
 
     with raises:
-        consensus_client.get_proposer_duties(EpochNumber(0), Mock())
+        consensus_client.get_proposer_duties(EpochNumber(0), Mock(), Mock())
 
     with raises:
         consensus_client.get_state_block_roots(SlotNumber(0))
@@ -281,11 +281,76 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
 
 @pytest.mark.unit
 def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClient):
+    # v2 is tried first and returns 200 with a mismatching dependent_root -> fatal.
     resp = requests.Response()
     resp.status_code = 200
     resp._content = b'{"data": [], "dependent_root": "0x01"}'
 
     consensus_client.session.get = Mock(return_value=resp)
 
-    with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
-        consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+    with pytest.raises(ValueError, match="Dependent root for proposer duties .v2. request mismatch"):
+        consensus_client.get_proposer_duties(EpochNumber(0), "0x02", "0x02")
+
+
+# --- Proposer duties v2 preference + v1 fallback (EIP-7917) ---
+
+
+@pytest.mark.unit
+class TestProposerDutiesV2Fallback:
+    @pytest.fixture
+    def client(self):
+        return ConsensusClient(['http://localhost:5051'], 30)
+
+    def test_get_proposer_duties__v2_available__uses_v2_no_fallback(self, client):
+        from unittest.mock import Mock
+
+        client._get_proposer_duties_v2 = Mock(return_value=['v2'])
+        client._get_proposer_duties_v1 = Mock()
+
+        result = client.get_proposer_duties(EpochNumber(0), "0x_v1", "0x_v2")
+
+        assert result == ['v2']
+        client._get_proposer_duties_v2.assert_called_once_with(EpochNumber(0), "0x_v2")
+        client._get_proposer_duties_v1.assert_not_called()
+
+    def test_get_proposer_duties__v2_not_found__falls_back_to_v1(self, client):
+        from http import HTTPStatus
+        from unittest.mock import Mock
+
+        from src.providers.consensus.client import ConsensusClientError
+
+        client._get_proposer_duties_v2 = Mock(
+            side_effect=ConsensusClientError("no v2", status=HTTPStatus.NOT_FOUND, text="not found")
+        )
+        client._get_proposer_duties_v1 = Mock(return_value=['v1'])
+
+        result = client.get_proposer_duties(EpochNumber(0), "0x_v1", "0x_v2")
+
+        assert result == ['v1']
+        client._get_proposer_duties_v1.assert_called_once_with(EpochNumber(0), "0x_v1")
+
+    def test_get_proposer_duties__v2_other_error__propagates(self, client):
+        from http import HTTPStatus
+        from unittest.mock import Mock
+
+        from src.providers.consensus.client import ConsensusClientError
+
+        client._get_proposer_duties_v2 = Mock(
+            side_effect=ConsensusClientError("boom", status=HTTPStatus.INTERNAL_SERVER_ERROR, text="err")
+        )
+        client._get_proposer_duties_v1 = Mock()
+
+        with pytest.raises(ConsensusClientError):
+            client.get_proposer_duties(EpochNumber(0), "0x_v1", "0x_v2")
+        client._get_proposer_duties_v1.assert_not_called()
+
+    def test_get_proposer_duties_v1__dependent_root_mismatch__does_not_raise(self, client):
+        from unittest.mock import Mock
+
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._content = b'{"data": [], "dependent_root": "0x01"}'
+        client.session.get = Mock(return_value=resp)
+
+        # Relaxed validation: a mismatch on the deprecated v1 path is logged, not fatal.
+        assert client._get_proposer_duties_v1(EpochNumber(0), "0x02") == []
