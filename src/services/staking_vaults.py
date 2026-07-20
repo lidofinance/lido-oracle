@@ -48,7 +48,7 @@ from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.ipfs import CID
-from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
 from src.utils.blockstamp import BlockstampBuilder
@@ -82,6 +82,7 @@ class StakingVaultsService:
         validators: list[Validator],
         pending_deposits: list[PendingDeposit],
         block_identifier: BlockIdentifier,
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
     ) -> VaultTotalValueMap:
         """
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
@@ -128,6 +129,7 @@ class StakingVaultsService:
             block_identifier=block_identifier,
         )
 
+        corrections = gloas_correction_by_index or {}
         total_values: VaultTotalValueMap = {}
         for vault_address, vault in vaults.items():
             vault_total = self._calculate_vault_total_value(
@@ -138,6 +140,7 @@ class StakingVaultsService:
                 vault_unmatched_pending_deposit_statuses=unmatched_pending_deposits_statuses_by_vault.get(
                     vault_address, {}
                 ),
+                gloas_correction_by_index=corrections,
             )
 
             total_values[vault_address] = Wei(vault_total)
@@ -232,6 +235,7 @@ class StakingVaultsService:
         total_pending_amount_by_pubkey: dict[str, Gwei],
         vault_validator_statuses: dict[str, ValidatorStatus],
         vault_unmatched_pending_deposit_statuses: dict[str, ValidatorStatus],
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] | None = None,
     ) -> int:
         """
         Calculates total value for a single vault.
@@ -281,11 +285,16 @@ class StakingVaultsService:
 
         """
         vault_total = int(vault_aggregated_balance)
+        corrections = gloas_correction_by_index or {}
 
         for validator in vault_validators:
             validator_pubkey = validator.validator.pubkey
             validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
-            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
+            # EIP-7732: add back this validator's in-flight withdrawal (deducted from the CL balance
+            # but not yet credited on the EL) so the vault's total value stays consistent. The map
+            # is empty unless the report needs the correction; builder indices never appear here.
+            gloas_correction = corrections.get(validator.index, Gwei(0))
+            total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount + gloas_correction))
 
             # Include validator balance and all pending deposits in TV when validator is eligible for activation or
             # has already passed activation
