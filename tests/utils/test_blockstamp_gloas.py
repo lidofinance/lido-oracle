@@ -13,7 +13,7 @@ from eth_utils import add_0x_prefix
 from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
 from src.providers.http_provider import NotOkResponse
 from src.types import BlockHash, EpochNumber, SlotNumber, StateRoot
-from src.utils.blockstamp import GloasChild, build_blockstamp, build_reference_blockstamp, get_blockstamp_by_state
+from src.utils.blockstamp import BlockstampBuilder, GloasChild
 from src.utils.slot import ChildSlotNotFinalized, get_next_non_missed_slot
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
@@ -45,7 +45,9 @@ class TestBuildReferenceBlockstampGloas:
         payload = details.message.body.execution_payload
 
         # Act
-        bs = build_reference_blockstamp(details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3))
+        bs = BlockstampBuilder(Mock()).build_reference_blockstamp(
+            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3)
+        )
 
         # Assert: identical to the legacy behavior, no Gloas fields set.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
@@ -63,8 +65,8 @@ class TestBuildReferenceBlockstampGloas:
         )
 
         # Act
-        bs = build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), cc=Mock(), el=el, child=child
+        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
+            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
         )
 
         # Assert
@@ -84,8 +86,8 @@ class TestBuildReferenceBlockstampGloas:
         )
 
         # Act
-        bs = build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), cc=Mock(), el=el, child=child
+        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
+            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
         )
 
         # Assert: Y != committed -> the report must add withdrawals back.
@@ -100,8 +102,8 @@ class TestBuildReferenceBlockstampGloas:
         )
 
         # Act
-        bs = build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), cc=Mock(), el=el, child=child
+        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
+            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
         )
 
         # Assert: default to the conservative "correction needed" side.
@@ -116,7 +118,7 @@ class TestBuildBlockstampGloas:
         cc = Mock(get_state_latest_block_hash=Mock(return_value=BlockHash("0xownhash")))
 
         # Act
-        bs = build_blockstamp(details, cc=cc, el=el, child=None)
+        bs = BlockstampBuilder(cc, el).build_blockstamp(details, child=None)
 
         # Assert
         cc.get_state_latest_block_hash.assert_called_once()
@@ -128,7 +130,7 @@ class TestBuildBlockstampGloas:
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = build_blockstamp(details, cc=Mock(), el=None, child=None)
+        bs = BlockstampBuilder(Mock(), None).build_blockstamp(details, child=None)
 
         # Assert: EL fields are inert placeholders; CL fields are correct.
         assert bs.slot_number == SlotNumber(100)
@@ -144,7 +146,7 @@ class TestBuildBlockstampGloas:
         )
 
         # Act
-        bs = get_blockstamp_by_state(cc, 'head', el=el)
+        bs = BlockstampBuilder(cc, el).get_blockstamp_by_state('head')
 
         # Assert
         cc.get_block_root.assert_called_once_with('head')

@@ -14,7 +14,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -165,7 +165,7 @@ def test_get_block_attestations_and_sync(consensus_client: ConsensusClient):
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     attestation_committees = list(consensus_client.get_attestation_committees(blockstamp))
     assert attestation_committees
@@ -184,7 +184,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 def test_get_sync_committee(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
     epoch = blockstamp.slot_number // 32
 
     sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
@@ -206,7 +206,7 @@ def test_get_sync_committee(consensus_client: ConsensusClient):
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     validators: list[Validator] = consensus_client.get_validators(blockstamp)
     assert validators
@@ -220,7 +220,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number

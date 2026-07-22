@@ -1,5 +1,6 @@
 import math
 from collections.abc import Iterable
+from functools import cached_property
 
 from eth_typing import HexStr
 
@@ -7,7 +8,7 @@ from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABI
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
 from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.slot import get_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
@@ -46,6 +47,10 @@ class SafeBorder(Web3Converter):
         self.blockstamp = blockstamp
 
         self._retrieve_constants()
+
+    @cached_property
+    def _blockstamp_builder(self) -> BlockstampBuilder:
+        return BlockstampBuilder(self.w3.cc, self.w3.eth)
 
     def _retrieve_constants(self):
         limits_list = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
@@ -243,7 +248,7 @@ class SafeBorder(Web3Converter):
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot, el=self.w3.eth)
+        return self._blockstamp_builder.get_blockstamp(last_slot_in_frame, self.blockstamp.ref_slot)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(

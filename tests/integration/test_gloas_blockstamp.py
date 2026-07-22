@@ -10,8 +10,7 @@ docs/glamsterdam-devnet-testplan.md for the full manual plan and the exact scena
 
 import pytest
 
-from src.utils.blockstamp import get_blockstamp_by_state
-from src.utils.slot import get_reference_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 
 
 pytestmark = [
@@ -20,8 +19,12 @@ pytestmark = [
 ]
 
 
+def _builder(web3_integration) -> BlockstampBuilder:
+    return BlockstampBuilder(web3_integration.cc, web3_integration.eth)
+
+
 def _finalized(web3_integration):
-    return get_blockstamp_by_state(web3_integration.cc, 'finalized', el=web3_integration.eth)
+    return _builder(web3_integration).get_blockstamp_by_state('finalized')
 
 
 def test_is_gloas__matches_devnet_config(web3_integration):
@@ -38,12 +41,10 @@ def test_reference_blockstamp__resolves_child_anchor_and_correction_flag(web3_in
     ref_slot = finalized.slot_number - 2 * spec.SLOTS_PER_EPOCH
     ref_epoch = ref_slot // spec.SLOTS_PER_EPOCH
 
-    bs = get_reference_blockstamp(
-        web3_integration.cc,
+    bs = _builder(web3_integration).get_reference_blockstamp(
         ref_slot=ref_slot,
         last_finalized_slot_number=finalized.slot_number,
         ref_epoch=ref_epoch,
-        el=web3_integration.eth,
     )
 
     # CL anchor stays at (or before) ref_slot; EL anchor Y is a real, resolvable EL block.
