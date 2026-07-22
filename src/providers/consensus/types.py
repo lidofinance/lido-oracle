@@ -29,6 +29,10 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    # Glamsterdam/EIP-7732 (Gloas) activation epoch. Defaults to "never" so all Gloas-specific
+    # code paths stay inactive on pre-fork networks. Exact spec constant name to be confirmed
+    # against the final consensus-specs config before mainnet activation.
+    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -130,6 +134,27 @@ class ExecutionPayload(Nested, FromResponse):
 
 
 @dataclass
+class ExecutionPayloadBid(Nested, FromResponse):
+    """
+    EIP-7732 builder bid header (subset we need).
+
+    `block_hash` is the execution block the builder commits to produce for the slot. We use it
+    only to tell whether ref_slot's own payload was later confirmed full. The `message.block_hash`
+    path is per the consensus-specs container; confirm against the final beacon-APIs serialization
+    before mainnet activation.
+    """
+
+    block_hash: BlockHash
+
+
+@dataclass
+class SignedExecutionPayloadBid(Nested, FromResponse):
+    """EIP-7732: builder's signed commitment to the execution block for a slot."""
+
+    message: ExecutionPayloadBid
+
+
+@dataclass
 class Checkpoint(Nested):
     epoch: EpochNumber
     root: BlockRoot
@@ -164,9 +189,23 @@ class SyncAggregate(FromResponse):
 
 @dataclass
 class BeaconBlockBody(Nested, FromResponse):
-    execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
+    # EIP-7732: pre-fork blocks carry `execution_payload`; post-fork blocks carry
+    # `signed_execution_payload_bid` instead (the full payload is revealed separately).
+    # Exactly one of the two is present depending on whether the block is pre- or post-Gloas.
+    execution_payload: ExecutionPayload | None = None
+    signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Nested.__post_init__ cannot resolve `X | None` union fields, so convert them here.
+        if isinstance(self.execution_payload, dict):
+            self.execution_payload = ExecutionPayload.from_response(**self.execution_payload)
+        if isinstance(self.signed_execution_payload_bid, dict):
+            self.signed_execution_payload_bid = SignedExecutionPayloadBid.from_response(
+                **self.signed_execution_payload_bid
+            )
 
 
 @dataclass
@@ -249,6 +288,21 @@ class PendingConsolidation(Nested):
 
 
 @dataclass
+class ExpectedWithdrawal(Nested, FromResponse):
+    """
+    A single entry in BeaconState.payload_expected_withdrawals (EIP-7732).
+
+    Under Gloas, process_withdrawals deducts these amounts from CL validator balances before the
+    matching execution payload credits the withdrawal vault. Off-chain consumers that need CL/EL
+    balance consistency add them back (see src/utils/validator_balance.py::gloas_balance_correction).
+    FromResponse ignores extra fields (e.g. index, address) present in the API response.
+    """
+
+    validator_index: ValidatorIndex
+    amount: Gwei
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -266,6 +320,14 @@ class BeaconStateView(Nested, FromResponse):
     pending_deposits: list[PendingDeposit] = field(default_factory=list)
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+
+    # New in Gloas (EIP-7732), default values for backward compatibility with pre-fork states.
+    # latest_block_hash: hash of the last *confirmed* execution block as of this state. When read
+    # from a block's child state it identifies that block's execution-layer anchor (the "Y" in the
+    # LIP). payload_expected_withdrawals: withdrawals already deducted from CL balances but not yet
+    # credited on the execution layer.
+    latest_block_hash: BlockHash = BlockHash(HexStr(''))
+    payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

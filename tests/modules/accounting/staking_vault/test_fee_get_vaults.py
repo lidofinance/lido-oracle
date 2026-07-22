@@ -42,7 +42,7 @@ class TestGetVaultsFees:
 
         fake_blockstamp = MagicMock()
         fake_blockstamp.block_number = 0
-        monkeypatch.setattr("src.services.staking_vaults.get_blockstamp", MagicMock(return_value=fake_blockstamp))
+        monkeypatch.setattr(svc._blockstamp_builder, "get_blockstamp", MagicMock(return_value=fake_blockstamp))
 
         return svc
 
@@ -127,8 +127,9 @@ class TestGetVaultsFees:
         # Negative prev_slot -> events should be fetched from 0 block
         blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
         monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+            service._blockstamp_builder,
+            "get_blockstamp",
+            lambda slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
         service.get_vaults_fees(
@@ -178,8 +179,9 @@ class TestGetVaultsFees:
         service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
 
         monkeypatch.setattr(
-            "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
+            service._blockstamp_builder,
+            "get_blockstamp",
+            lambda slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
         # First report -> events should be fetched from initial_epoch - frame_epoches

@@ -3,6 +3,7 @@ import math
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
+from functools import cached_property
 
 from eth_typing import HexStr
 
@@ -28,7 +29,7 @@ from src.types import (
     StakingModuleAddress,
     ValidatorIndex,
 )
-from src.utils.slot import get_reference_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3StakingModule
@@ -62,6 +63,10 @@ class Distribution:
         self.w3 = w3
         self.converter = converter
         self.state = state
+
+    @cached_property
+    def _blockstamp_builder(self) -> BlockstampBuilder:
+        return BlockstampBuilder(self.w3.cc, self.w3.eth)
 
     def calculate(self, blockstamp: ReferenceBlockStamp, last_report: LastReport) -> DistributionResult:
         """Computes distribution of fee shares at the given timestamp"""
@@ -123,8 +128,7 @@ class Distribution:
     def _get_ref_blockstamp_for_frame(
         self, blockstamp: ReferenceBlockStamp, frame_ref_epoch: EpochNumber
     ) -> ReferenceBlockStamp:
-        return get_reference_blockstamp(
-            cc=self.w3.cc,
+        return self._blockstamp_builder.get_reference_blockstamp(
             ref_slot=self.converter.get_epoch_last_slot(frame_ref_epoch),
             ref_epoch=frame_ref_epoch,
             last_finalized_slot_number=blockstamp.slot_number,
