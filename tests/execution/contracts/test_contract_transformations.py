@@ -641,35 +641,22 @@ class TestCuratedStakingModuleGetOperatorWeights:
 
 
 # ---------------------------------------------------------------------------
-# DelegationContract.execute — eth_abi encoding before calling execute()
+# DelegationContract.execute — execute(address target, bytes data)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestDelegationContractExecute:
-    def test_encodes_address_and_calldata(self):
-        from eth_abi.abi import decode
-
+    def test_calls_execute_with_separate_target_and_data(self):
         contract = _mock_contract()
         tx = MagicMock()
         contract.functions.execute.return_value = tx
         target = "0x" + "cc" * 20
         calldata = b"\xab\xcd\xef"
 
-        DelegationContract.execute(contract, target=target, data=calldata)
+        result = DelegationContract.execute(contract, target=target, data=calldata)
 
-        encoded = contract.functions.execute.call_args[0][0]
-        decoded_target, decoded_calldata = decode(["address", "bytes"], encoded)
-        assert decoded_target.lower() == target.lower()
-        assert decoded_calldata == calldata
-
-    def test_returns_contract_function(self):
-        contract = _mock_contract()
-        tx = MagicMock()
-        contract.functions.execute.return_value = tx
-
-        result = DelegationContract.execute(contract, target=DUMMY_ADDRESS, data=b"")
-
+        contract.functions.execute.assert_called_once_with(target, calldata)
         assert result == tx
 
     def test_logs_target_and_calldata_length(self, caplog):

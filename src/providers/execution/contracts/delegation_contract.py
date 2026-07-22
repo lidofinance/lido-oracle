@@ -1,6 +1,5 @@
 import logging
 
-from eth_abi.abi import encode
 from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
@@ -16,18 +15,17 @@ class DelegationContract(ContractInterface):
     abi_path = './assets/DelegationContract.json'
 
     def execute(self, target: str, data: bytes) -> ContractFunction:
-        """Build execute call for delegation
+        """Build execute call for delegation: execute(address target, bytes data)
 
         Args:
             target: Address of the target contract to call
             data: The calldata to execute on target contract
 
         Returns:
-            ContractFunction for execute() call with encoded data
+            ContractFunction for execute() call
         """
-        encoded_data = encode(['address', 'bytes'], [target, data])
+        tx = self.functions.execute(target, data)
 
-        tx = self.functions.execute(encoded_data)
         logger.info(
             {
                 'msg': 'Build delegation execute transaction',
