@@ -129,7 +129,7 @@ class SafeBorder(Web3Converter):
         validators_slashed = filter_slashed_validators(validators)
 
         # Here we filter not by exit_epoch but by withdrawable_epoch because exited operators can still be slashed.
-        # See more here https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#helpers
+        # See more here https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#helpers
         # at `get_eligible_validator_indices` method.
         validators_slashed_non_withdrawable = filter_non_withdrawable_validators(
             validators_slashed, self.blockstamp.ref_epoch
@@ -237,7 +237,7 @@ class SafeBorder(Web3Converter):
             return EpochNumber(0)
 
         last_finalized_request_data = self.w3.lido_contracts.withdrawal_queue_nft.get_withdrawal_status(
-            last_finalized_request_id
+            last_finalized_request_id, self.blockstamp.block_hash
         )
 
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)

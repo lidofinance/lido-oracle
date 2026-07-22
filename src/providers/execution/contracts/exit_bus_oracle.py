@@ -15,7 +15,7 @@ class ExitBusOracleContract(BaseOracleContract):
     abi_path = './assets/ValidatorsExitBusOracle.json'
 
     @lru_cache(maxsize=1)
-    def is_paused(self, block_identifier: BlockIdentifier = 'latest') -> bool:
+    def is_paused(self, block_identifier: BlockIdentifier) -> bool:
         """
         Returns whether the contract is paused.
         """
@@ -31,7 +31,7 @@ class ExitBusOracleContract(BaseOracleContract):
         return response
 
     @lru_cache(maxsize=1)
-    def get_processing_state(self, block_identifier: BlockIdentifier = 'latest') -> EjectorProcessingState:
+    def get_processing_state(self, block_identifier: BlockIdentifier) -> EjectorProcessingState:
         """
         Returns data processing state for the current reporting frame.
         """

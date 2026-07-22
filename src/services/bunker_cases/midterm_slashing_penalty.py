@@ -97,7 +97,7 @@ class MidtermSlashingPenalty:
         ref_epoch - EPOCHS_PER_SLASHINGS_VECTOR < withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR
         ref_epoch < withdrawable_epoch
 
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slash_validator
+        https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#slash_validator
         """
 
         def is_have_impact(v: Validator) -> bool:
@@ -115,8 +115,8 @@ class MidtermSlashingPenalty:
         due because its exit epoch shifted because of huge exit queue
 
         Read more here:
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#modified-slash_validator
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#initiate_validator_exit
+        https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#modified-slash_validator
+        https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#initiate_validator_exit
         """
         v = validator.validator
 
@@ -198,10 +198,10 @@ class MidtermSlashingPenalty:
     ) -> Gwei:
         """
         Calculate midterm penalty for particular validator
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-process_slashings
+        https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-process_slashings
 
         According to Ethereum consensus specs:
-        https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+        https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
         Validator slashing occurs during `process_block`, while `process_slashings` runs inside `process_epoch`.
         As a result, the `slashings` array does not get updated within the same `midterm_penalty_epoch`,
         meaning that slashing events from this epoch are excluded from the aggregated slashing sum.
@@ -225,7 +225,7 @@ class MidtermSlashingPenalty:
         """
         Filters out slashing values based on epochs within a midterm penalty epoch.
         Slashings is a ring buffer on epochs.
-        @see https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#modified-slash_validator
+        @see https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
 
         Note: The epoch filtering logic handles circular buffer overwrites. We always start from
@@ -270,5 +270,5 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_midterm_penalty_epoch(validator: Validator) -> EpochNumber:
-        """https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#slashings"""
+        """https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#slashings"""
         return EpochNumber(validator.validator.withdrawable_epoch - EPOCHS_PER_SLASHINGS_VECTOR // 2)
