@@ -19,10 +19,7 @@ from src.metrics.prometheus.basic import (
     init_basic_metrics,
 )
 from src.modules.common.types import ModuleExecuteDelay
-from src.modules.oracles.common.exceptions import (
-    IncompatibleOracleVersion,
-    IsNotMemberException,
-)
+from src.modules.oracles.common.exceptions import IncompatibleOracleVersion
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
@@ -164,7 +161,6 @@ def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
 @pytest.mark.parametrize(
     "ex",
     [
-        IsNotMemberException("Fake exception"),
         IncompatibleOracleVersion("Fake exception"),
     ],
     ids=lambda param: f"{type(param).__name__}",

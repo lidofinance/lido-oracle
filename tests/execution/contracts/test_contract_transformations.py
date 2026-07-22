@@ -640,7 +640,7 @@ class TestDelegationContractExecute:
         target = "0x" + "cc" * 20
         calldata = b"\xab\xcd\xef"
 
-        DelegationContract.execute(contract, target_address=target, calldata=calldata)
+        DelegationContract.execute(contract, target=target, data=calldata)
 
         encoded = contract.functions.execute.call_args[0][0]
         decoded_target, decoded_calldata = decode(["address", "bytes"], encoded)
@@ -652,7 +652,7 @@ class TestDelegationContractExecute:
         tx = MagicMock()
         contract.functions.execute.return_value = tx
 
-        result = DelegationContract.execute(contract, target_address=DUMMY_ADDRESS, calldata=b"")
+        result = DelegationContract.execute(contract, target=DUMMY_ADDRESS, data=b"")
 
         assert result == tx
 
@@ -664,7 +664,7 @@ class TestDelegationContractExecute:
         calldata = b"\x01" * 10
 
         with caplog.at_level(logging.INFO, logger="src.providers.execution.contracts.delegation_contract"):
-            DelegationContract.execute(contract, target_address=DUMMY_ADDRESS, calldata=calldata)
+            DelegationContract.execute(contract, target=DUMMY_ADDRESS, data=calldata)
 
         assert any("10" in m for m in caplog.messages)
 

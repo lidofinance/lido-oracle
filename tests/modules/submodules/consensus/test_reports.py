@@ -21,18 +21,15 @@ class Account:
     _private_key: HexBytes
 
 
+REPORT_ACCOUNT_ADDRESS = '0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7'
+
+
 @pytest.fixture()
-def set_report_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "ACCOUNT",
-            Account(
-                address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
-                _private_key='0x0',
-            ),
-        )
-        yield
+def set_report_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address=REPORT_ACCOUNT_ADDRESS,
+        _private_key='0x0',
+    )
 
 
 @pytest.fixture
@@ -459,7 +456,7 @@ def mock_configs(consensus):
 
 @pytest.mark.unit
 def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account, mock_configs):
-    consensus._get_consensus_contract_members = Mock(return_value=([variables.ACCOUNT.address], None))
+    consensus._get_consensus_contract_members = Mock(return_value=([REPORT_ACCOUNT_ADDRESS], None))
     delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
     assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS
     assert "Calculate slots delay." in caplog.messages[-1]
@@ -468,7 +465,7 @@ def test_get_slot_delay_before_data_submit(consensus, caplog, set_report_account
 @pytest.mark.unit
 def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_report_account, mock_configs):
     blockstamp = ReferenceBlockStampFactory.build()
-    consensus._get_consensus_contract_members = Mock(return_value=[[variables.ACCOUNT.address, '0x1', '0x2'], None])
+    consensus._get_consensus_contract_members = Mock(return_value=[[REPORT_ACCOUNT_ADDRESS, '0x1', '0x2'], None])
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
     assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS * 3
     assert "Calculate slots delay." in caplog.messages[-1]

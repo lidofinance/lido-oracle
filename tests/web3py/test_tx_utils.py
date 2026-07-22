@@ -14,18 +14,21 @@ from src.web3py.extensions import TransactionUtils
 @pytest.fixture
 def fake_transaction_utils():
     w3 = MagicMock()
-    w3.delegation.is_enabled.return_value = False
-    utils = TransactionUtils(w3)
     account = MagicMock(spec=LocalAccount)
     account.address = "0x123"
+    w3.signer.active_signer = account
+    w3.signer.is_delegated = False
+    utils = TransactionUtils(w3)
     return utils, account
 
 
 @pytest.mark.unit
 class TestTransactionUtils:
     def test_check_and_send_transaction_dry_mode(self, fake_transaction_utils):
-        utils, account = fake_transaction_utils
+        utils, _ = fake_transaction_utils
+        utils.w3.signer.active_signer = None
         transaction = MagicMock()
+
         result = utils.check_and_send_transaction(transaction)
 
         assert result is None
@@ -131,14 +134,14 @@ class TestTransactionUtils:
 
     @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
     def test_daemon_check_and_send_transaction(self, mock_build_params, fake_transaction_utils):
-        utils, account = fake_transaction_utils
+        utils, _ = fake_transaction_utils
         tx = MagicMock()
         input.get_input = MagicMock(return_value='n')
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(variables, "DAEMON", False)
             utils._send_transaction = MagicMock()
             utils._check_transaction = MagicMock(return_value=True)
-            utils.check_and_send_transaction(tx, account)
+            utils.check_and_send_transaction(tx)
             utils._send_transaction.assert_not_called()
 
     def test_find_transaction_timeout(self, fake_transaction_utils):
@@ -196,66 +199,60 @@ class TestTransactionUtils:
             assert params['maxPriorityFeePerGas'] == variables.MAX_PRIORITY_FEE
 
     @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
-    def test_check_and_send_transaction__delegation_enabled__wraps_call(self, mock_build_params):
+    def test_check_and_send_transaction__is_delegated__wraps_call(self, mock_build_params, fake_transaction_utils):
         # Arrange
-        w3 = MagicMock()
-        w3.delegation.is_enabled.return_value = True
+        utils, account = fake_transaction_utils
+        utils.w3.signer.is_delegated = True
 
         wrapped_transaction = MagicMock()
-        w3.delegation.wrap_call_for_delegation.return_value = wrapped_transaction
+        utils.w3.signer.wrap_call_for_delegation.return_value = wrapped_transaction
 
-        utils = TransactionUtils(w3)
         utils._check_transaction = MagicMock(return_value=True)
         utils._send_transaction = MagicMock()
 
         original_transaction = MagicMock()
-        account = MagicMock(spec=LocalAccount)
 
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(variables, "DAEMON", True)
 
             # Act
-            utils.check_and_send_transaction(original_transaction, account)
+            utils.check_and_send_transaction(original_transaction)
 
             # Assert
-            w3.delegation.wrap_call_for_delegation.assert_called_once_with(original_transaction)
+            utils.w3.signer.wrap_call_for_delegation.assert_called_once_with(original_transaction)
             utils._check_transaction.assert_called_once_with(wrapped_transaction, {})
             utils._send_transaction.assert_called_once_with(wrapped_transaction, {}, account)
 
     @patch('src.web3py.extensions.tx_utils.build_transaction_params', return_value={})
-    def test_check_and_send_transaction__delegation_disabled__does_not_wrap(self, mock_build_params):
+    def test_check_and_send_transaction__not_delegated__does_not_wrap(self, mock_build_params, fake_transaction_utils):
         # Arrange
-        w3 = MagicMock()
-        w3.delegation.is_enabled.return_value = False
+        utils, account = fake_transaction_utils
+        utils.w3.signer.is_delegated = False
 
-        utils = TransactionUtils(w3)
         utils._check_transaction = MagicMock(return_value=True)
         utils._send_transaction = MagicMock()
 
         original_transaction = MagicMock()
-        account = MagicMock(spec=LocalAccount)
 
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setattr(variables, "DAEMON", True)
 
             # Act
-            utils.check_and_send_transaction(original_transaction, account)
+            utils.check_and_send_transaction(original_transaction)
 
             # Assert
-            w3.delegation.wrap_call_for_delegation.assert_not_called()
+            utils.w3.signer.wrap_call_for_delegation.assert_not_called()
             utils._check_transaction.assert_called_once_with(original_transaction, {})
             utils._send_transaction.assert_called_once_with(original_transaction, {}, account)
 
-    def test_check_and_send_transaction__delegation_wrap_fails__propagates_error(self):
+    def test_check_and_send_transaction__delegation_wrap_fails__propagates_error(self, fake_transaction_utils):
         # Arrange
-        w3 = MagicMock()
-        w3.delegation.is_enabled.return_value = True
-        w3.delegation.wrap_call_for_delegation.side_effect = RuntimeError("Delegation not configured")
+        utils, _ = fake_transaction_utils
+        utils.w3.signer.is_delegated = True
+        utils.w3.signer.wrap_call_for_delegation.side_effect = RuntimeError("Delegation not configured")
 
-        utils = TransactionUtils(w3)
         original_transaction = MagicMock()
-        account = MagicMock(spec=LocalAccount)
 
         # Act & Assert
         with pytest.raises(RuntimeError, match="Delegation not configured"):
-            utils.check_and_send_transaction(original_transaction, account)
+            utils.check_and_send_transaction(original_transaction)
