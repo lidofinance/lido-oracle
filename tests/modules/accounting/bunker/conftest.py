@@ -10,6 +10,7 @@ from src.services.bunker import BunkerService
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
+from src.utils.blockstamp import BlockstampBuilder
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
@@ -76,7 +77,8 @@ def mock_get_used_lido_keys(abnormal_case):
 
 @pytest.fixture
 def mock_get_blockstamp(monkeypatch):
-    def _get_blockstamp(_, ref_slot, last_finalized_slot_number):
+    # Patch the builder methods (self is the BlockstampBuilder instance held by AbnormalClRebase).
+    def _get_blockstamp(self, slot, last_finalized_slot_number):
         slots = {
             0: simple_blockstamp(0),
             10: simple_blockstamp(10),
@@ -87,9 +89,9 @@ def mock_get_blockstamp(monkeypatch):
             444434: simple_blockstamp(444431),
             444444: simple_blockstamp(444444),
         }
-        return slots[ref_slot]
+        return slots[slot]
 
-    def _get_reference_blockstamp(_, ref_slot, last_finalized_slot_number, ref_epoch):
+    def _get_reference_blockstamp(self, ref_slot, last_finalized_slot_number, ref_epoch):
         slots = {
             0: simple_ref_blockstamp(0),
             10: simple_ref_blockstamp(10),
@@ -102,13 +104,8 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[ref_slot]
 
-    monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_blockstamp', Mock(side_effect=_get_blockstamp)
-    )
-    monkeypatch.setattr(
-        'src.services.bunker_cases.abnormal_cl_rebase.get_reference_blockstamp',
-        Mock(side_effect=_get_reference_blockstamp),
-    )
+    monkeypatch.setattr(BlockstampBuilder, 'get_blockstamp', _get_blockstamp)
+    monkeypatch.setattr(BlockstampBuilder, 'get_reference_blockstamp', _get_reference_blockstamp)
 
 
 @pytest.fixture

@@ -32,7 +32,7 @@ from src.providers.http_provider import (
     data_is_list,
     data_is_transient_dict,
 )
-from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
+from src.types import BlockHash, BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 
@@ -40,6 +40,11 @@ from src.utils.dataclass import list_of_dataclasses
 logger = logging.getLogger(__name__)
 
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
+
+# A beacon state can be addressed either by a full BlockStamp or by an explicit
+# (state_root, slot_number) pair. The pair form is used to read a state — e.g. ref_slot's child
+# state — that does not have a BlockStamp of its own (see src/utils/blockstamp.py).
+StateIdentifier = BlockStamp | tuple[StateRoot, SlotNumber]
 
 
 class ConsensusClientError(NotOkResponse):
@@ -92,6 +97,13 @@ class ConsensusClient(HTTPProvider):
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
         data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
+
+    def is_gloas(self, epoch: EpochNumber) -> bool:
+        """Whether the given epoch is at or after the Glamsterdam/EIP-7732 (Gloas) fork.
+
+        Defaults to False on networks whose config does not yet announce GLOAS_FORK_EPOCH.
+        """
+        return epoch >= self.get_config_spec().GLOAS_FORK_EPOCH
 
     @lru_cache(maxsize=1)
     def get_genesis(self) -> GenesisResponse:
@@ -249,33 +261,82 @@ class ConsensusClient(HTTPProvider):
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
-    @lru_cache(maxsize=1)
-    def get_state_view(self, blockstamp: BlockStamp) -> BeaconStateView:
-        return self.get_state_view_no_cache(blockstamp)
+    @staticmethod
+    def _state_root_and_slot(state_identifier: StateIdentifier) -> tuple[StateRoot, SlotNumber]:
+        if isinstance(state_identifier, BlockStamp):
+            return state_identifier.state_root, state_identifier.slot_number
+        return state_identifier
 
-    def get_state_view_no_cache(self, blockstamp: BlockStamp) -> BeaconStateView:
+    def get_state_view(self, state_identifier: StateIdentifier) -> BeaconStateView:
+        # Normalize to a canonical (state_root, slot) cache key so that the same state fetched via
+        # a BlockStamp and via an explicit (state_root, slot) pair (e.g. ref_slot's child) hits the
+        # same cache entry and is downloaded only once.
+        return self._get_state_view_cached(*self._state_root_and_slot(state_identifier))
+
+    # maxsize=2 so that within a single report both ref_slot's own state and its child's state
+    # (used for pending_deposits under EIP-7732) stay cached simultaneously instead of thrashing.
+    @lru_cache(maxsize=2)
+    def _get_state_view_cached(self, state_root: StateRoot, slot_number: SlotNumber) -> BeaconStateView:
+        return self.get_state_view_no_cache((state_root, slot_number))
+
+    def get_state_view_no_cache(self, state_identifier: StateIdentifier) -> BeaconStateView:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
+        state_root, slot_number = self._state_root_and_slot(state_identifier)
 
         logger.info(
             {
                 'msg': 'Getting state...',
                 'url': self.API_GET_STATE,
-                'slot_number': blockstamp.slot_number,
-                'state_root': blockstamp.state_root,
+                'slot_number': slot_number,
+                'state_root': state_root,
             }
         )
         try:
-            data = self._get_state_by_state_id(blockstamp.state_root)
+            data = self._get_state_by_state_id(state_root)
         except NotOkResponse as error:
             # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                data = self._get_state_by_state_id(blockstamp.slot_number)
+                data = self._get_state_by_state_id(slot_number)
             else:
                 raise
 
         return BeaconStateView.from_response(**data)
 
+    @lru_cache(maxsize=1)
+    def get_state_latest_block_hash(self, state_identifier: StateIdentifier) -> BlockHash:
+        """EIP-7732: read only `latest_block_hash` from a state, streaming to avoid materializing
+        the whole (large) beacon state. Used to resolve the execution-layer anchor for liveness
+        blockstamps (head/finalized) that have no child block to read from."""
+        state_root, slot_number = self._state_root_and_slot(state_identifier)
+        try:
+            data, _ = self._get(
+                self.API_GET_STATE,
+                path_params=(state_root,),
+                stream=True,
+                validate_response=data_is_transient_dict,
+                stream_consumer=lambda d: d["latest_block_hash"],
+            )
+        except NotOkResponse as error:
+            if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
+                data, _ = self._get(
+                    self.API_GET_STATE,
+                    path_params=(slot_number,),
+                    stream=True,
+                    validate_response=data_is_transient_dict,
+                    stream_consumer=lambda d: d["latest_block_hash"],
+                )
+            else:
+                raise
+        return BlockHash(data)
+
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        # Under EIP-7732 pending_deposits must be read from ref_slot's child state (a slot's own
+        # deposits are only merged into pending_deposits when its child is processed). The child
+        # anchor is carried on ReferenceBlockStamp; plain BlockStamps read their own state.
+        child_state_root = getattr(blockstamp, 'child_state_root', None)
+        child_slot = getattr(blockstamp, 'child_slot', None)
+        if child_state_root is not None and child_slot is not None:
+            return self.get_state_view((child_state_root, child_slot)).pending_deposits
         return self.get_state_view(blockstamp).pending_deposits
 
     def get_pending_consolidations(self, blockstamp: BlockStamp) -> list[PendingConsolidation]:

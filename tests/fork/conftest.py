@@ -28,7 +28,7 @@ from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.ipfs import CID
 from src.types import BlockRoot, BlockStamp, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.cache import clear_global_cache
 from src.utils.slot import get_non_missed_slot_header
 from src.variables import (
@@ -241,7 +241,7 @@ def blockstamp_for_forking(
         slot_to_fork,
         real_finalized_slot,
     )
-    blockstamp = build_blockstamp(existing)
+    blockstamp = BlockstampBuilder(real_cl_client).build_blockstamp(existing)
     logger.info(f"TESTRUN Blockstamp to fork: {blockstamp}")
     return blockstamp
 

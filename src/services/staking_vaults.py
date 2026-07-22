@@ -3,6 +3,7 @@ import logging
 from collections import defaultdict
 from dataclasses import asdict
 from decimal import ROUND_UP, Decimal
+from functools import cached_property
 from typing import Any
 
 from eth_typing import BlockNumber, ChecksumAddress
@@ -50,7 +51,7 @@ from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
-from src.utils.slot import get_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
@@ -66,6 +67,10 @@ class StakingVaultsService:
 
     def __init__(self, w3: Web3) -> None:
         self.w3 = w3
+
+    @cached_property
+    def _blockstamp_builder(self) -> BlockstampBuilder:
+        return BlockstampBuilder(self.w3.cc, self.w3.eth)
 
     def get_vaults(self, block_identifier: BlockIdentifier) -> VaultsMap:
         vaults = self.w3.lido_contracts.lazy_oracle.get_all_vaults(block_identifier=block_identifier)
@@ -825,8 +830,7 @@ class StakingVaultsService:
             ) * chain_config.slots_per_epoch - 1
             from_ref_slot = SlotNumber(max(potential_prev_ref_slot, 0))
 
-        prev_report_block_number = get_blockstamp(
-            cc=self.w3.cc,
+        prev_report_block_number = self._blockstamp_builder.get_blockstamp(
             slot=from_ref_slot,
             last_finalized_slot_number=blockstamp.slot_number,
         ).block_number

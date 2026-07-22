@@ -14,7 +14,7 @@ from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.utils.blockstamp import BlockstampBuilder
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -165,7 +165,7 @@ def test_get_block_attestations_and_sync(consensus_client: ConsensusClient):
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     attestation_committees = list(consensus_client.get_attestation_committees(blockstamp))
     assert attestation_committees
@@ -184,7 +184,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 def test_get_sync_committee(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
     epoch = blockstamp.slot_number // 32
 
     sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
@@ -206,7 +206,7 @@ def test_get_sync_committee(consensus_client: ConsensusClient):
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     validators: list[Validator] = consensus_client.get_validators(blockstamp)
     assert validators
@@ -220,7 +220,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = BlockstampBuilder(consensus_client).build_blockstamp(block_details)
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number
@@ -289,3 +289,94 @@ def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClie
 
     with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
         consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+
+
+# --- EIP-7732 (Gloas) unit tests ---
+
+
+@pytest.mark.unit
+class TestGloasClientHelpers:
+    @pytest.fixture
+    def client(self):
+        return ConsensusClient(['http://localhost:5051'], 30)
+
+    def test_is_gloas__default_config__false(self, client):
+        # Arrange: config without GLOAS_FORK_EPOCH -> defaults to "never active".
+        from tests.factory.configs import BeaconSpecResponseFactory
+
+        client.get_config_spec = Mock(return_value=BeaconSpecResponseFactory.build())
+
+        # Act / Assert
+        assert client.is_gloas(EpochNumber(10_000_000)) is False
+
+    @pytest.mark.parametrize(
+        ("fork_epoch", "epoch", "expected"),
+        [(100, 99, False), (100, 100, True), (100, 101, True)],
+    )
+    def test_is_gloas__fork_epoch_boundary(self, client, fork_epoch, epoch, expected):
+        # Arrange
+        from tests.factory.configs import BeaconSpecResponseFactory
+
+        client.get_config_spec = Mock(
+            return_value=BeaconSpecResponseFactory.build(GLOAS_FORK_EPOCH=EpochNumber(fork_epoch))
+        )
+
+        # Act / Assert
+        assert client.is_gloas(EpochNumber(epoch)) is expected
+
+    def test_get_pending_deposits__reference_with_child__reads_child_state(self, client):
+        # Arrange: a report blockstamp that carries a child anchor.
+        from src.types import SlotNumber, StateRoot
+        from tests.factory.blockstamp import ReferenceBlockStampFactory
+
+        bs = ReferenceBlockStampFactory.build(child_state_root=StateRoot('0xchildstate'), child_slot=SlotNumber(555))
+        seen = Mock(pending_deposits=['from_child'])
+        client.get_state_view = Mock(return_value=seen)
+
+        # Act
+        result = client.get_pending_deposits(bs)
+
+        # Assert: pending_deposits are read from the child's (state_root, slot), not the block's own.
+        client.get_state_view.assert_called_once_with((StateRoot('0xchildstate'), SlotNumber(555)))
+        assert result == ['from_child']
+
+    def test_get_pending_deposits__no_child__reads_own_state(self, client):
+        # Arrange: pre-fork / plain blockstamp with no child anchor.
+        from tests.factory.blockstamp import BlockStampFactory
+
+        bs = BlockStampFactory.build()
+        client.get_state_view = Mock(return_value=Mock(pending_deposits=['own']))
+
+        # Act
+        result = client.get_pending_deposits(bs)
+
+        # Assert
+        client.get_state_view.assert_called_once_with(bs)
+        assert result == ['own']
+
+    def test_get_state_view__blockstamp_and_tuple__share_cache_entry(self, client):
+        # Arrange: same state addressed via a BlockStamp and via its (state_root, slot) pair.
+        from tests.factory.blockstamp import BlockStampFactory
+
+        bs = BlockStampFactory.build()
+        client.get_state_view_no_cache = Mock(return_value='state')
+
+        # Act: fetch twice through the two identifier forms.
+        client.get_state_view(bs)
+        client.get_state_view((bs.state_root, bs.slot_number))
+
+        # Assert: canonical key means the underlying (expensive) fetch runs only once.
+        client.get_state_view_no_cache.assert_called_once()
+
+    def test_get_state_latest_block_hash__returns_streamed_hash(self, client):
+        # Arrange
+        from src.types import SlotNumber, StateRoot
+
+        client._get = Mock(return_value=('0xlatest', {}))
+
+        # Act
+        result = client.get_state_latest_block_hash((StateRoot('0xsr'), SlotNumber(1)))
+
+        # Assert
+        assert result == '0xlatest'
+        assert client._get.call_args.kwargs['stream'] is True

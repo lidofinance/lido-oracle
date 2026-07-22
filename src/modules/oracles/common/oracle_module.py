@@ -44,7 +44,7 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
     """
 
     def __init__(self, w3: W3):
-        super().__init__(w3=w3, cc=w3.cc)
+        super().__init__(w3=w3, cc=w3.cc, el=w3.eth)
 
     @property
     def cc(self) -> ConsensusClient:

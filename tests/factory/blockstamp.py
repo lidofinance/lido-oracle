@@ -22,3 +22,10 @@ class ReferenceBlockStampFactory(Web3DataclassFactory[ReferenceBlockStamp]):
 
     ref_slot: SlotNumber = SlotNumber(294271)
     ref_epoch: EpochNumber = EpochNumber(9195)
+
+    # Keep factory-built blockstamps pre-fork-shaped. Without explicit values polyfactory would
+    # generate a random child anchor / correction flag and silently activate EIP-7732 child-state
+    # routing (get_pending_deposits) in tests that never intended it.
+    child_state_root: StateRoot | None = None
+    child_slot: SlotNumber | None = None
+    withdrawal_correction_needed: bool = False
