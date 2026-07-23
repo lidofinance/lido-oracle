@@ -8,7 +8,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import EventData, Wei
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
-from src.modules.common.types import ChainConfig
+from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
@@ -18,6 +18,7 @@ from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
+from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
 from src.web3py.types import Web3
 
@@ -32,10 +33,11 @@ class AbnormalClRebase:
     lido_validators: list[LidoValidator]
     lido_keys: list[LidoKey]
 
-    def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig):
+    def __init__(self, w3: Web3, c_conf: ChainConfig, b_conf: BunkerConfig, frame_config: FrameConfig):
         self.w3 = w3
         self.c_conf = c_conf
         self.b_conf = b_conf
+        self._web3_converter = Web3Converter(c_conf, frame_config)
 
     def is_abnormal_cl_rebase(
         self,
@@ -160,6 +162,20 @@ class AbnormalClRebase:
         )
 
         return nearest_blockstamp, distant_blockstamp
+
+    def _validate_prev_slot_within_ref_frame(self, prev_slot: SlotNumber, ref_slot: SlotNumber) -> None:
+        """prev_slot (nearest or distant blockstamp's resolved slot) must stay within the same reporting
+        frame as ref_slot: _calculate_injected_capital's deposit accounting assumes at most one report can
+        settle between prev_slot and ref_slot, which no longer holds once prev_slot reaches back into an
+        already-processed frame.
+        """
+        frame_first_slot = self._web3_converter.get_frame_first_slot(self._web3_converter.get_frame_by_slot(ref_slot))
+        if prev_slot < frame_first_slot:
+            raise ValueError(
+                f"{prev_slot=} is before the start of the current reporting frame ({frame_first_slot=}) "
+                f"for {ref_slot=} — rebase_check_nearest_epoch_distance/rebase_check_distant_epoch_distance "
+                "is too large"
+            )
 
     def _calculate_cl_rebase_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
@@ -288,6 +304,8 @@ class AbnormalClRebase:
         if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
             return AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_lido_validators, self.lido_validators)
 
+        self._validate_prev_slot_within_ref_frame(prev_blockstamp.slot_number, ref_blockstamp.ref_slot)
+
         lido_pubkeys = {key.key for key in self.lido_keys}
         lido_wc_list = self.w3.lido_validators.get_lido_wc_list(ref_blockstamp)
         genesis_fork_version = hex_str_to_bytes(self.w3.cc.get_genesis().genesis_fork_version)
@@ -302,13 +320,19 @@ class AbnormalClRebase:
             lido_wc_list=lido_wc_list,
             genesis_fork_version=genesis_fork_version,
         )
-
-        deposited_in_window = wei_to_gwei(
-            Wei(
-                self.w3.lido_contracts.lido.get_deposited_for_current_report(ref_blockstamp.block_hash)
-                - self.w3.lido_contracts.lido.get_deposited_for_current_report(prev_blockstamp.block_hash)
-            )
+        ref_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(ref_blockstamp.block_hash)
+        prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
+        # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
+        # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
+        # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
+        # ref share the same frame (see _validate_prev_slot_within_ref_frame).
+        ref_deposited_in_frame = (
+            ref_balance_stats.deposited_since_last_report - ref_balance_stats.deposited_for_current_report
         )
+        prev_deposited_in_frame = (
+            prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report
+        )
+        deposited_in_window = wei_to_gwei(Wei(ref_deposited_in_frame - prev_deposited_in_frame))
 
         current_pending = self._sum_valid_lido_pending(
             blockstamp=ref_blockstamp,

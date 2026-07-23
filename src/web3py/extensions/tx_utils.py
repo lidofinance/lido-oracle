@@ -23,29 +23,30 @@ logger = logging.getLogger(__name__)
 class TransactionUtils(Module):
     w3: Web3
 
-    def check_and_send_transaction(self, transaction, account: LocalAccount | None = None) -> TxReceipt | None:
-        if not account:
-            logger.info({'msg': 'No account provided to submit extra data. Dry mode'})
+    def check_and_send_transaction(self, transaction) -> TxReceipt | None:
+        if not self.w3.signer.active_signer:
+            logger.info({'msg': 'No active signer available. Dry mode'})
             return None
 
-        if self.w3.delegation.is_enabled():
-            transaction = self.w3.delegation.wrap_call_for_delegation(transaction)
+        if self.w3.signer.is_delegated:
+            transaction = self.w3.signer.wrap_call_for_delegation(transaction)
 
-        params = build_transaction_params(self.w3, transaction, account)
+        params = build_transaction_params(self.w3, transaction, self.w3.signer.active_signer)
 
         if self._check_transaction(transaction, params):
             if not variables.DAEMON:
-                return self._manual_tx_processing(transaction, params, account)
+                return self._manual_tx_processing(transaction, params, self.w3.signer.active_signer)
 
-            return self._send_transaction(transaction, params, account)
+            return self._send_transaction(transaction, params, self.w3.signer.active_signer)
 
         return None
 
-    def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount):
+    def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount) -> TxReceipt | None:
         logger.warning({'msg': 'Send transaction in manual mode.'})
         msg = f'\nGoing to send transaction to blockchain: \nTx args:\n{transaction.args}\nTx params:\n{params}\n'
         if prompt(f'{msg}Should we send this TX? [y/n]: '):
-            self._send_transaction(transaction, params, account)
+            return self._send_transaction(transaction, params, account)
+        return None
 
     @staticmethod
     def _check_transaction(transaction, params: TxParams) -> bool:

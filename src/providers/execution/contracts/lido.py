@@ -2,7 +2,7 @@ import logging
 
 from web3.types import BlockIdentifier, Wei
 
-from src.modules.oracles.accounting.types import BeaconStat
+from src.modules.oracles.accounting.types import BalanceStats, BeaconStat
 from src.providers.execution.base_interface import ContractInterface
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
@@ -85,9 +85,14 @@ class LidoContract(ContractInterface):
         )
         return int(response)
 
-    def get_deposited_for_current_report(self, block_identifier: BlockIdentifier) -> Wei:
-        """Lido v4+: ETH deposited by Lido since the last oracle report, in wei."""
+    def get_balance_stats(self, block_identifier: BlockIdentifier) -> BalanceStats:
+        """Lido v4+: balance/deposit accounting state. See field docs on `BalanceStats` for what
+        each value means and https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
+        for the on-chain source.
+        """
         response = self.functions.getBalanceStats().call(block_identifier=block_identifier)
+        response = named_tuple_to_dataclass(response, BalanceStats)
+
         logger.info(
             {
                 'msg': 'Call `getBalanceStats()`.',
@@ -96,9 +101,7 @@ class LidoContract(ContractInterface):
                 'to': self.address,
             }
         )
-        return Wei(
-            response[3]
-        )  # https://github.com/lidofinance/core/blob/c2872dc75eae824a9959bb4a5f21caef792de1a1/contracts/0.4.24/Lido.sol#L734
+        return response
 
     def get_deposits_reserve_target(self, block_identifier: BlockIdentifier) -> Wei:
         """

@@ -4,10 +4,10 @@ from src.providers.performance.client import PerformanceClient
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
-    DelegationModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    SignerModule,
     StakingModuleContracts,
     TelemetryDataBus,
     TransactionUtils,
@@ -19,7 +19,7 @@ class Web3Base(_Web3):
     cc: ConsensusClientModule
     kac: KeysAPIClientModule
     telemetry_data_bus: TelemetryDataBus
-    delegation: DelegationModule
+    signer: SignerModule
 
 
 class Web3(Web3Base):

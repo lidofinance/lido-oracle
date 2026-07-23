@@ -30,7 +30,7 @@ def test_meta_registry_get_operator_group(meta_registry_contract, caplog):
     check_contract(
         meta_registry_contract,
         [
-            ('get_operator_group', (0, 'latest'), make_checker(OperatorGroup)),
+            ('get_operator_group', (1, 'latest'), make_checker(OperatorGroup)),
         ],
         caplog,
     )

@@ -102,7 +102,9 @@ class RewardsTree(Tree[RewardsTreeLeaf]):
     @classmethod
     def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
-        return cls(StandardMerkleTree(values, ("uint256", "uint256")))
+        # Sort leaves by node operator id
+        sorted_values = sorted(values, key=lambda leaf: leaf[0])
+        return cls(StandardMerkleTree(sorted_values, ("uint256", "uint256")))
 
 
 class StrikesTreeJSONEncoder(TreeJSONEncoder):
@@ -144,4 +146,6 @@ class StrikesTree(Tree[StrikesTreeLeaf]):
     @classmethod
     def new(cls, values) -> Self:
         """Create new instance around the wrapped tree out of the given values"""
-        return cls(StandardMerkleTree(values, ("uint256", "bytes", "uint256[]")))
+        # Sort leaves by (node operator id, pubkey)
+        sorted_values = sorted(values, key=lambda leaf: (leaf[0], leaf[1]))
+        return cls(StandardMerkleTree(sorted_values, ("uint256", "bytes", "uint256[]")))

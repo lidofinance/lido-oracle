@@ -25,7 +25,6 @@ from src.modules.common.types import (
 from src.modules.oracles.common.exceptions import (
     ContractVersionMismatch,
     IncompatibleOracleVersion,
-    IsNotMemberException,
 )
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
@@ -162,9 +161,9 @@ class ConsensusModule[W3: Web3Base](ABC):
         last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
-        if variables.ACCOUNT:
-            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
-                self.w3.eth.get_balance(variables.ACCOUNT.address)
+        if self.w3.signer.active_signer:
+            ACCOUNT_BALANCE.labels(str(self.w3.signer.active_signer.address)).set(
+                self.w3.eth.get_balance(self.w3.signer.active_signer.address)
             )
 
             try:
@@ -185,7 +184,7 @@ class ConsensusModule[W3: Web3Base](ABC):
                     # The hash reported by the member for the current frame, if any.
                     current_frame_member_report,
                 ) = consensus_contract.get_consensus_state_for_member(
-                    variables.ACCOUNT.address,
+                    self.w3.signer.active_signer.address,
                     blockstamp.block_hash,
                 )
             except ContractCustomError as revert:
@@ -194,14 +193,17 @@ class ConsensusModule[W3: Web3Base](ABC):
 
             is_submit_member = self.report_contract.has_role(
                 self.report_contract.submit_data_role(blockstamp.block_hash),
-                variables.ACCOUNT.address,
+                self.w3.signer.active_signer.address,
                 blockstamp.block_hash,
             )
 
             if not is_member and not is_submit_member:
-                raise IsNotMemberException(
-                    'Provided Account is not part of Oracle\'s members and has no submit role. '
-                    'For dry mode remove MEMBER_PRIV_KEY from variables.'
+                logger.warning(
+                    {
+                        'msg': 'Provided Account is not part of Oracle\'s members and has no submit role. '
+                        'This is expected while a key rotation is pending; the oracle will keep '
+                        'polling and pick it up automatically once enacted on-chain.',
+                    }
                 )
 
         mi = MemberInfo(
@@ -422,6 +424,10 @@ class ConsensusModule[W3: Web3Base](ABC):
         latest_blockstamp = self._get_latest_blockstamp()
         logger.debug({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
 
+        members, _ = self._get_consensus_contract_members(latest_blockstamp)
+        # Set up active signer based on consensus latest members
+        self.w3.signer.process_members(members)
+
         member_info = self.get_member_info(latest_blockstamp)
         logger.debug({'msg': 'Get current member info.', 'value': member_info})
 
@@ -464,12 +470,12 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         tx = consensus_contract.submit_report(blockstamp.ref_slot, report_hash, consensus_version)
 
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx)
 
     def _submit_report(self, report: tuple, contract_version: int):
         tx = self.report_contract.submit_report_data(report, contract_version)
 
-        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+        self.w3.transaction.check_and_send_transaction(tx)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
         return get_blockstamp_by_state(self.w3.cc, 'head')
@@ -487,12 +493,12 @@ class ConsensusModule[W3: Web3Base](ABC):
         Returns in slots time to sleep before a data report.
         """
         member = self.get_member_info(blockstamp)
-        if member.is_submit_member or variables.ACCOUNT is None:
+        if member.is_submit_member or self.w3.signer.active_signer is None:
             return 0
 
         members, _ = self._get_consensus_contract_members(blockstamp)
 
-        mem_position = members.index(variables.ACCOUNT.address)
+        mem_position = members.index(self.w3.signer.active_signer.address)
 
         converter = self._get_web3_converter(blockstamp)
 

@@ -15,7 +15,6 @@ from src.modules.oracles.common.consensus import ConsensusModule
 from src.modules.oracles.common.exceptions import (
     ContractVersionMismatch,
     IncompatibleOracleVersion,
-    IsNotMemberException,
 )
 from src.providers.consensus.client import ConsensusClient
 from src.providers.http_provider import NotOkResponse
@@ -62,9 +61,6 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
         """Context manager for handling Oracle module cycle exceptions"""
         try:
             yield
-        except IsNotMemberException as error:
-            logger.error({'msg': 'Provided account is not part of Oracle\'s committee.'})
-            raise error
         except IncompatibleOracleVersion as error:
             logger.error({'msg': 'Incompatible Contract version. Please update Oracle Daemon.'})
             raise error

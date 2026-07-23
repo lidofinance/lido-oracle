@@ -1,6 +1,5 @@
 import logging
 
-from eth_abi.abi import encode
 from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
@@ -15,43 +14,42 @@ logger = logging.getLogger(__name__)
 class DelegationContract(ContractInterface):
     abi_path = './assets/DelegationContract.json'
 
-    def execute(self, target_address: str, calldata: bytes) -> ContractFunction:
-        """Build execute call for delegation
+    def execute(self, target: str, data: bytes) -> ContractFunction:
+        """Build execute call for delegation: execute(address target, bytes data)
 
         Args:
-            target_address: Address of the target contract to call
-            calldata: The calldata to execute on target contract
+            target: Address of the target contract to call
+            data: The calldata to execute on target contract
 
         Returns:
-            ContractFunction for execute() call with encoded data
+            ContractFunction for execute() call
         """
-        encoded_data = encode(['address', 'bytes'], [target_address, calldata])
+        tx = self.functions.execute(target, data)
 
-        tx = self.functions.execute(encoded_data)
         logger.info(
             {
                 'msg': 'Build delegation execute transaction',
-                'target': target_address,
-                'calldata_length': len(calldata),
+                'target': target,
+                'data_length': len(data),
                 'to': self.address,
             }
         )
         return tx
 
-    def get_admin(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
-        """Get current admin address"""
-        response = self.functions.admin().call(block_identifier=block_identifier)
+    def get_owner(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+        """Get delegate contract owner"""
+        response = self.functions.owner().call(block_identifier=block_identifier)
         logger.info(
-            {'msg': 'Call admin()', 'value': response, 'block_identifier': repr(block_identifier), 'to': self.address}
+            {'msg': 'Call owner()', 'value': response, 'block_identifier': repr(block_identifier), 'to': self.address}
         )
         return Web3.to_checksum_address(response)
 
-    def get_delegatee(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
-        """Get current delegatee address"""
-        response = self.functions.delegatee().call(block_identifier=block_identifier)
+    def get_delegate(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+        """Get the current delegate address"""
+        response = self.functions.getDelegate().call(block_identifier=block_identifier)
         logger.info(
             {
-                'msg': 'Call delegatee()',
+                'msg': 'Call getDelegate()',
                 'value': response,
                 'block_identifier': repr(block_identifier),
                 'to': self.address,
