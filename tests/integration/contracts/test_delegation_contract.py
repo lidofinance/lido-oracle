@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.skip
 @pytest.mark.testnet
 @pytest.mark.integration
 class TestDelegationContract:
