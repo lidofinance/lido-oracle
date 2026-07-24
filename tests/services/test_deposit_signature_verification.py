@@ -305,7 +305,7 @@ class TestIsValidDepositSignatureRealCrypto:
         )
         assert result is True
 
-    def test_is_valid_deposit_signature__invalid_signature_from_mainnet__returns_true(self):
+    def test_is_valid_deposit_signature__invalid_signature_from_mainnet__returns_false(self):
         result = is_valid_deposit_signature(
             b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x88\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
             b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
