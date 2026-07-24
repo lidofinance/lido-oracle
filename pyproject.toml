@@ -40,7 +40,6 @@ sqlmodel = "^0.0.27"
 psycopg2-binary = "^2.9.11"
 prometheus-fastapi-instrumentator = "^7.1.0"
 ssz = "^0.5.2"
-py-ecc = "^8.0.0"
 
 [tool.poetry.group.dev.dependencies]
 faker = "^37.3.0"

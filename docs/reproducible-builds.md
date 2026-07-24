@@ -44,7 +44,7 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    ```bash
    mkdir lido-oracle-build
    cd lido-oracle-build
-   git clone https://github.com/lidofinance/lido-oracle.git
+   git clone --recurse-submodules https://github.com/lidofinance/lido-oracle.git
    cd lido-oracle
    ```
    ⚠️ Note: Do not open the directory in an IDE (e.g., VS Code, PyCharm) or run any scripts from the repository at 
@@ -53,6 +53,7 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
 4. **Checkout to the Target Branch**
    ```bash
    git checkout master  # or the specific branch/tag you want to build
+   git submodule update --recursive
    ```
 
 5. **Perform the Build**
