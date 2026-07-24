@@ -153,6 +153,7 @@ exclude = [
     "build",
     "dist",
     "*_pb2.py",  # Protobuf generated files
+    "vendor/blst",
 ]
 
 [tool.ruff.lint]

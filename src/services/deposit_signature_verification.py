@@ -1,8 +1,10 @@
+# pyright: reportPrivateImportUsage=false
 import blst
 import ssz
 from eth_typing import Hash32
 
 from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+
 
 # Domain separation tag for the BLS "proof of possession" ciphersuite (min-pubkey-size,
 # RFC 9380 SSWU random-oracle hash-to-curve) used by Ethereum deposits.

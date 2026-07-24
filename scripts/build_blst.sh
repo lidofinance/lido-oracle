@@ -20,8 +20,9 @@ fi
 # extra flag instead, which build.sh always appends regardless of CFLAGS.
 python3 "$BINDINGS_DIR/run.me" -fPIC
 
-SITE_PACKAGES="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
-cp "$BINDINGS_DIR"/blst.py "$SITE_PACKAGES/"
-cp "$BINDINGS_DIR"/_blst.*.so "$SITE_PACKAGES/"
+PURELIB="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+PLATLIB="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["platlib"])')"
+cp "$BINDINGS_DIR"/blst.py "$PURELIB/"
+cp "$BINDINGS_DIR"/_blst.*.so "$PLATLIB/"
 
-echo "Installed blst bindings into $SITE_PACKAGES"
+echo "Installed blst.py into $PURELIB and the compiled extension into $PLATLIB"

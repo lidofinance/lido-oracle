@@ -5,11 +5,12 @@ import pytest
 
 from src.constants import DOMAIN_DEPOSIT_TYPE, ETH1_ADDRESS_WITHDRAWAL_PREFIX, GENESIS_FORK_VERSION
 from src.services.deposit_signature_verification import (
+    _POP_DST,
     DepositMessage,
     compute_domain,
     compute_fork_data_root,
     compute_signing_root,
-    is_valid_deposit_signature, _POP_DST,
+    is_valid_deposit_signature,
 )
 
 
@@ -294,7 +295,7 @@ class TestIsValidDepositSignatureRealCrypto:
         result = is_valid_deposit_signature(bytes([0x11] * 48), bytes(32), 32_000_000_000, bytes([0x22] * 96))
         assert result is False
 
-    def test_is_valid_deposit_signature__real_singnature_from_mainnet__returns_true(self):
+    def test_is_valid_deposit_signature__real_signature_from_mainnet__returns_true(self):
         result = is_valid_deposit_signature(
             b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x89\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
             b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
@@ -304,7 +305,7 @@ class TestIsValidDepositSignatureRealCrypto:
         )
         assert result is True
 
-    def test_is_valid_deposit_signature__invalid_singnature_from_mainnet__returns_true(self):
+    def test_is_valid_deposit_signature__invalid_signature_from_mainnet__returns_true(self):
         result = is_valid_deposit_signature(
             b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x88\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
             b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
