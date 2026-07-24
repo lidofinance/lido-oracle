@@ -1,6 +1,7 @@
 import logging
 from typing import cast
 
+from anyio.functools import lru_cache
 from eth_account.signers.local import LocalAccount
 from eth_typing import ChecksumAddress
 from web3 import Web3

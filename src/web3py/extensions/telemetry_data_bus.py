@@ -1,12 +1,16 @@
 import json
 import logging
+import time
 from enum import Enum
 from typing import cast
 
+from eth_account.signers.local import LocalAccount
+from hexbytes import HexBytes
 from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
+from web3.contract.contract import ContractFunction
 from web3.module import Module
 
 from src import variables
@@ -18,6 +22,9 @@ from src.utils.version import get_oracle_version
 
 logger = logging.getLogger(__name__)
 
+# Interval between transaction status polls while waiting for inclusion or a nonce change.
+_POLL_INTERVAL_SECONDS = 12
+
 
 class TelemetryEventId(Enum):
     ORACLE_REPORT = Web3.keccak(text="OracleReport")
@@ -27,6 +34,9 @@ class TelemetryEventId(Enum):
 
 class TelemetryDataBus(Module):
     class ContractNotDeployedError(Exception):
+        pass
+
+    class SendTimeoutError(Exception):
         pass
 
     _data_bus_w3: Web3 | None
@@ -111,8 +121,44 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        params = build_transaction_params(self._data_bus_w3, tx, variables.TELEMETRY_ACCOUNT)
-        tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.TELEMETRY_ACCOUNT)
+        tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
+
+    def _send_with_retry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
+        deadline = time.monotonic() + variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS
+        attempt = 0
+        tx_hash: bytes | None = None
+        nonce: int | None = None
+
+        while time.monotonic() < deadline:
+            attempt += 1
+            try:
+                if tx_hash is not None:
+                    sent_tx = w3.eth.get_transaction(HexBytes(tx_hash))
+                    if sent_tx.get('blockNumber') is not None:
+                        return tx_hash
+
+                    current_nonce = w3.eth.get_transaction_count(account.address)
+                    if current_nonce == nonce:
+                        remaining = deadline - time.monotonic()
+                        time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+                        continue
+
+                params = build_transaction_params(w3, tx, account)
+                nonce = params.get('nonce')
+                tx_hash = sign_and_send_transaction(w3, tx, params, account)
+            except Exception as error:  # pylint: disable=broad-exception-caught
+                remaining = deadline - time.monotonic()
+                logger.warning(
+                    {
+                        'msg': 'Failed to send DataBus telemetry transaction. Will retry.',
+                        'attempt': attempt,
+                        'remaining_seconds': max(remaining, 0),
+                        'error': str(error),
+                    }
+                )
+                if remaining <= 0:
+                    break
+                time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))

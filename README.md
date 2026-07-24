@@ -321,6 +321,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 | `BLOCK_BATCH_SIZE_LIMIT`                                 | Maximum number of blocks to batch-fetch in a single RPC call. Set to 1 to disable batching and use sequential requests. Trade-off: higher value = fewer round-trips          | False               | `10`                                         |
 | `TELEMETRY_DATA_BUS_RPC`                                 | EL RPC endpoint for the DataBus telemetry contract                                                                                                                           | False               | `http://localhost:8545`                      |
 | `DATA_BUS_ADDRESS`                                       | Address of the DataBus contract for telemetry reporting                                                                                                                      | False               | `0x37De961D6bb5865867aDd416be07189D2Dd960e6` |
+| `TELEMETRY_TX_SEND_TIMEOUT_SECONDS`                      | Total time budget to retry sending a telemetry transaction (refetching nonce and fee each attempt) before giving up. Default 120                                            | False               | `120`                                        |
 
 ### Mainnet variables
 > LIDO_LOCATOR_ADDRESS=0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb
