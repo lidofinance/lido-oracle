@@ -31,7 +31,14 @@ You can find the full list of available Make commands [here](https://github.com/
 poetry install
 ```
 
-3. Install pre-commit hooks
+3. Fetch and build the [blst](https://github.com/supranational/blst) BLS bindings (vendored as a git submodule; requires `swig` and a C++ compiler on `PATH`):
+
+```bash
+git submodule update --init
+poetry run sh scripts/build_blst.sh
+```
+
+4. Install pre-commit hooks
 
 ```bash
 poetry run pre-commit install

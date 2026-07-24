@@ -1,10 +1,14 @@
 # pyright: reportPrivateImportUsage=false
+import blst
 import ssz
 from eth_typing import Hash32
-from py_ecc.bls import G2ProofOfPossession as BLSVerifier
-from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
 from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+
+
+# Domain separation tag for the BLS "proof of possession" ciphersuite (min-pubkey-size,
+# RFC 9380 SSWU random-oracle hash-to-curve) used by Ethereum deposits.
+_POP_DST = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_"
 
 
 class DepositMessage(ssz.Serializable):
@@ -102,4 +106,10 @@ def is_valid_deposit_signature(
     )
     domain = compute_domain(DOMAIN_DEPOSIT_TYPE, genesis_fork_version, genesis_validators_root)
     signing_root = compute_signing_root(deposit_message, domain)
-    return BLSVerifier.Verify(BLSPubkey(pubkey), signing_root, BLSSignature(signature))
+
+    try:
+        bls_pubkey = blst.P1_Affine(pubkey)
+        bls_signature = blst.P2_Affine(signature)
+        return bls_signature.core_verify(bls_pubkey, True, signing_root, _POP_DST) == blst.BLST_SUCCESS
+    except (RuntimeError, ValueError):  # Invalid signature
+        return False
