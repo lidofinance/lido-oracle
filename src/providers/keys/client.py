@@ -131,7 +131,6 @@ class KeysAPIClient(HTTPProvider):
             logger,
             'Used Lido keys',
             (key.key for key in keys),
-            buckets=False,
             by_module=by_module,
             el_block_number=snapshot.get('blockNumber'),
             last_changed_block_hash=snapshot.get('lastChangedBlockHash'),

@@ -8,25 +8,19 @@ fingerprints of them: two members' log files are then enough to say which layer 
 and usually to name the exact key or deposit responsible, without either operator sharing
 any data.
 
-Only one set carries the extra per-bucket detail — the pending validators the report is
-summed from — because it is the one that cannot be reconstructed later. A past beacon state
-needs an archive node nobody kept, but its `state_root` already proves whether two members
-read the same one; and a Keys API difference that can move a report is a persistent
-bookkeeping error, so those two instances still disagree today and can be diffed live.
+The logs answer *did we read the same data, and where did it stop matching* — cheaply
+enough to stay on in every cycle. Naming the individual keys behind a multi-key difference
+is left to the live Keys API instances and an archive node, which can still be asked.
 
 ## The fingerprint fields
 
-Every fingerprinted set is logged as `<subject> fingerprint.`, a ~250 byte summary. The set
-whose keys you would actually chase also gets `<subject> buckets.` on its own line, so log
-shipping can drop the bulk and still detect a divergence from the summary.
+Each fingerprinted set is one log line, `<subject> fingerprint.`, of a few hundred bytes.
 
-| Line | Field | Use |
-|---|---|---|
-| `fingerprint.` | `count` | Did the two members see the same number of entries? |
-| `fingerprint.` | `digest` | keccak over the sorted set — equal digests mean identical sets. |
-| `fingerprint.` | `xor` | Every entry XOR-ed together. **If the sets differ by exactly one entry, XOR-ing the two members' values gives that entry.** |
-| `buckets.` | `bucket_counts` | Entries in each 1/256 of the keyspace, split on the first byte. A missing entry moves exactly one count. |
-| `buckets.` | `buckets` | A digest per slice. Whichever differs says where to look. |
+| Field | Use |
+|---|---|
+| `count` | Did the two members see the same number of entries? |
+| `digest` | keccak over the sorted set — equal digests mean the sets are identical. |
+| `xor` | Every entry XOR-ed together. **If the sets differ by exactly one entry, XOR-ing the two members' values gives that entry.** |
 
 ### One entry differs
 
@@ -40,40 +34,27 @@ python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 python3 -c "print('0x%0192x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-This is the shape every pending-balance split has taken so far.
+This is the shape every pending-balance split has taken so far. Check the result with
+`GET /v1/keys/<pubkey>` against both Keys API instances: one has it `used: true`, the other
+does not, and the response names the module and operator.
 
 ### Several entries differ
 
-The XOR is then several entries superimposed and useless. Compare the 256 bucket digests
-instead — whichever differ narrow it to a slice of the keyspace:
+The XOR is then several entries superimposed and cannot be read back. The logs tell you
+*that* the sets differ, which layer, and by how many — not which keys. Deliberately: the
+per-slice detail that would answer it costs orders of magnitude more log volume every
+cycle, for a case that has not yet occurred.
 
-```bash
-diff <(jq -r '.buckets | to_entries[] | "\(.key) \(.value)"' a.json) \
-     <(jq -r '.buckets | to_entries[] | "\(.key) \(.value)"' b.json)
-```
+To name them, go to the live data instead:
 
-At 24k pending validators a bucket holds ~93 keys, so the other operator sends you just
-those ~9 KB and you diff them directly. `bucket_counts` says which side is short before any
-keys change hands.
+- **Keys API** — the instances still disagree, since a difference that can move a report is
+  a persistent bookkeeping error rather than a passing view. Diff them with
+  `scripts/ao_report_debug/keys_digest.py`, or find a short instance on its own with
+  `--selfcheck`.
+- **Consensus layer** — re-derive from an archive node at the reference slot.
 
-Buckets are split on the first byte of the entry, the same scheme
-`scripts/ao_report_debug/keys_digest.py` uses against a live Keys API — so a digest read out
-of a log and one built by that tool are directly comparable.
-
-## Which sets carry buckets
-
-A set gets the extra line only where the data cannot be reconstructed afterwards.
-
-| Set | Buckets | |
-|---|---|---|
-| Pending Lido validators | **yes** | What `clPendingBalanceGwei` is summed from, against a beacon state nobody kept |
-| Pending deposits | summary | Fetched by state root, which commits to the whole `BeaconState` — an equal `state_root` already proves the queues match |
-| CL validators | summary | Same |
-| Used Lido keys | summary | A Keys API difference that can move a report is a persistent bookkeeping error, so both instances still disagree today and can be diffed live |
-| Pending Lido keys | summary | Exactly `used keys \ CL validator pubkeys`, both pinned |
-| Pending top-ups | summary | Determined by the three sets above |
-
-About 10 KB per report cycle in total.
+`count`, `by_module` on the used-key set, and the per-operator conservation warnings below
+narrow it down first.
 
 ## What to compare, in order
 
@@ -144,9 +125,7 @@ Then recover the keys — this is the step the whole scheme exists for:
 python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-For more than one, this set carries no bucket line by design — unlike a past beacon state,
-a Keys API difference that can move a report is a persistent bookkeeping error, so both
-instances still disagree today. Diff them live with
+For more than one, diff the two live instances with
 `scripts/ao_report_debug/keys_digest.py`, or run its `--selfcheck` to find a short instance
 with no second party at all.
 
@@ -175,13 +154,11 @@ BLS deposit signature self-check.                    signing_root, valid_accepte
 ### 4. The answer
 
 ```
-Get pending lido validators.      value, total_amount_gwei
+Get pending lido validators.          value, total_amount_gwei
 Pending Lido validators fingerprint.  count, digest, xor
-Pending Lido validators buckets.      bucket_counts, buckets
 ```
 
-One key differs → XOR the two `xor` values. Several → compare the bucket digests and
-exchange the one bucket that differs, as above.
+One key differs → XOR the two `xor` values and you have it.
 
 ### 5. Half B — top-ups
 
@@ -190,9 +167,9 @@ Calculate pending top-ups balance.  value, validators_with_topups
 Pending top-ups fingerprint.        count, digest, xor
 ```
 
-`xor` names a single differing top-up outright. For more than one there is no bucket line
-here by design: this set is `CL deposit queue ∩ used keys ∩ CL validator registry`, and all
-three are pinned above — so steps 1 and 2 already identify the key responsible.
+`xor` names a single differing top-up outright. For more than one: this set is
+`CL deposit queue ∩ used keys ∩ CL validator registry`, and all three are pinned above, so
+steps 1 and 2 identify where it came from.
 
 ## Warnings that name a culprit without a second member
 
@@ -219,9 +196,9 @@ All of the above are diagnostics: they log and continue, and never fail a report
 
 ## Cost
 
-Fingerprinting the mainnet used-key set (~485k entries) takes ~2.6 s, once per report
-cycle, against a state fetch measured in minutes. Six summary lines of 250–400 bytes plus
-one ~10 KB bucket line: about 10 KB a cycle.
+Fingerprinting the mainnet used-key set (~485k entries) takes ~0.7 s, once per report
+cycle, against a state fetch measured in minutes. Six lines of 250–400 bytes: under 2 KB a
+cycle, and nothing bulky in the report logs.
 
 Summary lines are deliberately small so they can be grepped and shipped; everything bulk is
 on its own line and can be dropped by log shipping without losing the ability to *detect* a

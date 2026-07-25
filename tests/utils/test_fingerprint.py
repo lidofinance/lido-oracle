@@ -5,6 +5,7 @@ import pytest
 
 from src.utils.fingerprint import (
     BUCKETS,
+    bucket_digests,
     bucket_of,
     digest_of,
     fingerprint,
@@ -41,7 +42,6 @@ class TestFingerprint:
         result = fingerprint([])
         # Assert
         assert result.count == 0
-        assert result.buckets == {}
         assert result.xor == '0x'
 
     def test_fingerprint__counts_every_item__count_matches(self):
@@ -63,24 +63,7 @@ class TestFingerprint:
         items = [_pubkey(i) for i in range(50)]
         assert int(fingerprint(items).xor, 16) ^ int(fingerprint(items).xor, 16) == 0
 
-    def test_buckets__one_missing_item__only_its_bucket_differs(self):
-        # Arrange
-        full = [_pubkey(i << 40) for i in range(BUCKETS)]  # one item per bucket
-        missing = full[7]
-        short = [item for item in full if item != missing]
-        # Act
-        left, right = fingerprint(full), fingerprint(short)
-        differing = [index for index in left.buckets if left.buckets[index] != right.buckets.get(index)]
-        # Assert
-        assert differing == [str(bucket_of(missing))]
-
-    def test_bucket_counts__sum_equals_count(self):
-        # Arrange
-        result = fingerprint(_pubkey(i * 7919) for i in range(2000))
-        # Assert
-        assert sum(result.bucket_counts.values()) == result.count
-
-    def test_summary__omits_buckets(self):
+    def test_summary__is_the_whole_fingerprint(self):
         assert set(fingerprint([_pubkey(1)]).summary) == {'count', 'digest', 'xor'}
 
     def test_fingerprint_hex__hex_strings__matches_bytes_input(self):
@@ -96,56 +79,62 @@ class TestFingerprint:
 
 
 @pytest.mark.unit
+class TestBucketDigests:
+    """Not logged — used by the offline tool to compare two live Keys API instances."""
+
+    def test_bucket_digests__one_missing_item__only_its_bucket_differs(self):
+        # Arrange
+        full = [_pubkey(i << 40) for i in range(BUCKETS)]  # one item per bucket
+        missing = full[7]
+        # Act
+        left, _ = bucket_digests(full)
+        right, _ = bucket_digests([item for item in full if item != missing])
+        # Assert
+        assert [i for i in left if left[i] != right.get(i)] == [str(bucket_of(missing))]
+
+    def test_bucket_digests__counts_sum_to_the_set_size(self):
+        _, counts = bucket_digests(_pubkey(i * 7919) for i in range(2000))
+        assert sum(counts.values()) == 2000
+
+
+@pytest.mark.unit
 class TestLogFingerprint:
-    def test_log_fingerprint__valid_items__emits_summary_then_buckets(self, caplog):
+    def test_log_fingerprint__valid_items__emits_one_summary_line(self, caplog):
         # Arrange
         caplog.set_level(logging.INFO)
         logger = logging.getLogger('test')
         # Act
         log_fingerprint(logger, 'Used Lido keys', [_pubkey(1), _pubkey(2)], el_block_number=42)
         # Assert
-        summary, buckets = [record.msg for record in caplog.records]
-        assert summary['msg'] == 'Used Lido keys fingerprint.'
-        assert summary['count'] == 2
-        assert summary['el_block_number'] == 42
-        assert buckets['msg'] == 'Used Lido keys buckets.'
-        assert buckets['bucket_counts'] == {'0': 2}
+        assert len(caplog.records) == 1
+        line = caplog.records[0].msg
+        assert line['msg'] == 'Used Lido keys fingerprint.'
+        assert line['count'] == 2
+        assert line['el_block_number'] == 42
 
-    def test_log_fingerprint__buckets_disabled__emits_summary_only(self, caplog):
-        # Arrange
-        caplog.set_level(logging.INFO)
-        logger = logging.getLogger('test')
-        # Act
-        log_fingerprint(logger, 'CL validators', [_pubkey(1)], buckets=False)
-        # Assert
-        assert [record.msg['msg'] for record in caplog.records] == ['CL validators fingerprint.']
-
-    def test_log_fingerprint__mainnet_scale__both_lines_survive_the_docker_split(self, caplog):
-        """Docker's json-file driver cuts a log message at 16 KB and leaves reassembly to
-        the collector, so every line has to land under that on its own."""
+    def test_log_fingerprint__mainnet_scale__line_stays_small(self, caplog):
+        """The whole point of dropping per-bucket detail: nothing bulky in the report logs."""
         # Arrange
         caplog.set_level(logging.INFO)
         logger = logging.getLogger('test')
         # Act
         log_fingerprint(logger, 'Pending Lido validators', [_pubkey(i) for i in range(24_000)])
         # Assert
-        assert max(len(json.dumps(record.msg)) for record in caplog.records) < 16 * 1024
+        assert len(json.dumps(caplog.records[0].msg)) < 512
 
-    def test_log_fingerprint__two_members__buckets_localise_the_difference(self, caplog):
-        """What two operators actually do: compare bucket digests, then exchange only the
-        keys in the one bucket that differs."""
+    def test_log_fingerprint__two_members__xor_of_the_logged_values_names_the_key(self, caplog):
+        """What an operator actually does with two log lines."""
         # Arrange
         caplog.set_level(logging.INFO)
         logger = logging.getLogger('test')
-        full = [_pubkey(i << 40) for i in range(BUCKETS)]  # one key per bucket
-        stale = full[137]
+        full = [_pubkey(i) for i in range(1000)]
+        stale = full[404]
         # Act
         log_fingerprint(logger, 'Pending Lido validators', full)
         log_fingerprint(logger, 'Pending Lido validators', [k for k in full if k != stale])
-        left, right = [r.msg for r in caplog.records if 'buckets' in r.msg]
+        left, right = [record.msg['xor'] for record in caplog.records]
         # Assert
-        differing = [i for i in left['buckets'] if left['buckets'][i] != right['buckets'].get(i)]
-        assert differing == [str(bucket_of(stale))]
+        assert (int(left, 16) ^ int(right, 16)).to_bytes(48, 'big') == stale
 
     def test_log_fingerprint_hex__malformed_hex__warns_instead_of_raising(self, caplog):
         """A report must never fail over a diagnostic."""

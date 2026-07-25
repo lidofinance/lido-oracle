@@ -287,7 +287,6 @@ class Accounting(OracleModule[Web3]):
                 for v in validators_with_topups
                 for topup in v.pending_topups
             ),
-            buckets=False,
         )
 
         cl_pending_balance = Gwei(new_validators_pending + topups_pending)
