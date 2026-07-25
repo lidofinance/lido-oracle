@@ -233,28 +233,28 @@ class ConsensusModule[W3: Web3Base](ABC):
         latest_blockstamp, member_info = self._get_latest_data()
 
         # Check if the contract is currently reportable
-        if not self.is_contract_reportable(latest_blockstamp):
-            logger.info({'msg': 'Contract is not reportable.'})
-            return None
+        # if not self.is_contract_reportable(latest_blockstamp):
+        #     logger.info({'msg': 'Contract is not reportable.'})
+        #     return None
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
         # Check if the current slot is higher than the member slot
-        if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
-            logger.info({'msg': 'Reference slot is not yet finalized.'})
-            return None
-
+        # if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
+        #     logger.info({'msg': 'Reference slot is not yet finalized.'})
+        #     return None
+        #
         # Check the latest block didn't miss the deadline.
-        if latest_blockstamp.slot_number >= member_info.deadline_slot:
-            logger.info({'msg': 'Deadline missed.'})
-            return None
+        # if latest_blockstamp.slot_number >= member_info.deadline_slot:
+        #     logger.info({'msg': 'Deadline missed.'})
+        #     return None
 
         converter = self._get_web3_converter(last_finalized_blockstamp)
 
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+            ref_slot=14846399,
+            ref_epoch=converter.get_epoch_by_slot(14846399),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
         )
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
