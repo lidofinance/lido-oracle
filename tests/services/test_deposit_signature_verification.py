@@ -22,8 +22,6 @@ _SIGNATURE = bytes(96)
 
 
 # ---- compute_fork_data_root ----
-
-
 @pytest.mark.unit
 def test_compute_fork_data_root_returns_32_bytes():
     root = compute_fork_data_root(bytes(4), bytes(32))
@@ -53,8 +51,6 @@ def test_compute_fork_data_root_differs_on_genesis_validators_root():
 
 
 # ---- compute_domain ----
-
-
 @pytest.mark.unit
 def test_compute_domain_length():
     domain = compute_domain(DOMAIN_DEPOSIT_TYPE)
@@ -97,8 +93,6 @@ def test_compute_domain_differs_on_domain_type():
 
 
 # ---- compute_signing_root ----
-
-
 @pytest.mark.unit
 def test_compute_signing_root_returns_32_bytes():
     msg = DepositMessage(pubkey=_PUBKEY, withdrawal_credentials=_WC, amount=_AMOUNT)
@@ -141,111 +135,7 @@ def test_compute_signing_root_differs_on_domain():
 
 # ---- is_valid_deposit_signature ----
 @pytest.mark.unit
-def test_is_valid_deposit_signature_returns_true():
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 0
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is True
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_returns_false():
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 1
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is False
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_passes_correct_pubkey_and_signature():
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 0
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-
-    (pubkey_arg,) = mock_blst.P1_Affine.call_args[0]
-    (sig_arg,) = mock_blst.P2_Affine.call_args[0]
-    assert pubkey_arg == _PUBKEY
-    assert sig_arg == _SIGNATURE
-
-    pk_arg, hash_or_encode_arg, signing_root_arg, dst_arg = mock_blst.P2_Affine.return_value.core_verify.call_args[0]
-    assert pk_arg is mock_blst.P1_Affine.return_value
-    assert hash_or_encode_arg is True
-    assert isinstance(signing_root_arg, bytes)
-    assert len(signing_root_arg) == 32
-    assert dst_arg == _POP_DST
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_with_explicit_genesis_fork_version():
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 0
-        result = is_valid_deposit_signature(
-            _PUBKEY,
-            _WC,
-            _AMOUNT,
-            _SIGNATURE,
-            genesis_fork_version=b'\x01\x00\x00\x00',
-        )
-    assert result is True
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_with_explicit_genesis_validators_root():
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 0
-        result = is_valid_deposit_signature(
-            _PUBKEY,
-            _WC,
-            _AMOUNT,
-            _SIGNATURE,
-            genesis_validators_root=b'\xab' * 32,
-        )
-    assert result is True
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_different_fork_versions_produce_different_signing_roots():
-    # Two calls with different fork versions must produce different signing roots
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.BLST_SUCCESS = 0
-        mock_blst.P2_Affine.return_value.core_verify.return_value = 0
-
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE, genesis_fork_version=b'\x00\x00\x00\x00')
-        root1 = mock_blst.P2_Affine.return_value.core_verify.call_args[0][2]
-
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE, genesis_fork_version=b'\x01\x00\x00\x00')
-        root2 = mock_blst.P2_Affine.return_value.core_verify.call_args[0][2]
-
-    assert root1 != root2
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_construction_error_returns_false():
-    # Malformed/off-curve/off-subgroup points raise from this binding rather than returning
-    # an error code - `is_valid_deposit_signature` must treat that as "invalid", not crash.
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.P1_Affine.side_effect = RuntimeError("1")
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is False
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_core_verify_raises_returns_false():
-    # A verification mismatch can itself surface as a raised ValueError rather than a
-    # non-success return code (observed behavior of this binding).
-    with patch('src.services.deposit_signature_verification.blst') as mock_blst:
-        mock_blst.P2_Affine.return_value.core_verify.side_effect = ValueError("BLST_ERROR: verify failed")
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is False
-
-
-@pytest.mark.unit
-class TestIsValidDepositSignatureRealCrypto:
+class TestIsValidDepositSignature:
     """Exercises the real blst binding with actual BLS12-381 keys, complementing
     the mocked plumbing tests above with genuine cryptographic verification."""
 

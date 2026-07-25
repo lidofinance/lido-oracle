@@ -78,7 +78,7 @@ jobs:
           poetry install --no-interaction --with=dev
 
       - name: Install swig
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends -qq swig
+        run: poetry run pip install swig==4.3.0
 
       - name: Build blst Python bindings
         run: poetry run sh scripts/build_blst.sh
