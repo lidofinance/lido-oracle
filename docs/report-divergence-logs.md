@@ -8,87 +8,72 @@ fingerprints of them: two members' log files are then enough to say which layer 
 and usually to name the exact key or deposit responsible, without either operator sharing
 any data.
 
-Only one set carries a full recovery sketch — the pending validators the report is summed
-from — because it is the one that cannot be reconstructed later. A past beacon state needs
-an archive node nobody kept, but its `state_root` already proves whether two members read
-the same one; and a Keys API difference that can move a report is a persistent bookkeeping
-error, so those two instances still disagree today and can simply be diffed live.
+Only one set carries the extra per-bucket detail — the pending validators the report is
+summed from — because it is the one that cannot be reconstructed later. A past beacon state
+needs an archive node nobody kept, but its `state_root` already proves whether two members
+read the same one; and a Keys API difference that can move a report is a persistent
+bookkeeping error, so those two instances still disagree today and can be diffed live.
 
 ## The fingerprint fields
 
-Every fingerprinted set is logged as two lines: `<subject> fingerprint.` with a small
-summary, and — for the one set that needs entry recovery — `<subject> sketch.`, emitted in
-numbered parts so log shipping can drop it independently.
+Every fingerprinted set is logged as `<subject> fingerprint.`, a ~250 byte summary. The set
+whose keys you would actually chase also gets `<subject> buckets.` on its own line, so log
+shipping can drop the bulk and still detect a divergence from the summary.
 
-| Line          | Field           | Use                                                     |
-|---------------|-----------------|----------------------------------------------------------|
-| `fingerprint.`| `count`         | Did the two members even see the same number of entries?   |
-| `fingerprint.`| `digest`        | keccak over the sorted set — equal digests mean identical sets. |
-| `fingerprint.`| `xor`           | All entries XOR-ed together. If the sets differ by exactly one entry, XOR-ing the two members' values gives that entry, by hand, with no tooling. |
-| `sketch.`     | `iblt`          | **Recovers the complete difference — every entry either side is missing, and which side is missing it.** |
-| `sketch.`     | `bucket_counts` | Entries per 1/256 of the keyspace; a coarse fallback if the sketch cannot decode. |
+| Line | Field | Use |
+|---|---|---|
+| `fingerprint.` | `count` | Did the two members see the same number of entries? |
+| `fingerprint.` | `digest` | keccak over the sorted set — equal digests mean identical sets. |
+| `fingerprint.` | `xor` | Every entry XOR-ed together. **If the sets differ by exactly one entry, XOR-ing the two members' values gives that entry.** |
+| `buckets.` | `bucket_counts` | Entries in each 1/256 of the keyspace, split on the first byte. A missing entry moves exactly one count. |
+| `buckets.` | `buckets` | A digest per slice. Whichever differs says where to look. |
 
-### Recovering the differing entries
+### One entry differs
 
-Pull *every part* of the sketch for the same reference slot from each member:
-
-```bash
-grep '"msg": "Pending Lido validators sketch."' member-a.log > a.json
-grep '"msg": "Pending Lido validators sketch."' member-b.log > b.json
-
-python3 scripts/reconcile_fingerprints.py a.json b.json \
-    --left-name 0xa2432f5b --right-name 0xafd9bcb7
-```
-
-The sketch is split across ~7 lines of ~10 KB, each carrying `part` and `parts`. Docker's
-`json-file` driver and containerd both cut a log message at 16 KB and leave reassembly to
-whatever collector you run, so the parts are numbered here instead — a missing one is an
-error from the script, not a sketch that quietly decodes to nothing.
-
-```
-only in 0xa2432f5b: 0x4587b0bd9c58b865b10b221b730b719d088c08f6718f4bddf62dd254674b4b5c…
-only in 0xa2432f5b: 0x72e660351808d21657cb80dd80734d41da767dde4a08240c6fcdb35e5c912939…
-
-Recovered the complete difference: 2 entries.
-```
-
-No key data changes hands: each member's own log line is a sketch of its own inputs, and
-the difference falls out of the pair. The sketch is an [invertible Bloom lookup
-table](https://arxiv.org/abs/1101.2245) — each entry is XOR-ed into 4 of 512 cells, so
-subtracting two sketches leaves cells holding a single differing entry, which peel off and
-free their neighbours in turn.
-
-**Capacity is on the difference, not the set.** 512 cells resolve up to ~380 *differing*
-entries regardless of how large the sets are — a 485k used-key set or a 40k deposit queue
-sketches and decodes just the same. Past ~380 differences an IBLT decodes *nothing* rather
-than degrading, so the script says so explicitly and exits non-zero; treat any entries it
-printed as real but incomplete.
-
-**When thousands differ,** entry-by-entry recovery is the wrong tool anyway — sizing a
-sketch for that would cost megabytes per log line, and a divergence that big does not need
-naming key by key, only locating. Use instead:
-
-- `Used keys vs deposited validators per node operator.` — fires by itself when an
-  operator's used keys fall short of the Staking Router's count, naming that operator.
-- `by_module` on `Used Lido keys fingerprint.` — the same at module granularity.
-- `bucket_counts` on part 1 of a `sketch.` line — 256 counts over the keyspace, showing
-  whether the difference is concentrated or spread.
-
-If you have only the `fingerprint.` line and exactly one entry differs (`count` differs by
-1), you do not need the script at all:
+`count` differs by 1. XOR the two `xor` values and you have the key — no tooling:
 
 ```bash
-# 48-byte pubkeys — Used Lido keys, Pending Lido keys, Pending Lido validators, CL validators
+# 48-byte pubkeys
 python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 
 # 96-byte deposit records — Pending deposits: pubkey|wc|amount|slot
 python3 -c "print('0x%0192x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-Deposit entries omit the 96-byte signature, which identifies nothing the other four fields
-do not. A deposit rejected *because* of its signature is logged in full separately, and
-`pending_deposits_queue_digest` covers the signature, so a signature-only divergence is
-still detected.
+This is the shape every pending-balance split has taken so far.
+
+### Several entries differ
+
+The XOR is then several entries superimposed and useless. Compare the 256 bucket digests
+instead — whichever differ narrow it to a slice of the keyspace:
+
+```bash
+diff <(jq -r '.buckets | to_entries[] | "\(.key) \(.value)"' a.json) \
+     <(jq -r '.buckets | to_entries[] | "\(.key) \(.value)"' b.json)
+```
+
+At 24k pending validators a bucket holds ~93 keys, so the other operator sends you just
+those ~9 KB and you diff them directly. `bucket_counts` says which side is short before any
+keys change hands.
+
+Buckets are split on the first byte of the entry, the same scheme
+`scripts/ao_report_debug/keys_digest.py` uses against a live Keys API — so a digest read out
+of a log and one built by that tool are directly comparable.
+
+## Which sets carry buckets
+
+A set gets the extra line only where the data cannot be reconstructed afterwards.
+
+| Set | Buckets | |
+|---|---|---|
+| Pending Lido validators | **yes** | What `clPendingBalanceGwei` is summed from, against a beacon state nobody kept |
+| Pending deposits | summary | Fetched by state root, which commits to the whole `BeaconState` — an equal `state_root` already proves the queues match |
+| CL validators | summary | Same |
+| Used Lido keys | summary | A Keys API difference that can move a report is a persistent bookkeeping error, so both instances still disagree today and can be diffed live |
+| Pending Lido keys | summary | Exactly `used keys \ CL validator pubkeys`, both pinned |
+| Pending top-ups | summary | Determined by the three sets above |
+
+About 10 KB per report cycle in total.
 
 ## What to compare, in order
 
@@ -159,8 +144,8 @@ Then recover the keys — this is the step the whole scheme exists for:
 python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-For more than one, there is no sketch on this set by design — unlike a past beacon state, a
-Keys API difference that can move a report is a persistent bookkeeping error, so both
+For more than one, this set carries no bucket line by design — unlike a past beacon state,
+a Keys API difference that can move a report is a persistent bookkeeping error, so both
 instances still disagree today. Diff them live with
 `scripts/ao_report_debug/keys_digest.py`, or run its `--selfcheck` to find a short instance
 with no second party at all.
@@ -190,11 +175,13 @@ BLS deposit signature self-check.                    signing_root, valid_accepte
 ### 4. The answer
 
 ```
-Get pending lido validators.     value, total_amount_gwei
-Pending Lido validators sketch.  iblt
+Get pending lido validators.      value, total_amount_gwei
+Pending Lido validators fingerprint.  count, digest, xor
+Pending Lido validators buckets.      bucket_counts, buckets
 ```
 
-Reconcile the two sketches as in step 2 for the exact keys behind the balance difference.
+One key differs → XOR the two `xor` values. Several → compare the bucket digests and
+exchange the one bucket that differs, as above.
 
 ### 5. Half B — top-ups
 
@@ -203,8 +190,8 @@ Calculate pending top-ups balance.  value, validators_with_topups
 Pending top-ups fingerprint.        count, digest, xor
 ```
 
-`xor` names a single differing top-up outright. For more than one there is no sketch here
-by design: this set is `CL deposit queue ∩ used keys ∩ CL validator registry`, and all
+`xor` names a single differing top-up outright. For more than one there is no bucket line
+here by design: this set is `CL deposit queue ∩ used keys ∩ CL validator registry`, and all
 three are pinned above — so steps 1 and 2 already identify the key responsible.
 
 ## Warnings that name a culprit without a second member
@@ -233,8 +220,8 @@ All of the above are diagnostics: they log and continue, and never fail a report
 ## Cost
 
 Fingerprinting the mainnet used-key set (~485k entries) takes ~2.6 s, once per report
-cycle, against a state fetch measured in minutes. Six summary lines of 250–400 bytes, plus
-the one sketch — ~7 parts of ~10 KB — for about 65 KB a cycle.
+cycle, against a state fetch measured in minutes. Six summary lines of 250–400 bytes plus
+one ~10 KB bucket line: about 10 KB a cycle.
 
 Summary lines are deliberately small so they can be grepped and shipped; everything bulk is
 on its own line and can be dropped by log shipping without losing the ability to *detect* a

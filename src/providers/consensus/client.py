@@ -320,9 +320,9 @@ class ConsensusClient(HTTPProvider):
         # Summaries only: the state is fetched by state root, so an equal `state_root`
         # already proves both members read the same queue and registry. The digest is here
         # to catch a client returning bytes inconsistent with the root it was handed, which
-        # is that client's bug — the Lido-filtered sets downstream carry the sketches.
-        log_fingerprint(logger, 'Pending deposits', encoded_deposits, sketch=False)
-        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators), sketch=False)
+        # is that client's bug — the Lido-filtered set downstream carries the bucket digests.
+        log_fingerprint(logger, 'Pending deposits', encoded_deposits, buckets=False)
+        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators), buckets=False)
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits

@@ -277,8 +277,8 @@ class Accounting(OracleModule[Web3]):
                 'validators_with_topups': len(validators_with_topups),
             }
         )
-        # The other half of clPendingBalanceGwei. No sketch: this set is determined by the
-        # CL deposit queue, the used-key set and the CL registry, all already pinned.
+        # The other half of clPendingBalanceGwei. Summary only: this set is determined by
+        # the CL deposit queue, the used-key set and the CL registry, all already pinned.
         log_fingerprint(
             logger,
             'Pending top-ups',
@@ -287,7 +287,7 @@ class Accounting(OracleModule[Web3]):
                 for v in validators_with_topups
                 for topup in v.pending_topups
             ),
-            sketch=False,
+            buckets=False,
         )
 
         cl_pending_balance = Gwei(new_validators_pending + topups_pending)

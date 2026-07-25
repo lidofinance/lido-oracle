@@ -282,7 +282,7 @@ class LidoValidatorsProvider(Module):
             }
         )
         # Summary only: this set is `used keys \ CL validator pubkeys`, both already pinned.
-        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys, sketch=False)
+        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys, buckets=False)
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
