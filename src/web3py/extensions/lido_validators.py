@@ -186,20 +186,31 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
-        for deposit in self.w3.cc.get_pending_deposits(blockstamp):
+        for deposit in pending_deposits:
             deposits_by_pubkey.setdefault(deposit.pubkey, []).append(deposit)
+        logger.info(
+            {
+                'msg': 'Get pending deposits from CL.',
+                'value': len(pending_deposits),
+                'unique_pubkeys': len(deposits_by_pubkey),
+            }
+        )
 
         validators_by_index = self.w3.cc.get_validators_by_indexes(blockstamp)
 
+        pending_consolidations = self.w3.cc.get_pending_consolidations(blockstamp)
         consolidation_by_source: dict[int, ConsolidationRequest] = {}
         consolidation_by_target: dict[int, list[ConsolidationRequest]] = {}
-        for consolidation in self.w3.cc.get_pending_consolidations(blockstamp):
+        skipped_slashed_source = 0
+        for consolidation in pending_consolidations:
             source_validator = validators_by_index[consolidation.source_index]
 
             # Skip consolidations whose source validator is slashed.
             # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-process_pending_consolidations
             if source_validator.validator.slashed:
+                skipped_slashed_source += 1
                 continue
 
             req = ConsolidationRequest(
@@ -210,9 +221,16 @@ class LidoValidatorsProvider(Module):
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
+        logger.info(
+            {
+                'msg': 'Get pending consolidations from CL.',
+                'value': len(pending_consolidations),
+                'skipped_slashed_source': skipped_slashed_source,
+            }
+        )
 
         lido_validators, _ = self._get_lido_validators_with_keys(blockstamp)
-        return [
+        result = [
             LidoValidator(
                 **asdict(lido_validator),
                 pending_topups=deposits_by_pubkey.get(lido_validator.validator.pubkey, []),
@@ -221,6 +239,8 @@ class LidoValidatorsProvider(Module):
             )
             for lido_validator in lido_validators
         ]
+        logger.info({'msg': 'Get active lido validators.', 'value': len(result)})
+        return result
 
     def get_lido_wc_list(self, blockstamp: BlockStamp) -> list[HexStr]:
         wc_address = self.w3.lido_contracts.lido_locator.withdrawal_vault(blockstamp.block_hash)[2:].lower()
@@ -246,6 +266,13 @@ class LidoValidatorsProvider(Module):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         (_, pending_lido_keys) = self._get_lido_validators_with_keys(blockstamp)
         pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
+        logger.info(
+            {
+                'msg': 'Get pending deposits and not-yet-indexed lido keys.',
+                'pending_deposits': len(pending_deposits),
+                'pending_lido_keys': len(pending_keys),
+            }
+        )
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
@@ -253,7 +280,9 @@ class LidoValidatorsProvider(Module):
             lido_wc_list,
             hex_str_to_bytes(genesis_config.genesis_fork_version),
         )
-        return {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
+        result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
+        logger.info({'msg': 'Get pending lido validators.', 'value': len(result)})
+        return result
 
     @staticmethod
     def _collect_valid_pending_deposits(
@@ -291,6 +320,12 @@ class LidoValidatorsProvider(Module):
                 # Fork-agnostic domain since deposits are valid across forks
                 # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
             ):
+                logger.warning(
+                    {
+                        'msg': 'Ignoring key. Invalid deposit signature',
+                        'value': d.pubkey,
+                    }
+                )
                 continue
 
             if d.withdrawal_credentials in lido_wc_list:
@@ -304,18 +339,43 @@ class LidoValidatorsProvider(Module):
                     }
                 )
 
+        logger.info(
+            {
+                'msg': 'Collect valid pending deposits.',
+                'valid_keys': len(result),
+                'invalid_keys': len(invalid_keys),
+                'deposits_considered': sum(len(deposits) for deposits in result.values()),
+            }
+        )
         return result
 
     @lru_cache(maxsize=1)
     def _get_lido_validators_with_keys(self, blockstamp: BlockStamp) -> tuple[list[LidoValidator], list[LidoKey]]:
         lido_keys = self.w3.kac.get_used_lido_keys(blockstamp)
+        logger.info({'msg': 'Get used lido keys from Keys API.', 'value': len(lido_keys)})
+
         validators = self.w3.cc.get_validators(blockstamp)
         self._kapi_sanity_check(len(lido_keys), blockstamp)
 
-        return self.compute_lido_validators(lido_keys, validators)
+        lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
+        logger.info(
+            {
+                'msg': 'Compute lido validators from keys and CL validators.',
+                'lido_validators': len(lido_validators),
+                'pending_lido_keys': len(pending_lido_keys),
+            }
+        )
+        return lido_validators, pending_lido_keys
 
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
+        logger.info(
+            {
+                'msg': 'Keys API sanity check.',
+                'keys_count_received': keys_count_received,
+                'deposited_validators': stats.deposited_validators,
+            }
+        )
 
         # Make sure that used keys fetched from Keys API are >= total number of
         # deposited validators from Staking Router.
