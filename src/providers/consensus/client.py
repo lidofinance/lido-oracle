@@ -281,23 +281,11 @@ class ConsensusClient(HTTPProvider):
 
     @staticmethod
     def _log_state_fingerprint(state: BeaconStateView, blockstamp: BlockStamp) -> None:
-        """Fingerprint the parts of the beacon state a report is built from. Never raises.
-
-        The state is ~900 MB, so it cannot be logged, and members cannot fetch a past one
-        back without an archive node — if two of them disagree about it, there is normally
-        nothing left to compare. These few lines are that comparison: identical digests
-        here mean the disagreement is downstream of the consensus layer, and the
-        pending-deposit `xor` names the single queued deposit one member saw and the other
-        did not.
-        """
+        """Fingerprint the parts of the beacon state a report is built from. Never raises."""
         try:
-            # Sketch whole deposit records rather than bare pubkeys: a key can have several
-            # queued deposits (top-ups), and set recovery needs entries with no repeats.
-            # The 96-byte signature is left out — it would triple the size of every sketch
-            # line to carry a field that identifies nothing the other four do not, and any
-            # deposit actually rejected over its signature is logged in full separately.
-            # The queue digest below still covers the signature, so a signature-only
-            # divergence is detected even though it is not recovered per-entry.
+            # Whole records, not bare pubkeys: a key can have several queued deposits, and
+            # set recovery needs entries with no repeats. The signature is left out to keep
+            # entries at 96 bytes; `queue_digest` below still covers it.
             encoded_deposits = [
                 hex_str_to_bytes(d.pubkey)
                 + hex_str_to_bytes(d.withdrawal_credentials)
@@ -318,8 +306,8 @@ class ConsensusClient(HTTPProvider):
                     'balances_sum_gwei': sum(state.balances),
                     'pending_deposits': len(state.pending_deposits),
                     'pending_deposits_amount_gwei': sum(d.amount for d in state.pending_deposits),
-                    # The queue is processed in order, so the same set in a different order
-                    # is still a divergence — this digest is the only one that sees it.
+                    # Order-sensitive: the queue is processed in order, so the same set in a
+                    # different order is still a divergence.
                     'pending_deposits_queue_digest': queue_digest,
                     'pending_partial_withdrawals': len(state.pending_partial_withdrawals),
                     'pending_consolidations': len(state.pending_consolidations),
@@ -329,8 +317,12 @@ class ConsensusClient(HTTPProvider):
             logger.warning({'msg': 'Beacon state summary failed.', 'error': repr(error)})
             return
 
-        log_fingerprint(logger, 'Pending deposits', encoded_deposits)
-        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators))
+        # Summaries only: the state is fetched by state root, so an equal `state_root`
+        # already proves both members read the same queue and registry. The digest is here
+        # to catch a client returning bytes inconsistent with the root it was handed, which
+        # is that client's bug — the Lido-filtered sets downstream carry the sketches.
+        log_fingerprint(logger, 'Pending deposits', encoded_deposits, sketch=False)
+        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators), sketch=False)
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits

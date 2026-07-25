@@ -117,9 +117,8 @@ def is_valid_deposit_signature(
         return False
 
 
-# A real mainnet Lido deposit — Community Staking module, operator 1, key index 0 — with
-# the withdrawal credentials of the mainnet withdrawal vault. Fixed known-answer vector:
-# it must verify, and must stop verifying once any field is perturbed.
+# A real mainnet Lido deposit: Community Staking module, operator 1, key index 0, against
+# the mainnet withdrawal vault. It must verify, and must stop verifying once perturbed.
 _KAT_PUBKEY = '0x8625e651cdd6754903520e79eca7f534b53e4ef230a0fb57aeb1cf35395387174fbe76648445387cfb6bbb55e9294bc1'
 _KAT_WITHDRAWAL_CREDENTIALS = '0x010000000000000000000000b9d7934878b5fb9610b3fe8a5e441e8fad7e293f'
 _KAT_SIGNATURE = (
@@ -132,14 +131,9 @@ _KAT_AMOUNT = 32_000_000_000
 def bls_selfcheck() -> dict[str, Any]:
     """Verify the BLS stack against a fixed vector and describe the result.
 
-    A deposit the oracle rejects is a deposit missing from the pending balance, so a
-    disagreement between members' BLS backends lands directly in the report — and it is
-    invisible after the fact, because a rejected signature leaves no trace in the chain
-    data. Recording this at startup means every member's log states, up front, what its
-    verifier does with a deposit whose answer is already known.
-
-    The signing root is reported too: it isolates an SSZ or domain-computation difference
-    from a difference in the curve library, which the pass/fail alone cannot.
+    A rejected deposit is one missing from the pending balance, and it leaves no trace in
+    the chain data, so a backend disagreement is invisible after the fact. Reporting the
+    signing root too separates an SSZ or domain difference from a curve library one.
     """
     pubkey = bytes.fromhex(_KAT_PUBKEY[2:])
     withdrawal_credentials = bytes.fromhex(_KAT_WITHDRAWAL_CREDENTIALS[2:])

@@ -26,6 +26,10 @@ class _Uninitialized:
 
 UNINITIALIZED: Final = _Uninitialized()
 
+# Rejections are logged individually and in full, but nothing bounds how many there can be.
+# Cap the detail; the counts stay exact.
+_REJECTION_LOG_LIMIT: Final = 20
+
 
 logger = logging.getLogger(__name__)
 
@@ -267,9 +271,7 @@ class LidoValidatorsProvider(Module):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         (_, pending_lido_keys) = self._get_lido_validators_with_keys(blockstamp)
         pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
-        # Every input to the pending balance in one place: the two sets being intersected
-        # and the two constants the filter depends on. A member whose pending balance
-        # differs has one of these four different, and this says which.
+        # The two sets being intersected and the two constants the filter depends on.
         logger.info(
             {
                 'msg': 'Get pending deposits and not-yet-indexed lido keys.',
@@ -279,7 +281,8 @@ class LidoValidatorsProvider(Module):
                 'genesis_fork_version': genesis_config.genesis_fork_version,
             }
         )
-        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys)
+        # Summary only: this set is `used keys \ CL validator pubkeys`, both already pinned.
+        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys, sketch=False)
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
@@ -289,30 +292,16 @@ class LidoValidatorsProvider(Module):
         )
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
 
-        # The final answer: this set, and the amounts under it, are exactly what
-        # `clPendingBalanceGwei` is summed from.
-        #
-        # The per-operator breakdown is what a *large* divergence needs. Entry-level
-        # recovery is bounded by the sketch, and sizing it for thousands of differences
-        # would mean megabytes per log line — but a divergence that big does not need
-        # naming key by key, only locating. Two members whose counts differ under one
-        # operator have found their answer here without decoding anything.
-        by_operator: dict[str, int] = {}
-        by_operator_amount: dict[str, int] = {}
-        for key, deposits in result.values():
-            index = f'{str(key.module_address).lower()}:{key.operator_index}'
-            by_operator[index] = by_operator.get(index, 0) + 1
-            by_operator_amount[index] = by_operator_amount.get(index, 0) + sum(d.amount for d in deposits)
-
+        # What `clPendingBalanceGwei` is summed from. Kept small: this line gets grepped.
         logger.info(
             {
                 'msg': 'Get pending lido validators.',
                 'value': len(result),
                 'total_amount_gwei': sum(d.amount for _, deposits in result.values() for d in deposits),
-                'by_operator': by_operator,
-                'by_operator_amount_gwei': by_operator_amount,
             }
         )
+        # No per-operator breakdown: ~19 KB a cycle to pre-stage what
+        # 'Used keys vs deposited validators per node operator.' reports only when wrong.
         log_fingerprint_hex(logger, 'Pending Lido validators', result)
         return result
 
@@ -358,47 +347,51 @@ class LidoValidatorsProvider(Module):
                 # Fork-agnostic domain since deposits are valid across forks
                 # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
             ):
-                # Log the full deposit, not just the pubkey: a BLS backend disagreement
-                # between members can only be settled by re-verifying the exact tuple that
-                # was rejected, and the beacon state it came from is not retrievable later.
+                # Full deposit, not just the pubkey: settling a BLS disagreement means
+                # re-verifying the exact tuple, and the state it came from will be gone.
                 invalid_signature.append(d)
-                logger.warning(
-                    {
-                        'msg': 'Ignoring key. Invalid deposit signature',
-                        'value': d.pubkey,
-                        'withdrawal_credentials': d.withdrawal_credentials,
-                        'amount': d.amount,
-                        'slot': d.slot,
-                        'signature': d.signature,
-                    }
-                )
+                if len(invalid_signature) <= _REJECTION_LOG_LIMIT:
+                    logger.warning(
+                        {
+                            'msg': 'Ignoring key. Invalid deposit signature',
+                            'value': d.pubkey,
+                            'withdrawal_credentials': d.withdrawal_credentials,
+                            'amount': d.amount,
+                            'slot': d.slot,
+                            'signature': d.signature,
+                        }
+                    )
                 continue
 
             if d.withdrawal_credentials in lido_wc_list:
                 result[d.pubkey] = [d]
             else:
                 invalid_keys.add(d.pubkey)
-                logger.warning(
-                    {
-                        'msg': 'Ignoring key. Possible front run attack',
-                        'value': d.pubkey,
-                        'withdrawal_credentials': d.withdrawal_credentials,
-                        'amount': d.amount,
-                        'slot': d.slot,
-                    }
-                )
+                if len(invalid_keys) <= _REJECTION_LOG_LIMIT:
+                    logger.warning(
+                        {
+                            'msg': 'Ignoring key. Possible front run attack',
+                            'value': d.pubkey,
+                            'withdrawal_credentials': d.withdrawal_credentials,
+                            'amount': d.amount,
+                            'slot': d.slot,
+                        }
+                    )
 
-        # `signatures_verified` and `invalid_signature` are the BLS backend's whole
-        # contribution to the report. Two members running different libraries produce the
-        # same report only if both numbers agree.
+        # `signatures_verified` and `invalid_signature_deposits` are the BLS backend's whole
+        # contribution to the report.
+        invalid_signature_pubkeys = sorted({d.pubkey for d in invalid_signature})
+        frontrun_pubkeys = sorted(invalid_keys)
         logger.info(
             {
                 'msg': 'Collect valid pending deposits.',
                 'valid_keys': len(result),
                 'invalid_keys': len(invalid_keys),
-                'frontrun_pubkeys': sorted(invalid_keys),
+                'frontrun_pubkeys': frontrun_pubkeys[:_REJECTION_LOG_LIMIT],
+                'frontrun_pubkeys_truncated': max(0, len(frontrun_pubkeys) - _REJECTION_LOG_LIMIT),
                 'invalid_signature_deposits': len(invalid_signature),
-                'invalid_signature_pubkeys': sorted({d.pubkey for d in invalid_signature}),
+                'invalid_signature_pubkeys': invalid_signature_pubkeys[:_REJECTION_LOG_LIMIT],
+                'invalid_signature_pubkeys_truncated': max(0, len(invalid_signature_pubkeys) - _REJECTION_LOG_LIMIT),
                 'signatures_verified': signatures_verified,
                 'deposits_matching_lido_keys': matched_filter,
                 'deposits_considered': sum(len(deposits) for deposits in result.values()),
@@ -428,27 +421,28 @@ class LidoValidatorsProvider(Module):
     def _log_key_set_conservation(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
         """Check the used-key set against on-chain deposit counters. Never raises.
 
-        Every deposited Lido key either has a validator record or still has a queued
-        deposit, so the used-key set must account for every deposit the protocol made:
+        Every deposited Lido key either has a validator record or a queued deposit, so
+        `len(used keys) == Lido.getBeaconStat().depositedValidators` must hold. Evaluated at
+        the Keys API's *own* block: `_kapi_sanity_check` only asserts `>=` against the
+        reference block, which a stale key hides, since the Keys API may run ahead and keys
+        deposited in that gap make up the shortfall. The per-operator pass does the same
+        against the Staking Router, naming the operator.
 
-            len(used keys) == Lido.getBeaconStat().depositedValidators
-
-        `_kapi_sanity_check` only asserts `>=`, which a stale key can hide: the Keys API is
-        allowed to be ahead of the reference block, and keys deposited in that gap make up
-        the shortfall. Evaluating the same identity at the Keys API's *own* block closes
-        the gap and turns the inequality into an equality — a stale key then shows up as a
-        deficit of exactly one, in a single member's logs, with nobody to compare against.
-
-        The per-operator pass does the same against the Staking Router's own
-        `totalDepositedValidators`, which names the operator whose key went missing.
-
-        Diagnostics only: a reorg or an execution node that has not seen the Keys API's
-        block yet must not stop a report, so every failure here is logged and swallowed.
+        Diagnostics only — a reorg or a lagging execution node must not stop a report.
         """
         keys_count = len(lido_keys)
         try:
+            # Cache hit: same response the keys themselves came from.
             snapshot = self.w3.kac.get_used_lido_keys_snapshot(blockstamp)
-            stats = self.w3.lido_contracts.lido.get_beacon_stat(HexStr(snapshot['blockHash']))
+
+            # `get_beacon_stat` is lru_cache(maxsize=1) on the block identifier, so a second
+            # block evicts the entry `_kapi_sanity_check` just cached. Skip when equal.
+            block = (
+                blockstamp.block_hash
+                if snapshot['blockNumber'] == blockstamp.block_number
+                else HexStr(snapshot['blockHash'])
+            )
+            stats = self.w3.lido_contracts.lido.get_beacon_stat(block)
             deficit = stats.deposited_validators - keys_count
             log = logger.warning if deficit else logger.info
             log(

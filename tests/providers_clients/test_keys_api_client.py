@@ -468,3 +468,36 @@ class TestUnitKeysAPIClient:
 
         with pytest.raises(KAPIInconsistentData, match="duplicated"):
             keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_lido_keys_snapshot__after_keys_fetched__no_extra_http_request(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+    ):
+        """The snapshot is a second view on the response the keys already came from, so
+        reading it must not cost another round trip to a service that serves ~47 MB."""
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={
+                'data': [
+                    {
+                        'index': 0,
+                        'key': '',
+                        'used': True,
+                        'operatorIndex': 0,
+                        'moduleAddress': '',
+                        'depositSignature': '',
+                    }
+                ],
+                'meta': {'elBlockSnapshot': {'blockNumber': 0, 'blockHash': '0xabc', 'lastChangedBlockHash': '0xdef'}},
+            },
+        )
+
+        keys_api_client.get_used_lido_keys(empty_blockstamp)
+        snapshot = keys_api_client.get_used_lido_keys_snapshot(empty_blockstamp)
+        keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+        assert snapshot['blockHash'] == '0xabc'
+        assert snapshot['lastChangedBlockHash'] == '0xdef'
+        assert len(responses.calls) == 1

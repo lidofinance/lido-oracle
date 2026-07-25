@@ -1,29 +1,12 @@
 """Compact, comparable fingerprints of the large data sets an oracle report is built from.
 
-A report divergence between members is always a disagreement about *inputs*: the Keys API
-used-key set, the beacon state's pending deposit queue, the subset of deposits whose BLS
-signature verified. Those sets run to hundreds of thousands of entries and tens of
-megabytes, so they cannot go into a log — and by the time members compare notes the data
-is gone: the Keys API answers only for its current block, and a beacon state at a past
-slot needs an archive node nobody kept.
+Two members log a fingerprint of their own inputs; the difference between the sets falls
+out of the two log lines, with no key data changing hands. How to read them:
+``docs/report-divergence-logs.md``.
 
-What does fit in a log is a fingerprint, and it has to answer the questions an incident
-actually asks:
-
-- ``count``  — did we even see the same number of entries?
-- ``digest`` — are the sets byte-for-byte identical?
-- ``xor``    — if two sets differ by exactly one entry, ``xor(a) ^ xor(b)`` *is* that
-               entry, readable by hand with no tooling at all.
-- ``iblt``   — the general case. An invertible Bloom lookup table recovers the *whole*
-               symmetric difference — every entry either side is missing, and which side
-               is missing it — by subtracting two sketches and peeling. See
-               ``iblt_sketch``.
-
-The point of all three is that no key data changes hands: each member logs a sketch of
-its own inputs, and the difference falls out of the two log lines. ``digest`` and
-``buckets`` use the same construction as ``scripts/ao_report_debug/keys_digest.py``, so a
-fingerprint copied out of a log is comparable with one the offline tooling produced from a
-live Keys API.
+``digest`` and ``buckets`` match the construction in
+``scripts/ao_report_debug/keys_digest.py``, so a fingerprint copied out of a log is
+comparable with one that tool produced from a live Keys API.
 """
 
 import logging
@@ -39,10 +22,8 @@ from src.utils.types import hex_str_to_bytes
 
 BUCKETS: Final = 256
 
-# An IBLT of `cells` cells with 4 hashes per entry decodes reliably while the number of
-# *differing* entries stays under ~0.72 * cells, and abruptly decodes nothing past it.
-# 512 cells covers ~380 differences, well beyond any divergence seen in practice, for
-# ~61 KB of log per set.
+# With 4 hashes per entry an IBLT decodes reliably below ~0.72 * cells *differing* entries
+# and abruptly decodes nothing past it. 512 cells -> ~380 differences for ~61 KB per set.
 IBLT_CELLS: Final = 512
 IBLT_HASHES: Final = 4
 _IBLT_VERSION: Final = 1
@@ -128,16 +109,8 @@ def _iblt_positions(digest: bytes, cells: int) -> set[int]:
 def iblt_sketch(items: Iterable[bytes], cells: int = IBLT_CELLS) -> HexStr:
     """Build an invertible Bloom lookup table over a set of equal-length entries.
 
-    `xor` on its own only names the odd entry out when exactly one differs; past that the
-    accumulated value is several entries smeared together and useless. An IBLT is the same
-    idea made recoverable: each entry is XOR-ed into `IBLT_HASHES` cells rather than one,
-    so subtracting two sketches leaves cells holding a single differing entry each. Those
-    peel off, which frees their neighbours, until every difference has been named — see
-    `iblt_diff`.
-
-    The result is what makes the diagnostic work for real divergences: two members recover
-    the full symmetric difference of two 485k-entry sets, exactly, from one log line each,
-    without either of them sending the other any keys.
+    Each entry is XOR-ed into `IBLT_HASHES` cells rather than one, so subtracting two
+    sketches leaves cells holding a single differing entry, which `iblt_diff` peels out.
     """
     entries = list(items)
     width = max((len(entry) for entry in entries), default=0)
@@ -236,13 +209,18 @@ def _iblt_parse(sketch: str) -> tuple[int, int, list[tuple[int, int, int]]]:
 
 
 def log_fingerprint(
-    logger: logging.Logger, subject: str, items: Iterable[bytes], cells: int = IBLT_CELLS, **extra: Any
+    logger: logging.Logger,
+    subject: str,
+    items: Iterable[bytes],
+    cells: int = IBLT_CELLS,
+    sketch: bool = True,
+    **extra: Any,
 ) -> None:
-    """Emit `subject` as two lines: a small summary, then the recovery sketch.
+    """Emit `subject` as a small summary line, then the bulk sketch on its own line.
 
-    Split because they are read differently — the summary belongs in whatever an operator
-    greps or ships, while the sketch is bulk (~61 KB for 48-byte entries) and only wanted
-    once a summary has already shown a mismatch.
+    Split so log shipping can drop the sketch and still detect a divergence from the
+    summary. `sketch=False` where the summary alone answers the question and ~61 KB a cycle
+    is not worth it.
 
     Never raises: this is a diagnostic, and no report may fail over one.
     """
@@ -256,8 +234,11 @@ def log_fingerprint(
 
     logger.info({'msg': f'{subject} fingerprint.', **fp.summary, **extra})
 
+    if not sketch:
+        return
+
     try:
-        sketch = iblt_sketch(entries, cells)
+        blob = iblt_sketch(entries, cells)
     except Exception as error:  # pylint: disable=broad-except
         logger.warning({'msg': f'{subject} sketch failed.', 'error': repr(error)})
         return
@@ -267,13 +248,18 @@ def log_fingerprint(
             'msg': f'{subject} sketch.',
             'cells': cells,
             'bucket_counts': fp.bucket_counts,
-            'iblt': sketch,
+            'iblt': blob,
         }
     )
 
 
 def log_fingerprint_hex(
-    logger: logging.Logger, subject: str, items: Iterable[str], cells: int = IBLT_CELLS, **extra: Any
+    logger: logging.Logger,
+    subject: str,
+    items: Iterable[str],
+    cells: int = IBLT_CELLS,
+    sketch: bool = True,
+    **extra: Any,
 ) -> None:
     """`log_fingerprint` over 0x-prefixed hex strings."""
-    log_fingerprint(logger, subject, (hex_str_to_bytes(item) for item in items), cells, **extra)
+    log_fingerprint(logger, subject, (hex_str_to_bytes(item) for item in items), cells, sketch, **extra)

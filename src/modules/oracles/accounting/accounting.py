@@ -47,6 +47,8 @@ from src.types import (
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.fingerprint import log_fingerprint
+from src.utils.types import hex_str_to_bytes
 from src.utils.units import gwei_to_wei
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
@@ -259,8 +261,6 @@ class Accounting(OracleModule[Web3]):
         they would otherwise be invisible to the contract's accounting (absent from both
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
-        # The provider logs this set, its fingerprint and its total under
-        # 'Get pending lido validators.' — no need to restate the count here.
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
@@ -276,6 +276,18 @@ class Accounting(OracleModule[Web3]):
                 'value': topups_pending,
                 'validators_with_topups': len(validators_with_topups),
             }
+        )
+        # The other half of clPendingBalanceGwei. No sketch: this set is determined by the
+        # CL deposit queue, the used-key set and the CL registry, all already pinned.
+        log_fingerprint(
+            logger,
+            'Pending top-ups',
+            (
+                hex_str_to_bytes(topup.pubkey) + topup.amount.to_bytes(8, 'big') + topup.slot.to_bytes(8, 'big')
+                for v in validators_with_topups
+                for topup in v.pending_topups
+            ),
+            sketch=False,
         )
 
         cl_pending_balance = Gwei(new_validators_pending + topups_pending)

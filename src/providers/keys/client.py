@@ -26,11 +26,8 @@ class KAPIInconsistentData(Exception):
 
 
 class ElBlockSnapshot(TypedDict):
-    """`meta.elBlockSnapshot` — the Keys API's own view of where its data comes from.
-
-    `lastChangedBlockHash` is the block at which any watched contract last changed; two
-    instances reporting the same value have consumed the same on-chain key updates.
-    """
+    """`meta.elBlockSnapshot`. Two instances reporting the same `lastChangedBlockHash`
+    have consumed the same on-chain key updates."""
 
     blockNumber: int
     blockHash: str
@@ -78,9 +75,6 @@ class KeysAPIClient(HTTPProvider):
             snapshot = cast(ElBlockSnapshot, meta['meta']['elBlockSnapshot'])
             blocknumber_meta = snapshot['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
-            # The snapshot pins which on-chain state this answer was built from. Members
-            # comparing reports need it to tell a Keys API disagreement (different
-            # snapshot, or same snapshot and different keys) from anything else.
             logger.info(
                 {
                     'msg': 'Keys API response snapshot.',
@@ -120,12 +114,8 @@ class KeysAPIClient(HTTPProvider):
 
     @staticmethod
     def _log_keys_fingerprint(keys: list[LidoKey], snapshot: ElBlockSnapshot) -> None:
-        """Fingerprint the used-key set so two members can diff it from their logs alone.
-
-        The set is ~485k pubkeys / ~47 MB, gone the moment the Keys API moves on, and no
-        operator wants to trade it around. `xor` alone identifies the odd key out when the
-        sets differ by exactly one — the shape every pending-balance split has taken so far.
-        """
+        """Fingerprint the used-key set: ~485k pubkeys / ~47 MB, unrecoverable once the
+        Keys API moves on, and not something operators can trade around."""
         by_module: dict[str, int] = {}
         for key in keys:
             module = str(key.module_address).lower()
@@ -164,12 +154,9 @@ class KeysAPIClient(HTTPProvider):
     def _log_used_signing_keys_consistency(module_address: str, data: dict, snapshot: ElBlockSnapshot) -> None:
         """Check a Keys API instance against itself, per operator.
 
-        `used` is a flag on each key row; `usedSigningKeys` is a counter on the operator
-        row, maintained independently. For every operator the two must agree. A shortfall
-        means the instance knows the operator deposited N keys but has only flagged N-1 of
-        them used — that key is invisible to the oracle and its queued deposit is missing
-        from the pending balance. This needs nothing but the response already in hand, so
-        it names a short instance without waiting for members to compare hashes.
+        `used` is a per-key-row flag; `usedSigningKeys` is an independently maintained
+        counter on the operator row. They must agree — a shortfall means a key the instance
+        knows was deposited is not flagged used, so the oracle cannot see it.
         """
         used_rows: dict[int, int] = {}
         for key in data['keys']:

@@ -60,8 +60,9 @@ printed as real but incomplete.
 sketch for that would cost megabytes per log line, and a divergence that big does not need
 naming key by key, only locating. Use instead:
 
-- `by_operator` and `by_operator_amount_gwei` on `Get pending lido validators.` — counts
-  per (module, operator). A mass divergence shows up as one operator's count differing.
+- `Pending Lido validators by operator.` — `module_address -> operator_index -> [deposits,
+  amount_gwei]`. A mass divergence shows up as one operator's numbers differing. ~19 KB
+  with every mainnet operator represented.
 - `by_module` on `Used Lido keys fingerprint.` — the same at module granularity.
 - `bucket_counts` on any `sketch.` line — 256 counts over the keyspace, showing whether the
   difference is concentrated or spread.
@@ -98,8 +99,106 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 | `Get pending deposits and not-yet-indexed lido keys.`    | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
 | `Pending Lido keys fingerprint.`                         | Keys with no validator record yet: the left side of the intersection. |
 | `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected, with the rejected and frontrun pubkeys listed. |
-| `Get pending lido validators.`                           | `total_amount_gwei` — the number `clPendingBalanceGwei` is built from — and per-operator counts and amounts. |
+| `Get pending lido validators.`                           | `total_amount_gwei` — the number `clPendingBalanceGwei` is built from. |
+| `Pending Lido validators by operator.`                   | Counts and amounts per (module, operator) — for divergences too large to enumerate. |
 | `Pending Lido validators fingerprint.`                   | The final selected set.                                              |
+
+## Worked example: the pending balance differs
+
+Two members, same reference slot, different `clPendingBalanceGwei`. Work down; the first
+line whose values differ names the layer, and only then do you decode anything.
+
+### 0. Which half?
+
+```
+Calculate CL pending validators balance.   value  ← the number in the report
+Calculate new pending validators balance.  value  ← half A: not-yet-activated keys
+Calculate pending top-ups balance.         value  ← half B: top-ups to active validators
+```
+
+Half A → steps 1–4. Half B → step 5.
+
+### 1. Rule the consensus layer in or out
+
+```
+Beacon state summary.          state_root, pending_deposits, pending_deposits_queue_digest
+Pending deposits fingerprint.  count, digest, xor
+```
+
+- `state_root` differs → the members read *different states*. Not a data bug; check the
+  reference slot and for a reorg.
+- `state_root` equal, `digest` equal → **the deposit queue is provably identical.** The
+  state is fetched by state root, which commits to the whole `BeaconState`. Go to step 2.
+- `state_root` equal, `digest` differs → a consensus client returned bytes inconsistent
+  with the root it was handed. That is a client bug; escalate with both digests. If `count`
+  differs by exactly one, `xor` names the deposit.
+
+### 2. Rule the Keys API in or out
+
+```
+Keys API response snapshot.    el_block_snapshot{blockNumber, blockHash, lastChangedBlockHash}
+Used Lido keys fingerprint.    count, digest, xor, by_module
+```
+
+- Equal `lastChangedBlockHash` → both instances consumed the same on-chain key updates, so
+  a difference below is the instance's own bookkeeping, not a different view of the chain.
+- `count` differs → one instance is short; `by_module` says which module.
+- `digest` differs with equal counts → same size, different membership.
+
+Then recover the keys — this is the step the whole scheme exists for:
+
+```bash
+grep '"msg": "Used Lido keys sketch."' member-a.log | tail -1 > a.json
+grep '"msg": "Used Lido keys sketch."' member-b.log | tail -1 > b.json
+python3 scripts/reconcile_fingerprints.py a.json b.json --left-name A --right-name B
+```
+
+```
+only in A: 0x8625e651cdd6754903520e79eca7f534b53e4ef230a0fb57aeb1cf35395387174fbe76648445387cfb…
+Recovered the complete difference: 1 entries.
+```
+
+Then `GET /v1/keys/<pubkey>` against both instances: one has it `used: true`, the other
+does not, and the response names the module and operator.
+
+### 3. Both match? Then it is the filter
+
+```
+Get pending deposits and not-yet-indexed lido keys.  lido_wc_list, genesis_fork_version
+Collect valid pending deposits.                      signatures_verified,
+                                                     invalid_signature_deposits,
+                                                     invalid_signature_pubkeys,
+                                                     invalid_keys, frontrun_pubkeys
+BLS deposit signature self-check.                    signing_root, valid_accepted
+```
+
+- `lido_wc_list` or `genesis_fork_version` differ → a configuration or contract difference,
+  not a data one.
+- `invalid_signature_deposits` differ → the BLS backends disagree. The listed pubkeys, plus
+  the full per-deposit `Ignoring key. Invalid deposit signature` warnings, give the exact
+  tuples to re-verify against the other library.
+- `signing_root` differs in the startup self-check → the difference is SSZ or domain
+  computation, *not* the curve library. Same root, different `valid_accepted` → the reverse.
+
+### 4. The answer
+
+```
+Get pending lido validators.     value, total_amount_gwei
+Pending Lido validators sketch.  iblt
+```
+
+Reconcile the two sketches as in step 2 for the exact keys behind the balance difference.
+
+### 5. Half B — top-ups
+
+```
+Calculate pending top-ups balance.  value, validators_with_topups
+Pending top-ups fingerprint.        count, digest, xor
+```
+
+`xor` names a single differing top-up outright. For more than one there is no sketch here
+by design: this set is `CL deposit queue ∩ used keys ∩ CL validator registry`, and all
+three are pinned above — so steps 1 and 2 already identify the key responsible.
 
 ## Warnings that name a culprit without a second member
 
@@ -130,4 +229,8 @@ Fingerprinting and sketching the mainnet used-key set (~485k entries) takes ~2.6
 per report cycle, against a state fetch measured in minutes; the 40k-entry deposit queue
 takes ~0.2 s. Each fingerprinted set adds one ~250 byte summary line and one sketch line —
 ~64 KB for pubkey sets, ~108 KB for deposit records — and there are five per accounting
-cycle.
+cycle, plus the ~19 KB per-operator line.
+
+Summary lines are deliberately small so they can be grepped and shipped; everything bulk is
+on its own line and can be dropped by log shipping without losing the ability to *detect* a
+divergence, only the ability to resolve one from the logs alone.
