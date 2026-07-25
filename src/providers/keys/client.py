@@ -1,3 +1,4 @@
+import json
 import logging
 from time import sleep
 from typing import TypedDict, cast
@@ -7,7 +8,7 @@ from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dic
 from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.fingerprint import log_fingerprint_hex
+from src.utils.fingerprint import log_fingerprint, log_fingerprint_hex
 
 
 logger = logging.getLogger(__name__)
@@ -150,8 +151,25 @@ class KeysAPIClient(HTTPProvider):
 
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
+        self._log_operators_fingerprint(module_address, data['operators'])
 
         return cast(ModuleOperatorsKeys, data)
+
+    @staticmethod
+    def _log_operators_fingerprint(module_address: str, operators: list[dict]) -> None:
+        """The operator records are an input to the CSM and CM reports in their own right —
+        `distribution.py` seeds the reward split from them — so they get a fingerprint of
+        their own rather than riding on the key set.
+
+        Canonical JSON, so the encoding does not depend on the order the API happened to
+        serialise each record's fields in.
+        """
+        log_fingerprint(
+            logger,
+            'Keys API operators',
+            (json.dumps(operator, sort_keys=True, separators=(',', ':')).encode() for operator in operators),
+            module_address=module_address,
+        )
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""

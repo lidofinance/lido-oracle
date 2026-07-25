@@ -8,9 +8,14 @@ fingerprints of them: two members' log files are then enough to say which layer 
 and usually to name the exact key or deposit responsible, without either operator sharing
 any data.
 
-The logs answer *did we read the same data, and where did it stop matching* — cheaply
-enough to stay on in every cycle. Naming the individual keys behind a multi-key difference
-is left to the live Keys API instances and an archive node, which can still be asked.
+Fingerprints go on the *inputs* only — what the oracle was handed, not what it computed
+from them. Everything downstream follows deterministically, so equal inputs and a differing
+report means the members are running different code, which `Oracle startup.` already
+reports. Inputs that are already anchored need nothing further: the beacon state by its
+`state_root`, and anything read from a contract by `blockstamp.block_hash`.
+
+That leaves the Keys API, which has no such anchor, and the beacon state's contents, which
+no longer exist once the slot is old.
 
 ## The fingerprint fields
 
@@ -68,12 +73,10 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 | `CL validators fingerprint.`                             | The validator registry.                                              |
 | `Keys API response snapshot.`                            | Per request: the `elBlockSnapshot` the answer came from, including `lastChangedBlockHash`. Same value on both sides ⇒ both Keys APIs consumed the same on-chain key updates. |
 | `Used Lido keys fingerprint.`                            | The used-key set, plus per-module counts. **This is where the 2026-07-25 split lived.** |
+| `Keys API operators fingerprint.`                        | The operator records, an input to the CSM and CM reward split. Canonical JSON, so `xor` of a lone differing record decodes straight back to readable JSON. |
 | `Get pending deposits and not-yet-indexed lido keys.`    | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
-| `Pending Lido keys fingerprint.`                         | Keys with no validator record yet: the left side of the intersection. |
 | `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected. Each rejected deposit is logged in full on its own `Ignoring key.` line. |
 | `Get pending lido validators.`                           | `total_amount_gwei` — half of what `clPendingBalanceGwei` is built from. |
-| `Pending top-ups fingerprint.`                           | The other half: deposits queued against already-active Lido validators. |
-| `Pending Lido validators fingerprint.`                   | The final selected set.                                              |
 
 ## Worked example: the pending balance differs
 
@@ -152,25 +155,18 @@ Collect valid pending deposits.                      signatures_verified,
   `Ignoring key. Invalid deposit signature` warnings give the exact tuples to re-verify
   against the other library.
 
-### 4. The answer
+### 4. Inputs all match?
 
 ```
-Get pending lido validators.          value, total_amount_gwei
-Pending Lido validators fingerprint.  count, digest, xor
-```
-
-One key differs → XOR the two `xor` values and you have it.
-
-### 5. Half B — top-ups
-
-```
+Get pending lido validators.        value, total_amount_gwei
 Calculate pending top-ups balance.  value, validators_with_topups
-Pending top-ups fingerprint.        count, digest, xor
+Oracle startup.                     variables{version, branch, commit, ...}
 ```
 
-`xor` names a single differing top-up outright. For more than one: this set is
-`CL deposit queue ∩ used keys ∩ CL validator registry`, and all three are pinned above, so
-steps 1 and 2 identify where it came from.
+The selected pending validators and the top-ups are *derived* — nothing is fingerprinted
+here on purpose. Both follow deterministically from the three inputs above, so if those
+match and these counts do not, the members are running different code. Compare
+`Oracle startup.`, then replay the inputs locally against each build.
 
 ## Warnings that name a culprit without a second member
 

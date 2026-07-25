@@ -14,7 +14,6 @@ from src.services.deposit_signature_verification import is_valid_deposit_signatu
 from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
-from src.utils.fingerprint import log_fingerprint_hex
 from src.utils.types import hex_str_to_bytes
 from src.utils.validator_state import get_max_effective_balance
 
@@ -277,8 +276,6 @@ class LidoValidatorsProvider(Module):
                 'genesis_fork_version': genesis_config.genesis_fork_version,
             }
         )
-        # Summary only: this set is `used keys \ CL validator pubkeys`, both already pinned.
-        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys)
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
@@ -298,7 +295,6 @@ class LidoValidatorsProvider(Module):
         )
         # No per-operator breakdown: ~19 KB a cycle to pre-stage what
         # 'Used keys vs deposited validators per node operator.' reports only when wrong.
-        log_fingerprint_hex(logger, 'Pending Lido validators', result)
         return result
 
     @staticmethod
