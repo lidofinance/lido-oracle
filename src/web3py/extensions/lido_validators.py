@@ -26,10 +26,6 @@ class _Uninitialized:
 
 UNINITIALIZED: Final = _Uninitialized()
 
-# Rejections are logged individually and in full, but nothing bounds how many there can be.
-# Cap the detail; the counts stay exact.
-_REJECTION_LOG_LIMIT: Final = 20
-
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +316,7 @@ class LidoValidatorsProvider(Module):
         """
         result: dict[str, list[PendingDeposit]] = {}
         invalid_keys: set[str] = set()
-        invalid_signature: list[PendingDeposit] = []
+        invalid_signature = 0
         matched_filter = 0
         signatures_verified = 0
 
@@ -349,49 +345,42 @@ class LidoValidatorsProvider(Module):
             ):
                 # Full deposit, not just the pubkey: settling a BLS disagreement means
                 # re-verifying the exact tuple, and the state it came from will be gone.
-                invalid_signature.append(d)
-                if len(invalid_signature) <= _REJECTION_LOG_LIMIT:
-                    logger.warning(
-                        {
-                            'msg': 'Ignoring key. Invalid deposit signature',
-                            'value': d.pubkey,
-                            'withdrawal_credentials': d.withdrawal_credentials,
-                            'amount': d.amount,
-                            'slot': d.slot,
-                            'signature': d.signature,
-                        }
-                    )
+                invalid_signature += 1
+                logger.warning(
+                    {
+                        'msg': 'Ignoring key. Invalid deposit signature',
+                        'value': d.pubkey,
+                        'withdrawal_credentials': d.withdrawal_credentials,
+                        'amount': d.amount,
+                        'slot': d.slot,
+                        'signature': d.signature,
+                    }
+                )
                 continue
 
             if d.withdrawal_credentials in lido_wc_list:
                 result[d.pubkey] = [d]
             else:
                 invalid_keys.add(d.pubkey)
-                if len(invalid_keys) <= _REJECTION_LOG_LIMIT:
-                    logger.warning(
-                        {
-                            'msg': 'Ignoring key. Possible front run attack',
-                            'value': d.pubkey,
-                            'withdrawal_credentials': d.withdrawal_credentials,
-                            'amount': d.amount,
-                            'slot': d.slot,
-                        }
-                    )
+                logger.warning(
+                    {
+                        'msg': 'Ignoring key. Possible front run attack',
+                        'value': d.pubkey,
+                        'withdrawal_credentials': d.withdrawal_credentials,
+                        'amount': d.amount,
+                        'slot': d.slot,
+                    }
+                )
 
         # `signatures_verified` and `invalid_signature_deposits` are the BLS backend's whole
-        # contribution to the report.
-        invalid_signature_pubkeys = sorted({d.pubkey for d in invalid_signature})
-        frontrun_pubkeys = sorted(invalid_keys)
+        # contribution to the report. The rejected keys themselves are on the warning lines
+        # above, in full.
         logger.info(
             {
                 'msg': 'Collect valid pending deposits.',
                 'valid_keys': len(result),
                 'invalid_keys': len(invalid_keys),
-                'frontrun_pubkeys': frontrun_pubkeys[:_REJECTION_LOG_LIMIT],
-                'frontrun_pubkeys_truncated': max(0, len(frontrun_pubkeys) - _REJECTION_LOG_LIMIT),
-                'invalid_signature_deposits': len(invalid_signature),
-                'invalid_signature_pubkeys': invalid_signature_pubkeys[:_REJECTION_LOG_LIMIT],
-                'invalid_signature_pubkeys_truncated': max(0, len(invalid_signature_pubkeys) - _REJECTION_LOG_LIMIT),
+                'invalid_signature_deposits': invalid_signature,
                 'signatures_verified': signatures_verified,
                 'deposits_matching_lido_keys': matched_filter,
                 'deposits_considered': sum(len(deposits) for deposits in result.values()),

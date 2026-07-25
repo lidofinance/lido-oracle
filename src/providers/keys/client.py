@@ -143,57 +143,15 @@ class KeysAPIClient(HTTPProvider):
         """
         Docs: https://keys-api.lido.fi/api/static/index.html#/operators-keys/SRModulesOperatorsKeysController_getOperatorsKeys
         """
-        response, snapshot = self._get_with_blockstamp(
-            self.USED_MODULE_OPERATORS_KEYS.format(module_address), blockstamp
-        )
+        response, _ = self._get_with_blockstamp(self.USED_MODULE_OPERATORS_KEYS.format(module_address), blockstamp)
         data = cast(dict, response)
         if (kapi_module_address := data['module']['stakingModuleAddress']) != module_address:
             raise KAPIInconsistentData(f"Module address mismatch: {kapi_module_address=} != {module_address=}")
 
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
-        self._log_used_signing_keys_consistency(module_address, data, snapshot)
 
         return cast(ModuleOperatorsKeys, data)
-
-    @staticmethod
-    def _log_used_signing_keys_consistency(module_address: str, data: dict, snapshot: ElBlockSnapshot) -> None:
-        """Check a Keys API instance against itself, per operator.
-
-        `used` is a per-key-row flag; `usedSigningKeys` is an independently maintained
-        counter on the operator row. They must agree — a shortfall means a key the instance
-        knows was deposited is not flagged used, so the oracle cannot see it.
-        """
-        used_rows: dict[int, int] = {}
-        for key in data['keys']:
-            used_rows[key.operator_index] = used_rows.get(key.operator_index, 0) + 1
-
-        try:
-            mismatches = [
-                {
-                    'operator_index': operator['index'],
-                    'used_signing_keys': operator['usedSigningKeys'],
-                    'used_key_rows': used_rows.get(operator['index'], 0),
-                    'delta': used_rows.get(operator['index'], 0) - operator['usedSigningKeys'],
-                }
-                for operator in data['operators']
-                if used_rows.get(operator['index'], 0) != operator['usedSigningKeys']
-            ]
-        except (KeyError, TypeError) as error:
-            logger.warning({'msg': 'Keys API used-key self-consistency skipped.', 'error': repr(error)})
-            return
-
-        log = logger.warning if mismatches else logger.info
-        log(
-            {
-                'msg': 'Keys API used-key self-consistency.',
-                'module_address': module_address,
-                'operators': len(data['operators']),
-                'used_keys': len(data['keys']),
-                'mismatches': mismatches,
-                'el_block_number': snapshot.get('blockNumber'),
-            }
-        )
 
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""

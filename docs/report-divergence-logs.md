@@ -71,7 +71,7 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 | `Used Lido keys fingerprint.`                            | The used-key set, plus per-module counts. **This is where the 2026-07-25 split lived.** |
 | `Get pending deposits and not-yet-indexed lido keys.`    | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
 | `Pending Lido keys fingerprint.`                         | Keys with no validator record yet: the left side of the intersection. |
-| `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected, with the rejected and frontrun pubkeys listed. |
+| `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected. Each rejected deposit is logged in full on its own `Ignoring key.` line. |
 | `Get pending lido validators.`                           | `total_amount_gwei` — half of what `clPendingBalanceGwei` is built from. |
 | `Pending top-ups fingerprint.`                           | The other half: deposits queued against already-active Lido validators. |
 | `Pending Lido validators fingerprint.`                   | The final selected set.                                              |
@@ -139,16 +139,15 @@ Either way you end with a pubkey. `GET /v1/keys/<pubkey>` against both instances
 Get pending deposits and not-yet-indexed lido keys.  lido_wc_list, genesis_fork_version
 Collect valid pending deposits.                      signatures_verified,
                                                      invalid_signature_deposits,
-                                                     invalid_signature_pubkeys,
-                                                     invalid_keys, frontrun_pubkeys
+                                                     invalid_keys
 BLS deposit signature self-check.                    signing_root, valid_accepted
 ```
 
 - `lido_wc_list` or `genesis_fork_version` differ → a configuration or contract difference,
   not a data one.
-- `invalid_signature_deposits` differ → the BLS backends disagree. The listed pubkeys, plus
-  the full per-deposit `Ignoring key. Invalid deposit signature` warnings, give the exact
-  tuples to re-verify against the other library.
+- `invalid_signature_deposits` differ → the BLS backends disagree. The per-deposit
+  `Ignoring key. Invalid deposit signature` warnings give the exact tuples to re-verify
+  against the other library.
 - `signing_root` differs in the startup self-check → the difference is SSZ or domain
   computation, *not* the curve library. Same root, different `valid_accepted` → the reverse.
 
@@ -185,10 +184,6 @@ These fire on one member's own data, so they do not need anybody to compare agai
 - **`Used keys vs deposited validators per node operator.`** — the same identity against the
   Staking Router's `totalDepositedValidators`, per operator. A `shortfalls` entry names the
   operator whose key went missing.
-- **`Keys API used-key self-consistency.`** — for each operator, `count(key rows with
-  used=true)` must equal the operator row's `usedSigningKeys`. A shortfall means the Keys
-  API knows the operator deposited N keys but has flagged only N-1 used. Only emitted on
-  the per-module endpoint, so the CSM and CM oracles see it, the accounting oracle does not.
 - **`Ignoring key. Invalid deposit signature`** / **`Ignoring key. Possible front run attack`** —
   a deposit excluded from the pending balance, logged with the full record so it can be
   re-verified against another BLS backend later.
