@@ -338,6 +338,13 @@ Check out our [delegation guide](docs/delegation.md) for setting up oracle with 
 
 Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager configuration examples.
 
+### Report divergence
+
+If members submit different report hashes for the same reference slot, see
+[diagnosing a report divergence from logs](docs/report-divergence-logs.md) — the oracle logs
+fingerprints of the Keys API, consensus layer and pending deposit inputs so two operators
+can locate the disagreement from their logs alone.
+
 ### Metrics
 
 > **Note**: all metrics are prefixed with `lido_oracle_` by default.

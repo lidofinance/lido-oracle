@@ -35,6 +35,8 @@ from src.providers.http_provider import (
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
+from src.utils.fingerprint import digest_of, log_fingerprint, log_fingerprint_hex
+from src.utils.types import hex_str_to_bytes
 
 
 logger = logging.getLogger(__name__)
@@ -273,7 +275,62 @@ class ConsensusClient(HTTPProvider):
             else:
                 raise
 
-        return BeaconStateView.from_response(**data)
+        state = BeaconStateView.from_response(**data)
+        self._log_state_fingerprint(state, blockstamp)
+        return state
+
+    @staticmethod
+    def _log_state_fingerprint(state: BeaconStateView, blockstamp: BlockStamp) -> None:
+        """Fingerprint the parts of the beacon state a report is built from. Never raises.
+
+        The state is ~900 MB, so it cannot be logged, and members cannot fetch a past one
+        back without an archive node — if two of them disagree about it, there is normally
+        nothing left to compare. These few lines are that comparison: identical digests
+        here mean the disagreement is downstream of the consensus layer, and the
+        pending-deposit `xor` names the single queued deposit one member saw and the other
+        did not.
+        """
+        try:
+            # Sketch whole deposit records rather than bare pubkeys: a key can have several
+            # queued deposits (top-ups), and set recovery needs entries with no repeats.
+            # The 96-byte signature is left out — it would triple the size of every sketch
+            # line to carry a field that identifies nothing the other four do not, and any
+            # deposit actually rejected over its signature is logged in full separately.
+            # The queue digest below still covers the signature, so a signature-only
+            # divergence is detected even though it is not recovered per-entry.
+            encoded_deposits = [
+                hex_str_to_bytes(d.pubkey)
+                + hex_str_to_bytes(d.withdrawal_credentials)
+                + d.amount.to_bytes(8, 'big')
+                + d.slot.to_bytes(8, 'big')
+                for d in state.pending_deposits
+            ]
+            queue_digest = digest_of(
+                encoded + hex_str_to_bytes(d.signature)
+                for encoded, d in zip(encoded_deposits, state.pending_deposits, strict=True)
+            )
+            logger.info(
+                {
+                    'msg': 'Beacon state summary.',
+                    'slot': state.slot,
+                    'state_root': blockstamp.state_root,
+                    'validators': len(state.validators),
+                    'balances_sum_gwei': sum(state.balances),
+                    'pending_deposits': len(state.pending_deposits),
+                    'pending_deposits_amount_gwei': sum(d.amount for d in state.pending_deposits),
+                    # The queue is processed in order, so the same set in a different order
+                    # is still a divergence — this digest is the only one that sees it.
+                    'pending_deposits_queue_digest': queue_digest,
+                    'pending_partial_withdrawals': len(state.pending_partial_withdrawals),
+                    'pending_consolidations': len(state.pending_consolidations),
+                }
+            )
+        except Exception as error:  # pylint: disable=broad-except
+            logger.warning({'msg': 'Beacon state summary failed.', 'error': repr(error)})
+            return
+
+        log_fingerprint(logger, 'Pending deposits', encoded_deposits)
+        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators))
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits

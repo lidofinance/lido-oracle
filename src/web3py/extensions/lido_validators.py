@@ -14,6 +14,7 @@ from src.services.deposit_signature_verification import is_valid_deposit_signatu
 from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
+from src.utils.fingerprint import log_fingerprint_hex
 from src.utils.types import hex_str_to_bytes
 from src.utils.validator_state import get_max_effective_balance
 
@@ -266,13 +267,19 @@ class LidoValidatorsProvider(Module):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         (_, pending_lido_keys) = self._get_lido_validators_with_keys(blockstamp)
         pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
+        # Every input to the pending balance in one place: the two sets being intersected
+        # and the two constants the filter depends on. A member whose pending balance
+        # differs has one of these four different, and this says which.
         logger.info(
             {
                 'msg': 'Get pending deposits and not-yet-indexed lido keys.',
                 'pending_deposits': len(pending_deposits),
                 'pending_lido_keys': len(pending_keys),
+                'lido_wc_list': lido_wc_list,
+                'genesis_fork_version': genesis_config.genesis_fork_version,
             }
         )
+        log_fingerprint_hex(logger, 'Pending Lido keys', pending_keys)
 
         valid = self._collect_valid_pending_deposits(
             pending_deposits,
@@ -281,7 +288,32 @@ class LidoValidatorsProvider(Module):
             hex_str_to_bytes(genesis_config.genesis_fork_version),
         )
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
-        logger.info({'msg': 'Get pending lido validators.', 'value': len(result)})
+
+        # The final answer: this set, and the amounts under it, are exactly what
+        # `clPendingBalanceGwei` is summed from.
+        #
+        # The per-operator breakdown is what a *large* divergence needs. Entry-level
+        # recovery is bounded by the sketch, and sizing it for thousands of differences
+        # would mean megabytes per log line — but a divergence that big does not need
+        # naming key by key, only locating. Two members whose counts differ under one
+        # operator have found their answer here without decoding anything.
+        by_operator: dict[str, int] = {}
+        by_operator_amount: dict[str, int] = {}
+        for key, deposits in result.values():
+            index = f'{str(key.module_address).lower()}:{key.operator_index}'
+            by_operator[index] = by_operator.get(index, 0) + 1
+            by_operator_amount[index] = by_operator_amount.get(index, 0) + sum(d.amount for d in deposits)
+
+        logger.info(
+            {
+                'msg': 'Get pending lido validators.',
+                'value': len(result),
+                'total_amount_gwei': sum(d.amount for _, deposits in result.values() for d in deposits),
+                'by_operator': by_operator,
+                'by_operator_amount_gwei': by_operator_amount,
+            }
+        )
+        log_fingerprint_hex(logger, 'Pending Lido validators', result)
         return result
 
     @staticmethod
@@ -299,10 +331,15 @@ class LidoValidatorsProvider(Module):
         """
         result: dict[str, list[PendingDeposit]] = {}
         invalid_keys: set[str] = set()
+        invalid_signature: list[PendingDeposit] = []
+        matched_filter = 0
+        signatures_verified = 0
 
         for d in pending_deposits:
             if d.pubkey not in filter_pubkeys:
                 continue
+
+            matched_filter += 1
 
             if d.pubkey in result:
                 result[d.pubkey].append(d)
@@ -311,6 +348,7 @@ class LidoValidatorsProvider(Module):
             if d.pubkey in invalid_keys:
                 continue
 
+            signatures_verified += 1
             if not is_valid_deposit_signature(
                 pubkey=hex_str_to_bytes(d.pubkey),
                 withdrawal_credentials=hex_str_to_bytes(d.withdrawal_credentials),
@@ -320,10 +358,18 @@ class LidoValidatorsProvider(Module):
                 # Fork-agnostic domain since deposits are valid across forks
                 # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
             ):
+                # Log the full deposit, not just the pubkey: a BLS backend disagreement
+                # between members can only be settled by re-verifying the exact tuple that
+                # was rejected, and the beacon state it came from is not retrievable later.
+                invalid_signature.append(d)
                 logger.warning(
                     {
                         'msg': 'Ignoring key. Invalid deposit signature',
                         'value': d.pubkey,
+                        'withdrawal_credentials': d.withdrawal_credentials,
+                        'amount': d.amount,
+                        'slot': d.slot,
+                        'signature': d.signature,
                     }
                 )
                 continue
@@ -336,14 +382,25 @@ class LidoValidatorsProvider(Module):
                     {
                         'msg': 'Ignoring key. Possible front run attack',
                         'value': d.pubkey,
+                        'withdrawal_credentials': d.withdrawal_credentials,
+                        'amount': d.amount,
+                        'slot': d.slot,
                     }
                 )
 
+        # `signatures_verified` and `invalid_signature` are the BLS backend's whole
+        # contribution to the report. Two members running different libraries produce the
+        # same report only if both numbers agree.
         logger.info(
             {
                 'msg': 'Collect valid pending deposits.',
                 'valid_keys': len(result),
                 'invalid_keys': len(invalid_keys),
+                'frontrun_pubkeys': sorted(invalid_keys),
+                'invalid_signature_deposits': len(invalid_signature),
+                'invalid_signature_pubkeys': sorted({d.pubkey for d in invalid_signature}),
+                'signatures_verified': signatures_verified,
+                'deposits_matching_lido_keys': matched_filter,
                 'deposits_considered': sum(len(deposits) for deposits in result.values()),
             }
         )
@@ -356,6 +413,7 @@ class LidoValidatorsProvider(Module):
 
         validators = self.w3.cc.get_validators(blockstamp)
         self._kapi_sanity_check(len(lido_keys), blockstamp)
+        self._log_key_set_conservation(lido_keys, blockstamp)
 
         lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
         logger.info(
@@ -366,6 +424,77 @@ class LidoValidatorsProvider(Module):
             }
         )
         return lido_validators, pending_lido_keys
+
+    def _log_key_set_conservation(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
+        """Check the used-key set against on-chain deposit counters. Never raises.
+
+        Every deposited Lido key either has a validator record or still has a queued
+        deposit, so the used-key set must account for every deposit the protocol made:
+
+            len(used keys) == Lido.getBeaconStat().depositedValidators
+
+        `_kapi_sanity_check` only asserts `>=`, which a stale key can hide: the Keys API is
+        allowed to be ahead of the reference block, and keys deposited in that gap make up
+        the shortfall. Evaluating the same identity at the Keys API's *own* block closes
+        the gap and turns the inequality into an equality — a stale key then shows up as a
+        deficit of exactly one, in a single member's logs, with nobody to compare against.
+
+        The per-operator pass does the same against the Staking Router's own
+        `totalDepositedValidators`, which names the operator whose key went missing.
+
+        Diagnostics only: a reorg or an execution node that has not seen the Keys API's
+        block yet must not stop a report, so every failure here is logged and swallowed.
+        """
+        keys_count = len(lido_keys)
+        try:
+            snapshot = self.w3.kac.get_used_lido_keys_snapshot(blockstamp)
+            stats = self.w3.lido_contracts.lido.get_beacon_stat(HexStr(snapshot['blockHash']))
+            deficit = stats.deposited_validators - keys_count
+            log = logger.warning if deficit else logger.info
+            log(
+                {
+                    'msg': 'Used keys vs deposited validators at the Keys API block.',
+                    'keys_count': keys_count,
+                    'deposited_validators': stats.deposited_validators,
+                    'deficit': deficit,
+                    'kapi_block_number': snapshot['blockNumber'],
+                    'ref_block_number': blockstamp.block_number,
+                }
+            )
+        except Exception as error:  # pylint: disable=broad-except
+            logger.warning({'msg': 'Failed to check used keys at the Keys API block.', 'error': repr(error)})
+
+        try:
+            used_by_operator: dict[tuple[str, int], int] = {}
+            for key in lido_keys:
+                index = (str(key.module_address).lower(), int(key.operator_index))
+                used_by_operator[index] = used_by_operator.get(index, 0) + 1
+
+            shortfalls = []
+            for operator in self.get_lido_node_operators(blockstamp):
+                index = (str(operator.staking_module.staking_module_address).lower(), int(operator.id))
+                used = used_by_operator.get(index, 0)
+                if used < operator.total_deposited_validators:
+                    shortfalls.append(
+                        {
+                            'module_id': operator.staking_module.id,
+                            'operator_id': operator.id,
+                            'used_keys': used,
+                            'total_deposited_validators': operator.total_deposited_validators,
+                            'deficit': operator.total_deposited_validators - used,
+                        }
+                    )
+
+            log = logger.warning if shortfalls else logger.info
+            log(
+                {
+                    'msg': 'Used keys vs deposited validators per node operator.',
+                    'operators': len(used_by_operator),
+                    'shortfalls': shortfalls,
+                }
+            )
+        except Exception as error:  # pylint: disable=broad-except
+            logger.warning({'msg': 'Failed to check used keys per node operator.', 'error': repr(error)})
 
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)

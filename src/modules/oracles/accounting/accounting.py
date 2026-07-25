@@ -254,14 +254,14 @@ class Accounting(OracleModule[Web3]):
         """Calculate the total pending balance on the Consensus Layer.
 
         Includes both new validators awaiting activation and pending top-up deposits for
-        existing active validators. Top-ups must be included  because they are not yet reflected
+        existing active validators. Top-ups must be included because they are not yet reflected
         in validator.balance on the CL; if they remain unprocessed across a frame boundary,
         they would otherwise be invisible to the contract's accounting (absent from both
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
+        # The provider logs this set, its fingerprint and its total under
+        # 'Get pending lido validators.' — no need to restate the count here.
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
-        logger.info({'msg': 'Get pending lido validators.', 'value': len(lido_pending_balance_by_keys)})
-
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
         )
