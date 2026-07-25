@@ -115,7 +115,13 @@ class KeysAPIClient(HTTPProvider):
     @staticmethod
     def _log_keys_fingerprint(keys: list[LidoKey], snapshot: ElBlockSnapshot) -> None:
         """Fingerprint the used-key set: ~485k pubkeys / ~47 MB, unrecoverable once the
-        Keys API moves on, and not something operators can trade around."""
+        Keys API moves on, and not something operators can trade around.
+
+        Summary only. Unlike a past beacon state, a Keys API difference that can move a
+        report is a persistent bookkeeping error on a live instance — both instances still
+        disagree afterwards, so `scripts/ao_report_debug/keys_digest.py` can diff them
+        directly. `xor` still names the key when exactly one differs.
+        """
         by_module: dict[str, int] = {}
         for key in keys:
             module = str(key.module_address).lower()
@@ -125,6 +131,7 @@ class KeysAPIClient(HTTPProvider):
             logger,
             'Used Lido keys',
             (key.key for key in keys),
+            sketch=False,
             by_module=by_module,
             el_block_number=snapshot.get('blockNumber'),
             last_changed_block_hash=snapshot.get('lastChangedBlockHash'),

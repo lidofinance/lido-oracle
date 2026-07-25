@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -175,34 +176,54 @@ class TestIblt:
 
 @pytest.mark.unit
 class TestLogFingerprint:
-    def test_log_fingerprint__valid_items__emits_summary_and_sketch(self, caplog):
+    def test_log_fingerprint__valid_items__emits_summary_then_sketch_parts(self, caplog):
         # Arrange
         caplog.set_level(logging.INFO)
         logger = logging.getLogger('test')
         # Act
         log_fingerprint(logger, 'Used Lido keys', [_pubkey(1), _pubkey(2)], el_block_number=42)
         # Assert
-        summary, sketch = [record.msg for record in caplog.records]
+        summary, *sketch = [record.msg for record in caplog.records]
         assert summary['msg'] == 'Used Lido keys fingerprint.'
         assert summary['count'] == 2
         assert summary['el_block_number'] == 42
-        assert sketch['msg'] == 'Used Lido keys sketch.'
-        assert sketch['bucket_counts'] == {'0': 2}
-        assert sketch['iblt'].startswith('0x')
+        assert all(part['msg'] == 'Used Lido keys sketch.' for part in sketch)
+        assert [part['part'] for part in sketch] == list(range(1, len(sketch) + 1))
+        assert all(part['parts'] == len(sketch) for part in sketch)
+        assert sketch[0]['bucket_counts'] == {'0': 2}
 
-    def test_log_fingerprint__two_members__sketches_recover_the_difference(self, caplog):
+    def test_log_fingerprint__sketch_parts__each_survives_the_docker_line_split(self, caplog):
+        """Docker's json-file driver splits a log message at 16 KB and leaves reassembly to
+        the collector. Parts must land under that on their own."""
+        # Arrange
+        caplog.set_level(logging.INFO)
+        logger = logging.getLogger('test')
+        # Act
+        log_fingerprint(logger, 'Pending Lido validators', [_pubkey(i) for i in range(24_000)])
+        # Assert
+        assert max(len(json.dumps(record.msg)) for record in caplog.records) < 16 * 1024
+
+    def test_log_fingerprint__two_members__reassembled_parts_recover_the_difference(self, caplog):
         """End to end over the log records themselves: what two operators would actually
         paste into `scripts/reconcile_fingerprints.py`."""
+
         # Arrange
+        def reassemble(records):
+            return '0x' + ''.join(r['iblt'] for r in sorted(records, key=lambda r: r['part']))
+
         caplog.set_level(logging.INFO)
         logger = logging.getLogger('test')
         full = [_pubkey(i) for i in range(1000)]
         stale = full[404]
         # Act
         log_fingerprint(logger, 'Used Lido keys', full)
+        boundary = len(caplog.records)
         log_fingerprint(logger, 'Used Lido keys', [k for k in full if k != stale])
-        left, right = (record.msg['iblt'] for record in caplog.records if 'iblt' in record.msg)
+        parts = [r.msg for r in caplog.records if 'iblt' in r.msg]
+        left = reassemble([r.msg for r in caplog.records[:boundary] if 'iblt' in r.msg])
+        right = reassemble([r.msg for r in caplog.records[boundary:] if 'iblt' in r.msg])
         # Assert
+        assert len(parts) > 2, 'expected the sketch to be chunked'
         diff = iblt_diff(left, right)
         assert diff.only_in_left == [stale]
         assert diff.only_in_right == []

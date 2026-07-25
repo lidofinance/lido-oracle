@@ -3,19 +3,22 @@
 When oracle members submit different report hashes for the same reference slot, they
 disagree about an *input*, not about arithmetic. The three inputs large enough to hide a
 disagreement are the beacon state (~900 MB), the Keys API used-key set (~485k keys,
-~47 MB) and the pending deposit queue — none of which can be logged, and none of which can
-be fetched back afterwards: the Keys API only answers for its current block, and a past
-beacon state needs an archive node.
+~47 MB) and the pending deposit queue. None can be logged as-is, so the oracle logs
+fingerprints of them: two members' log files are then enough to say which layer diverged,
+and usually to name the exact key or deposit responsible, without either operator sharing
+any data.
 
-So the oracle logs fingerprints of them instead. Two members' log files are enough to say
-which layer diverged, and usually to name the exact key or deposit responsible, without
-either operator sharing any data.
+Only one set carries a full recovery sketch — the pending validators the report is summed
+from — because it is the one that cannot be reconstructed later. A past beacon state needs
+an archive node nobody kept, but its `state_root` already proves whether two members read
+the same one; and a Keys API difference that can move a report is a persistent bookkeeping
+error, so those two instances still disagree today and can simply be diffed live.
 
 ## The fingerprint fields
 
 Every fingerprinted set is logged as two lines: `<subject> fingerprint.` with a small
-summary, and `<subject> sketch.` with the recovery data (~64 KB, emitted separately so log
-shipping can drop it).
+summary, and — for the one set that needs entry recovery — `<subject> sketch.`, emitted in
+numbered parts so log shipping can drop it independently.
 
 | Line          | Field           | Use                                                     |
 |---------------|-----------------|----------------------------------------------------------|
@@ -27,15 +30,20 @@ shipping can drop it).
 
 ### Recovering the differing entries
 
-Pull the `sketch.` line for the same reference slot from each member and subtract them:
+Pull *every part* of the sketch for the same reference slot from each member:
 
 ```bash
-grep '"msg": "Used Lido keys sketch."' member-a.log | tail -1 > a.json
-grep '"msg": "Used Lido keys sketch."' member-b.log | tail -1 > b.json
+grep '"msg": "Pending Lido validators sketch."' member-a.log > a.json
+grep '"msg": "Pending Lido validators sketch."' member-b.log > b.json
 
 python3 scripts/reconcile_fingerprints.py a.json b.json \
     --left-name 0xa2432f5b --right-name 0xafd9bcb7
 ```
+
+The sketch is split across ~7 lines of ~10 KB, each carrying `part` and `parts`. Docker's
+`json-file` driver and containerd both cut a log message at 16 KB and leave reassembly to
+whatever collector you run, so the parts are numbered here instead — a missing one is an
+error from the script, not a sketch that quietly decodes to nothing.
 
 ```
 only in 0xa2432f5b: 0x4587b0bd9c58b865b10b221b730b719d088c08f6718f4bddf62dd254674b4b5c…
@@ -60,12 +68,11 @@ printed as real but incomplete.
 sketch for that would cost megabytes per log line, and a divergence that big does not need
 naming key by key, only locating. Use instead:
 
-- `Pending Lido validators by operator.` — `module_address -> operator_index -> [deposits,
-  amount_gwei]`. A mass divergence shows up as one operator's numbers differing. ~19 KB
-  with every mainnet operator represented.
+- `Used keys vs deposited validators per node operator.` — fires by itself when an
+  operator's used keys fall short of the Staking Router's count, naming that operator.
 - `by_module` on `Used Lido keys fingerprint.` — the same at module granularity.
-- `bucket_counts` on any `sketch.` line — 256 counts over the keyspace, showing whether the
-  difference is concentrated or spread.
+- `bucket_counts` on part 1 of a `sketch.` line — 256 counts over the keyspace, showing
+  whether the difference is concentrated or spread.
 
 If you have only the `fingerprint.` line and exactly one entry differs (`count` differs by
 1), you do not need the script at all:
@@ -78,11 +85,10 @@ python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 python3 -c "print('0x%0192x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-Deposit entries deliberately omit the 96-byte signature: it would triple every sketch line
-without identifying anything the other four fields do not. A deposit rejected *because* of
-its signature is logged in full separately, and `pending_deposits_queue_digest` still
-covers the signature, so a signature-only divergence is detected even though it is not
-recovered per-entry.
+Deposit entries omit the 96-byte signature, which identifies nothing the other four fields
+do not. A deposit rejected *because* of its signature is logged in full separately, and
+`pending_deposits_queue_digest` covers the signature, so a signature-only divergence is
+still detected.
 
 ## What to compare, in order
 
@@ -99,8 +105,8 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 | `Get pending deposits and not-yet-indexed lido keys.`    | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
 | `Pending Lido keys fingerprint.`                         | Keys with no validator record yet: the left side of the intersection. |
 | `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected, with the rejected and frontrun pubkeys listed. |
-| `Get pending lido validators.`                           | `total_amount_gwei` — the number `clPendingBalanceGwei` is built from. |
-| `Pending Lido validators by operator.`                   | Counts and amounts per (module, operator) — for divergences too large to enumerate. |
+| `Get pending lido validators.`                           | `total_amount_gwei` — half of what `clPendingBalanceGwei` is built from. |
+| `Pending top-ups fingerprint.`                           | The other half: deposits queued against already-active Lido validators. |
 | `Pending Lido validators fingerprint.`                   | The final selected set.                                              |
 
 ## Worked example: the pending balance differs
@@ -147,19 +153,20 @@ Used Lido keys fingerprint.    count, digest, xor, by_module
 
 Then recover the keys — this is the step the whole scheme exists for:
 
+`xor` names the key outright when exactly one differs, which is the shape observed so far:
+
 ```bash
-grep '"msg": "Used Lido keys sketch."' member-a.log | tail -1 > a.json
-grep '"msg": "Used Lido keys sketch."' member-b.log | tail -1 > b.json
-python3 scripts/reconcile_fingerprints.py a.json b.json --left-name A --right-name B
+python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-```
-only in A: 0x8625e651cdd6754903520e79eca7f534b53e4ef230a0fb57aeb1cf35395387174fbe76648445387cfb…
-Recovered the complete difference: 1 entries.
-```
+For more than one, there is no sketch on this set by design — unlike a past beacon state, a
+Keys API difference that can move a report is a persistent bookkeeping error, so both
+instances still disagree today. Diff them live with
+`scripts/ao_report_debug/keys_digest.py`, or run its `--selfcheck` to find a short instance
+with no second party at all.
 
-Then `GET /v1/keys/<pubkey>` against both instances: one has it `used: true`, the other
-does not, and the response names the module and operator.
+Either way you end with a pubkey. `GET /v1/keys/<pubkey>` against both instances: one has it
+`used: true`, the other does not, and the response names the module and operator.
 
 ### 3. Both match? Then it is the filter
 
@@ -225,11 +232,9 @@ All of the above are diagnostics: they log and continue, and never fail a report
 
 ## Cost
 
-Fingerprinting and sketching the mainnet used-key set (~485k entries) takes ~2.6 s, once
-per report cycle, against a state fetch measured in minutes; the 40k-entry deposit queue
-takes ~0.2 s. Each fingerprinted set adds one ~250 byte summary line and one sketch line —
-~64 KB for pubkey sets, ~108 KB for deposit records — and there are five per accounting
-cycle, plus the ~19 KB per-operator line.
+Fingerprinting the mainnet used-key set (~485k entries) takes ~2.6 s, once per report
+cycle, against a state fetch measured in minutes. Six summary lines of 250–400 bytes, plus
+the one sketch — ~7 parts of ~10 KB — for about 65 KB a cycle.
 
 Summary lines are deliberately small so they can be grepped and shipped; everything bulk is
 on its own line and can be dropped by log shipping without losing the ability to *detect* a

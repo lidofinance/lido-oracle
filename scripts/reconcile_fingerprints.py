@@ -9,13 +9,15 @@ exchanged between operators; the two log lines are enough.
 
 Usage:
 
-    # pull the sketch out of each member's log for the same reference slot
-    grep '"msg": "Used Lido keys sketch."' member-a.log | tail -1 > a.json
-    grep '"msg": "Used Lido keys sketch."' member-b.log | tail -1 > b.json
+    # every part of the sketch, from each member's log, for the same reference slot
+    grep '"msg": "Pending Lido validators sketch."' member-a.log > a.json
+    grep '"msg": "Pending Lido validators sketch."' member-b.log > b.json
 
     python3 scripts/reconcile_fingerprints.py a.json b.json
 
-Accepts either the whole JSON log line or a bare 0x sketch, as a file or inline.
+Accepts the sketch log lines (one file per member, all parts) or a bare 0x sketch, as a
+file or inline. If a reference slot appears more than once in a log, keep only the parts
+from the run you mean.
 """
 
 import argparse
@@ -32,6 +34,12 @@ from src.utils.fingerprint import iblt_diff  # noqa: E402
 
 
 def read_sketch(source: str) -> str:
+    """Reassemble a sketch from its log lines.
+
+    A sketch is emitted in numbered parts, because Docker splits any log message over 16 KB
+    and not every collector puts it back together. Missing parts are an error here rather
+    than a sketch that quietly decodes to nothing.
+    """
     if os.path.exists(source):
         with open(source) as handle:
             raw = handle.read().strip()
@@ -41,10 +49,31 @@ def read_sketch(source: str) -> str:
     if raw.startswith('0x'):
         return raw
 
-    line = json.loads(raw)
-    if 'iblt' not in line:
-        raise SystemExit(f"No 'iblt' field in {source} — is this a '<subject> sketch.' log line?")
-    return line['iblt']
+    parts: dict[int, str] = {}
+    expected = None
+    for number, text in enumerate(raw.splitlines(), start=1):
+        if not text.strip():
+            continue
+        try:
+            line = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise SystemExit(f'{source} line {number}: not JSON ({error}). Truncated by the log pipeline?') from error
+        if 'iblt' not in line:
+            raise SystemExit(f"{source} line {number}: no 'iblt' field — is this a '<subject> sketch.' log line?")
+        parts[line.get('part', 1)] = line['iblt']
+        expected = line.get('parts', 1)
+
+    if not parts:
+        raise SystemExit(f'{source}: no sketch lines found')
+
+    missing = [n for n in range(1, (expected or 1) + 1) if n not in parts]
+    if missing:
+        raise SystemExit(
+            f'{source}: missing part(s) {missing} of {expected}. '
+            f'Grep all of them: grep \'"msg": "<subject> sketch."\' <log>'
+        )
+
+    return '0x' + ''.join(parts[n] for n in sorted(parts))
 
 
 def main() -> int:

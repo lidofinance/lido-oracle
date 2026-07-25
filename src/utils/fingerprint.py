@@ -31,6 +31,12 @@ _IBLT_COUNT_BYTES: Final = 4
 _IBLT_CHECKSUM_BYTES: Final = 8
 _IBLT_HEADER_BYTES: Final = 5
 
+# Docker's json-file driver and containerd's CRI logger both split a log message at 16 KB,
+# leaving reassembly to whatever collector an operator happens to run. A sketch that arrives
+# truncated decodes to nothing, and silently. So chunk it here instead, where the part
+# numbering makes a missing piece an error rather than a mystery.
+_SKETCH_CHUNK_CHARS: Final = 10_000
+
 
 @dataclass(frozen=True)
 class SetFingerprint:
@@ -238,19 +244,23 @@ def log_fingerprint(
         return
 
     try:
-        blob = iblt_sketch(entries, cells)
+        body = iblt_sketch(entries, cells).removeprefix('0x')
     except Exception as error:  # pylint: disable=broad-except
         logger.warning({'msg': f'{subject} sketch failed.', 'error': repr(error)})
         return
 
-    logger.info(
-        {
+    chunks = [body[at : at + _SKETCH_CHUNK_CHARS] for at in range(0, len(body), _SKETCH_CHUNK_CHARS)] or ['']
+    for part, chunk in enumerate(chunks, start=1):
+        line: dict[str, Any] = {
             'msg': f'{subject} sketch.',
             'cells': cells,
-            'bucket_counts': fp.bucket_counts,
-            'iblt': blob,
+            'part': part,
+            'parts': len(chunks),
+            'iblt': chunk,
         }
-    )
+        if part == 1:
+            line['bucket_counts'] = fp.bucket_counts
+        logger.info(line)
 
 
 def log_fingerprint_hex(
