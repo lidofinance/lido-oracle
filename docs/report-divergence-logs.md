@@ -30,8 +30,8 @@ Each fingerprinted set is one log line, `<subject> fingerprint.`, of a few hundr
 # 48-byte pubkeys
 python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 
-# 96-byte deposit records — Pending deposits: pubkey|wc|amount|slot
-python3 -c "print('0x%0192x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
+# 192-byte deposit records — Pending deposits: pubkey|wc|amount|slot|signature
+python3 -c "print('0x%0384x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
 This is the shape every pending-balance split has taken so far. Check the result with
@@ -64,7 +64,7 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 | `msg`                                                  | Pins                                                                |
 |--------------------------------------------------------|---------------------------------------------------------------------|
 | `Beacon state summary.`                                  | `state_root`, validator count, balance sum, pending deposit count and total. |
-| `Pending deposits fingerprint.`                          | `digest`/`xor` over the deposit queue as a **set**, plus `queue_digest` over it **in order**. Equal set and differing order is itself a divergence: the filter keeps the *first* deposit seen per pubkey, so order decides frontrun. Differs ⇒ the consensus layer, not the oracle. |
+| `Pending deposits fingerprint.`                          | `digest`/`xor` over the deposit queue as a **set**, plus `queue_digest` over the same records **in order**. The two cover identical fields, so an equal `digest` with a differing `queue_digest` means a reordering and nothing else — itself a divergence, since the filter keeps the *first* deposit seen per pubkey and order therefore decides frontrun. Differs ⇒ the consensus layer, not the oracle. |
 | `CL validators fingerprint.`                             | The validator registry.                                              |
 | `Keys API response snapshot.`                            | Per request: the `elBlockSnapshot` the answer came from, including `lastChangedBlockHash`. Same value on both sides ⇒ both Keys APIs consumed the same on-chain key updates. |
 | `Used Lido keys fingerprint.`                            | The used-key set, plus per-module counts. **This is where the 2026-07-25 split lived.** |
@@ -102,9 +102,10 @@ Pending deposits fingerprint.  count, digest, xor, queue_digest
 - `state_root` equal, `digest` and `queue_digest` equal → **the deposit queue is provably
   identical.** The state is fetched by state root, which commits to the whole `BeaconState`.
   Go to step 2.
-- `digest` equal, `queue_digest` differs → same deposits, different order. Still a real
-  divergence: the filter keeps the first deposit seen per pubkey, so order decides which
-  withdrawal credentials are checked for frontrun.
+- `digest` equal, `queue_digest` differs → same deposits, different order, nothing else:
+  the two digests cover identical fields. Still a real divergence, since the filter keeps
+  the first deposit seen per pubkey and order therefore decides which withdrawal
+  credentials are checked for frontrun.
 - `state_root` equal, `digest` differs → a consensus client returned bytes inconsistent
   with the root it was handed. That is a client bug; escalate with both digests. If `count`
   differs by exactly one, `xor` names the deposit.

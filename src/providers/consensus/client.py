@@ -284,19 +284,18 @@ class ConsensusClient(HTTPProvider):
         """Fingerprint the parts of the beacon state a report is built from. Never raises."""
         try:
             # Whole records, not bare pubkeys: a key can have several queued deposits, and
-            # set recovery needs entries with no repeats. The signature is left out to keep
-            # entries at 96 bytes; `queue_digest` below still covers it.
+            # `xor` only names the odd one out over entries with no repeats. Carrying the
+            # signature too means a recovered entry is the exact tuple to re-verify against
+            # another BLS backend.
             encoded_deposits = [
                 hex_str_to_bytes(d.pubkey)
                 + hex_str_to_bytes(d.withdrawal_credentials)
                 + d.amount.to_bytes(8, 'big')
                 + d.slot.to_bytes(8, 'big')
+                + hex_str_to_bytes(d.signature)
                 for d in state.pending_deposits
             ]
-            queue_digest = digest_of(
-                encoded + hex_str_to_bytes(d.signature)
-                for encoded, d in zip(encoded_deposits, state.pending_deposits, strict=True)
-            )
+            queue_digest = digest_of(encoded_deposits)
             logger.info(
                 {
                     'msg': 'Beacon state summary.',
@@ -318,9 +317,10 @@ class ConsensusClient(HTTPProvider):
         # already proves both members read the same queue and registry. The digest is here
         # to catch a client returning bytes inconsistent with the root it was handed, which
         # is that client's bug — the Lido-filtered set downstream carries the bucket digests.
-        # `digest` is over the sorted set and `queue_digest` is not, so the pair separates
-        # "different deposits" from "same deposits, different order" — and the order is
-        # itself a divergence, since the filter keeps the *first* deposit seen per pubkey.
+        # `digest` and `queue_digest` cover the same records and differ *only* in whether
+        # they are sorted, so an equal `digest` with a differing `queue_digest` means the
+        # deposits were reordered and nothing else. That is itself a divergence: the filter
+        # keeps the first deposit seen per pubkey, so order decides frontrun.
         log_fingerprint(logger, 'Pending deposits', encoded_deposits, queue_digest=queue_digest)
         log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators))
 
