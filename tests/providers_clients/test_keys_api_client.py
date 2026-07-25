@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import cast
 from unittest import mock
@@ -468,3 +469,29 @@ class TestUnitKeysAPIClient:
 
         with pytest.raises(KAPIInconsistentData, match="duplicated"):
             keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_lido_keys__response__logs_snapshot_and_size(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        caplog,
+    ):
+        caplog.set_level(logging.INFO)
+        snapshot = {
+            'blockNumber': 0,
+            'blockHash': '0xabc',
+            'timestamp': 1,
+            'lastChangedBlockHash': '0xdef',
+        }
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={'data': [], 'meta': {'elBlockSnapshot': snapshot}},
+        )
+
+        keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API response.')
+        assert line['el_block_snapshot'] == snapshot
+        assert line['response_bytes'] == len(responses.calls[0].response.content)
+        assert line['requested_block_number'] == empty_blockstamp.block_number
