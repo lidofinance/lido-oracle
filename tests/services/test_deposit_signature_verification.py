@@ -5,7 +5,6 @@ from src.constants import DOMAIN_DEPOSIT_TYPE, ETH1_ADDRESS_WITHDRAWAL_PREFIX, G
 from src.services.deposit_signature_verification import (
     _POP_DST,
     DepositMessage,
-    bls_selfcheck,
     compute_domain,
     compute_fork_data_root,
     compute_signing_root,
@@ -213,36 +212,3 @@ class TestIsValidDepositSignature:
             b'\x00\x00\x00\x00',
         )
         assert result is False
-
-
-# ---- bls_selfcheck ----
-@pytest.mark.unit
-class TestBlsSelfcheck:
-    def test_bls_selfcheck__working_backend__reports_ok(self):
-        # Act
-        result = bls_selfcheck()
-        # Assert
-        assert result['valid_accepted'] is True
-        assert result['tampered_rejected'] is True
-        assert result['ok'] is True
-
-    def test_bls_selfcheck__signing_root__is_the_mainnet_deposit_domain_root(self):
-        """Pinned so that an SSZ or domain-computation change shows up here rather than as
-        a silently different pending balance."""
-        # Act
-        result = bls_selfcheck()
-        # Assert
-        assert result['domain'] == '0x03000000f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a9'
-        assert result['signing_root'] == '0xd2e9a610ee3ad44544ebee88d91ae82ce4d307f8eb5b7ab1d8c88bd92509f59a'
-
-    def test_bls_selfcheck__verification_broken__reports_not_ok(self, monkeypatch):
-        # Arrange
-        monkeypatch.setattr(
-            'src.services.deposit_signature_verification.is_valid_deposit_signature',
-            lambda **_: False,
-        )
-        # Act
-        result = bls_selfcheck()
-        # Assert
-        assert result['valid_accepted'] is False
-        assert result['ok'] is False

@@ -63,7 +63,6 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 
 | `msg`                                                  | Pins                                                                |
 |--------------------------------------------------------|---------------------------------------------------------------------|
-| `BLS deposit signature self-check.`                      | Startup. Backend path, deposit domain, signing root, and the verdicts on a known-good and a tampered vector. Different `signing_root` ⇒ SSZ/domain difference; same root and different verdict ⇒ curve library difference. |
 | `Beacon state summary.`                                  | `state_root`, validator count, balance sum, pending deposit count and total, and the order-sensitive `pending_deposits_queue_digest`. |
 | `Pending deposits fingerprint.`                          | The CL deposit queue as a set. Differs ⇒ the consensus layer, not the oracle. |
 | `CL validators fingerprint.`                             | The validator registry.                                              |
@@ -140,7 +139,6 @@ Get pending deposits and not-yet-indexed lido keys.  lido_wc_list, genesis_fork_
 Collect valid pending deposits.                      signatures_verified,
                                                      invalid_signature_deposits,
                                                      invalid_keys
-BLS deposit signature self-check.                    signing_root, valid_accepted
 ```
 
 - `lido_wc_list` or `genesis_fork_version` differ → a configuration or contract difference,
@@ -148,8 +146,6 @@ BLS deposit signature self-check.                    signing_root, valid_accepte
 - `invalid_signature_deposits` differ → the BLS backends disagree. The per-deposit
   `Ignoring key. Invalid deposit signature` warnings give the exact tuples to re-verify
   against the other library.
-- `signing_root` differs in the startup self-check → the difference is SSZ or domain
-  computation, *not* the curve library. Same root, different `valid_accepted` → the reverse.
 
 ### 4. The answer
 
