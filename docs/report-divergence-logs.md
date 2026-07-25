@@ -63,8 +63,8 @@ Work down the pipeline; the first line whose values differ names the layer at fa
 
 | `msg`                                                  | Pins                                                                |
 |--------------------------------------------------------|---------------------------------------------------------------------|
-| `Beacon state summary.`                                  | `state_root`, validator count, balance sum, pending deposit count and total, and the order-sensitive `pending_deposits_queue_digest`. |
-| `Pending deposits fingerprint.`                          | The CL deposit queue as a set. Differs ⇒ the consensus layer, not the oracle. |
+| `Beacon state summary.`                                  | `state_root`, validator count, balance sum, pending deposit count and total. |
+| `Pending deposits fingerprint.`                          | `digest`/`xor` over the deposit queue as a **set**, plus `queue_digest` over it **in order**. Equal set and differing order is itself a divergence: the filter keeps the *first* deposit seen per pubkey, so order decides frontrun. Differs ⇒ the consensus layer, not the oracle. |
 | `CL validators fingerprint.`                             | The validator registry.                                              |
 | `Keys API response snapshot.`                            | Per request: the `elBlockSnapshot` the answer came from, including `lastChangedBlockHash`. Same value on both sides ⇒ both Keys APIs consumed the same on-chain key updates. |
 | `Used Lido keys fingerprint.`                            | The used-key set, plus per-module counts. **This is where the 2026-07-25 split lived.** |
@@ -93,14 +93,18 @@ Half A → steps 1–4. Half B → step 5.
 ### 1. Rule the consensus layer in or out
 
 ```
-Beacon state summary.          state_root, pending_deposits, pending_deposits_queue_digest
-Pending deposits fingerprint.  count, digest, xor
+Beacon state summary.          state_root, pending_deposits, pending_deposits_amount_gwei
+Pending deposits fingerprint.  count, digest, xor, queue_digest
 ```
 
 - `state_root` differs → the members read *different states*. Not a data bug; check the
   reference slot and for a reorg.
-- `state_root` equal, `digest` equal → **the deposit queue is provably identical.** The
-  state is fetched by state root, which commits to the whole `BeaconState`. Go to step 2.
+- `state_root` equal, `digest` and `queue_digest` equal → **the deposit queue is provably
+  identical.** The state is fetched by state root, which commits to the whole `BeaconState`.
+  Go to step 2.
+- `digest` equal, `queue_digest` differs → same deposits, different order. Still a real
+  divergence: the filter keeps the first deposit seen per pubkey, so order decides which
+  withdrawal credentials are checked for frontrun.
 - `state_root` equal, `digest` differs → a consensus client returned bytes inconsistent
   with the root it was handed. That is a client bug; escalate with both digests. If `count`
   differs by exactly one, `xor` names the deposit.

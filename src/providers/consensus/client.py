@@ -306,9 +306,6 @@ class ConsensusClient(HTTPProvider):
                     'balances_sum_gwei': sum(state.balances),
                     'pending_deposits': len(state.pending_deposits),
                     'pending_deposits_amount_gwei': sum(d.amount for d in state.pending_deposits),
-                    # Order-sensitive: the queue is processed in order, so the same set in a
-                    # different order is still a divergence.
-                    'pending_deposits_queue_digest': queue_digest,
                     'pending_partial_withdrawals': len(state.pending_partial_withdrawals),
                     'pending_consolidations': len(state.pending_consolidations),
                 }
@@ -321,7 +318,10 @@ class ConsensusClient(HTTPProvider):
         # already proves both members read the same queue and registry. The digest is here
         # to catch a client returning bytes inconsistent with the root it was handed, which
         # is that client's bug — the Lido-filtered set downstream carries the bucket digests.
-        log_fingerprint(logger, 'Pending deposits', encoded_deposits)
+        # `digest` is over the sorted set and `queue_digest` is not, so the pair separates
+        # "different deposits" from "same deposits, different order" — and the order is
+        # itself a divergence, since the filter keeps the *first* deposit seen per pubkey.
+        log_fingerprint(logger, 'Pending deposits', encoded_deposits, queue_digest=queue_digest)
         log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators))
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
