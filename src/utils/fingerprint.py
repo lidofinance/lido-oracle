@@ -8,23 +8,19 @@ sharing any of it:
 - if exactly one entry differs, `xor(a) ^ xor(b)` *is* that entry.
 
 Finding *which* entries differ when more than one does is deliberately not solved here: it
-needs per-slice detail that costs orders of magnitude more log volume than these three
-fields, and the live Keys API instances or an archive node can still answer it. How to read
-the fields: `docs/report-divergence-logs.md`.
+needs per-slice detail costing orders of magnitude more log volume than these three fields,
+for a case that has not yet occurred. How to read them: `docs/report-divergence-logs.md`.
 """
 
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any
 
 from eth_hash.auto import keccak
 from eth_typing import HexStr
 
 from src.utils.types import hex_str_to_bytes
-
-
-BUCKETS: Final = 256
 
 
 @dataclass(frozen=True)
@@ -69,26 +65,6 @@ def digest_of(chunks: Iterable[bytes]) -> HexStr:
     for chunk in chunks:
         hasher.update(chunk)
     return HexStr('0x' + hasher.digest().hex())
-
-
-def bucket_of(entry: bytes) -> int:
-    return entry[0] * BUCKETS // 256 if entry else 0
-
-
-def bucket_digests(items: Iterable[bytes]) -> tuple[dict[str, HexStr], dict[str, int]]:
-    """Per-slice digests, for narrowing a difference down to ~1/256 of a set.
-
-    Not logged — the oracle only records whole-set fingerprints. This exists for offline
-    comparison of two live Keys API instances, in `scripts/ao_report_debug/keys_digest.py`.
-    """
-    buckets: dict[int, list[bytes]] = {}
-    for entry in sorted(items):
-        buckets.setdefault(bucket_of(entry), []).append(entry)
-
-    return (
-        {str(index): digest_of(chunk) for index, chunk in sorted(buckets.items())},
-        {str(index): len(chunk) for index, chunk in sorted(buckets.items())},
-    )
 
 
 def log_fingerprint(logger: logging.Logger, subject: str, items: Iterable[bytes], **extra: Any) -> None:

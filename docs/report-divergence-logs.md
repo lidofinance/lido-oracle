@@ -47,10 +47,11 @@ cycle, for a case that has not yet occurred.
 
 To name them, go to the live data instead:
 
-- **Keys API** — the instances still disagree, since a difference that can move a report is
-  a persistent bookkeeping error rather than a passing view. Diff them with
-  `scripts/ao_report_debug/keys_digest.py`, or find a short instance on its own with
-  `--selfcheck`.
+- **Keys API** — a difference that can move a report is a persistent bookkeeping error
+  rather than a passing view, so the instance is still short today. Find it with
+  `scripts/ao_report_debug/keys_digest.py --selfcheck`, which needs one instance and
+  nothing else: for every operator, `count(key rows with used=true)` must equal that
+  operator's `usedSigningKeys`.
 - **Consensus layer** — re-derive from an archive node at the reference slot.
 
 `count`, `by_module` on the used-key set, and the per-operator conservation warnings below
@@ -125,9 +126,9 @@ Then recover the keys — this is the step the whole scheme exists for:
 python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
 ```
 
-For more than one, diff the two live instances with
-`scripts/ao_report_debug/keys_digest.py`, or run its `--selfcheck` to find a short instance
-with no second party at all.
+For more than one, run `scripts/ao_report_debug/keys_digest.py --selfcheck` against each
+instance — it names the operator whose used-key rows fall short of its own
+`usedSigningKeys`, with no second party involved.
 
 Either way you end with a pubkey. `GET /v1/keys/<pubkey>` against both instances: one has it
 `used: true`, the other does not, and the response names the module and operator.

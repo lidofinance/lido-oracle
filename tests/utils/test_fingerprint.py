@@ -4,9 +4,6 @@ import logging
 import pytest
 
 from src.utils.fingerprint import (
-    BUCKETS,
-    bucket_digests,
-    bucket_of,
     digest_of,
     fingerprint,
     fingerprint_hex,
@@ -76,25 +73,6 @@ class TestFingerprint:
 
     def test_digest_of__same_order__digest_matches(self):
         assert digest_of([b'a', b'b']) == digest_of([b'a', b'b'])
-
-
-@pytest.mark.unit
-class TestBucketDigests:
-    """Not logged — used by the offline tool to compare two live Keys API instances."""
-
-    def test_bucket_digests__one_missing_item__only_its_bucket_differs(self):
-        # Arrange
-        full = [_pubkey(i << 40) for i in range(BUCKETS)]  # one item per bucket
-        missing = full[7]
-        # Act
-        left, _ = bucket_digests(full)
-        right, _ = bucket_digests([item for item in full if item != missing])
-        # Assert
-        assert [i for i in left if left[i] != right.get(i)] == [str(bucket_of(missing))]
-
-    def test_bucket_digests__counts_sum_to_the_set_size(self):
-        _, counts = bucket_digests(_pubkey(i * 7919) for i in range(2000))
-        assert sum(counts.values()) == 2000
 
 
 @pytest.mark.unit
