@@ -173,8 +173,14 @@ Where `{tag}` is a version of the image. You can find the latest version in the 
 **OR** You can build it locally using the following command (make sure build it from latest [release](https://github.com/lidofinance/lido-oracle/releases)):
 
 ```bash
+git clone --recurse-submodules https://github.com/lidofinance/lido-oracle.git
 docker build -t lidofinance/oracle .
 ```
+
+The BLS bindings used to validate deposit signatures are compiled from `vendor/blst`
+during the build rather than installed from PyPI. Cloning with `--recurse-submodules` is
+the recommended path and keeps the build offline; without it the same sources are fetched
+over the network at the commit pinned in `scripts/build_blst.sh`.
 
 Full variables list could be found [here](https://github.com/lidofinance/lido-oracle#env-variables).
 

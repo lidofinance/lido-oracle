@@ -22,6 +22,10 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=false \
     POETRY_NO_INTERACTION=1 \
     POETRY_INSTALLER_PARALLEL=false \
+    # No credential store exists in a build container, but poetry still probes one before
+    # installing: that pulls in keyring -> SecretStorage -> cryptography's native module,
+    # which is a pointless dependency here and an observed crash source on arm64 hosts.
+    PYTHON_KEYRING_BACKEND="keyring.backends.null.Keyring" \
     VENV_PATH="/opt/venv" \
     # Building reproducible .so files by enforcing consistent CFLAGS across builds
     CFLAGS="-g0 -O2 -ffile-prefix-map=/src=."
@@ -32,6 +36,13 @@ FROM base AS builder
 
 ARG POETRY_VERSION
 RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
+
+# Only needed so build_blst.sh can fetch blst when the build context was produced by a
+# checkout without submodules. Stays in this stage; production copies just the venv.
+RUN apt-get update && apt-get install -y --no-install-recommends -qq \
+    git=1:2.47.3-0+deb13u1 \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
@@ -70,6 +81,18 @@ RUN python3 -m venv "$VENV_PATH" && \
 FROM base AS production
 
 COPY --from=builder $VENV_PATH $VENV_PATH
+
+# blst is not a PyPI dependency: it is compiled in the builder stage. Were it ever missing
+# from the venv, the image would start fine and only fail on the first deposit signature
+# check — mid-report, in production. Assert it here so such an image cannot be published,
+# whichever pipeline builds it.
+RUN python3 -c "import blst" || { \
+      echo "FATAL: blst is missing from the image."; \
+      echo "The build context had no vendor/blst — check out submodules before building:"; \
+      echo "  actions/checkout with 'submodules: recursive', or 'git submodule update --init --recursive'"; \
+      exit 1; \
+    }
+
 WORKDIR /app
 COPY . .
 
