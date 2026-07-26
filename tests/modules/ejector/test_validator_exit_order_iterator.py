@@ -310,6 +310,25 @@ def test_no_target_balance_deviation_predicate(iterator):
 
 
 @pytest.mark.unit
+def test_no_target_balance_deviation_predicate__zero_total_weight__returns_total_stake(iterator):
+    """_no_target_balance_deviation_predicate must not divide by zero when total_weight is 0,
+    and falls back to the NO's own total_stake (no target to compare against)."""
+    sm = make_staking_module(1)
+    no = make_node_operator(1, sm)
+    ms = StakingModuleStats(staking_module=sm, total_stake=Gwei(1000 * 10**9), total_weight=0)
+
+    nos = NodeOperatorStats(
+        node_operator=no,
+        module_stats=ms,
+        predictable_validators=1,
+        total_stake=Gwei(500 * 10**9),
+        weight=0,
+    )
+
+    assert iterator._no_target_balance_deviation_predicate(nos) == Gwei(500 * 10**9)
+
+
+@pytest.mark.unit
 def test_max_share_rate_coefficient_predicate(iterator):
     """_max_share_rate_coefficient_predicate orders modules by excess balance above their share threshold."""
     threshold = int(0.15 * 10000)  # 15%
@@ -505,6 +524,55 @@ class TestProcessGroup:
 
         with pytest.raises(NodeOperatorExpectedToBeInCMv1Error):
             iterator._process_group(group, cm_v1, cm_v2)
+
+    def test_process_group__zero_internal_weight__splits_external_balance_equally(self, iterator):
+        """When all internal NOs have weight 0, external_balance is split equally among them
+        instead of dividing by zero internal_weight."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+        nos_int1 = NodeOperatorStats(node_operator=no_int1, module_stats=ms_v2, weight=0)
+        nos_int2 = NodeOperatorStats(node_operator=no_int2, module_stats=ms_v2, weight=0)
+        no_ext1 = make_node_operator(20, sm_v1)
+        no_ext2 = make_node_operator(21, sm_v1)
+        nos_ext1 = NodeOperatorStats(
+            node_operator=no_ext1,
+            module_stats=ms_v1,
+            predictable_balance=Gwei(50 * 10**9),
+        )
+        nos_ext2 = NodeOperatorStats(
+            node_operator=no_ext2,
+            module_stats=ms_v1,
+            predictable_balance=Gwei(30 * 10**9),
+        )
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            (sm_v2.id, no_int1.id): nos_int1,
+            (sm_v2.id, no_int2.id): nos_int2,
+            (sm_v1.id, no_ext1.id): nos_ext1,
+            (sm_v1.id, no_ext2.id): nos_ext2,
+        }
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=50),
+                SubNodeOperator(node_operator_id=no_int2.id, share=50),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext1.id)),
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext2.id)),
+            ],
+        )
+
+        cm_v1 = (sm_v1.id, Mock())
+        cm_v2 = (sm_v2.id, Mock())
+        iterator._process_group(group, cm_v1, cm_v2)
+
+        # external_balance = 50 + 30 = 80, internal_weight = 0 -> split equally among 2 internals = 40 each
+        assert nos_int1.total_stake == Gwei(40 * 10**9)
+        assert nos_int2.total_stake == Gwei(40 * 10**9)
 
     def test_process_group__already_grouped_external__raises_error(self, iterator):
         sm_v2 = make_staking_module(2)
@@ -1049,6 +1117,65 @@ class TestDecreaseAffectedStake:
         # int1: 50 * 4/10 = 20, int2: 50 * 6/10 = 30
         assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
         assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
+
+    def test_external_exit__zero_total_weight__splits_exit_balance_equally(self, iterator):
+        """When all internal NOs in the group have weight 0, exit_balance is split equally among them
+        instead of dividing by zero total_weight."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
+        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
+
+        no_ext = make_node_operator(20, sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=50),
+                SubNodeOperator(node_operator_id=no_int2.id, share=50),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id)),
+            ],
+        )
+
+        nos_ext = NodeOperatorStats(
+            node_operator=no_ext,
+            module_stats=ms_v1,
+            total_stake=Gwei(100 * 10**9),
+            external_operator_group=group,
+        )
+        nos_int1 = NodeOperatorStats(
+            node_operator=no_int1,
+            module_stats=ms_v2,
+            total_stake=Gwei(80 * 10**9),
+            weight=0,
+        )
+        nos_int2 = NodeOperatorStats(
+            node_operator=no_int2,
+            module_stats=ms_v2,
+            total_stake=Gwei(120 * 10**9),
+            weight=0,
+        )
+
+        gid_ext = (sm_v1.id, no_ext.id)
+        gid_int1 = (sm_v2.id, no_int1.id)
+        gid_int2 = (sm_v2.id, no_int2.id)
+        iterator.cm_v2_id = sm_v2.id
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            gid_ext: nos_ext,
+            gid_int1: nos_int1,
+            gid_int2: nos_int2,
+        }
+
+        exit_balance = Gwei(50 * 10**9)
+        iterator._decrease_affected_stake(gid_ext, exit_balance)
+
+        # total_weight = 0 -> split equally among 2 internal NOs: 50 / 2 = 25 each
+        assert nos_int1.total_stake == Gwei(80 * 10**9 - 25 * 10**9)
+        assert nos_int2.total_stake == Gwei(120 * 10**9 - 25 * 10**9)
 
     def test_internal_exit__unfulfilled_group__no_cross_module_propagation(self, iterator):
         """When group is not fulfilled, only own module/NO are decreased."""
