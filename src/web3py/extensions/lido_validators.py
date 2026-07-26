@@ -356,6 +356,7 @@ class LidoValidatorsProvider(Module):
 
         validators = self.w3.cc.get_validators(blockstamp)
         self._kapi_sanity_check(len(lido_keys), blockstamp)
+        self._kapi_sanity_check_by_operator(lido_keys, blockstamp)
 
         lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
         logger.info(
@@ -383,6 +384,36 @@ class LidoValidatorsProvider(Module):
             raise CountOfKeysDiffersException(
                 f'Keys API Service returned lesser keys ({keys_count_received}) '
                 f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router'
+            )
+
+    def _kapi_sanity_check_by_operator(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
+        """
+        Validate that Keys API returned at least as many used keys per node operator as `total_deposited_validators`
+        at the given `blockstamp`.
+        """
+        keys_count_by_operator: dict[tuple[ChecksumAddress, NodeOperatorId], int] = {}
+        for key in lido_keys:
+            gid = (key.module_address, key.operator_index)
+            keys_count_by_operator[gid] = keys_count_by_operator.get(gid, 0) + 1
+
+        mismatched = 0
+        for operator in self.get_lido_node_operators(blockstamp):
+            keys_count_received = keys_count_by_operator.get(
+                (operator.staking_module.staking_module_address, operator.id), 0
+            )
+            if keys_count_received < operator.total_deposited_validators:
+                logger.error({
+                    'msg': 'Used keys from KAPI mismatched.',
+                    'staking_module_address': operator.staking_module.staking_module_address,
+                    'operator_id': operator.id,
+                    'keys_count_received': keys_count_received,
+                    'total_deposited_validators': operator.total_deposited_validators,
+                })
+                mismatched += 1
+
+        if mismatched:
+            raise CountOfKeysDiffersException(
+                f'Keys API Service returned lesser keys than deposited validators. Total mismatched: {mismatched}'
             )
 
     @staticmethod

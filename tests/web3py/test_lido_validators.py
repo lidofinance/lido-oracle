@@ -4,6 +4,7 @@ import pytest
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.oracles.accounting.types import BeaconStat
+from src.types import NodeOperatorId
 from src.web3py.extensions.lido_validators import (
     CountOfKeysDiffersException,
     LidoValidatorsProvider,
@@ -38,6 +39,7 @@ def test_get_lido_validators(web3):
     lido_keys.extend(LidoKeyFactory.batch(10))
 
     web3.lido_validators._kapi_sanity_check = Mock()
+    web3.lido_validators._kapi_sanity_check_by_operator = Mock()
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
@@ -60,6 +62,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
     validators = ValidatorFactory.batch(10)
     lido_keys = [LidoKeyFactory.build()]
 
+    web3.lido_validators._kapi_sanity_check_by_operator = Mock()
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
     web3.cc.get_pending_deposits = Mock(return_value=[])
@@ -259,6 +262,58 @@ def test_kapi_sanity_check_boundary_equal(web3):
         return_value=BeaconStat(deposited_validators=5, beacon_validators=0, beacon_balance=0)
     )
     web3.lido_validators._kapi_sanity_check(5, blockstamp)  # must not raise
+
+
+# ---- _kapi_sanity_check_by_operator ----
+
+
+@pytest.mark.unit
+def test_kapi_sanity_check_by_operator__keys_count_at_or_above_deposited__does_not_raise(web3):
+    staking_module = StakingModuleFactory.build()
+    operator = NodeOperatorFactory.build(staking_module=staking_module, total_deposited_validators=2)
+    web3.lido_validators.get_lido_node_operators = Mock(return_value=[operator])
+
+    # Equal to deposited count
+    lido_keys = LidoKeyFactory.batch(
+        2, operator_index=operator.id, module_address=staking_module.staking_module_address
+    )
+    web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)  # must not raise
+
+    # Higher than deposited count is also fine
+    lido_keys = LidoKeyFactory.batch(
+        3, operator_index=operator.id, module_address=staking_module.staking_module_address
+    )
+    web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)  # must not raise
+
+
+@pytest.mark.unit
+def test_kapi_sanity_check_by_operator__keys_count_below_deposited__raises(web3):
+    staking_module = StakingModuleFactory.build()
+    operator = NodeOperatorFactory.build(staking_module=staking_module, total_deposited_validators=2)
+    web3.lido_validators.get_lido_node_operators = Mock(return_value=[operator])
+
+    lido_keys = LidoKeyFactory.batch(
+        1, operator_index=operator.id, module_address=staking_module.staking_module_address
+    )
+
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)
+
+
+@pytest.mark.unit
+def test_kapi_sanity_check_by_operator__keys_belong_to_other_operator__not_counted_and_raises(web3):
+    staking_module = StakingModuleFactory.build()
+    operator = NodeOperatorFactory.build(staking_module=staking_module, total_deposited_validators=2)
+    web3.lido_validators.get_lido_node_operators = Mock(return_value=[operator])
+
+    # Keys for an unrelated operator/module must not be counted against this one.
+    other_module = StakingModuleFactory.build()
+    lido_keys = LidoKeyFactory.batch(
+        3, operator_index=NodeOperatorId(999), module_address=other_module.staking_module_address
+    )
+
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)
 
 
 # ---- NodeOperator.from_response ----
