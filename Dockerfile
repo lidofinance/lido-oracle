@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     libffi-dev=3.4.8-2 \
     g++=4:14.2.0-1 \
     curl=8.14.1-2+deb13u4 \
+    swig=4.3.0-1 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /var/cache/* \
@@ -34,9 +35,12 @@ RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
+COPY scripts/build_blst.sh scripts/build_blst.sh
+COPY vendor/blst vendor/blst
 
 RUN python3 -m venv "$VENV_PATH" && \
     VIRTUAL_ENV="$VENV_PATH" poetry install --only main --no-root --no-cache && \
+    sh scripts/build_blst.sh && \
     find "$VENV_PATH" -type d -name '.git' -exec rm -rf {} + && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/RECORD \; && \
     find "$VENV_PATH" -name '*.dist-info' -exec rm -rf {}/WHEEL \; && \
