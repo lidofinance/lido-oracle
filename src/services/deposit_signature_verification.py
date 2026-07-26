@@ -10,6 +10,15 @@ from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
 # RFC 9380 SSWU random-oracle hash-to-curve) used by Ethereum deposits.
 _POP_DST = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_"
 
+# Sizes of the *compressed* BLS12-381 encodings the consensus spec uses for deposits.
+# blst's deserializers also accept the uncompressed forms (96 and 192 bytes), so without
+# an explicit length check it would validate a deposit that py_ecc — and therefore every
+# oracle release before the switch to blst — rejects outright. Two implementations
+# disagreeing about whether a deposit counts is exactly what breaks report consensus, so
+# the accepted encoding is pinned rather than left to the library.
+_COMPRESSED_PUBKEY_LEN = 48
+_COMPRESSED_SIGNATURE_LEN = 96
+
 
 class DepositMessage(ssz.Serializable):
     fields = [
@@ -96,9 +105,14 @@ def is_valid_deposit_signature(
     """
     Return **True** if the deposit proof-of-possession (BLS signature) is valid.
 
+    Only the compressed encodings are accepted, see `_COMPRESSED_PUBKEY_LEN`.
+
     Source:
     https://github.com/ethereum/consensus-specs/blob/139ff2875783ccba26c34aa15acebbcfba5f6eae/specs/electra/beacon-chain.md#new-is_valid_deposit_signature
     """
+    if len(pubkey) != _COMPRESSED_PUBKEY_LEN or len(signature) != _COMPRESSED_SIGNATURE_LEN:
+        return False
+
     deposit_message = DepositMessage(
         pubkey=pubkey,
         withdrawal_credentials=withdrawal_credentials,
