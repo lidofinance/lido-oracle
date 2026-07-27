@@ -556,6 +556,13 @@ class LidoValidatorsProvider(Module):
         Contract using one of Lido's vetted-but-not-yet-protocol-deposited keys — the key becomes
         an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
         deposited_validators counter).
+
+        Coming up short is refused, and the refusal can be permanent by design. The CL drops a
+        deposit whose signature does not verify (Electra `apply_pending_deposit`) without leaving a
+        validator or a queue entry, while deposited_validators never decreases — so such a key is
+        missing from both sets for good and every later frame raises here too. That is deliberate:
+        the ether is gone, governance has to account for it, and the oracle does not get to quietly
+        write it off TVL on its own.
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
