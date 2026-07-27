@@ -5,15 +5,12 @@
 on-chain by nonce (``BalanceStats``). So whatever the oracle leaves out of the active and pending
 sets is what leaves TVL -- the oracle is the only thing that can carry such a loss.
 
-The oracle never writes such a loss off on its own -- it refuses to report and leaves the incident
-to governance. Two distinct causes, two distinct exceptions:
+The oracle never writes such a loss off on its own: it refuses to report and leaves the incident to
+governance. Two causes, two exceptions:
 
-* `FrontRunAttackError` -- a counterparty holds the withdrawal credentials for ether Lido paid for.
-  Raised whether the front-run deposit is still queued or its validator already exists. There is a
-  key to name and someone to escalate to.
-* `CountOfKeysDiffersException` -- the CL discarded the deposit outright, so the key appears in
-  neither the active nor the pending set. Nobody captured anything; there is only a count that no
-  longer adds up.
+* `FrontRunAttackError` -- someone else holds the withdrawal credentials. Raised whether the deposit
+  is still queued or its validator already exists.
+* `CountOfKeysDiffersException` -- the CL discarded the deposit, so the key is in neither set.
 
 Deposit signatures are produced with real BLS keys and checked by the production verifier
 (``src.services.deposit_signature_verification``). The scenarios turn on whether a signature
@@ -28,9 +25,7 @@ Keys API response, so nothing here is attributable to a KAPI defect:
   * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
 
-Every scenario here is reachable at will by a node operator except the discarded deposit, which
-needs a key with a bad signature to get past the guardians. All of them are permanent once the
-validator exists or the deposit is dropped, so none of these refusals clear on their own.
+None of these refusals clear on their own.
 """
 
 from unittest.mock import Mock
@@ -373,20 +368,12 @@ def test_calculate_report__operator_frontran_own_key__report_is_refused(lido_pro
 def test_report__cl_discarded_the_deposit__reporting_is_refused(lido_protocol, accounting):
     """A used key the CL knows nothing about blocks the report, and stays blocked.
 
-    Per Electra `apply_pending_deposit`, a deposit for an unknown pubkey creates a validator only if
-    `is_valid_deposit_signature` passes; `process_pending_deposits` pops the entry either way. An
-    invalid-signature deposit therefore leaves neither a validator nor a queue entry, while Lido's
-    `depositedValidators` was incremented on the EL and never decreases. So `active + pending` is
-    short by that key for good, and `_validate_total_validators_count` refuses every frame from then
-    on -- deliberately: the ether is gone and governance has to account for it, the oracle does not
-    get to quietly write 32 ETH off TVL on its own.
+    Electra `apply_pending_deposit` creates a validator only if the signature verifies, and
+    `process_pending_deposits` pops the entry either way -- so an invalid-signature deposit leaves no
+    validator and no queue entry, while `depositedValidators` never decreases.
 
-    Deposit signatures come from node operators and are not validated on-chain; the DSM guardians
-    check them off-chain, which makes this a process guarantee rather than a protocol one.
-
-    Note this is `CountOfKeysDiffersException`, not `FrontRunAttackError`: nobody captured the ether
-    here, so there is no counterparty to name and no key to escalate -- only a count that no longer
-    adds up.
+    `CountOfKeysDiffersException`, not `FrontRunAttackError`: nobody captured the ether, so there is
+    no key to escalate -- only a count that stopped adding up.
     """
     # Arrange: key 2 is used and deposited, but the CL has neither a validator nor a queued deposit.
     lido_protocol.set_pending_deposits(_deposit(_PENDING_KEY, _LIDO_WC))

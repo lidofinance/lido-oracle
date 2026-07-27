@@ -819,12 +819,7 @@ def test_validate_withdrawal_credentials__foreign_credentials__logs_expected_and
 
 @pytest.mark.unit
 def test_get_lido_validators_with_keys__raising_check_fails__pending_deposit_diagnostics_still_logged(web3, caplog):
-    """The log-only check has to survive a raising one, or it is useless when it matters.
-
-    `_kapi_sanity_check_pending_deposits` only warns; the checks after it raise. Its output is the
-    context you want in the log for exactly the incident that made one of them raise, so it runs
-    first. Ordered behind them it would never be reached in that case.
-    """
+    """The log-only check has to survive a raising one, or it is useless when it matters."""
     # Arrange: a pending deposit on Lido WC with no matching used key -> the warning fires; and
     # fewer used keys than deposited validators -> _kapi_sanity_check raises.
     lido_key = LidoKeyFactory.build(key=_PUBKEY)

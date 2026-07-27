@@ -192,11 +192,7 @@ class LidoValidatorsProvider(Module):
     w3: Web3
 
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        """Both public getters cross-check active against pending, so both call both private
-        halves. The caches on the private methods are what keeps that from doing the work twice --
-        in particular `_get_pending_lido_validators` BLS-verifies the whole Lido pending-deposit
-        queue, which is the most expensive thing in the report.
-        """
+        """Both public getters call both private halves, so the caches sit on the private ones."""
         result = self._get_active_lido_validators(blockstamp)
         pending_validators = self._get_pending_lido_validators(blockstamp)
         self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
@@ -388,9 +384,8 @@ class LidoValidatorsProvider(Module):
 
         validators = self.w3.cc.get_validators(blockstamp)
 
-        # Log-only check first, on purpose: the checks below raise, and this one's output is the
-        # context you want in the log for exactly the incident that made one of them raise. Behind
-        # them it would never be reached in that case.
+        # First because it only logs: the checks below raise, and its output is what you want in
+        # the log when they do.
         self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
 
         self._kapi_sanity_check(len(lido_keys), blockstamp)
@@ -550,12 +545,9 @@ class LidoValidatorsProvider(Module):
         an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
         deposited_validators counter).
 
-        Coming up short is refused, and the refusal can be permanent by design. The CL drops a
-        deposit whose signature does not verify (Electra `apply_pending_deposit`) without leaving a
-        validator or a queue entry, while deposited_validators never decreases — so such a key is
-        missing from both sets for good and every later frame raises here too. That is deliberate:
-        the ether is gone, governance has to account for it, and the oracle does not get to quietly
-        write it off TVL on its own.
+        Coming up short is refused, and the refusal can be permanent: the CL drops a deposit with an
+        invalid signature without leaving a validator or a queue entry, and deposited_validators
+        never decreases. Deliberate — governance accounts for lost ether, not the oracle.
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
