@@ -1,5 +1,5 @@
 import math
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -42,6 +42,26 @@ def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
         # Assert the delay calculation is correct
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
         assert result == expected_delay, f"Expected delay {expected_delay}, got {result}"
+
+
+@pytest.mark.unit
+def test_get_sweep_delay_in_epochs__odd_full_cycle__floors_half():
+    # 2560 withdrawals over 16 per payload and 32 slots gives a full sweep cycle of 5 epochs (odd).
+    # The final `// 2` must floor 5 down to 2, not round up to 3.
+    # Arrange
+    state = Mock(spec=BeaconStateView)
+    spec = Mock(spec=ChainConfig)
+    spec.slots_per_epoch = 32
+    predicted_withdrawals = 2560  # ceil(2560 / 16 / 32) == 5
+
+    # Act
+    with patch.object(
+        sweep_module, "predict_withdrawals_number_in_sweep_cycle", Mock(return_value=predicted_withdrawals)
+    ):
+        result = get_sweep_delay_in_epochs(state, spec)
+
+    # Assert
+    assert result == 2, "An odd full sweep cycle must floor when halved"
 
 
 @pytest.fixture()

@@ -1119,6 +1119,104 @@ class TestDecreaseAffectedStake:
         assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
         assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
 
+    def test_decrease_affected_stake__fractional_weights__consistent_total_and_deterministic_order(self, iterator):
+        """Fractional weight splits must not crash, must conserve the exit balance within float dust,
+        and must keep the sort order deterministic."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(
+            staking_module=sm_v2,
+            total_stake=Gwei(300 * 10**9),
+            predictable_balance=Gwei(300 * 10**9),
+            total_weight=3.0,
+        )
+        ms_v1 = StakingModuleStats(
+            staking_module=sm_v1,
+            total_stake=Gwei(300 * 10**9),
+            predictable_balance=Gwei(300 * 10**9),
+            total_weight=1.0,
+        )
+
+        no_ext = make_node_operator(20, sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+        no_int3 = make_node_operator(12, sm_v2)
+
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=3333),
+                SubNodeOperator(node_operator_id=no_int2.id, share=3333),
+                SubNodeOperator(node_operator_id=no_int3.id, share=3334),
+            ],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
+        )
+
+        nos_ext = NodeOperatorStats(
+            node_operator=no_ext,
+            module_stats=ms_v1,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+            external_operator_group=group,
+        )
+        nos_int1 = NodeOperatorStats(
+            node_operator=no_int1,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+        nos_int2 = NodeOperatorStats(
+            node_operator=no_int2,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+        nos_int3 = NodeOperatorStats(
+            node_operator=no_int3,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+
+        gid_ext = (sm_v1.id, no_ext.id)
+        gid_int1 = (sm_v2.id, no_int1.id)
+        gid_int2 = (sm_v2.id, no_int2.id)
+        gid_int3 = (sm_v2.id, no_int3.id)
+        iterator.cm_v2_id = sm_v2.id
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            gid_ext: nos_ext,
+            gid_int1: nos_int1,
+            gid_int2: nos_int2,
+            gid_int3: nos_int3,
+        }
+        iterator.exitable_validators = {gid_ext: [], gid_int1: [], gid_int2: [], gid_int3: []}
+        iterator.total_lido_predictable_balance = Gwei(600 * 10**9)
+
+        exit_balance = Gwei(100 * 10**9)  # 100 / 3 does not divide evenly among three internal NOs
+        before = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
+
+        iterator._decrease_affected_stake(gid_ext, exit_balance)
+
+        after = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
+        # The three fractional decrements together conserve the whole exit balance within float dust.
+        assert abs((before - after) - exit_balance) < 1
+        # The module-level decrement is integer, so it stays exact.
+        assert ms_v2.total_stake == Gwei(300 * 10**9) - exit_balance
+        # Sorting over the now-float stats must be stable across repeated calls.
+        order1 = [
+            (s.node_operator.staking_module.id, s.node_operator.id)
+            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
+        ]
+        order2 = [
+            (s.node_operator.staking_module.id, s.node_operator.id)
+            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
+        ]
+        assert order1 == order2
+
     def test_external_exit__zero_total_weight__decreases_internal_stake_by_share(self, iterator):
         """When all internal NO weights are 0, their stake decreases by operator share."""
         sm_v2 = make_staking_module(2)
@@ -1424,6 +1522,52 @@ class TestNextAndIterFull:
         with pytest.raises(StopIteration):
             iterator.__next__()
 
+    def test_next__high_priority_no_empty_list__skips_and_selects_populated_no(self, iterator):
+        """A high-priority NO with predictable balance/count but no exitable validator must be
+        skipped, and the next populated NO selected, without an IndexError."""
+        sm = make_staking_module(1)
+        no_empty = make_node_operator(1, sm, total_dep=3, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        no_populated = make_node_operator(2, sm)
+        gid_empty = (sm.id, no_empty.id)
+        gid_populated = (sm.id, no_populated.id)
+        weight = float(10 * 10000)
+        ms = StakingModuleStats(
+            staking_module=sm,
+            predictable_balance=Gwei(128 * 10**9),
+            total_stake=Gwei(128 * 10**9),
+            total_weight=weight * 2,
+        )
+        nos_empty = NodeOperatorStats(
+            node_operator=no_empty,
+            module_stats=ms,
+            predictable_validators=3,
+            force_exit_to=0,
+            predictable_balance=Gwei(96 * 10**9),
+            total_stake=Gwei(96 * 10**9),
+            weight=weight,
+        )
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        nos_populated = NodeOperatorStats(
+            node_operator=no_populated,
+            module_stats=ms,
+            predictable_validators=1,
+            predictable_balance=Gwei(32 * 10**9),
+            total_stake=Gwei(32 * 10**9),
+            weight=weight,
+        )
+
+        iterator.module_stats = {sm.id: ms}
+        iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
+        iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
+        iterator.total_lido_predictable_balance = Gwei(128 * 10**9)
+        iterator.max_current_exit_balance = Gwei(0)
+        iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+
+        gid, v = iterator.__next__()
+
+        assert gid == gid_populated, "The populated operator must be selected"
+        assert v is validator, "The populated operator's validator must be returned"
+
     def test_iter__initializes_all_state(self, iterator):
         """__iter__ sets up max_current_exit_balance=0 and returns self."""
         iterator._reset_iterator_data = Mock()
@@ -1674,3 +1818,38 @@ class TestGetRemainingForcedEdgeCases:
         result = iterator.get_remaining_forced_validators()
 
         assert result == [], "Empty list when no validators are available despite forced exit need"
+
+    def test_get_remaining_forced_validators__high_priority_no_empty_list__ejects_from_populated_no(self, iterator):
+        """A forced NO with an empty exitable list must be skipped without an IndexError, while the
+        next forced NO that still has a validator is ejected."""
+        sm = make_staking_module(1)
+        no_empty = make_node_operator(1, sm, total_dep=3, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        no_populated = make_node_operator(2, sm, total_dep=1, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        gid_empty = (sm.id, no_empty.id)
+        gid_populated = (sm.id, no_populated.id)
+        ms = StakingModuleStats(staking_module=sm)
+        nos_empty = NodeOperatorStats(
+            node_operator=no_empty,
+            module_stats=ms,
+            predictable_validators=3,
+            force_exit_to=0,
+        )
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        nos_populated = NodeOperatorStats(
+            node_operator=no_populated,
+            module_stats=ms,
+            predictable_validators=1,
+            force_exit_to=0,
+        )
+
+        iterator.module_stats = {sm.id: ms}
+        iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
+        iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
+        iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+        iterator.max_current_exit_balance = Gwei(0)
+
+        result = iterator.get_remaining_forced_validators()
+
+        assert len(result) == 1, "Only the populated operator yields a forced validator"
+        assert result[0][0] == gid_populated
+        assert result[0][1] is validator
