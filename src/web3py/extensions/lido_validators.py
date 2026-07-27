@@ -178,22 +178,9 @@ class CountOfKeysDiffersException(Exception):
 
 
 class FrontRunAttackError(Exception):
-    """A Lido key's own owner deposited it onto withdrawal credentials that are not Lido's.
+    """A Lido key was deposited onto withdrawal credentials that are not Lido's.
 
-    Only the holder of the validator's secret key can sign a deposit onto foreign credentials, so
-    this is the key owner, not an outsider. Someone other than the protocol can now withdraw ether
-    the protocol paid for. Refused rather than written out of TVL: silently dropping the balance
-    would disguise a captured deposit as an ordinary loss.
-
-    Detected at two points, because one alone is not enough:
-
-    * `_collect_valid_pending_deposits`, while the deposit is still in the CL queue. Its filter is
-      the set of Lido keys not yet on the CL, so the pubkey leaves it as soon as the validator is
-      created;
-    * `_validate_withdrawal_credentials`, once the validator exists. From then on
-      `compute_lido_validators` matches it to a Lido key by pubkey alone, and its balance would
-      otherwise be reported as Lido's — permanently, since withdrawal credentials of an existing
-      validator cannot be changed.
+    Governance has to schedule and handle such an incident manually, so we do not report.
     """
 
 
@@ -475,7 +462,11 @@ class LidoValidatorsProvider(Module):
     def _validate_withdrawal_credentials(self, lido_validators: list[LidoValidator], blockstamp: BlockStamp) -> None:
         """
         Refuse to report when a used Lido key sits on a validator whose withdrawal credentials are
-        not Lido's — the created-validator half of `FrontRunAttackError`, see its docstring.
+        not Lido's.
+
+        `_collect_valid_pending_deposits` catches the same attack while the deposit is still queued,
+        but its filter is the set of keys not yet on the CL, so it stops applying once the validator
+        is created. Credentials cannot be changed afterwards.
         """
         lido_wc_list = self.get_lido_wc_list(blockstamp)
         foreign = {
