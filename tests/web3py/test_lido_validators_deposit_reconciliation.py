@@ -1,23 +1,28 @@
-"""Reconciliation of Keys API used keys against Lido's on-chain ``depositedValidators`` counter.
+"""A deposit the protocol lost must drop out of TVL.
 
-``LidoValidatorsProvider._validate_total_validators_count`` requires
-
-    len(active_lido_validators) + len(pending_lido_validators) == lido.depositedValidators
-
-These tests build the protocol states that break that equality while the Keys API response is
-*complete and correct*, so any failure is attributable to the reconciliation rule itself rather
-than to a KAPI defect.
+Ether that Lido sent to the deposit contract but can no longer withdraw -- redirected by a node
+operator's front run, or discarded outright by the CL -- must not be reported as TVL. The oracle is
+what carries that write-off: ``clValidatorsBalance`` and ``clPendingBalance`` are the only CL-side
+TVL inputs the contract takes (``ReportSimulationPayload``), and ``depositedValidators`` is not one
+of them -- deposits are tracked on-chain by nonce (``BalanceStats``). So a lost key simply falling
+out of both the active and the pending set *is* the mechanism by which the loss reaches TVL.
 
 Deposit signatures are produced with real BLS keys and checked by the production verifier
-(``src.services.deposit_signature_verification``). Both failure modes below hinge on whether a
-signature actually verifies, so mocking the verifier away would make the tests vacuous.
+(``src.services.deposit_signature_verification``). Both loss scenarios turn on whether a signature
+actually verifies, so mocking the verifier away would make these tests vacuous.
 
 Shared fixture state (see ``lido_protocol``): one staking module, one node operator with
-``total_deposited_validators == 3``, and three used keys at indexes 0/1/2:
+``total_deposited_validators == 3``, and three used keys at indexes 0/1/2 -- a complete, correct
+Keys API response, so nothing here is attributable to a KAPI defect:
 
-  * key 0 -- already a validator on the CL       -> counted as *active*
-  * key 1 -- valid 32 ETH deposit to Lido WC     -> counted as *pending*
+  * key 0 -- already a validator on the CL       -> *active*
+  * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
+
+The tests that state the write-off requirement are marked ``xfail(strict=True)``: they fail today
+because ``LidoValidatorsProvider._validate_total_validators_count`` requires
+``active + pending == depositedValidators``, which equates "ether still owned on the CL" with
+"ether ever sent to the deposit contract" and so forbids the write-off outright.
 """
 
 from unittest.mock import Mock
@@ -25,10 +30,18 @@ from unittest.mock import Mock
 import blst
 import pytest
 from eth_typing import HexStr
+from web3.types import Wei
 
 from src.constants import DOMAIN_DEPOSIT_TYPE, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from src.modules.common.types import ZERO_HASH
 from src.modules.oracles.accounting.accounting import Accounting
-from src.modules.oracles.accounting.types import BeaconStat
+from src.modules.oracles.accounting.third_phase.types import FormatList
+from src.modules.oracles.accounting.types import (
+    BeaconStat,
+    FinalizationShareRate,
+    VaultsTreeCid,
+    VaultsTreeRoot,
+)
 from src.providers.consensus.types import PendingDeposit
 from src.services.deposit_signature_verification import (
     _POP_DST,
@@ -63,6 +76,9 @@ _OPERATOR_OWN_VAULT = '0x' + 'cd' * 20
 _GENESIS_FORK_VERSION = HexStr('0x10000038')
 _DEPOSIT_AMOUNT = Gwei(32 * 10**9)
 _DEPOSIT_SLOT = SlotNumber(1)
+
+# Pinned so the TVL assertions below can name exact Gwei figures.
+_VALIDATOR_BALANCE = Gwei(32_100_000_000)
 
 # 96-byte value that is well-formed for `blst.P2_Affine` but verifies against nothing.
 _GARBAGE_SIGNATURE = HexStr('0x' + 'c0' + '00' * 95)
@@ -169,7 +185,12 @@ def lido_protocol(web3):
         validators = [
             ValidatorFactory.build(
                 index=index,
-                validator=ValidatorStateFactory.build(pubkey=_pubkey(seed), withdrawal_credentials=wc),
+                balance=_VALIDATOR_BALANCE,
+                validator=ValidatorStateFactory.build(
+                    pubkey=_pubkey(seed),
+                    withdrawal_credentials=wc,
+                    effective_balance=_DEPOSIT_AMOUNT,
+                ),
             )
             for index, (seed, wc) in enumerate(seeds_with_wc)
         ]
@@ -192,9 +213,14 @@ def lido_protocol(web3):
     )
 
 
-# ---- baseline: the reconciliation must hold on a healthy state ----------------------------------
+@pytest.fixture
+def accounting(lido_protocol) -> Accounting:
+    return Accounting(lido_protocol.web3)
+
+
+# ---- baselines: states with nothing to write off ------------------------------------------------
 #
-# Without this test the failing ones below would prove nothing -- they could be failing because the
+# Without these, the xfailing tests below would prove nothing -- they could be failing because the
 # fixture is wired wrong rather than because of the state under test.
 
 
@@ -241,42 +267,18 @@ def test_get_active_lido_validators__garbage_signature_then_lido_deposit__reconc
     assert _pubkey(_SUBJECT_KEY) in pending
 
 
-# ---- failure mode 1: node operator front-runs its own key --------------------------------------
-
-
 @pytest.mark.unit
-def test_get_active_lido_validators__operator_frontran_own_key__blocks_reporting(lido_protocol):
-    """A key owner can stall the reconciliation on demand.
+def test_get_active_lido_validators__frontrun_validator_created_on_cl__balance_re_enters_tvl(lido_protocol, accounting):
+    """Once the CL creates the front-run validator, its balance is credited to Lido again.
 
-    The operator signs a deposit for its own pubkey with its own withdrawal credentials and lands
-    it ahead of Lido's. `_collect_valid_pending_deposits` deliberately drops that pubkey entirely
-    ("Ignoring key. Possible front run attack") so its balance is not credited to Lido -- which is
-    the conservative, intended behaviour. `depositedValidators` was already incremented on the EL,
-    so the key is now counted in neither `active` nor `pending` and the equality cannot hold.
-    """
-    # Arrange
-    lido_protocol.set_pending_deposits(
-        _deposit(_PENDING_KEY, _LIDO_WC),
-        _deposit(_SUBJECT_KEY, _OPERATOR_WC),  # front run, validly signed by the key owner
-        _deposit(_SUBJECT_KEY, _LIDO_WC),  # Lido's own deposit, right behind it
-    )
+    `compute_lido_validators` matches CL validators to Lido keys by pubkey only, and nothing on the
+    active path consults `get_lido_wc_list` -- it is checked for pending deposits and in
+    `abnormal_cl_rebase`, never for active validators. So a validator holding the operator's own
+    withdrawal credentials contributes its full balance to `clValidatorsBalance` even though only
+    the operator can withdraw it, which is the same "lost ether in TVL" this file is about.
 
-    # Act / Assert: the front-run key is excluded from pending, so 1 + 1 != 3
-    pending = lido_protocol.web3.lido_validators.get_pending_lido_validators(ref_bs)
-    assert _pubkey(_SUBJECT_KEY) not in pending
-    assert len(pending) == 1
-
-    with pytest.raises(CountOfKeysDiffersException, match=r'\(2\).*does not match deposited validators count \(3\)'):
-        lido_protocol.web3.lido_validators.get_active_lido_validators(ref_bs)
-
-
-@pytest.mark.unit
-def test_get_active_lido_validators__frontrun_validator_created_on_cl__reconciles_again(lido_protocol):
-    """The stall above lasts exactly as long as the deposit sits in the CL queue.
-
-    Once the CL creates the validator, `compute_lido_validators` matches it by pubkey regardless of
-    its withdrawal credentials, so it counts as active and the equality holds again. This bounds
-    the outage to the pending-deposit queue delay -- but the operator can repeat it per key.
+    Documented as the current behaviour rather than asserted as correct: the write-off above lasts
+    only as long as the deposit sits in the CL queue, and this is where it silently reverses.
     """
     # Arrange: the front-run validator now exists on the CL with the operator's own credentials.
     lido_protocol.set_cl_validators((_ACTIVE_KEY, _LIDO_WC), (_SUBJECT_KEY, _OPERATOR_WC))
@@ -290,87 +292,121 @@ def test_get_active_lido_validators__frontrun_validator_created_on_cl__reconcile
 
     # Assert
     assert len(active) == 2
-    assert len(active) + len(lido_protocol.web3.lido_validators.get_pending_lido_validators(ref_bs)) == 3
+    assert _OPERATOR_WC in {v.validator.withdrawal_credentials for v in active}
+    assert accounting._get_cl_validators_balance(ref_bs) == 2 * _VALIDATOR_BALANCE
 
 
-# ---- failure mode 2: the CL discarded the deposit ----------------------------------------------
+# ---- the two states where a used key is neither active nor pending -----------------------------
+#
+# In both cases 32 ETH is gone: the operator's front run redirected it, or the CL discarded the
+# deposit outright. The oracle's job is to drop that ether out of TVL, and the report is what
+# carries the loss -- `clValidatorsBalance` and `clPendingBalance` are the only CL-side TVL inputs
+# the contract has (`ReportSimulationPayload`), and `depositedValidators` is not one of them.
+#
+# These tests state that requirement. They fail today because
+# `_validate_total_validators_count` demands `active + pending == depositedValidators`, which is an
+# equality between "ether still owned on the CL" and "ether ever sent to the deposit contract" --
+# so it forbids the write-off. `strict=True` makes them fail loudly once the check is relaxed,
+# which is the signal to drop the marker.
+
+_WRITE_OFF_FORBIDDEN = pytest.mark.xfail(
+    raises=CountOfKeysDiffersException,
+    strict=True,
+    reason='_validate_total_validators_count requires active + pending == depositedValidators, '
+    'which forbids writing a lost deposit out of TVL. Remove this marker once the check no '
+    'longer blocks the report.',
+)
+
+
+def _assert_lost_deposit_excluded_from_tvl(accounting: Accounting) -> None:
+    """The surviving key's ether is reported; the lost key's 32 ETH appears in neither TVL term."""
+    cl_balance = accounting._get_cl_validators_balance(ref_bs)
+    cl_pending_balance = accounting._get_cl_pending_validators_balance(ref_bs)
+
+    assert cl_balance == _VALIDATOR_BALANCE, 'only the one active validator contributes'
+    assert cl_pending_balance == _DEPOSIT_AMOUNT, 'only the one healthy pending deposit contributes'
+    assert cl_balance + cl_pending_balance == _VALIDATOR_BALANCE + _DEPOSIT_AMOUNT
+    # The written-off key contributed nothing, i.e. 32 ETH left TVL.
+    assert cl_pending_balance != 2 * _DEPOSIT_AMOUNT
 
 
 @pytest.mark.unit
-def test_get_active_lido_validators__cl_discarded_the_deposit__blocks_reporting_permanently(lido_protocol):
-    """A used key can be absent from both the validator registry and the deposit queue, forever.
+@_WRITE_OFF_FORBIDDEN
+def test_report_balances__operator_frontran_own_key__lost_deposit_excluded_from_tvl(lido_protocol, accounting):
+    """A key owner redirects its own deposit, so that ether must leave TVL.
+
+    The operator signs a deposit for its own pubkey with its own withdrawal credentials and lands
+    it ahead of Lido's. Only the holder of the secret key can produce that proof of possession,
+    which is why `_collect_valid_pending_deposits` treats it as a front run and drops the pubkey --
+    the ether is no longer withdrawable by the protocol, so crediting it would overstate TVL.
+    """
+    # Arrange
+    lido_protocol.set_pending_deposits(
+        _deposit(_PENDING_KEY, _LIDO_WC),
+        _deposit(_SUBJECT_KEY, _OPERATOR_WC),  # front run, validly signed by the key owner
+        _deposit(_SUBJECT_KEY, _LIDO_WC),  # Lido's own deposit, right behind it
+    )
+
+    # Act / Assert
+    assert _pubkey(_SUBJECT_KEY) not in lido_protocol.web3.lido_validators.get_pending_lido_validators(ref_bs)
+    _assert_lost_deposit_excluded_from_tvl(accounting)
+
+
+@pytest.mark.unit
+@_WRITE_OFF_FORBIDDEN
+def test_report_balances__cl_discarded_the_deposit__lost_deposit_excluded_from_tvl(lido_protocol, accounting):
+    """The CL can drop a deposit permanently, and TVL has to follow.
 
     Per Electra `apply_pending_deposit`, a deposit for an unknown pubkey creates a validator only
-    if `is_valid_deposit_signature` passes; otherwise it is ignored. `process_pending_deposits`
-    pops the entry either way, so an invalid-signature deposit leaves no trace on the CL. Lido's
-    `depositedValidators` counter was incremented at deposit time on the EL and never decreases,
-    so `active + pending == depositedValidators` is violated for the lifetime of the protocol.
-
-    Deposit signatures are supplied by node operators and are not validated on-chain; the DSM
-    guardians check them off-chain, which makes this a process guarantee rather than a protocol one.
+    if `is_valid_deposit_signature` passes; `process_pending_deposits` pops the entry either way.
+    An invalid-signature deposit therefore leaves neither a validator nor a queue entry, while
+    Lido's `depositedValidators` was incremented on the EL and never decreases -- so this state is
+    permanent, and so is the write-off. Deposit signatures come from node operators and are not
+    validated on-chain; the DSM guardians check them off-chain, which makes this a process
+    guarantee rather than a protocol one.
     """
     # Arrange: key 2 is used and deposited, but the CL has neither a validator nor a queued deposit.
     lido_protocol.set_pending_deposits(_deposit(_PENDING_KEY, _LIDO_WC))
 
     # Act / Assert
-    with pytest.raises(CountOfKeysDiffersException, match=r'\(2\).*does not match deposited validators count \(3\)'):
-        lido_protocol.web3.lido_validators.get_active_lido_validators(ref_bs)
+    _assert_lost_deposit_excluded_from_tvl(accounting)
 
 
-# ---- the same states, driven through the accounting oracle --------------------------------------
+# ---- the write-off must also survive the report build ------------------------------------------
 
 
-@pytest.fixture
-def accounting(lido_protocol) -> Accounting:
-    return Accounting(lido_protocol.web3)
+@pytest.mark.unit
+@_WRITE_OFF_FORBIDDEN
+def test_calculate_report__operator_frontran_own_key__report_is_built(lido_protocol, accounting):
+    """A written-off deposit must not stop the frame from being reported at all.
 
-
-@pytest.fixture
-def _frontrun_state(lido_protocol):
+    `_calculate_report` reads the CL balance second, so a raise there costs the whole report --
+    and because `CountOfKeysDiffersException` is caught by `OracleModule.exception_handler`, the
+    daemon does not crash, it just abandons the cycle and retries the same reference slot. For the
+    permanent state above that is an indefinite reporting outage visible only in the logs.
+    """
+    # Arrange: everything `_calculate_report` needs after the two balance terms.
     lido_protocol.set_pending_deposits(
         _deposit(_PENDING_KEY, _LIDO_WC),
         _deposit(_SUBJECT_KEY, _OPERATOR_WC),
         _deposit(_SUBJECT_KEY, _LIDO_WC),
     )
-    return lido_protocol
-
-
-@pytest.mark.unit
-def test_calculate_report__frontrun_key__aborts_before_any_report_data(accounting, _frontrun_state):
-    """`_calculate_report` reads the CL balance second, so the whole report build dies there."""
-    # Arrange
     accounting.get_consensus_version = Mock(return_value=4)
+    accounting._get_newly_exited_validators_by_modules = Mock(return_value=([], []))
+    accounting._get_balances_by_modules = Mock(return_value=([], []))
+    accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(0))
+    accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(0))
+    accounting.get_shares_to_burn = Mock(return_value=0)
+    accounting._get_finalization_data = Mock(return_value=([], FinalizationShareRate(0)))
+    accounting._is_bunker = Mock(return_value=False)
+    accounting._handle_vaults_report = Mock(return_value=(VaultsTreeRoot(ZERO_HASH), VaultsTreeCid('')))
+    accounting.get_extra_data = Mock(
+        return_value=Mock(format=FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value, data_hash=ZERO_HASH, items_count=0)
+    )
 
-    # Act / Assert
-    with pytest.raises(CountOfKeysDiffersException):
-        accounting.build_report(ref_bs)
+    # Act
+    report_data = accounting._calculate_report(ref_bs)
 
-
-@pytest.mark.unit
-def test_daemon_cycle__frontrun_key__no_report_submitted_and_cycle_retries(accounting, _frontrun_state, caplog):
-    """Operational consequence: the daemon does not crash -- it silently stops reporting.
-
-    `OracleModule.exception_handler` catches `CountOfKeysDiffersException`, so the cycle is
-    abandoned and `_slot_threshold` is left untouched, i.e. the next cycle retries the same
-    reference slot. For a state that never resolves (see `cl_discarded_the_deposit`) that is an
-    indefinite reporting outage visible only in the logs.
-    """
-    # Arrange
-    accounting._receive_last_finalized_slot = Mock(return_value=ref_bs)
-    accounting.refresh_contracts_if_address_change = Mock()
-    accounting.get_blockstamp_for_report = Mock(return_value=ref_bs)
-    accounting._check_compatibility = Mock(return_value=True)
-    accounting.get_consensus_version = Mock(return_value=4)
-    accounting._process_report_hash = Mock()
-    accounting._process_report_data = Mock()
-    accounting.process_extra_data = Mock()
-
-    # Act: a full daemon cycle, with only the report-frame selection and submission stubbed out.
-    accounting._cycle()
-
-    # Assert
-    accounting._process_report_hash.assert_not_called()
-    accounting._process_report_data.assert_not_called()
-    accounting.process_extra_data.assert_not_called()
-    assert accounting._slot_threshold == 0, 'cycle must not advance, so the next cycle retries'
-    assert 'Keys API service returned incorrect number of keys' in caplog.text
+    # Assert: the lost 32 ETH is in neither TVL term of the report that goes on-chain.
+    assert report_data.cl_validators_balance_gwei == _VALIDATOR_BALANCE
+    assert report_data.cl_pending_balance_gwei == _DEPOSIT_AMOUNT
