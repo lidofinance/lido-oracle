@@ -1,15 +1,23 @@
-"""A deposit the protocol lost must drop out of TVL.
+"""Ether Lido paid for but cannot withdraw must never be reported as TVL.
 
-Ether that Lido sent to the deposit contract but can no longer withdraw -- redirected by a node
-operator's front run, or discarded outright by the CL -- must not be reported as TVL. The oracle is
-what carries that write-off: ``clValidatorsBalance`` and ``clPendingBalance`` are the only CL-side
-TVL inputs the contract takes (``ReportSimulationPayload``), and ``depositedValidators`` is not one
-of them -- deposits are tracked on-chain by nonce (``BalanceStats``). So a lost key simply falling
-out of both the active and the pending set *is* the mechanism by which the loss reaches TVL.
+``clValidatorsBalance`` and ``clPendingBalance`` are the only CL-side TVL inputs the contract takes
+(``ReportSimulationPayload``); ``depositedValidators`` is not one of them, since deposits are tracked
+on-chain by nonce (``BalanceStats``). So whatever the oracle leaves out of the active and pending
+sets is what leaves TVL -- the oracle is the only thing that can carry such a loss.
+
+Two different outcomes are required, depending on whether anyone holds the credentials:
+
+* **Write off** when the ether is simply gone and nobody can reach it -- the CL discarded the
+  deposit, or a front run is still sitting in the deposit queue. Dropping the key out of both sets
+  is the whole mechanism, and the report must still be produced.
+* **Refuse to report** when a counterparty holds the withdrawal credentials for ether Lido paid
+  for, i.e. a used key whose CL validator has non-Lido credentials. Writing that off silently would
+  disguise a captured deposit as an ordinary loss; it needs a human, not an adjustment.
 
 Deposit signatures are produced with real BLS keys and checked by the production verifier
-(``src.services.deposit_signature_verification``). Both loss scenarios turn on whether a signature
-actually verifies, so mocking the verifier away would make these tests vacuous.
+(``src.services.deposit_signature_verification``). The scenarios turn on whether a signature
+actually verifies -- only the key's owner can sign a deposit onto foreign credentials -- so mocking
+the verifier away would make these tests vacuous.
 
 Shared fixture state (see ``lido_protocol``): one staking module, one node operator with
 ``total_deposited_validators == 3``, and three used keys at indexes 0/1/2 -- a complete, correct
@@ -19,7 +27,7 @@ Keys API response, so nothing here is attributable to a KAPI defect:
   * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
 
-Four tests state the write-off requirement and **all four fail on this branch**, deliberately and
+Four tests state these requirements and **all four fail on this branch**, deliberately and
 without an ``xfail`` marker -- marking them expected-failures would turn the suite green and report
 no problem, which is the opposite of what they exist for. They fail for two independent reasons:
 
@@ -28,11 +36,12 @@ no problem, which is the opposite of what they exist for. They fail for two inde
    the CL" and "ether ever sent to the deposit contract", and so a prohibition on the write-off.
    Introduced by the branch under review; these pass unchanged once it stops blocking the report.
 
-2. ``test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl`` fails for
-   a different and pre-existing reason: which CL validators count as Lido's is decided by pubkey
-   alone, with no check that their withdrawal credentials are Lido's, so the write-off silently
-   reverses the moment the CL creates the front-run validator. One gap, but it shows up in both
-   reported balances. See that test's docstring for the measured figures.
+2. ``test_report__frontrun_validator_created_on_cl__reporting_is_refused`` fails for a different and
+   pre-existing reason: which CL validators count as Lido's is decided by pubkey alone, with no
+   check that their withdrawal credentials are Lido's. A used key sitting on a validator with
+   someone else's credentials must **refuse the report and name the key**, not be quietly written
+   out of TVL -- an operator holding the credentials for ether Lido paid for needs a human, not an
+   adjustment. See that test's docstring for the measured figures and for the permanence caveat.
 """
 
 from unittest.mock import Mock
@@ -276,34 +285,39 @@ def test_get_active_lido_validators__garbage_signature_then_lido_deposit__reconc
     assert _pubkey(_SUBJECT_KEY) in pending
 
 
-# ---- the write-off must not reverse once the CL creates the validator ---------------------------
+# ---- a used key on a validator with non-Lido credentials must be refused, not written off -------
 
 
 @pytest.mark.unit
-def test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl(lido_protocol, accounting):
-    """The front-run write-off currently lasts only while the deposit sits in the CL queue.
+def test_report__frontrun_validator_created_on_cl__reporting_is_refused(lido_protocol, accounting, caplog):
+    """A used Lido key whose CL validator holds non-Lido withdrawal credentials must stop the report.
 
-    `_collect_valid_pending_deposits` drops a front-run pubkey, but that governs only *new*
-    validators: its `filter_pubkeys` is the set of Lido keys not yet on the CL. Once the CL creates
-    the validator the pubkey leaves that set, and nothing downstream reinstates the exclusion --
-    `compute_lido_validators` decides which CL validators are Lido's **by pubkey alone**, and no
-    caller consults `get_lido_wc_list` on the active path (it is checked for pending deposits and in
-    `abnormal_cl_rebase`, never for active validators).
+    Refused rather than filtered out of TVL: silently writing the ether off would drop TVL with no
+    explanation and let a captured deposit pass as an ordinary loss. This state means a node
+    operator holds the credentials for ether Lido paid for, and it needs a human, not an adjustment.
 
-    That single gap contaminates both TVL terms, which are each computed correctly over the wrong
-    set. Note that summing them is *not* double counting: a `pending_topup` is ether that has left
-    the deposit contract but is not yet in `validator.balance`, and the two contributions to
-    `clPendingBalance` are disjoint by construction -- `new_validators_pending` comes from keys not
-    on the CL, `topups_pending` from keys that are.
+    Nothing detects it today. `_collect_valid_pending_deposits` drops a front-run pubkey, but that
+    governs only *new* validators -- its `filter_pubkeys` is the set of Lido keys not yet on the CL.
+    Once the CL creates the validator the pubkey leaves that set, and nothing downstream reinstates
+    the exclusion: `compute_lido_validators` decides which CL validators are Lido's **by pubkey
+    alone**, and no caller consults `get_lido_wc_list` on the active path (it is checked for pending
+    deposits and in `abnormal_cl_rebase`, never for active validators).
 
-      * the validator's own balance lands in `clValidatorsBalance`;
-      * Lido's still-queued deposit for that pubkey is reclassified from a new-validator deposit
-        into a `pending_topup` and lands in `clPendingBalance`.
+    So the ether is reported as Lido's through both TVL terms -- measured here, 64.2 ETH in
+    `clValidatorsBalance` and 64.0 ETH in `clPendingBalance`, i.e. 64.1 ETH attributed to a key only
+    the operator can withdraw from. Note that summing the two is *not* double counting: a
+    `pending_topup` is ether that has left the deposit contract but is not yet in `validator.balance`,
+    and the two contributions to `clPendingBalance` are disjoint by construction. One gap, two
+    contaminated terms.
 
-    Measured on this branch: `clValidatorsBalance` 64.2 ETH and `clPendingBalance` 64.0 ETH, i.e.
-    64.1 ETH attributed to a key only the operator can withdraw from. Excluding the validator from
-    the Lido set fixes both terms at once, which is why this test asserts on the reported balances
-    rather than prescribing where the check goes.
+    Caveat for whoever implements this: `0x01` withdrawal credentials are immutable, so unlike a
+    front run still sitting in the deposit queue, this state never resolves on its own. Without a
+    way for operators to acknowledge a known pubkey, the refusal is permanent and accounting stops
+    reporting for good.
+
+    The exception type is deliberately not pinned -- none exists yet, and inventing an import here
+    would only break collection. What is pinned is the contract that matters: no report data is
+    produced, and the offending pubkey is named so an operator can act on it.
     """
     # Arrange: the front-run validator now exists on the CL with the operator's own credentials,
     # and Lido's own deposit for the same pubkey is still queued -- now a top-up, not a new deposit.
@@ -313,9 +327,14 @@ def test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out
         _deposit(_SUBJECT_KEY, _LIDO_WC),
     )
 
-    # Assert: only the honest validator and the honest pending deposit may be reported.
-    assert accounting._get_cl_validators_balance(ref_bs) == _VALIDATOR_BALANCE
-    assert accounting._get_cl_pending_validators_balance(ref_bs) == _DEPOSIT_AMOUNT
+    # Act / Assert: the balance must not be handed to the report at all.
+    with pytest.raises(Exception) as raised:  # noqa: B017, PT011 -- see docstring
+        accounting._get_cl_validators_balance(ref_bs)
+
+    # And the operator has to be able to find out which key is at fault.
+    assert _pubkey(_SUBJECT_KEY) in str(raised.value) + caplog.text, (
+        'the offending pubkey must be reported in the error or the logs'
+    )
 
 
 # ---- the two states where a used key is neither active nor pending -----------------------------
