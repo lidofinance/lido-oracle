@@ -853,3 +853,34 @@ def test_collect_valid_pending_deposits__no_front_run__empty_set(_):
 
     assert frontruned == set()
     assert set(valid) == {'0xbbbb'}
+
+
+# ---- the log-only check must run before the raising ones ----
+
+
+@pytest.mark.unit
+def test_get_lido_validators_with_keys__raising_check_fails__pending_deposit_diagnostics_still_logged(web3, caplog):
+    """The log-only check has to survive a raising one, or it is useless when it matters.
+
+    `_kapi_sanity_check_pending_deposits` only warns; the checks after it raise. Its output is the
+    context you want in the log for exactly the incident that made one of them raise, so it runs
+    first. Ordered behind them it would never be reached in that case.
+    """
+    # Arrange: a pending deposit on Lido WC with no matching used key -> the warning fires; and
+    # fewer used keys than deposited validators -> _kapi_sanity_check raises.
+    lido_key = LidoKeyFactory.build(key=_PUBKEY)
+    web3.kac.get_used_lido_keys = Mock(return_value=[lido_key])
+    web3.cc.get_validators = Mock(return_value=[])
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+    web3.cc.get_pending_deposits = Mock(return_value=[_make_deposit(pubkey='0xorphaned', wc=_LIDO_WC)])
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(deposited_validators=99, beacon_validators=0, beacon_balance=0)
+    )
+
+    # Act
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._get_lido_validators_with_keys(blockstamp)
+
+    # Assert
+    assert 'not matched by any used key' in caplog.text
+    assert '0xorphaned' in caplog.text

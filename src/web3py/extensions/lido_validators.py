@@ -394,9 +394,14 @@ class LidoValidatorsProvider(Module):
         logger.info({'msg': 'Get used lido keys from Keys API.', 'value': len(lido_keys)})
 
         validators = self.w3.cc.get_validators(blockstamp)
+
+        # Log-only check first, on purpose: the checks below raise, and this one's output is the
+        # context you want in the log for exactly the incident that made one of them raise. Behind
+        # them it would never be reached in that case.
+        self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
+
         self._kapi_sanity_check(len(lido_keys), blockstamp)
         self._kapi_sanity_check_by_operator(lido_keys, blockstamp)
-        self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
 
         lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
         logger.info(
