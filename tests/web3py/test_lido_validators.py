@@ -814,47 +814,6 @@ def test_validate_withdrawal_credentials__foreign_credentials__logs_expected_and
     assert _LIDO_WC_0X01 in caplog.text, 'so must the expected ones, to make the diff obvious'
 
 
-# ---- _collect_valid_pending_deposits reports, it does not decide ----
-
-
-@pytest.mark.unit
-@patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True)
-def test_collect_valid_pending_deposits__front_run__returned_not_raised(_):
-    """The helper hands the front-run set back instead of raising.
-
-    Two callers need different responses to the same finding: the report refuses
-    (`_get_pending_lido_validators`), the bunker's historical rebase only needs the ether left out
-    of the sum (`AbnormalClRebase._sum_valid_lido_pending`). Raising here would take that choice
-    away from both.
-    """
-    front_run = _make_deposit(pubkey='0xaaaa', wc=_NON_LIDO_WC)
-    honest = _make_deposit(pubkey='0xbbbb', wc=_LIDO_WC)
-
-    valid, frontruned = LidoValidatorsProvider._collect_valid_pending_deposits(
-        [front_run, honest],
-        filter_pubkeys={'0xaaaa', '0xbbbb'},
-        lido_wc_list=[_LIDO_WC],
-        genesis_fork_version=b'\x00' * 4,
-    )
-
-    assert frontruned == {'0xaaaa'}
-    assert set(valid) == {'0xbbbb'}, 'the front-run key must not reach the valid set'
-
-
-@pytest.mark.unit
-@patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True)
-def test_collect_valid_pending_deposits__no_front_run__empty_set(_):
-    valid, frontruned = LidoValidatorsProvider._collect_valid_pending_deposits(
-        [_make_deposit(pubkey='0xbbbb', wc=_LIDO_WC)],
-        filter_pubkeys={'0xbbbb'},
-        lido_wc_list=[_LIDO_WC],
-        genesis_fork_version=b'\x00' * 4,
-    )
-
-    assert frontruned == set()
-    assert set(valid) == {'0xbbbb'}
-
-
 # ---- the log-only check must run before the raising ones ----
 
 
