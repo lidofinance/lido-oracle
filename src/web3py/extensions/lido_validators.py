@@ -545,9 +545,9 @@ class LidoValidatorsProvider(Module):
         an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
         deposited_validators counter).
 
-        Coming up short is refused, and the refusal can be permanent: the CL drops a deposit with an
-        invalid signature without leaving a validator or a queue entry, and deposited_validators
-        never decreases. Deliberate — governance accounts for lost ether, not the oracle.
+        If the counts do not add up, we do not submit the report. That can be permanent: the CL drops
+        a deposit with an invalid signature without leaving a validator or a queue entry, and
+        deposited_validators never decreases. Governance accounts for lost ether, not the oracle.
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
