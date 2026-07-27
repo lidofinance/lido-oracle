@@ -294,12 +294,18 @@ class LidoValidatorsProvider(Module):
             }
         )
 
-        valid = self._collect_valid_pending_deposits(
+        valid, frontruned_keys = self._collect_valid_pending_deposits(
             pending_deposits,
             set(pending_keys.keys()),
             lido_wc_list,
             hex_str_to_bytes(genesis_config.genesis_fork_version),
         )
+        if frontruned_keys:
+            raise FrontRunAttackError(
+                f'Possible front run attack on {len(frontruned_keys)} key(s). Blocking AO report. '
+                f'See the preceding log lines for every affected key.'
+            )
+
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
         logger.info({'msg': 'Get pending lido validators.', 'value': len(result)})
         return result
@@ -310,12 +316,21 @@ class LidoValidatorsProvider(Module):
         filter_pubkeys: set[str],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
-    ) -> dict[str, list[PendingDeposit]]:
+    ) -> tuple[dict[str, list[PendingDeposit]], set[str]]:
         """Core frontrun-detection loop.
 
-        Returns pending deposits grouped by pubkey, only for pubkeys in filter_pubkeys.
-        A key whose first valid-signature deposit uses non-Lido WC is treated as a
-        frontrun and excluded entirely along with any subsequent deposits for that key.
+        Returns pending deposits grouped by pubkey, only for pubkeys in filter_pubkeys, plus the
+        set of front-run pubkeys. A key whose first valid-signature deposit uses non-Lido WC is
+        treated as a frontrun and excluded from the first return value entirely, along with any
+        subsequent deposits for that key.
+
+        Detecting a front run and deciding what to do about it are separate concerns, and the two
+        callers want different things, so this reports and does not raise:
+
+        * `_get_pending_lido_validators` builds the report and refuses outright;
+        * `AbnormalClRebase._sum_valid_lido_pending` measures a rebase over a *past* frame and only
+          needs the ether left out of the sum. Raising here would fail the bunker check on a front
+          run that has since been resolved, which would block reporting over a closed incident.
         """
         result: dict[str, list[PendingDeposit]] = {}
         frontruned_keys: set[str] = set()
@@ -371,10 +386,7 @@ class LidoValidatorsProvider(Module):
             }
         )
 
-        if frontruned_keys:
-            raise FrontRunAttackError('Possible front run attack. Blocking AO report')
-
-        return result
+        return result, frontruned_keys
 
     @lru_cache(maxsize=1)
     def _get_lido_validators_with_keys(self, blockstamp: BlockStamp) -> tuple[list[LidoValidator], list[LidoKey]]:

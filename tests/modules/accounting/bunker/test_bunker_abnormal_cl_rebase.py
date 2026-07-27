@@ -660,6 +660,59 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
 
 
 @pytest.mark.unit
+def test_calculate_injected_capital__v4__front_run_does_not_raise_and_is_excluded(web3, monkeypatch):
+    """A front run over the *past* frame must not fail the bunker check.
+
+    `_calculate_injected_capital` measures a rebase over a window that has already happened, so the
+    only thing it needs from a front-run key is that its ether stays out of the sum. Raising here
+    would fail the bunker check on an incident that may well be resolved by the reference slot --
+    and the reference-slot paths (`_get_pending_lido_validators`,
+    `_validate_withdrawal_credentials`) raise on their own if it is not, so nothing is missed.
+    """
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
+
+    front_run_pubkey = '0xabc'
+    honest_pubkey = '0xdef'
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+    operator_wc = '0x010000000000000000000000ddccbbaaddccbbaaddccbbaaddccbbaaddccbbaa'
+    abnormal_case.lido_keys = [simple_key(front_run_pubkey), simple_key(honest_pubkey)]
+    abnormal_case.lido_validators = []
+
+    abnormal_case._get_last_report_reference_blockstamp = Mock(
+        return_value=ReferenceBlockStampFactory.build(block_number=5)
+    )
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    genesis_mock = Mock()
+    genesis_mock.genesis_fork_version = '0x00000000'
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=genesis_mock)
+
+    monkeypatch.setattr('src.web3py.extensions.lido_validators.is_valid_deposit_signature', lambda **_: True)
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    # The front-run deposit is validly signed onto the operator's own credentials and lands first.
+    front_run = Mock(pubkey=front_run_pubkey, withdrawal_credentials=operator_wc, signature='0xsig', amount=32 * 10**9)
+    lido_deposit = Mock(pubkey=front_run_pubkey, withdrawal_credentials=lido_wc, signature='0xsig', amount=32 * 10**9)
+    honest = Mock(pubkey=honest_pubkey, withdrawal_credentials=lido_wc, signature='0xsig', amount=100 * 10**9)
+
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[front_run, lido_deposit, honest], []])
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(return_value=BalanceStats(0, 0, 0, 0))
+
+    # Act: must not raise FrontRunAttackError
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    # Assert: only the honest key contributes; the front-run key's 64 ETH is excluded.
+    assert result == Gwei(100 * 10**9)
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(
     ("curr_validators", "last_report_validators", "expected_result"),
     [

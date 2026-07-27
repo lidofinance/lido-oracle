@@ -358,6 +358,10 @@ class AbnormalClRebase:
         New/pending validators: use shared frontrun-detection logic from
         _collect_valid_pending_deposits — only count keys whose first valid-signature
         deposit has Lido withdrawal credentials.
+
+        A front run found here is deliberately not raised on: this runs over a *past* blockstamp to
+        measure a rebase, so the only thing that matters is keeping the ether out of the sum. The
+        ref-slot paths raise on their own if the front run is still unresolved.
         """
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         total = Gwei(0)
@@ -366,7 +370,7 @@ class AbnormalClRebase:
             if d.pubkey in existing_pubkeys:
                 total = Gwei(total + d.amount)
 
-        valid = LidoValidatorsProvider._collect_valid_pending_deposits(
+        valid, _ = LidoValidatorsProvider._collect_valid_pending_deposits(
             pending_deposits,
             filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys,
             lido_wc_list=lido_wc_list,
