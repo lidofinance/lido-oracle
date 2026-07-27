@@ -7,6 +7,7 @@ from src.modules.oracles.accounting.types import BeaconStat
 from src.types import NodeOperatorId
 from src.web3py.extensions.lido_validators import (
     CountOfKeysDiffersException,
+    FrontRunAttackError,
     LidoValidatorsProvider,
     NodeOperator,
     NodeOperatorLimitMode,
@@ -41,7 +42,7 @@ def test_get_lido_validators(web3):
     web3.lido_validators._kapi_sanity_check = Mock()
     web3.lido_validators._kapi_sanity_check_by_operator = Mock()
     web3.lido_validators._kapi_sanity_check_pending_deposits = Mock()
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
 
     web3.cc.get_validators = Mock(return_value=validators)
@@ -67,7 +68,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
 
     web3.lido_validators._kapi_sanity_check_by_operator = Mock()
     web3.lido_validators._kapi_sanity_check_pending_deposits = Mock()
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
@@ -401,13 +402,37 @@ def test_validate_total_validators_count__fewer_than_deposited__raises(web3):
 
 
 @pytest.mark.unit
-def test_validate_total_validators_count__more_than_deposited__raises(web3):
+def test_validate_total_validators_count__more_than_deposited__does_not_raise(web3):
+    # CL can legitimately run ahead of the ref-slot-pinned deposited_validators counter — e.g. a
+    # third party deposits directly to the Beacon Deposit Contract using one of Lido's already
+    # vetted (but not yet protocol-deposited) keys. The key shows up as an active CL validator
+    # before Lido's own deposit() call increments deposited_validators. This must not raise.
     web3.lido_contracts.lido.get_beacon_stat = Mock(
         return_value=BeaconStat(deposited_validators=7, beacon_validators=0, beacon_balance=0)
     )
 
-    with pytest.raises(CountOfKeysDiffersException):
-        web3.lido_validators._validate_total_validators_count(4, 4, blockstamp)
+    web3.lido_validators._validate_total_validators_count(4, 4, blockstamp)  # must not raise
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__donated_key_ahead_of_deposit_counter__does_not_raise(web3):
+    """
+    End-to-end regression for the donation race: a third party deposits directly to the Beacon
+    Deposit Contract using one of Lido's vetted-but-not-yet-protocol-deposited keys. At the ref
+    slot, the key already has a CL validator record (active_count includes it), but Lido's own
+    deposit() call hasn't landed yet, so deposited_validators is one behind. Must not raise.
+    """
+    mock_validators = LidoValidatorFactory.batch(3)  # one more "active" than deposited_validators below
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(deposited_validators=2, beacon_validators=0, beacon_balance=0)
+    )
+
+    web3.lido_validators.get_active_lido_validators(blockstamp)  # must not raise
 
 
 @pytest.mark.unit
@@ -418,7 +443,7 @@ def test_get_active_lido_validators__pending_and_active_present__validates_total
     web3.cc.get_pending_deposits = Mock(return_value=[])
     web3.cc.get_pending_consolidations = Mock(return_value=[])
     web3.cc.get_validators_by_indexes = Mock(return_value={})
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={'0xaa': Mock(), '0xbb': Mock()})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={'0xaa': Mock(), '0xbb': Mock()})
     web3.lido_validators._validate_total_validators_count = Mock()
 
     web3.lido_validators.get_active_lido_validators(blockstamp)
@@ -507,8 +532,22 @@ def test_get_lido_validators_by_node_operator_empty_validators(web3):
 # ---- get_pending_lido_validators ----
 
 
+@pytest.mark.unit
+def test_get_pending_lido_validators__active_and_pending_present__validates_total_count(web3):
+    """get_pending_lido_validators must also validate active+pending counts against
+    deposited_validators — the sanity check must fire regardless of which public entrypoint
+    (get_active_lido_validators or get_pending_lido_validators) is called first."""
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={'0xaa': Mock(), '0xbb': Mock()})
+    web3.lido_validators._get_active_lido_validators = Mock(return_value=[Mock(), Mock(), Mock()])
+    web3.lido_validators._validate_total_validators_count = Mock()
+
+    web3.lido_validators.get_pending_lido_validators(blockstamp)
+
+    web3.lido_validators._validate_total_validators_count.assert_called_once_with(3, 2, blockstamp)
+
+
 def _setup_pending_validators(web3, pending_lido_keys, pending_deposits):
-    """Helper to configure mocks for get_pending_lido_validators."""
+    """Helper to configure mocks for _get_pending_lido_validators."""
     web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
     web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version=_GENESIS_FORK_VERSION))
     web3.cc.get_pending_deposits = Mock(return_value=pending_deposits)
@@ -526,7 +565,7 @@ def test_get_pending_lido_validators_non_lido_pubkey_skipped(web3):
     unknown_deposit = _make_deposit(pubkey='0xdeadbeef')
     _setup_pending_validators(web3, [lido_key], [unknown_deposit])
 
-    result = web3.lido_validators.get_pending_lido_validators(blockstamp)
+    result = web3.lido_validators._get_pending_lido_validators(blockstamp)
 
     assert result == {}
 
@@ -539,7 +578,7 @@ def test_get_pending_lido_validators_happy_path(web3):
     _setup_pending_validators(web3, [lido_key], [deposit])
 
     with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
-        result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
+        result = web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert _PUBKEY in result
     key, deposits = result[_PUBKEY]
@@ -549,15 +588,17 @@ def test_get_pending_lido_validators_happy_path(web3):
 
 @pytest.mark.unit
 def test_get_pending_lido_validators_frontrun_attack(web3, caplog):
-    # Valid BLS signature but non-Lido withdrawal credentials → front-run attack
+    # Valid BLS signature but non-Lido withdrawal credentials → front-run attack, must block reporting
     lido_key = LidoKeyFactory.build(key=_PUBKEY)
     deposit = _make_deposit(wc=_NON_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
-        result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
+    with (
+        patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True),
+        pytest.raises(FrontRunAttackError),
+    ):
+        web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
-    assert result == {}
     assert 'front run' in caplog.text.lower() or 'frontrun' in caplog.text.lower() or 'front-run' in caplog.text.lower()
 
 
@@ -570,7 +611,7 @@ def test_get_pending_lido_validators_second_deposit_appended(web3):
     _setup_pending_validators(web3, [lido_key], [deposit1, deposit2])
 
     with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
-        result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
+        result = web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
     assert _PUBKEY in result
     _, deposits = result[_PUBKEY]
@@ -579,16 +620,17 @@ def test_get_pending_lido_validators_second_deposit_appended(web3):
 
 @pytest.mark.unit
 def test_get_pending_lido_validators_second_deposit_for_invalid_key_skipped(web3):
-    # First deposit is a frontrun (bad WC), second deposit for same key is skipped
+    # First deposit is a frontrun (bad WC), second deposit for same key is skipped, still blocks reporting
     lido_key = LidoKeyFactory.build(key=_PUBKEY)
     deposit1 = _make_deposit(wc=_NON_LIDO_WC)
     deposit2 = _make_deposit(wc=_LIDO_WC)
     _setup_pending_validators(web3, [lido_key], [deposit1, deposit2])
 
-    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
-        result = web3.lido_validators.get_pending_lido_validators(ReferenceBlockStampFactory.build())
-
-    assert result == {}
+    with (
+        patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True),
+        pytest.raises(FrontRunAttackError),
+    ):
+        web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
 
 @pytest.mark.unit
@@ -598,7 +640,7 @@ def test_get_active_lido_validators__with_empty_data__returns_empty_list(web3):
     """
     blockstamp = ReferenceBlockStampFactory.build()
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([], []))
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
     web3.cc.get_pending_deposits = Mock(return_value=[])
     web3.cc.get_pending_consolidations = Mock(return_value=[])
@@ -622,7 +664,7 @@ def test_get_active_lido_validators__with_valid_data(web3):
     deposits_map = {mock_validators[0].validator.pubkey: [Mock(amount=1000)]}
 
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
     web3.cc.get_pending_deposits = Mock(return_value=[Mock(pubkey=mock_validators[0].validator.pubkey, amount=1000)])
     web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
@@ -648,7 +690,7 @@ def test_get_active_lido_validators__with_slashed_sources(web3):
     mock_validators = [validator1, validator2]
 
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
     web3.cc.get_pending_deposits = Mock(return_value=[])
     web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
@@ -679,7 +721,7 @@ def test_get_active_lido_validators__handles_multiple_consolidations(web3):
     ]
 
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
-    web3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
     web3.cc.get_pending_deposits = Mock(return_value=[])
     web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})

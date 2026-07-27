@@ -177,6 +177,10 @@ class CountOfKeysDiffersException(Exception):
     pass
 
 
+class FrontRunAttackError(Exception):
+    pass
+
+
 type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
@@ -186,6 +190,12 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        result = self._get_active_lido_validators(blockstamp)
+        pending_validators = self._get_pending_lido_validators(blockstamp)
+        self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
+        return result
+
+    def _get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
         for deposit in pending_deposits:
@@ -241,9 +251,6 @@ class LidoValidatorsProvider(Module):
         ]
         logger.info({'msg': 'Get active lido validators.', 'value': len(result)})
 
-        pending_validators = self.get_pending_lido_validators(blockstamp)
-        self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
-
         return result
 
     def get_lido_wc_list(self, blockstamp: BlockStamp) -> list[HexStr]:
@@ -256,7 +263,13 @@ class LidoValidatorsProvider(Module):
         ]
 
     @lru_cache(maxsize=1)
-    def get_pending_lido_validators(
+    def get_pending_lido_validators(self, blockstamp: BlockStamp) -> dict[HexStr, PendingValidator]:
+        pending_validators = self._get_pending_lido_validators(blockstamp)
+        active_validators = self._get_active_lido_validators(blockstamp)
+        self._validate_total_validators_count(len(active_validators), len(pending_validators), blockstamp)
+        return pending_validators
+
+    def _get_pending_lido_validators(
         self,
         blockstamp: BlockStamp,
     ) -> dict[HexStr, PendingValidator]:
@@ -302,7 +315,7 @@ class LidoValidatorsProvider(Module):
         frontrun and excluded entirely along with any subsequent deposits for that key.
         """
         result: dict[str, list[PendingDeposit]] = {}
-        invalid_keys: set[str] = set()
+        frontruned_keys: set[str] = set()
 
         for d in pending_deposits:
             if d.pubkey not in filter_pubkeys:
@@ -312,7 +325,7 @@ class LidoValidatorsProvider(Module):
                 result[d.pubkey].append(d)
                 continue
 
-            if d.pubkey in invalid_keys:
+            if d.pubkey in frontruned_keys:
                 continue
 
             if not is_valid_deposit_signature(
@@ -335,11 +348,14 @@ class LidoValidatorsProvider(Module):
             if d.withdrawal_credentials in lido_wc_list:
                 result[d.pubkey] = [d]
             else:
-                invalid_keys.add(d.pubkey)
-                logger.warning(
+                frontruned_keys.add(d.pubkey)
+                logger.error(
                     {
-                        'msg': 'Ignoring key. Possible front run attack',
-                        'value': d.pubkey,
+                        'msg': 'Pending deposit with non-lido wc. Possible front run attack or KAPI error.',
+                        'pubkey': d.pubkey,
+                        'amount': d.amount,
+                        'signature': d.signature,
+                        'withdrawal_credentials': d.withdrawal_credentials,
                     }
                 )
 
@@ -347,10 +363,14 @@ class LidoValidatorsProvider(Module):
             {
                 'msg': 'Collect valid pending deposits.',
                 'valid_keys': len(result),
-                'invalid_keys': len(invalid_keys),
+                'invalid_keys': len(frontruned_keys),
                 'deposits_considered': sum(len(deposits) for deposits in result.values()),
             }
         )
+
+        if frontruned_keys:
+            raise FrontRunAttackError('Possible front run attack. Blocking AO report')
+
         return result
 
     @lru_cache(maxsize=1)
@@ -462,12 +482,16 @@ class LidoValidatorsProvider(Module):
     def _validate_total_validators_count(self, active_count: int, pending_count: int, blockstamp: BlockStamp) -> None:
         """
         Every deposited validator must be accounted for as either active (already visible on CL)
-        or pending (deposited but not yet processed by CL) — no more, no less.
+        or pending (deposited but not yet processed by CL). active + pending may legitimately
+        exceed deposited_validators (e.g. a third party deposits directly to the Beacon Deposit
+        Contract using one of Lido's vetted-but-not-yet-protocol-deposited keys — the key becomes
+        an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
+        deposited_validators counter).
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
 
-        if total_count != stats.deposited_validators:
+        if total_count < stats.deposited_validators:
             raise CountOfKeysDiffersException(
                 f'Active ({active_count}) + pending ({pending_count}) validators count ({total_count}) '
                 f'does not match deposited validators count ({stats.deposited_validators}) from Staking Router'
