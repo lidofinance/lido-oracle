@@ -177,6 +177,10 @@ class CountOfKeysDiffersException(Exception):
     pass
 
 
+class FrontRunAttackError(Exception):
+    pass
+
+
 type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
@@ -186,6 +190,12 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        result = self._get_active_lido_validators(blockstamp)
+        pending_validators = self._get_pending_lido_validators(blockstamp)
+        self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
+        return result
+
+    def _get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
         for deposit in pending_deposits:
@@ -240,6 +250,7 @@ class LidoValidatorsProvider(Module):
             for lido_validator in lido_validators
         ]
         logger.info({'msg': 'Get active lido validators.', 'value': len(result)})
+
         return result
 
     def get_lido_wc_list(self, blockstamp: BlockStamp) -> list[HexStr]:
@@ -252,7 +263,13 @@ class LidoValidatorsProvider(Module):
         ]
 
     @lru_cache(maxsize=1)
-    def get_pending_lido_validators(
+    def get_pending_lido_validators(self, blockstamp: BlockStamp) -> dict[HexStr, PendingValidator]:
+        pending_validators = self._get_pending_lido_validators(blockstamp)
+        active_validators = self._get_active_lido_validators(blockstamp)
+        self._validate_total_validators_count(len(active_validators), len(pending_validators), blockstamp)
+        return pending_validators
+
+    def _get_pending_lido_validators(
         self,
         blockstamp: BlockStamp,
     ) -> dict[HexStr, PendingValidator]:
@@ -298,7 +315,7 @@ class LidoValidatorsProvider(Module):
         frontrun and excluded entirely along with any subsequent deposits for that key.
         """
         result: dict[str, list[PendingDeposit]] = {}
-        invalid_keys: set[str] = set()
+        frontruned_keys: set[str] = set()
 
         for d in pending_deposits:
             if d.pubkey not in filter_pubkeys:
@@ -308,7 +325,7 @@ class LidoValidatorsProvider(Module):
                 result[d.pubkey].append(d)
                 continue
 
-            if d.pubkey in invalid_keys:
+            if d.pubkey in frontruned_keys:
                 continue
 
             if not is_valid_deposit_signature(
@@ -331,11 +348,14 @@ class LidoValidatorsProvider(Module):
             if d.withdrawal_credentials in lido_wc_list:
                 result[d.pubkey] = [d]
             else:
-                invalid_keys.add(d.pubkey)
-                logger.warning(
+                frontruned_keys.add(d.pubkey)
+                logger.error(
                     {
-                        'msg': 'Ignoring key. Possible front run attack',
-                        'value': d.pubkey,
+                        'msg': 'Pending deposit with non-lido wc. Possible front run attack or KAPI error.',
+                        'pubkey': d.pubkey,
+                        'amount': d.amount,
+                        'signature': d.signature,
+                        'withdrawal_credentials': d.withdrawal_credentials,
                     }
                 )
 
@@ -343,10 +363,14 @@ class LidoValidatorsProvider(Module):
             {
                 'msg': 'Collect valid pending deposits.',
                 'valid_keys': len(result),
-                'invalid_keys': len(invalid_keys),
+                'invalid_keys': len(frontruned_keys),
                 'deposits_considered': sum(len(deposits) for deposits in result.values()),
             }
         )
+
+        if frontruned_keys:
+            raise FrontRunAttackError('Possible front run attack. Blocking AO report')
+
         return result
 
     @lru_cache(maxsize=1)
@@ -356,6 +380,8 @@ class LidoValidatorsProvider(Module):
 
         validators = self.w3.cc.get_validators(blockstamp)
         self._kapi_sanity_check(len(lido_keys), blockstamp)
+        self._kapi_sanity_check_by_operator(lido_keys, blockstamp)
+        self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
 
         lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
         logger.info(
@@ -380,9 +406,95 @@ class LidoValidatorsProvider(Module):
         # Make sure that used keys fetched from Keys API are >= total number of
         # deposited validators from Staking Router.
         if keys_count_received < stats.deposited_validators:
+            logger.error(
+                {
+                    'msg': 'Keys API sanity check failed: fewer used keys than deposited validators. '
+                    'Check el_block_snapshot in the adjacent `Keys API response.`',
+                    'keys_count_received': keys_count_received,
+                    'deposited_validators': stats.deposited_validators,
+                }
+            )
             raise CountOfKeysDiffersException(
                 f'Keys API Service returned lesser keys ({keys_count_received}) '
                 f'than amount of deposited validators ({stats.deposited_validators}) returned from Staking Router'
+            )
+
+    def _kapi_sanity_check_by_operator(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
+        """
+        Validate that Keys API returned every key index in [0, total_deposited_validators) for each
+        node operator at the given `blockstamp`.
+        """
+        indexes_by_operator: dict[tuple[ChecksumAddress, NodeOperatorId], set[int]] = {}
+        for key in lido_keys:
+            gid = (key.module_address, key.operator_index)
+            indexes_by_operator.setdefault(gid, set()).add(key.index)
+
+        mismatched = 0
+        for operator in self.get_lido_node_operators(blockstamp):
+            gid = (operator.staking_module.staking_module_address, operator.id)
+            required = set(range(operator.total_deposited_validators))
+            received = indexes_by_operator.get(gid, set())
+
+            missing = required - received
+            if missing:
+                logger.error(
+                    {
+                        'msg': 'Used keys from KAPI mismatched.',
+                        'staking_module_address': operator.staking_module.staking_module_address,
+                        'operator_id': operator.id,
+                        'missing_indexes': sorted(missing)[:10],
+                        'missing_count': len(missing),
+                        'total_deposited_validators': operator.total_deposited_validators,
+                    }
+                )
+                mismatched += 1
+
+        if mismatched:
+            raise CountOfKeysDiffersException(
+                f'Keys API Service returned lesser keys than deposited validators. Total mismatched: {mismatched}'
+            )
+
+    def _kapi_sanity_check_pending_deposits(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
+        """
+        Every pending deposit onto a Lido withdrawal credential must be covered by a used key
+        from the Keys API response. An uncovered pubkey means either a used key is missing from
+        the Keys API response — a data defect that silently shrinks clPendingBalance — or it's a
+        third-party deposit onto Lido WC (legal, but rare enough to be worth flagging loudly).
+        """
+        lido_wc_list = self.get_lido_wc_list(blockstamp)
+        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        used_pubkeys = {key.key for key in lido_keys}
+
+        orphaned_pubkeys = {
+            d.pubkey
+            for d in pending_deposits
+            if d.withdrawal_credentials in lido_wc_list and d.pubkey not in used_pubkeys
+        }
+        if orphaned_pubkeys:
+            logger.warning(
+                {
+                    'msg': 'Pending deposits with Lido WC are not matched by any used key from Keys API.',
+                    'value': len(orphaned_pubkeys),
+                    'pubkeys': sorted(orphaned_pubkeys)[:10],
+                }
+            )
+
+    def _validate_total_validators_count(self, active_count: int, pending_count: int, blockstamp: BlockStamp) -> None:
+        """
+        Every deposited validator must be accounted for as either active (already visible on CL)
+        or pending (deposited but not yet processed by CL). active + pending may legitimately
+        exceed deposited_validators (e.g. a third party deposits directly to the Beacon Deposit
+        Contract using one of Lido's vetted-but-not-yet-protocol-deposited keys — the key becomes
+        an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
+        deposited_validators counter).
+        """
+        stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
+        total_count = active_count + pending_count
+
+        if total_count < stats.deposited_validators:
+            raise CountOfKeysDiffersException(
+                f'Active ({active_count}) + pending ({pending_count}) validators count ({total_count}) '
+                f'does not match deposited validators count ({stats.deposited_validators}) from Staking Router'
             )
 
     @staticmethod
