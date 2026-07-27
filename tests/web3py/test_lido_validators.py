@@ -730,18 +730,34 @@ def test_validate_withdrawal_credentials__no_validators__does_not_raise(web3):
 
 
 @pytest.mark.unit
-def test_validate_withdrawal_credentials__foreign_credentials__raises_naming_the_pubkey(web3):
-    """A used key on a validator with someone else's credentials must stop the report by name.
-
-    The pubkey has to reach the operator: withdrawal credentials cannot be changed, so this is not
-    something that clears itself, and whoever is on call needs to know which key to act on.
-    """
+def test_validate_withdrawal_credentials__foreign_credentials__raises_with_the_count(web3):
     web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
     captured = _lido_validator_with_wc(_FOREIGN_WC, pubkey='0xdeadbeef')
     honest = _lido_validator_with_wc(_LIDO_WC_0X01, pubkey='0xc0ffee')
 
-    with pytest.raises(ForeignWithdrawalCredentialsException, match='0xdeadbeef'):
+    with pytest.raises(ForeignWithdrawalCredentialsException, match='1 used Lido key'):
         web3.lido_validators._validate_withdrawal_credentials([honest, captured], blockstamp)
+
+
+@pytest.mark.unit
+def test_validate_withdrawal_credentials__many_foreign_keys__logs_every_one_of_them(web3, caplog):
+    """Every affected key gets its own log line, with no truncation.
+
+    Withdrawal credentials cannot be changed, so this is not a state that clears itself: whoever is
+    on call has to act on each key individually, and a truncated list would hide some of them.
+    """
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+    # More than any plausible truncation limit.
+    pubkeys = [f'0x{i:04x}' for i in range(25)]
+    captured = [_lido_validator_with_wc(_FOREIGN_WC, pubkey=pubkey) for pubkey in pubkeys]
+
+    with pytest.raises(ForeignWithdrawalCredentialsException):
+        web3.lido_validators._validate_withdrawal_credentials(captured, blockstamp)
+
+    per_key_lines = [r for r in caplog.records if 'pubkey' in str(r.msg)]
+    assert len(per_key_lines) == len(pubkeys), 'one line per key, none dropped'
+    for pubkey in pubkeys:
+        assert pubkey in caplog.text, f'{pubkey} must be logged'
 
 
 @pytest.mark.unit

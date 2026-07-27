@@ -468,19 +468,33 @@ class LidoValidatorsProvider(Module):
         if not foreign:
             return
 
+        # Summary first, so that a flood of the per-key lines below is self-explanatory rather than
+        # alarming on its own -- a misconfigured locator would put every Lido validator in here.
         logger.error(
             {
                 'msg': 'Used Lido keys on validators with non-Lido withdrawal credentials. '
-                'Ether the protocol paid for is withdrawable by someone else.',
+                'Ether the protocol paid for is withdrawable by someone else. '
+                'One line follows per key.',
                 'value': len(foreign),
-                'pubkeys': sorted(foreign)[:10],
-                'withdrawal_credentials': sorted(set(foreign.values()))[:10],
                 'expected_withdrawal_credentials': lido_wc_list,
+                'block_number': blockstamp.block_number,
             }
         )
+        # Every key gets its own line: this is the actionable output, and truncating it would hide
+        # keys an operator has to act on.
+        for pubkey in sorted(foreign):
+            logger.error(
+                {
+                    'msg': 'Used Lido key on a validator with non-Lido withdrawal credentials.',
+                    'pubkey': pubkey,
+                    'withdrawal_credentials': foreign[pubkey],
+                    'expected_withdrawal_credentials': lido_wc_list,
+                }
+            )
+
         raise ForeignWithdrawalCredentialsException(
             f'{len(foreign)} used Lido key(s) belong to validators with non-Lido withdrawal '
-            f'credentials, e.g. {sorted(foreign)[:10]}'
+            f'credentials. See the preceding log lines for every affected key.'
         )
 
     def _kapi_sanity_check_pending_deposits(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
