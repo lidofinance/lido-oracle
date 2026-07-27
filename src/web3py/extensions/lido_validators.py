@@ -191,7 +191,6 @@ type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 class LidoValidatorsProvider(Module):
     w3: Web3
 
-    @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         """Both public getters cross-check active against pending, so both call both private
         halves. The caches on the private methods are what keeps that from doing the work twice --
