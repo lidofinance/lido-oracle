@@ -5,15 +5,12 @@
 on-chain by nonce (``BalanceStats``). So whatever the oracle leaves out of the active and pending
 sets is what leaves TVL -- the oracle is the only thing that can carry such a loss.
 
-Two different outcomes are required, depending on whether anyone holds the credentials:
+The oracle never writes such a loss off on its own: it refuses to report and leaves the incident to
+governance. Two causes, two exceptions:
 
-* **Refuse to report** when a counterparty holds the withdrawal credentials for ether Lido paid
-  for -- a front run, whether its deposit is still queued or its validator already exists. Writing
-  that off silently would disguise a captured deposit as an ordinary loss; it needs a human, not an
-  adjustment. `FrontRunAttackError` covers both halves.
-* **Write off** when the ether is beyond everyone's reach and there is nothing to escalate -- the CL
-  discarded the deposit outright. Dropping the key out of both sets is the whole mechanism, and the
-  report must still be produced.
+* `FrontRunAttackError` -- someone else holds the withdrawal credentials. Raised whether the deposit
+  is still queued or its validator already exists.
+* `CountOfKeysDiffersException` -- the CL discarded the deposit, so the key is in neither set.
 
 Deposit signatures are produced with real BLS keys and checked by the production verifier
 (``src.services.deposit_signature_verification``). The scenarios turn on whether a signature
@@ -28,12 +25,7 @@ Keys API response, so nothing here is attributable to a KAPI defect:
   * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
 
-The refusal tests pass. The single write-off test **fails on this branch**, deliberately and
-without an ``xfail`` marker -- marking it an expected failure would turn the suite green and report
-no problem, which is the opposite of what it exists for. It is blocked by
-``_validate_total_validators_count``, which rejects ``active + pending < depositedValidators``:
-exactly the shape of a write-off. Whether a deposit the CL threw away should block reporting is the
-open question this test is here to force.
+None of these refusals clear on their own.
 """
 
 from unittest.mock import Mock
@@ -57,7 +49,7 @@ from src.services.deposit_signature_verification import (
 from src.types import Gwei, NodeOperatorId, SlotNumber
 from src.utils.cache import clear_global_cache
 from src.utils.types import hex_str_to_bytes
-from src.web3py.extensions.lido_validators import FrontRunAttackError
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
     LidoKeyFactory,
@@ -369,43 +361,23 @@ def test_calculate_report__operator_frontran_own_key__report_is_refused(lido_pro
         accounting.build_report(ref_bs)
 
 
-# ---- the CL discarded the deposit: nobody captured it, so it must be written off -----------------
-#
-# The one state left where the ether is beyond *everyone's* reach. There is no captured deposit to
-# escalate here, so the write-off argument stands: `clValidatorsBalance` and `clPendingBalance` are
-# the only CL-side TVL inputs the contract takes, `depositedValidators` is not one of them, and the
-# report still has to be produced.
-#
-# This test FAILS on this branch, deliberately and without an `xfail` marker: a green suite would
-# report no problem at all. `_validate_total_validators_count` rejects
-# `active + pending < depositedValidators`, which is exactly the shape of a write-off. Whether that
-# is right is the one open question left in this PR -- see the description.
-
-
-def _assert_lost_deposit_excluded_from_tvl(accounting: Accounting) -> None:
-    """The surviving key's ether is reported; the lost key's 32 ETH appears in neither TVL term."""
-    cl_balance = accounting._get_cl_validators_balance(ref_bs)
-    cl_pending_balance = accounting._get_cl_pending_validators_balance(ref_bs)
-
-    assert cl_balance == _VALIDATOR_BALANCE, 'only the one active validator contributes'
-    assert cl_pending_balance == _DEPOSIT_AMOUNT, 'only the one healthy pending deposit contributes'
-    assert cl_balance + cl_pending_balance == _VALIDATOR_BALANCE + _DEPOSIT_AMOUNT
+# ---- the CL discarded the deposit ---------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_report_balances__cl_discarded_the_deposit__lost_deposit_excluded_from_tvl(lido_protocol, accounting):
-    """The CL can drop a deposit permanently, and TVL has to follow.
+def test_report__cl_discarded_the_deposit__reporting_is_refused(lido_protocol, accounting):
+    """A used key the CL knows nothing about blocks the report, and stays blocked.
 
-    Per Electra `apply_pending_deposit`, a deposit for an unknown pubkey creates a validator only
-    if `is_valid_deposit_signature` passes; `process_pending_deposits` pops the entry either way.
-    An invalid-signature deposit therefore leaves neither a validator nor a queue entry, while
-    Lido's `depositedValidators` was incremented on the EL and never decreases -- so this state is
-    permanent, and so is the write-off. Deposit signatures come from node operators and are not
-    validated on-chain; the DSM guardians check them off-chain, which makes this a process
-    guarantee rather than a protocol one.
+    Electra `apply_pending_deposit` creates a validator only if the signature verifies, and
+    `process_pending_deposits` pops the entry either way -- so an invalid-signature deposit leaves no
+    validator and no queue entry, while `depositedValidators` never decreases.
+
+    `CountOfKeysDiffersException`, not `FrontRunAttackError`: nobody captured the ether, so there is
+    no key to escalate -- only a count that stopped adding up.
     """
     # Arrange: key 2 is used and deposited, but the CL has neither a validator nor a queued deposit.
     lido_protocol.set_pending_deposits(_deposit(_PENDING_KEY, _LIDO_WC))
 
     # Act / Assert
-    _assert_lost_deposit_excluded_from_tvl(accounting)
+    with pytest.raises(CountOfKeysDiffersException, match=r'Active \(1\) \+ pending \(1\)'):
+        accounting._get_cl_validators_balance(ref_bs)

@@ -812,3 +812,29 @@ def test_validate_withdrawal_credentials__foreign_credentials__logs_expected_and
 
     assert _FOREIGN_WC in caplog.text, 'the offending credentials must be logged'
     assert _LIDO_WC_0X01 in caplog.text, 'so must the expected ones, to make the diff obvious'
+
+
+# ---- the log-only check must run before the raising ones ----
+
+
+@pytest.mark.unit
+def test_get_lido_validators_with_keys__raising_check_fails__pending_deposit_diagnostics_still_logged(web3, caplog):
+    """The log-only check has to survive a raising one, or it is useless when it matters."""
+    # Arrange: a pending deposit on Lido WC with no matching used key -> the warning fires; and
+    # fewer used keys than deposited validators -> _kapi_sanity_check raises.
+    lido_key = LidoKeyFactory.build(key=_PUBKEY)
+    web3.kac.get_used_lido_keys = Mock(return_value=[lido_key])
+    web3.cc.get_validators = Mock(return_value=[])
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+    web3.cc.get_pending_deposits = Mock(return_value=[_make_deposit(pubkey='0xorphaned', wc=_LIDO_WC)])
+    web3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(deposited_validators=99, beacon_validators=0, beacon_balance=0)
+    )
+
+    # Act
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._get_lido_validators_with_keys(blockstamp)
+
+    # Assert
+    assert 'not matched by any used key' in caplog.text
+    assert '0xorphaned' in caplog.text

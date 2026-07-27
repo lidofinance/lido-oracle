@@ -191,13 +191,14 @@ type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 class LidoValidatorsProvider(Module):
     w3: Web3
 
-    @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        """Both public getters call both private halves, so the caches sit on the private ones."""
         result = self._get_active_lido_validators(blockstamp)
         pending_validators = self._get_pending_lido_validators(blockstamp)
         self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
         return result
 
+    @lru_cache(maxsize=1)
     def _get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
@@ -265,13 +266,13 @@ class LidoValidatorsProvider(Module):
             HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + wc_postfix),
         ]
 
-    @lru_cache(maxsize=1)
     def get_pending_lido_validators(self, blockstamp: BlockStamp) -> dict[HexStr, PendingValidator]:
         pending_validators = self._get_pending_lido_validators(blockstamp)
         active_validators = self._get_active_lido_validators(blockstamp)
         self._validate_total_validators_count(len(active_validators), len(pending_validators), blockstamp)
         return pending_validators
 
+    @lru_cache(maxsize=1)
     def _get_pending_lido_validators(
         self,
         blockstamp: BlockStamp,
@@ -382,9 +383,13 @@ class LidoValidatorsProvider(Module):
         logger.info({'msg': 'Get used lido keys from Keys API.', 'value': len(lido_keys)})
 
         validators = self.w3.cc.get_validators(blockstamp)
+
+        # First because it only logs: the checks below raise, and its output is what you want in
+        # the log when they do.
+        self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
+
         self._kapi_sanity_check(len(lido_keys), blockstamp)
         self._kapi_sanity_check_by_operator(lido_keys, blockstamp)
-        self._kapi_sanity_check_pending_deposits(lido_keys, blockstamp)
 
         lido_validators, pending_lido_keys = self.compute_lido_validators(lido_keys, validators)
         logger.info(
@@ -539,6 +544,10 @@ class LidoValidatorsProvider(Module):
         Contract using one of Lido's vetted-but-not-yet-protocol-deposited keys — the key becomes
         an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
         deposited_validators counter).
+
+        If the total number of deposits and validators on the CL side is lower than what we see
+        on the EL side, the oracle will not produce a report because the data sources are out
+        of sync.
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
