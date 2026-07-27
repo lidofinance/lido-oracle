@@ -545,7 +545,9 @@ class LidoValidatorsProvider(Module):
         an active CL validator before Lido's own deposit() call increments the ref-slot-pinned
         deposited_validators counter).
 
-If the total number of deposits and validators on the CL side is lower than what we see on the EL side, the oracle will not produce a report because the data sources are out of sync.
+        If the total number of deposits and validators on the CL side is lower than what we see
+        on the EL side, the oracle will not produce a report because the data sources are out
+        of sync.
         """
         stats = self.w3.lido_contracts.lido.get_beacon_stat(blockstamp.block_hash)
         total_count = active_count + pending_count
