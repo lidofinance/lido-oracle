@@ -370,8 +370,8 @@ class ValidatorExitIterator:
                     external_balance * self.node_operators_stats[gid].weight / internal_weight
                 )
             else:
-                # in case if all NO has weight == 0, split external stake in equal parts
-                self.node_operators_stats[gid].total_stake += external_balance / len(group.sub_node_operators)
+                # In case if all NOs have weight == 0, split external stake by shares.
+                self.node_operators_stats[gid].total_stake += external_balance * no.share / TOTAL_BASIS_POINTS
 
         for gid in external_gids:
             self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
@@ -481,8 +481,8 @@ class ValidatorExitIterator:
                         / total_weight
                     )
                 else:
-                    self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= exit_balance / len(
-                        e_group.sub_node_operators
+                    self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= (
+                        exit_balance * op.share / TOTAL_BASIS_POINTS
                     )
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
