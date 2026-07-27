@@ -19,10 +19,12 @@ Keys API response, so nothing here is attributable to a KAPI defect:
   * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
 
-The tests that state the write-off requirement are marked ``xfail(strict=True)``: they fail today
-because ``LidoValidatorsProvider._validate_total_validators_count`` requires
+The three tests that state the write-off requirement **fail on this branch**, deliberately and
+without an ``xfail`` marker. ``LidoValidatorsProvider._validate_total_validators_count`` requires
 ``active + pending == depositedValidators``, which equates "ether still owned on the CL" with
-"ether ever sent to the deposit contract" and so forbids the write-off outright.
+"ether ever sent to the deposit contract" and so forbids the write-off outright. Marking them
+expected-failures would turn the suite green and report no problem, which is the opposite of what
+they exist for. They pass unchanged once that check stops blocking the report.
 """
 
 from unittest.mock import Mock
@@ -52,7 +54,6 @@ from src.services.deposit_signature_verification import (
 from src.types import Gwei, NodeOperatorId, SlotNumber
 from src.utils.cache import clear_global_cache
 from src.utils.types import hex_str_to_bytes
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
     LidoKeyFactory,
@@ -220,7 +221,7 @@ def accounting(lido_protocol) -> Accounting:
 
 # ---- baselines: states with nothing to write off ------------------------------------------------
 #
-# Without these, the xfailing tests below would prove nothing -- they could be failing because the
+# Without these, the failing tests below would prove nothing -- they could be failing because the
 # fixture is wired wrong rather than because of the state under test.
 
 
@@ -303,19 +304,12 @@ def test_get_active_lido_validators__frontrun_validator_created_on_cl__balance_r
 # carries the loss -- `clValidatorsBalance` and `clPendingBalance` are the only CL-side TVL inputs
 # the contract has (`ReportSimulationPayload`), and `depositedValidators` is not one of them.
 #
-# These tests state that requirement. They fail today because
-# `_validate_total_validators_count` demands `active + pending == depositedValidators`, which is an
-# equality between "ether still owned on the CL" and "ether ever sent to the deposit contract" --
-# so it forbids the write-off. `strict=True` makes them fail loudly once the check is relaxed,
-# which is the signal to drop the marker.
-
-_WRITE_OFF_FORBIDDEN = pytest.mark.xfail(
-    raises=CountOfKeysDiffersException,
-    strict=True,
-    reason='_validate_total_validators_count requires active + pending == depositedValidators, '
-    'which forbids writing a lost deposit out of TVL. Remove this marker once the check no '
-    'longer blocks the report.',
-)
+# These tests state that requirement, and they FAIL on this branch. That is the point: they are
+# left red rather than marked xfail, because the check they contradict is still under review and a
+# green suite would report no problem at all. `_validate_total_validators_count` demands
+# `active + pending == depositedValidators` -- an equality between "ether still owned on the CL"
+# and "ether ever sent to the deposit contract" -- and so forbids the write-off. They go green
+# once that check stops blocking the report; nothing else about them needs to change.
 
 
 def _assert_lost_deposit_excluded_from_tvl(accounting: Accounting) -> None:
@@ -331,7 +325,6 @@ def _assert_lost_deposit_excluded_from_tvl(accounting: Accounting) -> None:
 
 
 @pytest.mark.unit
-@_WRITE_OFF_FORBIDDEN
 def test_report_balances__operator_frontran_own_key__lost_deposit_excluded_from_tvl(lido_protocol, accounting):
     """A key owner redirects its own deposit, so that ether must leave TVL.
 
@@ -353,7 +346,6 @@ def test_report_balances__operator_frontran_own_key__lost_deposit_excluded_from_
 
 
 @pytest.mark.unit
-@_WRITE_OFF_FORBIDDEN
 def test_report_balances__cl_discarded_the_deposit__lost_deposit_excluded_from_tvl(lido_protocol, accounting):
     """The CL can drop a deposit permanently, and TVL has to follow.
 
@@ -376,7 +368,6 @@ def test_report_balances__cl_discarded_the_deposit__lost_deposit_excluded_from_t
 
 
 @pytest.mark.unit
-@_WRITE_OFF_FORBIDDEN
 def test_calculate_report__operator_frontran_own_key__report_is_built(lido_protocol, accounting):
     """A written-off deposit must not stop the frame from being reported at all.
 
