@@ -545,7 +545,7 @@ class ValidatorExitIterator:
         Highest deviation current balance from target stake rate by weight.
         """
         if node_operator.module_stats.total_weight == 0:
-            return node_operator.total_stake
+            return Gwei(node_operator.total_stake)
 
         target_no_stake = (
             node_operator.module_stats.total_stake * node_operator.weight / node_operator.module_stats.total_weight
