@@ -36,6 +36,7 @@ from src.modules.oracles.accounting.types import (
 )
 from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
+from tests.factory.no_registry import PendingDepositFactory as BasePendingDepositFactory
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
@@ -170,17 +171,15 @@ class ValidatorFactory(Web3DataclassFactory[Validator]):
         )
 
 
-class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
-    """Factory for creating PendingDeposit objects."""
+class PendingDepositFactory(BasePendingDepositFactory):
+    """Vault-flavoured defaults: 1 ETH deposits carrying a 0x02 vault credential."""
 
     amount = Gwei(1_000_000_000)
     slot = SlotNumber(259388)
 
     @classmethod
     def build(cls, **kwargs: Any) -> PendingDeposit:
-        kwargs.setdefault('pubkey', HexBytes(faker.binary(48)).hex())
         kwargs.setdefault('withdrawal_credentials', WithdrawalCredentials.WC_0)
-        kwargs.setdefault('signature', HexBytes(faker.binary(96)).hex())
         return super().build(**kwargs)
 
 
