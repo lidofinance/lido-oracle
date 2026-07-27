@@ -7,6 +7,7 @@ from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
 from src import variables
+from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.common.types import (
     ZERO_HASH,
     ChainConfig,
@@ -36,7 +37,14 @@ from tests.factory.base_oracle import AccountingProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory, FrameConfigFactory
 from tests.factory.contract_responses import ReportSimulationResultsFactory
-from tests.factory.no_registry import LidoValidatorFactory, StakingModuleFactory
+from tests.factory.no_registry import (
+    LidoKeyFactory,
+    LidoValidatorFactory,
+    PendingDepositFactory,
+    StakingModuleFactory,
+    ValidatorFactory,
+    ValidatorStateFactory,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -160,6 +168,67 @@ def test_get_cl_pending_validators_balance__active_validators_with_pending_topup
     balance = accounting._get_cl_pending_validators_balance(bs)
 
     assert balance == 2000  # 1000 (new validator) + 500 + 300 + 200 (topups)
+
+
+@pytest.mark.unit
+def test_get_cl_pending_validators_balance__real_provider_with_topups__matches_exact_sum(accounting: Accounting):
+    """End-to-end over the real LidoValidatorsProvider: only the CL/KAPI edges are mocked.
+
+    Covers the whole path a top-up takes into the report — KAPI `used=true` keys, the
+    key -> CL-validator split in `compute_lido_validators`, `pending_topups` attribution,
+    and the final sum landing in `cl_pending_balance_gwei`.
+    """
+    # Arrange — two long-since-used keys already on the CL, plus one used key with no validator yet
+    bs = ReferenceBlockStampFactory.build()
+    lido_wc = ETH1_ADDRESS_WITHDRAWAL_PREFIX + '0' * 62
+    topped_up, untouched = (
+        ValidatorFactory.build(
+            index=index,
+            balance=Gwei(32 * 10**9),
+            validator=ValidatorStateFactory.build(
+                pubkey='0x' + prefix * 48,
+                withdrawal_credentials=lido_wc,
+                effective_balance=Gwei(32 * 10**9),
+                activation_epoch=1000,
+            ),
+        )
+        for index, prefix in ((11, 'a1'), (12, 'b2'))
+    )
+    not_yet_indexed_pubkey = '0x' + 'c3' * 48
+    lido_keys = [
+        *LidoKeyFactory.generate_for_validators([topped_up, untouched]),
+        LidoKeyFactory.build(key=not_yet_indexed_pubkey),
+    ]
+
+    # A realistic EIP-7251 top-up (2016 ETH, taking a 32 ETH validator to the 2048 ETH ceiling),
+    # a sub-ETH top-up on the same key, and a plain 32 ETH deposit for the brand-new key.
+    deposits = [
+        PendingDepositFactory.build(
+            pubkey=topped_up.validator.pubkey, withdrawal_credentials=lido_wc, amount=Gwei(2016 * 10**9)
+        ),
+        PendingDepositFactory.build(
+            pubkey=topped_up.validator.pubkey, withdrawal_credentials=lido_wc, amount=Gwei(500_000)
+        ),
+        PendingDepositFactory.build(
+            pubkey=not_yet_indexed_pubkey, withdrawal_credentials=lido_wc, amount=Gwei(32 * 10**9)
+        ),
+    ]
+
+    accounting.w3.cc.get_validators = Mock(return_value=[topped_up, untouched])
+    accounting.w3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
+    accounting.w3.cc.get_pending_deposits = Mock(return_value=deposits)
+    accounting.w3.cc.get_pending_consolidations = Mock(return_value=[])
+    accounting.w3.cc.get_validators_by_indexes = Mock(return_value={})
+    accounting.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x01020304'))
+    accounting.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    accounting.w3.lido_validators._kapi_sanity_check = Mock()
+
+    # Act
+    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+        balance = accounting._get_cl_pending_validators_balance(bs)
+
+    # Assert — 2016 ETH + 0.0005 ETH top-ups + 32 ETH new validator, each counted exactly once
+    assert balance == Gwei(2016 * 10**9 + 500_000 + 32 * 10**9)
 
 
 @pytest.mark.unit

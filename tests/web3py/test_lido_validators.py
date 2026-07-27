@@ -4,6 +4,7 @@ import pytest
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.oracles.accounting.types import BeaconStat
+from src.types import Gwei, SlotNumber
 from src.web3py.extensions.lido_validators import (
     CountOfKeysDiffersException,
     LidoValidatorsProvider,
@@ -15,8 +16,10 @@ from tests.factory.no_registry import (
     LidoKeyFactory,
     LidoValidatorFactory,
     NodeOperatorFactory,
+    PendingDepositFactory,
     StakingModuleFactory,
     ValidatorFactory,
+    ValidatorStateFactory,
 )
 
 
@@ -517,3 +520,137 @@ def test_get_active_lido_validators__handles_multiple_consolidations(web3):
     assert len(active_validators) == len(mock_validators)
     assert active_validators[0].consolidating_as_source is not None
     assert len(active_validators[1].consolidating_as_target) == 2
+
+
+# ---- top-ups on keys that are already used and already indexed on the CL ----
+#
+# These tests deliberately do NOT mock `_get_lido_validators_with_keys`: the whole point is to
+# exercise the real KAPI-key -> CL-validator matching in `compute_lido_validators`, which decides
+# whether a deposit is treated as a top-up (`pending_topups`) or as a brand-new key
+# (`get_pending_lido_validators`). Mocking that split away is what makes the older tests above
+# unable to catch a regression in it.
+
+_TOPUP_ACTIVATION_EPOCH = 1000  # activated long before the reference slot
+_GWEI = 10**9
+
+
+def _used_validator(pubkey: str, index: int, balance_eth: int = 32):
+    """A Lido validator that was deposited long ago and already has a CL index."""
+    return ValidatorFactory.build(
+        index=index,
+        balance=Gwei(balance_eth * _GWEI),
+        validator=ValidatorStateFactory.build(
+            pubkey=pubkey,
+            withdrawal_credentials=_LIDO_WC,
+            effective_balance=Gwei(32 * _GWEI),
+            activation_epoch=_TOPUP_ACTIVATION_EPOCH,
+        ),
+    )
+
+
+def _setup_topup_scenario(web3, validators, lido_keys, pending_deposits):
+    """Wire only the CL/KAPI edges; the provider's own matching logic stays real."""
+    web3.cc.get_validators = Mock(return_value=validators)
+    web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
+    web3.cc.get_pending_deposits = Mock(return_value=pending_deposits)
+    web3.cc.get_pending_consolidations = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in validators})
+    web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version=_GENESIS_FORK_VERSION))
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+    web3.lido_validators._kapi_sanity_check = Mock()
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__topup_for_long_used_key__attached_to_that_validator(web3):
+    # Arrange — three long-since-used Lido keys on the CL, one of them receives an 8 ETH top-up
+    validators = [_used_validator('0x' + prefix * 48, index=i) for i, prefix in enumerate(('a1', 'b2', 'c3'), start=1)]
+    lido_keys = LidoKeyFactory.generate_for_validators(validators)
+    topup = PendingDepositFactory.build(
+        pubkey=validators[1].validator.pubkey,
+        withdrawal_credentials=_LIDO_WC,
+        amount=Gwei(8 * _GWEI),
+    )
+    _setup_topup_scenario(web3, validators, lido_keys, [topup])
+
+    # Act
+    active = web3.lido_validators.get_active_lido_validators(ReferenceBlockStampFactory.build())
+
+    # Assert — the top-up lands on the validator owning that pubkey, and nowhere else
+    by_pubkey = {v.validator.pubkey: v for v in active}
+    assert len(active) == 3
+    assert by_pubkey[validators[1].validator.pubkey].pending_topups == [topup]
+    assert by_pubkey[validators[0].validator.pubkey].pending_topups == []
+    assert by_pubkey[validators[2].validator.pubkey].pending_topups == []
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__several_topups_for_one_used_key__all_attached_in_queue_order(web3):
+    # Arrange — a used key can accumulate several deposits in the CL queue
+    validator = _used_validator('0x' + 'ab' * 48, index=7)
+    lido_keys = LidoKeyFactory.generate_for_validators([validator])
+    topups = [
+        PendingDepositFactory.build(pubkey=validator.validator.pubkey, amount=Gwei(1 * _GWEI), slot=SlotNumber(100)),
+        PendingDepositFactory.build(pubkey=validator.validator.pubkey, amount=Gwei(2 * _GWEI), slot=SlotNumber(101)),
+        PendingDepositFactory.build(pubkey=validator.validator.pubkey, amount=Gwei(4 * _GWEI), slot=SlotNumber(102)),
+    ]
+    _setup_topup_scenario(web3, [validator], lido_keys, topups)
+
+    # Act
+    active = web3.lido_validators.get_active_lido_validators(ReferenceBlockStampFactory.build())
+
+    # Assert — every deposit is kept, in queue order, none collapsed or deduplicated
+    assert active[0].pending_topups == topups
+    assert sum(t.amount for t in active[0].pending_topups) == Gwei(7 * _GWEI)
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__topup_for_non_lido_pubkey__attached_to_nobody(web3):
+    # Arrange — a deposit for a validator Lido does not own must not inflate any Lido balance
+    validator = _used_validator('0x' + 'ab' * 48, index=7)
+    lido_keys = LidoKeyFactory.generate_for_validators([validator])
+    foreign_topup = PendingDepositFactory.build(pubkey='0x' + 'ff' * 48, amount=Gwei(64 * _GWEI))
+    _setup_topup_scenario(web3, [validator], lido_keys, [foreign_topup])
+
+    # Act
+    active = web3.lido_validators.get_active_lido_validators(ReferenceBlockStampFactory.build())
+
+    # Assert
+    assert [v.pending_topups for v in active] == [[]]
+
+
+@pytest.mark.unit
+def test_topup_for_indexed_key__counted_once__absent_from_pending_lido_validators(web3):
+    """A used+indexed key must be a top-up only, never also a 'new validator' pending deposit.
+
+    `_get_cl_pending_validators_balance` adds both sources together, so a pubkey leaking into
+    both would be double-counted in `cl_pending_balance_gwei`.
+    """
+    # Arrange — one key already on the CL, one used key still waiting for its validator record
+    indexed = _used_validator('0x' + 'ab' * 48, index=7)
+    unindexed_pubkey = '0x' + 'cd' * 48
+    lido_keys = [
+        *LidoKeyFactory.generate_for_validators([indexed]),
+        LidoKeyFactory.build(key=unindexed_pubkey),
+    ]
+    topup = PendingDepositFactory.build(
+        pubkey=indexed.validator.pubkey, withdrawal_credentials=_LIDO_WC, amount=Gwei(8 * _GWEI)
+    )
+    new_key_deposit = PendingDepositFactory.build(
+        pubkey=unindexed_pubkey, withdrawal_credentials=_LIDO_WC, amount=Gwei(32 * _GWEI)
+    )
+    _setup_topup_scenario(web3, [indexed], lido_keys, [topup, new_key_deposit])
+    bs = ReferenceBlockStampFactory.build()
+
+    # Act
+    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+        active = web3.lido_validators.get_active_lido_validators(bs)
+        pending = web3.lido_validators.get_pending_lido_validators(bs)
+
+    # Assert — the two sources are disjoint and together account for each deposit exactly once
+    assert active[0].pending_topups == [topup]
+    assert set(pending) == {unindexed_pubkey}
+    assert indexed.validator.pubkey not in pending
+
+    topups_total = sum(t.amount for v in active for t in v.pending_topups)
+    pending_total = sum(d.amount for _, deposits in pending.values() for d in deposits)
+    assert topups_total + pending_total == Gwei(40 * _GWEI)
