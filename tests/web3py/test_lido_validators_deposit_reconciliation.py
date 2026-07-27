@@ -19,12 +19,19 @@ Keys API response, so nothing here is attributable to a KAPI defect:
   * key 1 -- valid 32 ETH deposit to Lido WC     -> *pending*
   * key 2 -- the variable under test
 
-The three tests that state the write-off requirement **fail on this branch**, deliberately and
-without an ``xfail`` marker. ``LidoValidatorsProvider._validate_total_validators_count`` requires
-``active + pending == depositedValidators``, which equates "ether still owned on the CL" with
-"ether ever sent to the deposit contract" and so forbids the write-off outright. Marking them
-expected-failures would turn the suite green and report no problem, which is the opposite of what
-they exist for. They pass unchanged once that check stops blocking the report.
+Four tests state the write-off requirement and **all four fail on this branch**, deliberately and
+without an ``xfail`` marker -- marking them expected-failures would turn the suite green and report
+no problem, which is the opposite of what they exist for. They fail for two independent reasons:
+
+1. Three of them are blocked by ``LidoValidatorsProvider._validate_total_validators_count``, which
+   requires ``active + pending == depositedValidators`` -- an equality between "ether still owned on
+   the CL" and "ether ever sent to the deposit contract", and so a prohibition on the write-off.
+   Introduced by the branch under review; these pass unchanged once it stops blocking the report.
+
+2. ``test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl`` fails for
+   a different and pre-existing reason: no withdrawal-credential check exists on the active path at
+   all, so the write-off silently reverses the moment the CL creates the front-run validator. See
+   that test's docstring for the measured figures.
 """
 
 from unittest.mock import Mock
@@ -268,33 +275,40 @@ def test_get_active_lido_validators__garbage_signature_then_lido_deposit__reconc
     assert _pubkey(_SUBJECT_KEY) in pending
 
 
+# ---- the write-off must not reverse once the CL creates the validator ---------------------------
+
+
 @pytest.mark.unit
-def test_get_active_lido_validators__frontrun_validator_created_on_cl__balance_re_enters_tvl(lido_protocol, accounting):
-    """Once the CL creates the front-run validator, its balance is credited to Lido again.
+def test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl(lido_protocol, accounting):
+    """The front-run write-off currently lasts only while the deposit sits in the CL queue.
 
-    `compute_lido_validators` matches CL validators to Lido keys by pubkey only, and nothing on the
-    active path consults `get_lido_wc_list` -- it is checked for pending deposits and in
-    `abnormal_cl_rebase`, never for active validators. So a validator holding the operator's own
-    withdrawal credentials contributes its full balance to `clValidatorsBalance` even though only
-    the operator can withdraw it, which is the same "lost ether in TVL" this file is about.
+    `_collect_valid_pending_deposits` drops a front-run pubkey, but that only governs *new*
+    validators: its `filter_pubkeys` is the set of Lido keys not yet on the CL. Once the CL creates
+    the validator, the exclusion is bypassed twice over --
 
-    Documented as the current behaviour rather than asserted as correct: the write-off above lasts
-    only as long as the deposit sits in the CL queue, and this is where it silently reverses.
+      * `compute_lido_validators` matches CL validators to Lido keys by pubkey alone, and nothing
+        on the active path consults `get_lido_wc_list` (it is checked for pending deposits and in
+        `abnormal_cl_rebase`, never for active validators), so the validator's balance lands in
+        `clValidatorsBalance`; and
+      * `get_active_lido_validators` builds `deposits_by_pubkey` from *every* pending deposit, with
+        no withdrawal-credential filter and no `filter_pubkeys`, so Lido's own queued deposit for
+        that pubkey returns as a `pending_topup` and lands in `clPendingBalance`.
+
+    Measured on this branch: `clValidatorsBalance` 64.2 ETH and `clPendingBalance` 64.0 ETH, i.e.
+    64.1 ETH attributed to a key only the operator can withdraw from. This test states that it must
+    be excluded instead, and fails today on the first assertion.
     """
-    # Arrange: the front-run validator now exists on the CL with the operator's own credentials.
+    # Arrange: the front-run validator now exists on the CL with the operator's own credentials,
+    # and Lido's own deposit for the same pubkey is still queued -- now a top-up, not a new deposit.
     lido_protocol.set_cl_validators((_ACTIVE_KEY, _LIDO_WC), (_SUBJECT_KEY, _OPERATOR_WC))
     lido_protocol.set_pending_deposits(
         _deposit(_PENDING_KEY, _LIDO_WC),
         _deposit(_SUBJECT_KEY, _LIDO_WC),
     )
 
-    # Act
-    active = lido_protocol.web3.lido_validators.get_active_lido_validators(ref_bs)
-
-    # Assert
-    assert len(active) == 2
-    assert _OPERATOR_WC in {v.validator.withdrawal_credentials for v in active}
-    assert accounting._get_cl_validators_balance(ref_bs) == 2 * _VALIDATOR_BALANCE
+    # Assert: only the honest validator and the honest pending deposit may be reported.
+    assert accounting._get_cl_validators_balance(ref_bs) == _VALIDATOR_BALANCE
+    assert accounting._get_cl_pending_validators_balance(ref_bs) == _DEPOSIT_AMOUNT
 
 
 # ---- the two states where a used key is neither active nor pending -----------------------------
