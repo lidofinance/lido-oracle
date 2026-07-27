@@ -555,7 +555,7 @@ class LidoValidatorsProvider(Module):
         if total_count < stats.deposited_validators:
             raise CountOfKeysDiffersException(
                 f'Active ({active_count}) + pending ({pending_count}) validators count ({total_count}) '
-                f'does not match deposited validators count ({stats.deposited_validators}) from Staking Router'
+                f'is less than deposited validators count ({stats.deposited_validators}) from Staking Router'
             )
 
     @staticmethod
