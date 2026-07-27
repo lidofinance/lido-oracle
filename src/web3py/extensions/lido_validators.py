@@ -177,6 +177,19 @@ class CountOfKeysDiffersException(Exception):
     pass
 
 
+class ForeignWithdrawalCredentialsException(Exception):
+    """A used Lido key sits on a validator whose withdrawal credentials are not Lido's.
+
+    Someone other than the protocol can withdraw ether the protocol paid for — the key's owner
+    front-ran Lido's deposit with their own credentials. This is refused rather than written out of
+    TVL: silently dropping the balance would disguise a captured deposit as an ordinary loss.
+
+    Withdrawal credentials of an existing validator cannot be changed, so unlike a front run still
+    sitting in the deposit queue this state does not resolve on its own. Reporting stays blocked
+    until the key is dealt with, which is deliberate — it needs a human, not an adjustment.
+    """
+
+
 type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 type PendingValidator = tuple[LidoKey, list[PendingDeposit]]
 
@@ -371,6 +384,8 @@ class LidoValidatorsProvider(Module):
                 'pending_lido_keys': len(pending_lido_keys),
             }
         )
+        self._validate_withdrawal_credentials(lido_validators, blockstamp)
+
         return lido_validators, pending_lido_keys
 
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
@@ -433,6 +448,40 @@ class LidoValidatorsProvider(Module):
             raise CountOfKeysDiffersException(
                 f'Keys API Service returned lesser keys than deposited validators. Total mismatched: {mismatched}'
             )
+
+    def _validate_withdrawal_credentials(self, lido_validators: list[LidoValidator], blockstamp: BlockStamp) -> None:
+        """
+        Refuse to report when a used Lido key sits on a validator whose withdrawal credentials are
+        not Lido's. See `ForeignWithdrawalCredentialsException` for why this raises instead of
+        dropping the balance out of TVL.
+
+        `_collect_valid_pending_deposits` covers the same attack while the deposit is still queued,
+        but only there: its filter is the set of keys not yet on the CL, so the pubkey leaves it as
+        soon as the validator is created. This closes the other half.
+        """
+        lido_wc_list = self.get_lido_wc_list(blockstamp)
+        foreign = {
+            validator.lido_id.key: validator.validator.withdrawal_credentials
+            for validator in lido_validators
+            if validator.validator.withdrawal_credentials not in lido_wc_list
+        }
+        if not foreign:
+            return
+
+        logger.error(
+            {
+                'msg': 'Used Lido keys on validators with non-Lido withdrawal credentials. '
+                'Ether the protocol paid for is withdrawable by someone else.',
+                'value': len(foreign),
+                'pubkeys': sorted(foreign)[:10],
+                'withdrawal_credentials': sorted(set(foreign.values()))[:10],
+                'expected_withdrawal_credentials': lido_wc_list,
+            }
+        )
+        raise ForeignWithdrawalCredentialsException(
+            f'{len(foreign)} used Lido key(s) belong to validators with non-Lido withdrawal '
+            f'credentials, e.g. {sorted(foreign)[:10]}'
+        )
 
     def _kapi_sanity_check_pending_deposits(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
         """

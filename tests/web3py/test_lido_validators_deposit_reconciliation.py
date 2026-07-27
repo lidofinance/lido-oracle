@@ -71,6 +71,7 @@ from src.services.deposit_signature_verification import (
 from src.types import Gwei, NodeOperatorId, SlotNumber
 from src.utils.cache import clear_global_cache
 from src.utils.types import hex_str_to_bytes
+from src.web3py.extensions.lido_validators import ForeignWithdrawalCredentialsException
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.no_registry import (
     LidoKeyFactory,
@@ -328,7 +329,7 @@ def test_report__frontrun_validator_created_on_cl__reporting_is_refused(lido_pro
     )
 
     # Act / Assert: the balance must not be handed to the report at all.
-    with pytest.raises(Exception) as raised:  # noqa: B017, PT011 -- see docstring
+    with pytest.raises(ForeignWithdrawalCredentialsException) as raised:
         accounting._get_cl_validators_balance(ref_bs)
 
     # And the operator has to be able to find out which key is at fault.

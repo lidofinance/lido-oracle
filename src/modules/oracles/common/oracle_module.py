@@ -24,7 +24,10 @@ from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedExceptio
 from src.types import BlockStamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.extensions.lido_validators import (
+    CountOfKeysDiffersException,
+    ForeignWithdrawalCredentialsException,
+)
 from src.web3py.types import Web3Base
 
 
@@ -91,6 +94,14 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except CountOfKeysDiffersException as error:
             logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
+        except ForeignWithdrawalCredentialsException as error:
+            logger.error(
+                {
+                    'msg': 'Used Lido keys sit on validators with non-Lido withdrawal credentials. '
+                    'Reporting is blocked until this is resolved; it cannot clear on its own.',
+                    'error': str(error),
+                }
+            )
         except Web3Exception as error:
             logger.error({'msg': 'Web3py exception.', 'error': str(error)})
         except IPFSError as error:
