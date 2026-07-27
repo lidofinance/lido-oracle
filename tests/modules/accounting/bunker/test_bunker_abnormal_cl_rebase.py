@@ -12,11 +12,13 @@ from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BunkerConfigFactory, ChainConfigFactory, FrameConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 from tests.modules.accounting.bunker.conftest import simple_blockstamp, simple_key, simple_ref_blockstamp
 
 
 DEFAULT_BALANCE = Gwei(32 * 10**9)
+_LIDO_WC = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+_NON_LIDO_WC = '0x010000000000000000000000deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
 
 def simple_validators(
@@ -506,11 +508,15 @@ def test_get_validators_diff_in_gwei_raises_on_shrink():
         "expected_gwei",
     ),
     [
-        # Top-up 32 ETH to existing validator; no pending deposits, no backlog anywhere
+        # NOTE: the fixture below has no Lido validator on the CL (lido_validators == [] on both ends),
+        # so every queued deposit here is attributed through the *new-key* path. The already-indexed
+        # top-up branch of _sum_valid_lido_pending is covered separately, in the tests below.
+        #
+        # 32 ETH deposited in [prev, ref]; nothing queued at either end
         (32 * 10**18, 0, 0, 0, 0, 0, 32 * 10**9),
-        # Top-up 64 ETH, 32 ETH still pending at ref
+        # 64 ETH deposited in [prev, ref], but 32 ETH of it is still queued at ref
         (64 * 10**18, 0, 0, 0, 0, 32 * 10**9, 32 * 10**9),
-        # 32 ETH in queue at prev, all applied by ref; 64 ETH deposited in [prev, ref]
+        # 32 ETH already queued at prev gets applied by ref, on top of 64 ETH deposited in [prev, ref]
         (64 * 10**18, 0, 0, 0, 32 * 10**9, 0, 96 * 10**9),
         # Plain intra-frame delta, no backlog anywhere
         (100 * 10**18, 0, 40 * 10**18, 0, 0, 0, 60 * 10**9),
@@ -586,6 +592,115 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
     assert result == Gwei(expected_gwei)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("topup_wc", "topup_signature"),
+    [
+        (_LIDO_WC, '0xsig'),
+        # A top-up to an already-indexed validator is credited by the CL regardless of what the
+        # deposit data says — the validator's own credentials apply. So neither a foreign WC nor a
+        # broken proof-of-possession may make the oracle drop it.
+        (_NON_LIDO_WC, '0xsig'),
+        (_LIDO_WC, '0xgarbage'),
+    ],
+)
+def test_calculate_injected_capital__v4__topup_to_indexed_validator__counted_without_validation(
+    web3, monkeypatch, topup_wc, topup_signature
+):
+    """The `d.pubkey in existing_pubkeys` branch of _sum_valid_lido_pending.
+
+    A key that already has a validator on the CL bypasses front-run detection entirely. If this
+    top-up were instead routed through _collect_valid_pending_deposits it would be rejected for the
+    foreign-WC and bad-signature cases, current_pending would drop to 0, and injected capital would
+    come out as 64 ETH instead of 32 ETH — inflating the apparent CL rebase.
+    """
+    # Arrange
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
+
+    lido_pubkey = '0xabc'
+    indexed_validator = LidoValidatorFactory.build(validator=ValidatorStateFactory.build(pubkey=lido_pubkey))
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = [indexed_validator]  # the key is already on the CL at ref
+
+    abnormal_case._get_last_report_reference_blockstamp = Mock(
+        return_value=ReferenceBlockStampFactory.build(block_number=5)
+    )
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    topup = Mock(
+        pubkey=lido_pubkey,
+        withdrawal_credentials=topup_wc,
+        signature=topup_signature,
+        amount=32 * 10**9,
+    )
+    # Nothing queued at prev; the 32 ETH top-up is still queued at ref.
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[], [topup]])
+    # get_balance_stats is read for ref first, then prev: 64 ETH deposited inside the window.
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
+        side_effect=[BalanceStats(0, 0, 64 * 10**18, 0), BalanceStats(0, 0, 0, 0)]
+    )
+
+    # Act — the same validator existed at prev, so it is indexed on both ends
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [indexed_validator])
+
+    # Assert — 64 ETH deposited in the window, 32 ETH of it not yet applied on the CL
+    assert result == Gwei(32 * 10**9)
+
+
+@pytest.mark.unit
+def test_calculate_injected_capital__v4__topup_queued_at_prev_and_applied_by_ref__counted_once(web3, monkeypatch):
+    """Mirror of the above on the `old_pending` side: a top-up already queued at prev.
+
+    Once the CL applies it, it shows up in validator balances, so it must be added back to injected
+    capital — otherwise the rebase looks larger than it was.
+    """
+    # Arrange
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
+
+    lido_pubkey = '0xabc'
+    indexed_validator = LidoValidatorFactory.build(validator=ValidatorStateFactory.build(pubkey=lido_pubkey))
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = [indexed_validator]
+
+    abnormal_case._get_last_report_reference_blockstamp = Mock(
+        return_value=ReferenceBlockStampFactory.build(block_number=5)
+    )
+    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
+    monkeypatch.setattr(
+        'src.web3py.extensions.lido_validators.hex_str_to_bytes',
+        lambda s: s.encode() if isinstance(s, str) else s,
+    )
+
+    topup = Mock(pubkey=lido_pubkey, withdrawal_credentials=_LIDO_WC, signature='0xsig', amount=32 * 10**9)
+    # 32 ETH queued at prev, applied by ref; another 64 ETH deposited inside the window.
+    abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[topup], []])
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
+        side_effect=[BalanceStats(0, 0, 64 * 10**18, 0), BalanceStats(0, 0, 0, 0)]
+    )
+
+    # Act
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [indexed_validator])
+
+    # Assert — 64 ETH deposited in the window plus the 32 ETH backlog that landed during it
+    assert result == Gwei(96 * 10**9)
 
 
 @pytest.mark.unit
