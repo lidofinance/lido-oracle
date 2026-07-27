@@ -1,3 +1,4 @@
+from collections import Counter
 from unittest.mock import Mock
 
 import pytest
@@ -1438,6 +1439,181 @@ class TestNextAndIterFull:
         iterator._prepare_data_structure.assert_called_once()
         iterator._calculate_lido_stats.assert_called_once()
         iterator._get_report_limits.assert_called_once()
+
+    @staticmethod
+    def _make_ext_data(sm_id, no_id):
+        return bytes([0, sm_id]) + no_id.to_bytes(8, byteorder='big')
+
+    def test_full_iteration__mixed_weight_groups_and_ungrouped_nos__ejects_all_via_full_pipeline(self, iterator):
+        sm_v1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
+        sm_v1.staking_module_address = "0x" + "1" * 40
+        sm_v2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
+        sm_v2.staking_module_address = "0x" + "2" * 40
+
+        ext1 = make_node_operator(1, sm_v1)
+        ext2 = make_node_operator(2, sm_v1)
+        ext3 = make_node_operator(3, sm_v1)
+        ext4 = make_node_operator(4, sm_v1)  # ungrouped
+        int1 = make_node_operator(1, sm_v2)
+        int2 = make_node_operator(2, sm_v2)
+        int3 = make_node_operator(3, sm_v2)
+        int4 = make_node_operator(4, sm_v2)
+        int5 = make_node_operator(5, sm_v2)  # ungrouped
+
+        gids = {
+            'ext1': (sm_v1.id, ext1.id),
+            'ext2': (sm_v1.id, ext2.id),
+            'ext3': (sm_v1.id, ext3.id),
+            'ext4': (sm_v1.id, ext4.id),
+            'int1': (sm_v2.id, int1.id),
+            'int2': (sm_v2.id, int2.id),
+            'int3': (sm_v2.id, int3.id),
+            'int4': (sm_v2.id, int4.id),
+            'int5': (sm_v2.id, int5.id),
+        }
+        balances_eth = {
+            'ext1': 30,
+            'ext2': 20,
+            'ext3': 28,
+            'ext4': 18,
+            'int1': 25,
+            'int2': 15,
+            'int3': 22,
+            'int4': 12,
+            'int5': 27,
+        }
+        validators = {
+            name: LidoValidatorFactory.build_with_activation_epoch_bound(
+                iterator.blockstamp.ref_epoch, balance=Gwei(balances_eth[name] * 10**9)
+            )
+            for name in gids
+        }
+
+        iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm_v1, sm_v2])
+        iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
+            return_value={
+                sm_v1.id: [ext1, ext2, ext3, ext4],
+                sm_v2.id: [int1, int2, int3, int4, int5],
+            }
+        )
+        iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+            return_value={gids[name]: [validators[name]] for name in gids}
+        )
+        iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
+            return_value={gid: [-1] for gid in gids.values()}
+        )
+        iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+        iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+            return_value=Mock(max_balance_exit_requested_per_report_in_eth=100_000)
+        )
+
+        group_a = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=int1.id, share=50),
+                SubNodeOperator(node_operator_id=int2.id, share=50),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext1.id)),
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext2.id)),
+            ],
+        )
+        group_b = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=int3.id, share=40),
+                SubNodeOperator(node_operator_id=int4.id, share=60),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext3.id)),
+            ],
+        )
+        # ext4 / int5 are intentionally not referenced in any group -> stay ungrouped.
+
+        mock_cm_v1_contract = Mock()
+        mock_cm_v1_contract.get_type.return_value = CURATED_V1_TYPE
+
+        mock_cm_v2_contract = Mock()
+        mock_cm_v2_contract.get_type.return_value = CURATED_V2_TYPE
+        mock_cm_v2_contract.get_node_operator_deposit_info_to_update_count.return_value = 0
+        # Order must match no_ids order = insertion order of sm_v2's node operators: int1..int5
+        mock_cm_v2_contract.get_operator_weights.return_value = [0.0, 0.0, 4.0, 6.0, 3.0]
+        meta_registry_address = "0x" + "9" * 40
+        mock_cm_v2_contract.get_meta_registry_address.return_value = meta_registry_address
+
+        mock_meta_registry = Mock()
+        mock_meta_registry.get_all_groups.return_value = [group_a, group_b]
+
+        contracts_by_addr = {
+            sm_v1.staking_module_address: mock_cm_v1_contract,
+            sm_v2.staking_module_address: mock_cm_v2_contract,
+            meta_registry_address: mock_meta_registry,
+        }
+        iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
+
+        iterator.max_current_exit_balance = Gwei(0)
+        iterator._prepare_data_structure()
+        iterator._calculate_lido_stats()
+        iterator._get_report_limits()
+
+        nos_stats = iterator.node_operators_stats
+        ETH = 10**9
+
+        # Grouped NOs got linked to their respective group...
+        assert nos_stats[gids['int1']].internal_operator_group is group_a
+        assert nos_stats[gids['int2']].internal_operator_group is group_a
+        assert nos_stats[gids['int3']].internal_operator_group is group_b
+        assert nos_stats[gids['int4']].internal_operator_group is group_b
+        assert nos_stats[gids['ext1']].external_operator_group is group_a
+        assert nos_stats[gids['ext2']].external_operator_group is group_a
+        assert nos_stats[gids['ext3']].external_operator_group is group_b
+        # ...while ungrouped NOs stayed ungrouped.
+        assert nos_stats[gids['int5']].internal_operator_group is None
+        assert nos_stats[gids['ext4']].external_operator_group is None
+
+        # Group A (zero internal_weight): external_balance (30+20=50) split equally between int1/int2;
+        # internal_balance (25+15=40) split equally between ext1/ext2.
+        assert nos_stats[gids['int1']].total_stake == 25 * ETH + 50 * ETH / 2
+        assert nos_stats[gids['int2']].total_stake == 15 * ETH + 50 * ETH / 2
+        assert nos_stats[gids['ext1']].total_stake == 30 * ETH + 40 * ETH / 2
+        assert nos_stats[gids['ext2']].total_stake == 20 * ETH + 40 * ETH / 2
+
+        # Group B (nonzero internal_weight=10): external_balance (28) split by weight 4/10, 6/10;
+        # internal_balance (22+12=34) attributed wholly to the single external NO (ext3).
+        assert nos_stats[gids['int3']].total_stake == 22 * ETH + 28 * ETH * 4.0 / 10.0
+        assert nos_stats[gids['int4']].total_stake == 12 * ETH + 28 * ETH * 6.0 / 10.0
+        assert nos_stats[gids['ext3']].total_stake == 28 * ETH + 34 * ETH
+
+        # Ungrouped NOs: total_stake is just their own predictable balance, untouched by any group.
+        assert nos_stats[gids['int5']].total_stake == 27 * ETH
+        assert nos_stats[gids['ext4']].total_stake == 18 * ETH
+
+        # Module-level total_stake accumulates both groups' cross-attributed balances.
+        assert iterator.module_stats[sm_v1.id].total_stake == 96 * ETH + 40 * ETH + 34 * ETH
+        assert iterator.module_stats[sm_v2.id].total_stake == 101 * ETH + 50 * ETH + 28 * ETH
+
+        # Module-level total_weight sums every NO's weight, zero and nonzero alike;
+        # sm_v2 is genuinely nonzero here (0 + 0 + 4.0 + 6.0 + 3.0), unlike the all-zero unit test case.
+        assert iterator.module_stats[sm_v2.id].total_weight == 0.0 + 0.0 + 4.0 + 6.0 + 3.0
+
+        # --- Now drain the iterator for real and verify ejection completeness/module attribution ---
+        ejected: list[tuple] = []
+        for _i in range(8):
+            ejected.append(next(iterator))
+
+        assert len(ejected) == 8
+
+        ejected_module_counts = Counter(gid[0] for gid, _ in ejected)
+        assert ejected_module_counts[sm_v1.id] == 4  # ext1, ext2, ext3, ext4
+        assert ejected_module_counts[sm_v2.id] == 4  # int1, int2, int3, int5
+
+        assert nos_stats[gids['int5']].total_stake == 0 * ETH
+        assert nos_stats[gids['ext4']].total_stake == 0 * ETH
+        assert nos_stats[gids['int4']].total_stake == 12 * ETH
+
+        assert iterator.module_stats[gids['int4'][0]].total_stake == 12 * ETH
+        assert iterator.module_stats[gids['int4'][0]].predictable_balance == 12 * ETH
+
+        assert iterator.module_stats[gids['ext1'][0]].total_stake == 12 * ETH
+        assert iterator.module_stats[gids['ext1'][0]].predictable_balance == 0 * ETH
 
 
 @pytest.mark.unit
