@@ -178,7 +178,10 @@ class CountOfKeysDiffersException(Exception):
 
 
 class FrontRunAttackError(Exception):
-    pass
+    """A Lido key was deposited onto withdrawal credentials that are not Lido's.
+
+    Governance has to schedule and handle such an incident manually, so we do not report.
+    """
 
 
 type ValidatorsByNodeOperator = dict[NodeOperatorGlobalIndex, list[LidoValidator]]
@@ -391,6 +394,8 @@ class LidoValidatorsProvider(Module):
                 'pending_lido_keys': len(pending_lido_keys),
             }
         )
+        self._validate_withdrawal_credentials(lido_validators, blockstamp)
+
         return lido_validators, pending_lido_keys
 
     def _kapi_sanity_check(self, keys_count_received: int, blockstamp: BlockStamp):
@@ -453,6 +458,53 @@ class LidoValidatorsProvider(Module):
             raise CountOfKeysDiffersException(
                 f'Keys API Service returned lesser keys than deposited validators. Total mismatched: {mismatched}'
             )
+
+    def _validate_withdrawal_credentials(self, lido_validators: list[LidoValidator], blockstamp: BlockStamp) -> None:
+        """
+        Refuse to report when a used Lido key sits on a validator whose withdrawal credentials are
+        not Lido's.
+
+        `_collect_valid_pending_deposits` catches the same attack while the deposit is still queued,
+        but its filter is the set of keys not yet on the CL, so it stops applying once the validator
+        is created. Credentials cannot be changed afterwards.
+        """
+        lido_wc_list = self.get_lido_wc_list(blockstamp)
+        foreign = {
+            validator.lido_id.key: validator.validator.withdrawal_credentials
+            for validator in lido_validators
+            if validator.validator.withdrawal_credentials not in lido_wc_list
+        }
+        if not foreign:
+            return
+
+        # Summary first, so that a flood of the per-key lines below is self-explanatory rather than
+        # alarming on its own -- a misconfigured locator would put every Lido validator in here.
+        logger.error(
+            {
+                'msg': 'Used Lido keys on validators with non-Lido withdrawal credentials. '
+                'Ether the protocol paid for is withdrawable by someone else. '
+                'One line follows per key.',
+                'value': len(foreign),
+                'expected_withdrawal_credentials': lido_wc_list,
+                'block_number': blockstamp.block_number,
+            }
+        )
+        # Every key gets its own line: this is the actionable output, and truncating it would hide
+        # keys an operator has to act on.
+        for pubkey in sorted(foreign):
+            logger.error(
+                {
+                    'msg': 'Used Lido key on a validator with non-Lido withdrawal credentials.',
+                    'pubkey': pubkey,
+                    'withdrawal_credentials': foreign[pubkey],
+                    'expected_withdrawal_credentials': lido_wc_list,
+                }
+            )
+
+        raise FrontRunAttackError(
+            f'{len(foreign)} used Lido key(s) belong to validators with non-Lido withdrawal '
+            f'credentials. See the preceding log lines for every affected key.'
+        )
 
     def _kapi_sanity_check_pending_deposits(self, lido_keys: list[LidoKey], blockstamp: BlockStamp) -> None:
         """

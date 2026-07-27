@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from eth_typing import HexStr
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.oracles.accounting.types import BeaconStat
@@ -19,6 +20,7 @@ from tests.factory.no_registry import (
     NodeOperatorFactory,
     StakingModuleFactory,
     ValidatorFactory,
+    ValidatorStateFactory,
 )
 
 
@@ -44,6 +46,8 @@ def test_get_lido_validators(web3):
     web3.lido_validators._kapi_sanity_check_pending_deposits = Mock()
     web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
+    # These validators are Lido's, so their credentials are the Lido ones by definition.
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[v.validator.withdrawal_credentials for v in validators])
 
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
@@ -70,6 +74,7 @@ def test_kapi_has_lesser_keys_than_deposited_validators_count(web3):
     web3.lido_validators._kapi_sanity_check_pending_deposits = Mock()
     web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[v.validator.withdrawal_credentials for v in validators])
     web3.cc.get_validators = Mock(return_value=validators)
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
     web3.cc.get_pending_deposits = Mock(return_value=[])
@@ -732,3 +737,78 @@ def test_get_active_lido_validators__handles_multiple_consolidations(web3):
     assert len(active_validators) == len(mock_validators)
     assert active_validators[0].consolidating_as_source is not None
     assert len(active_validators[1].consolidating_as_target) == 2
+
+
+# ---- _validate_withdrawal_credentials ----
+
+_VAULT = '0x' + 'ab' * 20
+_LIDO_WC_0X01 = HexStr(ETH1_ADDRESS_WITHDRAWAL_PREFIX + '0' * 22 + _VAULT[2:])
+_LIDO_WC_0X02 = HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + '0' * 22 + _VAULT[2:])
+_FOREIGN_WC = HexStr(ETH1_ADDRESS_WITHDRAWAL_PREFIX + '0' * 22 + 'cd' * 20)
+
+
+def _lido_validator_with_wc(wc, pubkey='0xaabb'):
+    return LidoValidatorFactory.build(
+        lido_id=LidoKeyFactory.build(key=pubkey),
+        validator=ValidatorStateFactory.build(pubkey=pubkey, withdrawal_credentials=wc),
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize('wc', [_LIDO_WC_0X01, _LIDO_WC_0X02])
+def test_validate_withdrawal_credentials__lido_credentials__does_not_raise(web3, wc):
+    """Both 0x01 and 0x02 forms of the withdrawal vault are Lido's."""
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+
+    web3.lido_validators._validate_withdrawal_credentials([_lido_validator_with_wc(wc)], blockstamp)
+
+
+@pytest.mark.unit
+def test_validate_withdrawal_credentials__no_validators__does_not_raise(web3):
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+
+    web3.lido_validators._validate_withdrawal_credentials([], blockstamp)
+
+
+@pytest.mark.unit
+def test_validate_withdrawal_credentials__foreign_credentials__raises_with_the_count(web3):
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+    captured = _lido_validator_with_wc(_FOREIGN_WC, pubkey='0xdeadbeef')
+    honest = _lido_validator_with_wc(_LIDO_WC_0X01, pubkey='0xc0ffee')
+
+    with pytest.raises(FrontRunAttackError, match='1 used Lido key'):
+        web3.lido_validators._validate_withdrawal_credentials([honest, captured], blockstamp)
+
+
+@pytest.mark.unit
+def test_validate_withdrawal_credentials__many_foreign_keys__logs_every_one_of_them(web3, caplog):
+    """Every affected key gets its own log line, with no truncation.
+
+    Withdrawal credentials cannot be changed, so this is not a state that clears itself: whoever is
+    on call has to act on each key individually, and a truncated list would hide some of them.
+    """
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+    # More than any plausible truncation limit.
+    pubkeys = [f'0x{i:04x}' for i in range(25)]
+    captured = [_lido_validator_with_wc(_FOREIGN_WC, pubkey=pubkey) for pubkey in pubkeys]
+
+    with pytest.raises(FrontRunAttackError):
+        web3.lido_validators._validate_withdrawal_credentials(captured, blockstamp)
+
+    per_key_lines = [r for r in caplog.records if 'pubkey' in str(r.msg)]
+    assert len(per_key_lines) == len(pubkeys), 'one line per key, none dropped'
+    for pubkey in pubkeys:
+        assert pubkey in caplog.text, f'{pubkey} must be logged'
+
+
+@pytest.mark.unit
+def test_validate_withdrawal_credentials__foreign_credentials__logs_expected_and_actual(web3, caplog):
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC_0X01, _LIDO_WC_0X02])
+
+    with pytest.raises(FrontRunAttackError):
+        web3.lido_validators._validate_withdrawal_credentials(
+            [_lido_validator_with_wc(_FOREIGN_WC, pubkey='0xdeadbeef')], blockstamp
+        )
+
+    assert _FOREIGN_WC in caplog.text, 'the offending credentials must be logged'
+    assert _LIDO_WC_0X01 in caplog.text, 'so must the expected ones, to make the diff obvious'
