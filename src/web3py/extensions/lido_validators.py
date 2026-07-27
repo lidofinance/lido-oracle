@@ -193,11 +193,17 @@ class LidoValidatorsProvider(Module):
 
     @lru_cache(maxsize=1)
     def get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        """Both public getters cross-check active against pending, so both call both private
+        halves. The caches on the private methods are what keeps that from doing the work twice --
+        in particular `_get_pending_lido_validators` BLS-verifies the whole Lido pending-deposit
+        queue, which is the most expensive thing in the report.
+        """
         result = self._get_active_lido_validators(blockstamp)
         pending_validators = self._get_pending_lido_validators(blockstamp)
         self._validate_total_validators_count(len(result), len(pending_validators), blockstamp)
         return result
 
+    @lru_cache(maxsize=1)
     def _get_active_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
@@ -272,6 +278,7 @@ class LidoValidatorsProvider(Module):
         self._validate_total_validators_count(len(active_validators), len(pending_validators), blockstamp)
         return pending_validators
 
+    @lru_cache(maxsize=1)
     def _get_pending_lido_validators(
         self,
         blockstamp: BlockStamp,
