@@ -29,9 +29,10 @@ no problem, which is the opposite of what they exist for. They fail for two inde
    Introduced by the branch under review; these pass unchanged once it stops blocking the report.
 
 2. ``test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl`` fails for
-   a different and pre-existing reason: no withdrawal-credential check exists on the active path at
-   all, so the write-off silently reverses the moment the CL creates the front-run validator. See
-   that test's docstring for the measured figures.
+   a different and pre-existing reason: which CL validators count as Lido's is decided by pubkey
+   alone, with no check that their withdrawal credentials are Lido's, so the write-off silently
+   reverses the moment the CL creates the front-run validator. One gap, but it shows up in both
+   reported balances. See that test's docstring for the measured figures.
 """
 
 from unittest.mock import Mock
@@ -282,21 +283,27 @@ def test_get_active_lido_validators__garbage_signature_then_lido_deposit__reconc
 def test_report_balances__frontrun_validator_created_on_cl__lost_ether_stays_out_of_tvl(lido_protocol, accounting):
     """The front-run write-off currently lasts only while the deposit sits in the CL queue.
 
-    `_collect_valid_pending_deposits` drops a front-run pubkey, but that only governs *new*
+    `_collect_valid_pending_deposits` drops a front-run pubkey, but that governs only *new*
     validators: its `filter_pubkeys` is the set of Lido keys not yet on the CL. Once the CL creates
-    the validator, the exclusion is bypassed twice over --
+    the validator the pubkey leaves that set, and nothing downstream reinstates the exclusion --
+    `compute_lido_validators` decides which CL validators are Lido's **by pubkey alone**, and no
+    caller consults `get_lido_wc_list` on the active path (it is checked for pending deposits and in
+    `abnormal_cl_rebase`, never for active validators).
 
-      * `compute_lido_validators` matches CL validators to Lido keys by pubkey alone, and nothing
-        on the active path consults `get_lido_wc_list` (it is checked for pending deposits and in
-        `abnormal_cl_rebase`, never for active validators), so the validator's balance lands in
-        `clValidatorsBalance`; and
-      * `get_active_lido_validators` builds `deposits_by_pubkey` from *every* pending deposit, with
-        no withdrawal-credential filter and no `filter_pubkeys`, so Lido's own queued deposit for
-        that pubkey returns as a `pending_topup` and lands in `clPendingBalance`.
+    That single gap contaminates both TVL terms, which are each computed correctly over the wrong
+    set. Note that summing them is *not* double counting: a `pending_topup` is ether that has left
+    the deposit contract but is not yet in `validator.balance`, and the two contributions to
+    `clPendingBalance` are disjoint by construction -- `new_validators_pending` comes from keys not
+    on the CL, `topups_pending` from keys that are.
+
+      * the validator's own balance lands in `clValidatorsBalance`;
+      * Lido's still-queued deposit for that pubkey is reclassified from a new-validator deposit
+        into a `pending_topup` and lands in `clPendingBalance`.
 
     Measured on this branch: `clValidatorsBalance` 64.2 ETH and `clPendingBalance` 64.0 ETH, i.e.
-    64.1 ETH attributed to a key only the operator can withdraw from. This test states that it must
-    be excluded instead, and fails today on the first assertion.
+    64.1 ETH attributed to a key only the operator can withdraw from. Excluding the validator from
+    the Lido set fixes both terms at once, which is why this test asserts on the reported balances
+    rather than prescribing where the check goes.
     """
     # Arrange: the front-run validator now exists on the CL with the operator's own credentials,
     # and Lido's own deposit for the same pubkey is still queued -- now a top-up, not a new deposit.
