@@ -271,7 +271,6 @@ class LidoValidatorsProvider(Module):
             HexStr(COMPOUNDING_WITHDRAWAL_PREFIX + wc_postfix),
         ]
 
-    @lru_cache(maxsize=1)
     def get_pending_lido_validators(self, blockstamp: BlockStamp) -> dict[HexStr, PendingValidator]:
         pending_validators = self._get_pending_lido_validators(blockstamp)
         active_validators = self._get_active_lido_validators(blockstamp)
