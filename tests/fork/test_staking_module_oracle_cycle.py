@@ -144,7 +144,7 @@ def frame_index_as_processed(request):
     'module',
     [
         csm_module,
-        # cm_module # TODO: uncomment when Curated Module is ready on Mainnet
+        cm_module,
     ],
     indirect=True,
 )
