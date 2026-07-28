@@ -36,7 +36,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('module', choices=['accounting', 'ejector'], help='Oracle module to run.')
     parser.add_argument(
         '--slot',
+        type=int,
         default=None,
+        help='Reference slot to build the report for. Defaults to the latest finalized slot.',
     )
     parser.add_argument('--prometheus-port', type=int, default=None, help='Defaults to a free port.')
     parser.add_argument('--healthcheck-port', type=int, default=None, help='Defaults to a free port.')
