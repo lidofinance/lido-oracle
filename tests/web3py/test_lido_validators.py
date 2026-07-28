@@ -1,9 +1,11 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
 from eth_typing import HexStr
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from src.metrics.logging import JsonFormatter
 from src.modules.oracles.accounting.types import BeaconStat
 from src.types import NodeOperatorId
 from src.web3py.extensions.lido_validators import (
@@ -342,6 +344,43 @@ def test_kapi_sanity_check_by_operator__keys_belong_to_other_operator__not_count
 
     with pytest.raises(CountOfKeysDiffersException):
         web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)
+
+
+@pytest.mark.unit
+def test_kapi_sanity_check_by_operator__many_missing_indexes__logs_all_of_them(web3, caplog):
+    """Every missing index has to reach the log; a truncated list hides part of the gap."""
+    staking_module = StakingModuleFactory.build()
+    operator = NodeOperatorFactory.build(staking_module=staking_module, total_deposited_validators=40)
+    web3.lido_validators.get_lido_node_operators = Mock(return_value=[operator])
+
+    # Only index 0 is present, so 1..39 are missing -- well past any truncation limit.
+    lido_keys = _make_lido_keys(1, operator.id, staking_module.staking_module_address)
+
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._kapi_sanity_check_by_operator(lido_keys, blockstamp)
+
+    logged = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Used keys from KAPI mismatched.')
+    assert sorted(logged['missing_indexes']) == list(range(1, 40))
+    assert logged['missing_count'] == 39
+
+
+@pytest.mark.unit
+def test_kapi_sanity_check_by_operator__missing_indexes__log_record_is_serialisable(web3, caplog):
+    """The value must survive JsonFormatter.
+
+    It json.dumps the whole record, and a set raises TypeError there -- which drops the entire line
+    and would lose the diagnostic the truncation fix exists to deliver.
+    """
+    staking_module = StakingModuleFactory.build()
+    operator = NodeOperatorFactory.build(staking_module=staking_module, total_deposited_validators=3)
+    web3.lido_validators.get_lido_node_operators = Mock(return_value=[operator])
+
+    with pytest.raises(CountOfKeysDiffersException):
+        web3.lido_validators._kapi_sanity_check_by_operator([], blockstamp)
+
+    record = next(r for r in caplog.records if r.msg.get('msg') == 'Used keys from KAPI mismatched.')
+    formatted = json.loads(JsonFormatter().format(record))
+    assert sorted(formatted['missing_indexes']) == [0, 1, 2]
 
 
 # ---- _kapi_sanity_check_pending_deposits ----

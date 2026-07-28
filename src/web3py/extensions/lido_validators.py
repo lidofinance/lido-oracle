@@ -452,7 +452,7 @@ class LidoValidatorsProvider(Module):
                         'msg': 'Used keys from KAPI mismatched.',
                         'staking_module_address': operator.staking_module.staking_module_address,
                         'operator_id': operator.id,
-                        'missing_indexes': sorted(missing)[:10],
+                        'missing_indexes': list(missing),
                         'missing_count': len(missing),
                         'total_deposited_validators': operator.total_deposited_validators,
                     }
