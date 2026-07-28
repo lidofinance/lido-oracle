@@ -114,8 +114,8 @@ poetry run python scripts/run_oracle_at_slot.py accounting              # latest
 poetry run python scripts/run_oracle_at_slot.py ejector --slot 8500000  # forced slot
 ```
 
-Requires the same env vars as above (`source .env` first). At the end of the run it prints the built
-report and the `submitReportData` call in green for a quick manual check.
+Requires the same env vars as above (e.g. `set -a && source .env && set +a` first). At the end of the run it prints the built
+report and the `Build `submitReport(...)`` log line in green for a quick manual check.
 
 ## Code quality
 
