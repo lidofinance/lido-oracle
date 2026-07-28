@@ -89,6 +89,9 @@ def main() -> None:
     # Must be set before `src.variables` (or anything importing it) is loaded,
     # since those values are read from the environment at import time.
     os.environ['DAEMON'] = 'False'
+    # Force dry mode (no on-chain tx signing/sending) regardless of the caller's shell env.
+    os.environ.pop('MEMBER_PRIV_KEY', None)
+    os.environ.pop('MEMBER_PRIV_KEY_FILE', None)
     os.environ['PROMETHEUS_PORT'] = str(prometheus_port)
     os.environ['HEALTHCHECK_SERVER_PORT'] = str(healthcheck_port)
 
