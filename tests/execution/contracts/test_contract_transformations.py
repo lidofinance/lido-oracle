@@ -5,7 +5,7 @@ pass-through methods (to maintain coverage without integration tests).
 
 from collections import namedtuple
 from typing import cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, Hash32
@@ -24,6 +24,7 @@ from src.modules.oracles.accounting.events import (
 )
 from src.modules.oracles.accounting.types import (
     AccountingProcessingState,
+    BalanceStats,
     BatchState,
     BeaconStat,
     OracleReportLimits,
@@ -878,9 +879,10 @@ class TestMetaRegistryGetAllGroups:
         result = MetaRegistryContract.get_all_groups(contract, block_identifier="latest")
 
         assert result == groups
-        contract.get_operator_group.assert_any_call(0, "latest")
         contract.get_operator_group.assert_any_call(1, "latest")
         contract.get_operator_group.assert_any_call(2, "latest")
+        contract.get_operator_group.assert_any_call(3, "latest")
+        assert call(0, "latest") not in contract.get_operator_group.call_args_list
 
     def test_single_group(self):
         contract = _mock_contract()
@@ -891,6 +893,7 @@ class TestMetaRegistryGetAllGroups:
         result = MetaRegistryContract.get_all_groups(contract, block_identifier=100)
 
         assert result == [group]
+        contract.get_operator_group.assert_called_once_with(1, 100)
 
 
 @pytest.mark.unit
@@ -1040,6 +1043,15 @@ _ChainConfigTuple = namedtuple("ChainConfig", ["slotsPerEpoch", "secondsPerSlot"
 _CurrentFrameTuple = namedtuple("CurrentFrame", ["refSlot", "reportProcessingDeadlineSlot"])
 _FrameConfigTuple = namedtuple("FrameConfig", ["initialEpoch", "epochsPerFrame", "fastLaneLengthSlots"])
 _BeaconStatTuple = namedtuple("BeaconStat", ["depositedValidators", "beaconValidators", "beaconBalance"])
+_BalanceStatsTuple = namedtuple(
+    "BalanceStats",
+    [
+        "clValidatorsBalanceAtLastReport",
+        "clPendingBalanceAtLastReport",
+        "depositedSinceLastReport",
+        "depositedForCurrentReport",
+    ],
+)
 _SharesRequestedToBurnTuple = namedtuple("SharesRequestedToBurn", ["coverShares", "nonCoverShares"])
 _WithdrawalRequestStatusTuple = namedtuple(
     "WithdrawalRequestStatus",
@@ -1216,6 +1228,16 @@ class TestLidoContract:
         contract.functions.getDepositsReserveTarget.return_value.call.return_value = 42
         result = LidoContract.get_deposits_reserve_target(contract, block_identifier="latest")
         assert result == 42
+
+    def test_get_balance_stats(self):
+        contract = _mock_contract()
+        contract.functions.getBalanceStats.return_value.call.return_value = _BalanceStatsTuple(100, 90, 32, 10)
+        result = LidoContract.get_balance_stats(contract, block_identifier="latest")
+        assert isinstance(result, BalanceStats)
+        assert result.cl_validators_balance_at_last_report == 100
+        assert result.cl_pending_balance_at_last_report == 90
+        assert result.deposited_since_last_report == 32
+        assert result.deposited_for_current_report == 10
 
 
 # ---------------------------------------------------------------------------

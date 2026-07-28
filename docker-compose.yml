@@ -99,6 +99,11 @@ services:
         required: false
     environment:
       <<: *performance-db-env
+    # WARNING: This is an internal, unauthenticated service-to-service API.
+    # csm/cm reach it via http://performance-web:9020/ on the compose network,
+    # so it does NOT need a host port at all. The mapping below is for local
+    # development only. Do NOT expose this port to the internet: anyone who can
+    # reach it can mutate without credentials.
     ports:
       - "${PERFORMANCE_WEB_PORT:-9020}:9020"
     healthcheck:

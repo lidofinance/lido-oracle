@@ -28,6 +28,7 @@ from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
@@ -166,6 +167,8 @@ def test_cycle_no_fail_on_retryable_error(oracle: OracleModule, ex: Exception):
     [
         IsNotMemberException("Fake exception"),
         IncompatibleOracleVersion("Fake exception"),
+        CountOfKeysDiffersException("Fake exception"),
+        FrontRunAttackError("Fake exception"),
     ],
     ids=lambda param: f"{type(param).__name__}",
 )

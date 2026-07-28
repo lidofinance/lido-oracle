@@ -218,6 +218,8 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
                 logger.debug({'msg': response_fail_msg})
                 raise self.PROVIDER_EXCEPTION(status=0, text='JSON decode error.') from error
 
+            response_bytes = None if stream else len(response.content)
+
         meta: dict[str, Any] = {}
         try:
             data = json_response["data"]  # type: ignore[index]
@@ -228,6 +230,9 @@ class HTTPProvider(ProviderConsistencyModule, ABC):
         except (KeyError, TypeError):
             # NOTE: Used by KeysAPIClient and PerformanceClient only.
             data = json_response
+
+        if response_bytes is not None:
+            meta['response_bytes'] = response_bytes
 
         validate_response(data, meta, endpoint=endpoint)
         if stream_consumer is not None:

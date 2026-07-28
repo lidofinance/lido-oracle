@@ -1,6 +1,7 @@
 import pytest
 
 from src.constants import (
+    CHURN_LIMIT_QUOTIENT,
     EFFECTIVE_BALANCE_INCREMENT,
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
@@ -373,6 +374,23 @@ def test_compute_activation_exit_epoch():
 def test_get_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwei):
     actual_limit = get_balance_churn_limit(total_active_balance)
     assert actual_limit == expected_limit, "Unexpected balance churn limit"
+
+
+@pytest.mark.unit
+def test_get_balance_churn_limit__raw_not_increment_aligned__trims_dust_down():
+    # Pick a total whose raw churn (total // CHURN_LIMIT_QUOTIENT) is above the minimum floor and
+    # is NOT a multiple of EFFECTIVE_BALANCE_INCREMENT, so the modulo trimming actually fires.
+    # The 0.75 ETH of dust is the +750_000_000 Gwei tail below.
+    # Arrange
+    raw_churn = 130 * EFFECTIVE_BALANCE_INCREMENT + 750_000_000  # 130.75 ETH, not increment-aligned
+    total_active_balance = Gwei(raw_churn * CHURN_LIMIT_QUOTIENT)
+
+    # Act
+    actual_limit = get_balance_churn_limit(total_active_balance)
+
+    # Assert
+    assert actual_limit == Gwei(130 * EFFECTIVE_BALANCE_INCREMENT), "Dust must be trimmed down to a clean increment"
+    assert actual_limit % EFFECTIVE_BALANCE_INCREMENT == 0, "Churn limit must be a multiple of the increment"
 
 
 @pytest.mark.unit
