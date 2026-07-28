@@ -2,8 +2,8 @@
 """
 Run a single Accounting or Ejector oracle cycle pinned to a specific slot.
 
-Forces DAEMON=False (single cycle, then exit) and binds Prometheus / healthcheck
-servers to free local ports, so multiple instances (e.g. accounting + ejector)
+Forces DAEMON=False (single cycle, then exit) and configures Prometheus / healthcheck
+servers to use free ports, so multiple instances (e.g. accounting + ejector)
 can be started in parallel without port clashes.
 
 Usage:
