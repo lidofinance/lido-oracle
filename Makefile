@@ -31,7 +31,12 @@ ipython: up
 poetry-lock: up
 	$(EXEC_CMD) poetry lock --no-update
 
-lint: up
+# blst (https://github.com/supranational/blst) has no PyPI distribution; its Python bindings
+# are built from the vendor/blst submodule. See scripts/build_blst.sh.
+build-blst: up
+	$(EXEC_CMD) sh scripts/build_blst.sh
+
+lint: up build-blst
 	$(EXEC_CMD) ruff format tests
 	$(EXEC_CMD) ruff check --fix tests
 	$(EXEC_CMD) ruff check src
@@ -42,7 +47,7 @@ isort: up
 
 # Use ORACLE_TEST_PATH to run specific tests, e.g.:
 # make test ORACLE_TEST_PATH=tests/providers_clients/test_keys_api_client.py
-test: up
+test: up build-blst
 	$(EXEC_CMD) pytest $${ORACLE_TEST_PATH:-tests/}
 
 # Use MUTATION_TEST_PATH and MUTATION_ORACLE_TEST_PATH to run mutations against specific paths, e.g.:
@@ -54,7 +59,7 @@ test-mutations: up
 
 # Use ORACLE_MODULE to run specific module, e.g.:
 # make run-module ORACLE_MODULE=accounting
-run-module: up
+run-module: up build-blst
 	$(EXEC_CMD) python -m src.main $(ORACLE_MODULE)
 
 sidecars-up:
