@@ -90,6 +90,19 @@ class SignerModule(Module):
 
         logger.warning({'msg': 'None of the configured accounts is an active member.'})
 
+    @property
+    def hash_consensus_member_address(self) -> ChecksumAddress | None:
+        """
+        Address HashConsensus and the report contract actually see as the caller: the delegation
+        contract when reporting via delegation (it's the one added as a HashConsensus member and
+        granted roles, per docs/delegation.md), otherwise the hot key itself.
+        """
+        if self.is_delegated and self.delegation_contract:
+            return self.delegation_contract.address
+        if self.active_signer:
+            return self.active_signer.address
+        return None
+
     def _activate_account_matching(self, address: ChecksumAddress) -> bool:
         """Set `active_signer` to whichever configured account matches `address`, if any."""
         if self.account_1 and address == self.account_1.address:

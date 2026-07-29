@@ -32,6 +32,7 @@ class Account:
 @pytest.fixture()
 def set_no_account(consensus):
     consensus.w3.signer.active_signer = None
+    consensus.w3.signer.hash_consensus_member_address = None
 
 
 @pytest.fixture()
@@ -40,6 +41,7 @@ def set_submit_account(consensus):
         address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
         _private_key='0x0',
     )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.fixture()
@@ -48,6 +50,7 @@ def set_not_member_account(consensus):
         address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
         _private_key='0x0',
     )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.fixture()
@@ -56,6 +59,7 @@ def set_report_account(consensus):
         address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
         _private_key='0x0',
     )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.mark.unit
@@ -184,6 +188,45 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
     assert not member_info.is_report_member
     assert member_info.is_submit_member
     assert not member_info.is_fast_lane
+
+
+DELEGATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000dEaD'
+
+
+@pytest.fixture()
+def set_delegated_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
+        _private_key='0x0',
+    )
+    consensus.w3.signer.hash_consensus_member_address = DELEGATION_CONTRACT_ADDRESS
+
+
+@pytest.mark.unit
+def test_get_member_info__delegated__queries_delegation_contract_address(consensus, set_delegated_account):
+    bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        True,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = True
+
+    consensus.get_member_info(bs)
+
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.assert_called_once_with(
+        DELEGATION_CONTRACT_ADDRESS, bs.block_hash
+    )
+    consensus.report_contract.has_role.assert_called_once_with(
+        consensus.report_contract.submit_data_role.return_value,
+        DELEGATION_CONTRACT_ADDRESS,
+        bs.block_hash,
+    )
 
 
 @pytest.mark.unit

@@ -30,6 +30,7 @@ def set_report_account(consensus):
         address=REPORT_ACCOUNT_ADDRESS,
         _private_key='0x0',
     )
+    consensus.w3.signer.hash_consensus_member_address = REPORT_ACCOUNT_ADDRESS
 
 
 @pytest.fixture
@@ -468,4 +469,24 @@ def test_get_slot_delay_before_data_submit_three_members(consensus, caplog, set_
     consensus._get_consensus_contract_members = Mock(return_value=[[REPORT_ACCOUNT_ADDRESS, '0x1', '0x2'], None])
     delay = consensus._get_slot_delay_before_data_submit(blockstamp)
     assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS * 3
+    assert "Calculate slots delay." in caplog.messages[-1]
+
+
+DELEGATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000dEaD'
+
+
+@pytest.mark.unit
+def test_get_slot_delay_before_data_submit__delegated__uses_delegation_contract_position(
+    consensus, caplog, set_report_account, mock_configs
+):
+    """Only the delegation contract's address is a HashConsensus member while delegating, so the
+    position lookup must key off it - not the hot key sitting behind it - or it raises ValueError."""
+    consensus.w3.signer.hash_consensus_member_address = DELEGATION_CONTRACT_ADDRESS
+    consensus._get_consensus_contract_members = Mock(
+        return_value=[[REPORT_ACCOUNT_ADDRESS, DELEGATION_CONTRACT_ADDRESS, '0x2'], None]
+    )
+
+    delay = consensus._get_slot_delay_before_data_submit(ReferenceBlockStampFactory.build())
+
+    assert delay == variables.SUBMIT_DATA_DELAY_IN_SLOTS
     assert "Calculate slots delay." in caplog.messages[-1]

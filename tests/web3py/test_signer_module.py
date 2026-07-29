@@ -187,6 +187,29 @@ class TestProcessMembers:
 
 
 @pytest.mark.unit
+class TestReportingAddress:
+    def test_hash_consensus_member_address__delegated__returns_delegation_contract_address(self):
+        account_1 = make_account(ACCOUNT_1_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), account_1, None, DELEGATION_CONTRACT_ADDRESS)
+        module.process_members([DELEGATION_CONTRACT_ADDRESS])
+
+        assert module.hash_consensus_member_address == DELEGATION_CONTRACT_ADDRESS
+
+    def test_hash_consensus_member_address__not_delegated__returns_active_signer_address(self):
+        account_1 = make_account(ACCOUNT_1_ADDRESS)
+        module = SignerModule(make_w3(), account_1, None, None)
+        module.process_members([ACCOUNT_1_ADDRESS])
+
+        assert module.hash_consensus_member_address == ACCOUNT_1_ADDRESS
+
+    def test_hash_consensus_member_address__no_active_signer__returns_none(self):
+        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module.process_members([UNRELATED_ADDRESS])
+
+        assert module.hash_consensus_member_address is None
+
+
+@pytest.mark.unit
 class TestWrapCallForDelegation:
     def test_wrap_call_for_delegation__no_delegation_contract__raises_runtime_error(self):
         module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
