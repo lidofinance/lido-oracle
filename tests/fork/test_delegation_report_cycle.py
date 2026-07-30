@@ -190,3 +190,7 @@ class TestDelegatedMemberReportCycle:
         assert last_processing_ref_slot == report_frame.ref_slot, (
             "Report data was not submitted after quorum was reached"
         )
+
+        # Report submitted to VEBO
+        block_num = module.w3.eth.get_block('latest')['number']
+        assert module.report_contract.events.ReportSubmitted().get_logs(from_block=block_num - 100, to_block=block_num)
