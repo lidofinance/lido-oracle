@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import multiprocessing
+import os
 from concurrent.futures import ProcessPoolExecutor
 from typing import cast
 
@@ -28,18 +29,22 @@ class TestIntegrationMainCycleSmoke:
         # Use last finalized instead of head slot for avoiding calls with non-existent block at the moment of cycle
         ConsensusModule._get_latest_blockstamp = lambda self: cast(DaemonModule, self)._receive_last_finalized_slot()
 
-        if module_name is OracleModuleName.CSM:
+        if module_name in (OracleModuleName.CSM, OracleModuleName.CM):
             variables.PERFORMANCE_COLLECTOR_URI = ["http://localhost:9020"]
+
+            if module_name is OracleModuleName.CM:
+                # The conftest sets the CSM address for every mainnet test, but CM has its own module contract
+                variables.STAKING_MODULE_ADDRESS = os.getenv('CURATED_MODULE_ADDRESS')
 
             from src.web3py.extensions.staking_module import StakingModuleContracts
 
             StakingModuleContracts.CONTRACT_LOAD_MAX_RETRIES = 3
             StakingModuleContracts.CONTRACT_LOAD_RETRY_DELAY = 0
 
+            from src.modules.oracles.staking_modules.base import SMPerformanceOracle
             from src.modules.oracles.staking_modules.common.state import State
-            from src.modules.oracles.staking_modules.community_staking.csm import CSPerformanceOracle
 
-            CSPerformanceOracle._prepare_duties_state = lambda self, blockstamp: State(
+            SMPerformanceOracle._prepare_duties_state = lambda self, blockstamp: State(
                 blockstamp.ref_epoch, blockstamp.ref_epoch, 1
             )
 
@@ -55,13 +60,7 @@ class TestIntegrationMainCycleSmoke:
 
     @pytest.mark.parametrize(
         "module_name",
-        [
-            OracleModuleName.ACCOUNTING,
-            OracleModuleName.EJECTOR,
-            OracleModuleName.CSM,
-            # TODO: Enable when CM module is on mainnet
-            # OracleModuleName.CM
-        ],
+        [OracleModuleName.ACCOUNTING, OracleModuleName.EJECTOR, OracleModuleName.CSM, OracleModuleName.CM],
     )
     def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(self, caplog, module_name: OracleModuleName):
         ctx = multiprocessing.get_context('fork')
