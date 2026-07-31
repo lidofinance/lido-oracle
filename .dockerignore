@@ -6,6 +6,11 @@ __pycache__/
 
 # C extensions
 *.so
+*.a
+
+# Locally-built blst bindings (scripts/build_blst.sh output) - must be rebuilt fresh inside the image for the target platform
+vendor/blst/bindings/python/blst.py
+vendor/blst/bindings/python/blst_wrap.cpp
 
 # Distribution / packaging
 .Python

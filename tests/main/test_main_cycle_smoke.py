@@ -45,7 +45,8 @@ class TestIntegrationMainCycleSmoke:
 
             from src.providers.performance.client import PerformanceClient
 
-            PerformanceClient.is_range_available = lambda *args, **kwargs: True
+            # Report the whole requested range as stored, so the oracle sees the data as available
+            PerformanceClient.get_stored_epochs_count = lambda self, from_epoch, to_epoch: to_epoch - from_epoch + 1
             PerformanceClient.get_epochs_demand = lambda *args, **kwargs: None
             PerformanceClient.post_epochs_demand = lambda *args, **kwargs: None
             PerformanceClient.delete_epochs_demand = lambda *args, **kwargs: None

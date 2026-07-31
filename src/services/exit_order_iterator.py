@@ -365,9 +365,13 @@ class ValidatorExitIterator:
 
         for no in group.sub_node_operators:
             gid = (cm_v2_id, no.node_operator_id)
-            self.node_operators_stats[gid].total_stake += (
-                external_balance * self.node_operators_stats[gid].weight / internal_weight
-            )
+            if internal_weight:
+                self.node_operators_stats[gid].total_stake += (
+                    external_balance * self.node_operators_stats[gid].weight / internal_weight
+                )
+            else:
+                # In case if all NOs have weight == 0, split external stake by shares.
+                self.node_operators_stats[gid].total_stake += external_balance * no.share / TOTAL_BASIS_POINTS
 
         for gid in external_gids:
             self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
@@ -470,9 +474,16 @@ class ValidatorExitIterator:
                 for no in e_group.sub_node_operators
             )
             for op in e_group.sub_node_operators:
-                self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= (
-                    exit_balance * self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].weight / total_weight
-                )
+                if total_weight:
+                    self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= (
+                        exit_balance
+                        * self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].weight
+                        / total_weight
+                    )
+                else:
+                    self.node_operators_stats[(self.cm_v2_id, op.node_operator_id)].total_stake -= (
+                        exit_balance * op.share / TOTAL_BASIS_POINTS
+                    )
 
     def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
         return (
@@ -533,6 +544,9 @@ class ValidatorExitIterator:
         """
         Highest deviation current balance from target stake rate by weight.
         """
+        if node_operator.module_stats.total_weight == 0:
+            return Gwei(node_operator.total_stake)
+
         target_no_stake = (
             node_operator.module_stats.total_stake * node_operator.weight / node_operator.module_stats.total_weight
         )

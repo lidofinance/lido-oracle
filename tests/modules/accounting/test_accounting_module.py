@@ -21,6 +21,7 @@ from src.modules.oracles.accounting.third_phase.extra_data import ExtraDataServi
 from src.modules.oracles.accounting.third_phase.types import FormatList
 from src.modules.oracles.accounting.types import (
     AccountingProcessingState,
+    BeaconStat,
     FinalizationShareRate,
     ReportData,
     ReportSimulationFeeDistribution,
@@ -221,7 +222,15 @@ def test_get_cl_pending_validators_balance__real_provider_with_topups__matches_e
     accounting.w3.cc.get_validators_by_indexes = Mock(return_value={})
     accounting.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x01020304'))
     accounting.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    # All three used keys are deposited, and they split into 2 active + 1 pending, so the
+    # active+pending total matches exactly: _validate_total_validators_count stays live.
+    accounting.w3.lido_contracts.lido.get_beacon_stat = Mock(
+        return_value=BeaconStat(deposited_validators=len(lido_keys), beacon_validators=0, beacon_balance=0)
+    )
+    # The per-operator KAPI check needs staking-router wiring this scenario does not set up, and has
+    # its own tests; the top-up attribution under test runs for real.
     accounting.w3.lido_validators._kapi_sanity_check = Mock()
+    accounting.w3.lido_validators._kapi_sanity_check_by_operator = Mock()
 
     # Act
     with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):

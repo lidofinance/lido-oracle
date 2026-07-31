@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import cast
 from unittest import mock
@@ -67,12 +68,14 @@ class TestIntegrationKeysAPIClient:
         keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
 
         assert len(keys) > 0
-        keys_seen: list[str] = []
+        # A set, not a list: mainnet returns over half a million used keys, and a linear membership
+        # scan per key made this single test ~30 minutes, about 70% of the whole CI job.
+        keys_seen: set[str] = set()
         for lido_key in keys:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.append(lido_key.key)
+            keys_seen.add(lido_key.key)
 
     def test_get_used_module_operators_keys__csm_module__response_data_is_valid(
         self,
@@ -88,12 +91,12 @@ class TestIntegrationKeysAPIClient:
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
-        keys_seen: list[str] = []
+        keys_seen: set[str] = set()
         for lido_key in csm_module_operators_keys['keys']:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.append(lido_key.key)
+            keys_seen.add(lido_key.key)
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
@@ -468,3 +471,29 @@ class TestUnitKeysAPIClient:
 
         with pytest.raises(KAPIInconsistentData, match="duplicated"):
             keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+    @responses.activate
+    def test_get_used_lido_keys__response__logs_snapshot_and_size(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        caplog,
+    ):
+        caplog.set_level(logging.INFO)
+        snapshot = {
+            'blockNumber': 0,
+            'blockHash': '0xabc',
+            'timestamp': 1,
+            'lastChangedBlockHash': '0xdef',
+        }
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={'data': [], 'meta': {'elBlockSnapshot': snapshot}},
+        )
+
+        keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API response.')
+        assert line['el_block_snapshot'] == snapshot
+        assert line['response_bytes'] == len(responses.calls[0].response.content)
+        assert line['requested_block_number'] == empty_blockstamp.block_number
