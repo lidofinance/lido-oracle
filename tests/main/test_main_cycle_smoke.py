@@ -1,7 +1,10 @@
+import faulthandler
 import logging
 import logging.handlers
 import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
+import os
+import signal
+import time
 from typing import cast
 
 import pytest
@@ -13,10 +16,20 @@ from src.modules.oracles.common.consensus import ConsensusModule
 from src.types import OracleModuleName
 
 
+# Most cycles end within seconds because the module is not reportable, but a reportable frame on
+# mainnet has taken over 6 minutes. This is a deadlock detector, not a latency budget, so keep it
+# loose enough that a slow beacon node cannot trip it.
+CYCLE_TIMEOUT = 15 * 60
+
+
 @pytest.mark.mainnet
 @pytest.mark.integration
 class TestIntegrationMainCycleSmoke:
     def run_main_with_logging(self, module_name, log_queue):
+        # Let the parent ask for a stack dump when the cycle overruns CYCLE_TIMEOUT. pytest runs
+        # without output capture, so the dump lands directly in the CI log.
+        faulthandler.register(signal.SIGUSR1)
+
         queue_handler = logging.handlers.QueueHandler(log_queue)
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
@@ -70,11 +83,29 @@ class TestIntegrationMainCycleSmoke:
         listener = logging.handlers.QueueListener(log_queue, caplog.handler)
         listener.start()
 
-        with ProcessPoolExecutor(max_workers=1, mp_context=ctx) as executor:
-            future = executor.submit(self.run_main_with_logging, module_name, log_queue)
-            future.result()
+        # A bare Process rather than ProcessPoolExecutor: the pool joins its workers on shutdown and
+        # again from an atexit hook, so a single stuck cycle hangs the whole pytest run instead of
+        # failing this test. Owning the process lets us put a hard bound on it.
+        process = ctx.Process(target=self.run_main_with_logging, args=(module_name, log_queue))
+        process.start()
+        timed_out = False
 
-        listener.stop()
+        try:
+            process.join(CYCLE_TIMEOUT)
+            if process.is_alive():
+                timed_out = True
+                os.kill(cast(int, process.pid), signal.SIGUSR1)  # dump where the cycle is stuck
+                time.sleep(1)  # give faulthandler a moment to flush before the process dies
+                process.kill()
+                process.join()
+        finally:
+            # Drain the records the child queued, then stop the manager process hosting the queue.
+            # Both must happen even when the cycle fails, or the leftovers keep pytest from exiting.
+            listener.stop()
+            manager.shutdown()
+
+        assert not timed_out, f"{module_name} cycle did not finish within {CYCLE_TIMEOUT}s"
+        assert process.exitcode == 0, f"{module_name} cycle exited with code {process.exitcode}"
 
         error_logs = [record for record in caplog.records if record.levelno >= logging.ERROR]
         assert not error_logs, f"Found error logs: {[record.message for record in error_logs]}"
