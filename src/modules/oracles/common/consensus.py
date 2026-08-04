@@ -259,8 +259,8 @@ class ConsensusModule[W3: Web3Base](ABC):
                 last_finalized_slot_number=last_finalized_blockstamp.slot_number,
             )
         except ChildSlotNotFinalized:
-            # Post-EIP-7732 the execution anchor is resolved from ref_slot's child block. If that
-            # child isn't finalized yet, wait and retry, exactly as for an unfinalized ref slot.
+            # Post-EIP-7732 the report is built from ref_slot's child block. If that child isn't
+            # finalized yet, wait and retry, exactly as for an unfinalized ref slot.
             logger.info({'msg': "Reference slot's child is not yet finalized."})
             return None
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})

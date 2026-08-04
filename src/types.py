@@ -76,26 +76,12 @@ class BlockStamp:
 
 @dataclass(frozen=True)
 class ReferenceBlockStamp(BlockStamp):
-    # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
+    # Ref slot could differ from slot_number. Before Glamsterdam, a missed ref_slot makes
+    # slot_number the previous non-missed slot. After Glamsterdam (EIP-7732) slot_number is always
+    # ref_slot's child — the first non-missed slot *after* ref_slot — because that is the earliest
+    # block whose state settles ref_slot's execution payload. See src/utils/blockstamp.py.
     ref_slot: SlotNumber
     ref_epoch: EpochNumber
-
-    # Glamsterdam/EIP-7732 fields. All default to a pre-fork-shaped value so nothing changes
-    # before Gloas is active. Post-fork, the execution payload of `ref_slot`'s own block is no
-    # longer guaranteed to be present, so the execution-layer anchor (block_hash/number/timestamp
-    # above) and pending_deposits are resolved from `ref_slot`'s child block instead. See
-    # src/utils/blockstamp.py and the Glamsterdam LIP for the full rationale.
-    #
-    # State root and slot of the child (first non-missed block after this report's own block).
-    # pending_deposits are read from this state, not from this block's own state, because a
-    # slot's deposits are only merged into pending_deposits once its child is processed.
-    child_state_root: StateRoot | None = None
-    child_slot: SlotNumber | None = None
-    # True when ref_slot's own execution payload was not confirmed full by the time its child
-    # was processed. In that case CL balances are already reduced by payload_expected_withdrawals
-    # while the execution layer has not yet credited them, so the Accounting Oracle must add them
-    # back (see src/utils/validator_balance.py::gloas_balance_correction).
-    withdrawal_correction_needed: bool = False
 
 
 class StakingModuleType(StrEnum):

@@ -20,7 +20,7 @@ class SlotNotFinalized(Exception):
 
 
 class ChildSlotNotFinalized(Exception):
-    """Raised when a block's child (needed to resolve the EIP-7732 execution anchor) is not yet
+    """Raised when a slot's child (the block a post-EIP-7732 blockstamp is built from) is not yet
     finalized. Callers building a report treat this like an unfinalized ref slot: wait and retry."""
 
 
@@ -126,9 +126,10 @@ def get_next_non_missed_slot(
 ) -> BlockDetailsResponse:
     """Get the first non-missed block strictly after `slot` (its child).
 
-    Under EIP-7732 this child's state carries the confirmed execution anchor and complete
-    pending_deposits for its parent block. Raises ChildSlotNotFinalized when no finalized block
-    exists after `slot` yet (the report should wait, exactly as it does for an unfinalized ref slot).
+    Under EIP-7732 this child is the block a blockstamp for `slot` is built from: its state is the
+    earliest one where `slot`'s execution payload, deposits and withdrawals are settled. Raises
+    ChildSlotNotFinalized when no finalized block exists after `slot` yet (the report should wait,
+    exactly as it does for an unfinalized ref slot).
     """
     if slot >= last_finalized_slot_number:
         raise ChildSlotNotFinalized(

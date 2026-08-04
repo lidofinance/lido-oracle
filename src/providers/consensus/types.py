@@ -29,10 +29,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
-    # Glamsterdam/EIP-7732 (Gloas) activation epoch. Defaults to "never" so all Gloas-specific
-    # code paths stay inactive on pre-fork networks. Exact spec constant name to be confirmed
-    # against the final consensus-specs config before mainnet activation.
-    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -138,13 +134,17 @@ class ExecutionPayloadBid(Nested, FromResponse):
     """
     EIP-7732 builder bid header (subset we need).
 
-    `block_hash` is the execution block the builder commits to produce for the slot. We use it
-    only to tell whether ref_slot's own payload was later confirmed full. The `message.block_hash`
-    path is per the consensus-specs container; confirm against the final beacon-APIs serialization
-    before mainnet activation.
+    `parent_block_hash` is the execution block the builder builds on top of, and it is the block's
+    execution-layer anchor: `process_execution_payload_bid` asserts
+    `bid.parent_block_hash == state.latest_block_hash`. Blockstamps a report is computed on read the
+    anchor from the state itself; only the per-cycle liveness stamps, which never read CL state, use
+    this equivalent value instead of downloading one.
+
+    The `message.parent_block_hash` path is per the consensus-specs container; confirm against the
+    final beacon-APIs serialization before mainnet activation.
     """
 
-    block_hash: BlockHash
+    parent_block_hash: BlockHash
 
 
 @dataclass
@@ -322,12 +322,14 @@ class BeaconStateView(Nested, FromResponse):
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
     # New in Gloas (EIP-7732), default values for backward compatibility with pre-fork states.
-    # latest_block_hash: hash of the last *confirmed* execution block as of this state. When read
-    # from a block's child state it identifies that block's execution-layer anchor (the "Y" in the
-    # LIP). payload_expected_withdrawals: withdrawals already deducted from CL balances but not yet
-    # credited on the execution layer.
-    latest_block_hash: BlockHash = BlockHash(HexStr(''))
+    #
+    # payload_expected_withdrawals: withdrawals already deducted from CL balances whose execution
+    # payload has not been applied yet, so the withdrawal vault has not received them at this
+    # state's `latest_block_hash`.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
+    # latest_block_hash: the block's execution-layer anchor, and the source report blockstamps use.
+    # Liveness blockstamps read the equal value from the block body — see ExecutionPayloadBid.
+    latest_block_hash: BlockHash = BlockHash(HexStr(''))
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

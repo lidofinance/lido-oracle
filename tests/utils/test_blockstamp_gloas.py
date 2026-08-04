@@ -1,7 +1,9 @@
 """Unit tests for EIP-7732 (Gloas) blockstamp construction.
 
-These cover the three post-fork execution-anchor resolution modes (child-based, own-state,
-CL-only placeholder), the pre-fork regression path, and the child-slot forward resolver.
+Post-fork a blockstamp for slot N is built from N's child (the first non-missed block after N).
+Report blockstamps take the execution anchor from that child's beacon state; liveness blockstamps,
+which never read CL state, take the equal value from the child's execution payload bid. These cover
+both sources, the CL-only placeholder path, the pre-fork regression path and the forward resolver.
 """
 
 from http import HTTPStatus
@@ -12,23 +14,30 @@ from eth_utils import add_0x_prefix
 
 from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
 from src.providers.http_provider import NotOkResponse
-from src.types import BlockHash, EpochNumber, SlotNumber, StateRoot
-from src.utils.blockstamp import BlockstampBuilder, GloasChild
+from src.types import BlockHash, EpochNumber, SlotNumber
+from src.utils.blockstamp import BlockstampBuilder, MissingExecutionAnchor
 from src.utils.slot import ChildSlotNotFinalized, get_next_non_missed_slot
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
 
 
-def _post_fork_details(slot: int, committed_block_hash: str | None = None):
-    """A post-EIP-7732 block: no embedded execution_payload, optional builder bid commitment."""
+ANCHOR_HASH = "0xaaaa"
+
+
+def _cc(**kwargs) -> Mock:
+    """Consensus client whose state reports ANCHOR_HASH as its latest_block_hash."""
+    return Mock(get_state_view=Mock(return_value=Mock(latest_block_hash=BlockHash(ANCHOR_HASH))), **kwargs)
+
+
+def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
+    """A post-EIP-7732 block: no embedded execution_payload, bid instead."""
     details = BlockDetailsResponseFactory.build(message={"slot": slot})
     details.message.body.execution_payload = None
-    if committed_block_hash is not None:
-        details.message.body.signed_execution_payload_bid = SignedExecutionPayloadBid(
-            message=ExecutionPayloadBid(block_hash=BlockHash(committed_block_hash))
-        )
-    else:
-        details.message.body.signed_execution_payload_bid = None
+    details.message.body.signed_execution_payload_bid = (
+        None
+        if parent_block_hash is None
+        else SignedExecutionPayloadBid(message=ExecutionPayloadBid(parent_block_hash=BlockHash(parent_block_hash)))
+    )
     return details
 
 
@@ -38,119 +47,152 @@ def el():
 
 
 @pytest.mark.unit
-class TestBuildReferenceBlockstampGloas:
-    def test_build_reference_blockstamp__pre_fork__no_child_no_correction(self):
+class TestExecutionAnchorResolution:
+    def test_build_blockstamp__pre_fork__uses_embedded_payload(self, el):
         # Arrange: pre-fork block carries an embedded execution payload.
         details = BlockDetailsResponseFactory.build(message={"slot": 100})
         payload = details.message.body.execution_payload
 
         # Act
-        bs = BlockstampBuilder(Mock()).build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3)
-        )
+        bs = BlockstampBuilder(Mock(), el).build_blockstamp(details)
 
-        # Assert: identical to the legacy behavior, no Gloas fields set.
+        # Assert: identical to the legacy behavior, the execution client is never consulted.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
         assert bs.block_number == payload.block_number
-        assert bs.child_state_root is None
-        assert bs.child_slot is None
-        assert bs.withdrawal_correction_needed is False
+        assert bs.block_timestamp == payload.timestamp
+        el.get_block.assert_not_called()
 
-    def test_build_reference_blockstamp__payload_confirmed_full__no_correction(self, el):
-        # Arrange: child's latest_block_hash equals the hash ref_slot's builder committed to.
-        confirmed = "0xaaaa"
-        details = _post_fork_details(slot=100, committed_block_hash=confirmed)
-        child = GloasChild(
-            state_root=StateRoot("0xchildstate"), slot=SlotNumber(101), latest_block_hash=BlockHash(confirmed)
-        )
+    def test_build_blockstamp__post_fork_report__anchors_on_state_latest_block_hash(self, el):
+        # Arrange: report blockstamps read the anchor from the beacon state.
+        details = _post_fork_details(slot=100, parent_block_hash="0xdead")
+        cc = _cc()
 
         # Act
-        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
-        )
+        bs = BlockstampBuilder(cc, el).build_blockstamp(details)
 
-        # Assert
-        assert bs.block_hash == add_0x_prefix(confirmed)
+        # Assert: the state wins, addressed by (state_root, slot) so it shares the report's cache entry.
+        cc.get_state_view.assert_called_once_with((details.message.state_root, SlotNumber(100)))
+        assert bs.slot_number == SlotNumber(100)
+        assert bs.state_root == details.message.state_root
+        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
         assert bs.block_number == 999
         assert bs.block_timestamp == 424242
-        assert bs.child_state_root == StateRoot("0xchildstate")
-        assert bs.child_slot == SlotNumber(101)
-        assert bs.withdrawal_correction_needed is False
-        el.get_block.assert_called_once_with(BlockHash(confirmed))
+        el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
 
-    def test_build_reference_blockstamp__payload_withheld__correction_needed(self, el):
-        # Arrange: child's latest_block_hash is an earlier block, not ref_slot's committed one.
-        details = _post_fork_details(slot=100, committed_block_hash="0xaaaa")
-        child = GloasChild(
-            state_root=StateRoot("0xchildstate"), slot=SlotNumber(101), latest_block_hash=BlockHash("0xbbbb")
-        )
-
-        # Act
-        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
-        )
-
-        # Assert: Y != committed -> the report must add withdrawals back.
-        assert bs.block_hash == add_0x_prefix("0xbbbb")
-        assert bs.withdrawal_correction_needed is True
-
-    def test_build_reference_blockstamp__missing_bid__correction_needed(self, el):
-        # Arrange: post-fork block with no readable bid -> cannot prove the payload was full.
-        details = _post_fork_details(slot=100, committed_block_hash=None)
-        child = GloasChild(
-            state_root=StateRoot("0xchildstate"), slot=SlotNumber(101), latest_block_hash=BlockHash("0xbbbb")
-        )
-
-        # Act
-        bs = BlockstampBuilder(Mock(), el).build_reference_blockstamp(
-            details, ref_slot=SlotNumber(100), ref_epoch=EpochNumber(3), child=child
-        )
-
-        # Assert: default to the conservative "correction needed" side.
-        assert bs.withdrawal_correction_needed is True
-
-
-@pytest.mark.unit
-class TestBuildBlockstampGloas:
-    def test_build_blockstamp__own_state_mode__uses_state_latest_block_hash(self, el):
-        # Arrange: no child (head/finalized liveness) -> read the block's own latest_block_hash.
+    def test_build_blockstamp__post_fork_liveness__anchors_on_bid_parent_block_hash(self, el):
+        # Arrange: liveness blockstamps must not download a beacon state, so they opt out.
         details = _post_fork_details(slot=100)
-        cc = Mock(get_state_latest_block_hash=Mock(return_value=BlockHash("0xownhash")))
+        cc = _cc()
 
         # Act
-        bs = BlockstampBuilder(cc, el).build_blockstamp(details, child=None)
+        bs = BlockstampBuilder(cc, el).build_blockstamp(details, read_anchor_from_state=False)
 
-        # Assert
-        cc.get_state_latest_block_hash.assert_called_once()
-        assert bs.block_hash == add_0x_prefix("0xownhash")
-        assert bs.block_number == 999
+        # Assert: bid.parent_block_hash == state.latest_block_hash by consensus rule.
+        cc.get_state_view.assert_not_called()
+        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
+        el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
 
-    def test_build_blockstamp__collector_no_el__placeholder_fields(self):
+    def test_build_blockstamp__report_anchor_missing_from_state__raises(self, el):
+        # Arrange: a state with no latest_block_hash (pre-fork default) is not a usable anchor.
+        details = _post_fork_details(slot=100)
+        cc = Mock(get_state_view=Mock(return_value=Mock(latest_block_hash="")))
+
+        # Act / Assert
+        with pytest.raises(MissingExecutionAnchor):
+            BlockstampBuilder(cc, el).build_blockstamp(details)
+
+    def test_build_blockstamp__no_execution_client__placeholder_fields(self):
         # Arrange: CL-only consumer (performance collector) has no execution client.
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = BlockstampBuilder(Mock(), None).build_blockstamp(details, child=None)
+        bs = BlockstampBuilder(_cc(), None).build_blockstamp(details)
 
         # Assert: EL fields are inert placeholders; CL fields are correct.
         assert bs.slot_number == SlotNumber(100)
         assert bs.state_root == details.message.state_root
         assert bs.block_number == 0
 
-    def test_get_blockstamp_by_state__post_fork_head__resolves_via_own_state(self, el):
-        # Arrange
-        details = _post_fork_details(slot=100)
-        cc = Mock(
-            get_block_details=Mock(return_value=details),
-            get_state_latest_block_hash=Mock(return_value=BlockHash("0xownhash")),
+    def test_build_blockstamp__liveness_block_without_bid__raises(self, el):
+        # Arrange: a block with no resolvable execution anchor at all.
+        details = _post_fork_details(slot=100, parent_block_hash=None)
+
+        # Act / Assert
+        with pytest.raises(MissingExecutionAnchor):
+            BlockstampBuilder(_cc(), el).build_blockstamp(details, read_anchor_from_state=False)
+
+
+@pytest.mark.unit
+class TestAnchorBlockSelection:
+    @pytest.fixture
+    def resolvers(self, monkeypatch):
+        """Patch both slot resolvers and hand the mocks back, so tests can assert which ran."""
+        prev, nxt = Mock(), Mock()
+        monkeypatch.setattr('src.utils.blockstamp.get_prev_non_missed_slot', prev)
+        monkeypatch.setattr('src.utils.blockstamp.get_next_non_missed_slot', nxt)
+        return prev, nxt
+
+    def test_get_reference_blockstamp__post_fork__built_from_ref_slot_child(self, el, resolvers):
+        # Arrange: the block at ref_slot 99 has no embedded payload, its child is slot 101.
+        prev, nxt = resolvers
+        prev.return_value = _post_fork_details(slot=99)
+        nxt.return_value = _post_fork_details(slot=101)
+
+        # Act
+        bs = BlockstampBuilder(_cc(), el).get_reference_blockstamp(
+            ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3)
         )
+
+        # Assert: the report's own block sits after the ref slot.
+        assert bs.ref_slot == SlotNumber(99)
+        assert bs.ref_epoch == EpochNumber(3)
+        assert bs.slot_number == SlotNumber(101)
+        assert bs.state_root == nxt.return_value.message.state_root
+        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
+
+    def test_get_reference_blockstamp__pre_fork__built_from_last_block_at_or_before_ref_slot(self, el, resolvers):
+        # Arrange: the block at (or before) ref_slot embeds its execution payload.
+        prev, nxt = resolvers
+        prev.return_value = BlockDetailsResponseFactory.build(message={"slot": 98})
+
+        # Act
+        bs = BlockstampBuilder(_cc(), el).get_reference_blockstamp(
+            ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3)
+        )
+
+        # Assert: no child lookup happens pre-fork.
+        assert bs.slot_number == SlotNumber(98)
+        assert bs.ref_slot == SlotNumber(99)
+        nxt.assert_not_called()
+
+    def test_get_blockstamp__post_fork__built_from_child_too(self, el, resolvers):
+        # Arrange: plain blockstamps follow the same rule so that a past report's anchor block
+        # resolves to the same execution block that report used.
+        prev, nxt = resolvers
+        prev.return_value = _post_fork_details(slot=99)
+        nxt.return_value = _post_fork_details(slot=101)
+
+        # Act
+        bs = BlockstampBuilder(_cc(), el).get_blockstamp(SlotNumber(99), last_finalized_slot_number=SlotNumber(200))
+
+        # Assert
+        assert bs.slot_number == SlotNumber(101)
+        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
+        nxt.assert_called_once_with(prev.call_args.args[0], SlotNumber(99), SlotNumber(200))
+
+    def test_get_blockstamp_by_state__post_fork_head__anchors_on_own_bid(self, el):
+        # Arrange: the chain tip has no child, so it is its own anchor block.
+        details = _post_fork_details(slot=100)
+        cc = _cc(get_block_details=Mock(return_value=details))
 
         # Act
         bs = BlockstampBuilder(cc, el).get_blockstamp_by_state('head')
 
-        # Assert
+        # Assert: no beacon state is downloaded on the per-cycle liveness path.
         cc.get_block_root.assert_called_once_with('head')
-        assert bs.block_hash == add_0x_prefix("0xownhash")
+        cc.get_state_view.assert_not_called()
+        assert bs.slot_number == SlotNumber(100)
+        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
 
 
 @pytest.mark.unit
@@ -189,7 +231,7 @@ class TestGetNextNonMissedSlot:
         assert result.message.slot == 103
 
     def test_get_next_non_missed_slot__no_finalized_child__raises(self):
-        # Arrange: the block is at (or after) the last finalized slot, so it has no finalized child.
+        # Arrange: the slot is at (or after) the last finalized slot, so it has no finalized child.
         cc = Mock()
 
         # Act / Assert

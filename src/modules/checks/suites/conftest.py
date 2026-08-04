@@ -119,13 +119,13 @@ def blockstamp(web3, finalized_blockstamp, request):
 def finalized_blockstamp(web3):
     block_root = BlockRoot(web3.cc.get_block_root('finalized').root)
     block_details = web3.cc.get_block_details(block_root)
-    builder = BlockstampBuilder(web3.cc, web3.eth)
-    bs = builder.build_blockstamp(block_details)
     cc_config = web3.cc.get_config_spec()
-    return builder.get_reference_blockstamp(
-        bs.slot_number,
-        ref_epoch=EpochNumber(bs.slot_number // cc_config.SLOTS_PER_EPOCH),
-        last_finalized_slot_number=bs.slot_number,
+    # The finalized block is the chain tip for these checks and has no child to build from, so the
+    # reference blockstamp is built from the block itself rather than resolved via its ref slot.
+    return BlockstampBuilder(web3.cc, web3.eth).build_reference_blockstamp(
+        block_details,
+        ref_slot=block_details.message.slot,
+        ref_epoch=EpochNumber(block_details.message.slot // cc_config.SLOTS_PER_EPOCH),
     )
 
 
