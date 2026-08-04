@@ -32,6 +32,7 @@ from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
+from src.providers.consensus.types import ExpectedWithdrawal
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
@@ -43,10 +44,12 @@ from src.types import (
     Gwei,
     ReferenceBlockStamp,
     StakingModuleId,
+    ValidatorIndex,
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
+from src.utils.validator_balance import gloas_balance_correction
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 
@@ -240,6 +243,18 @@ class Accounting(OracleModule[Web3]):
         self._update_metrics(report_data)
         return report_data
 
+    def _expected_withdrawals(self, blockstamp: ReferenceBlockStamp) -> list[ExpectedWithdrawal]:
+        """Withdrawals deducted from CL balances that the execution layer has not credited yet.
+
+        Under EIP-7732 the report's block commits to withdrawals whose execution payload is only
+        revealed afterwards, so at `blockstamp.block_hash` the withdrawal vault has not received
+        them. Every place that pairs CL balances with an EL-side balance has to add them back.
+
+        Empty before the fork — the field does not exist in pre-Gloas states — so no fork gate is
+        needed and the correction is simply zero.
+        """
+        return self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
+
     def _get_cl_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
         logger.info({'msg': 'Get lido validators.', 'value': len(lido_validators)})
@@ -247,7 +262,12 @@ class Accounting(OracleModule[Web3]):
         validator_balance_sum = Gwei(sum(validator.balance for validator in lido_validators))
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
-        return validator_balance_sum
+        lido_indices = {validator.index for validator in lido_validators}
+        correction = gloas_balance_correction(self._expected_withdrawals(blockstamp), lido_indices)
+        if correction:
+            logger.info({'msg': 'Gloas in-flight withdrawal correction.', 'value': correction})
+
+        return Gwei(validator_balance_sum + correction)
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         """Calculate the total pending balance on the Consensus Layer.
@@ -315,6 +335,18 @@ class Accounting(OracleModule[Web3]):
         for (module_id, _), validators in validators_by_no.items():
             for validator in validators:
                 module_stats[module_id] += validator.balance
+
+        # Attribute each in-flight withdrawal add-back to its validator's module so the per-module
+        # breakdown still sums to the corrected total CL balance (on-chain equality).
+        validator_to_module = {
+            validator.index: module_id
+            for (module_id, _), validators in validators_by_no.items()
+            for validator in validators
+        }
+        for withdrawal in self._expected_withdrawals(blockstamp):
+            module_id = validator_to_module.get(withdrawal.validator_index)
+            if module_id is not None:
+                module_stats[module_id] = Gwei(module_stats[module_id] + withdrawal.amount)
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
@@ -479,11 +511,16 @@ class Accounting(OracleModule[Web3]):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
+        gloas_correction_by_index: dict[ValidatorIndex, Gwei] = {
+            w.validator_index: w.amount for w in self._expected_withdrawals(blockstamp)
+        }
+
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
+            gloas_correction_by_index=gloas_correction_by_index,
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)

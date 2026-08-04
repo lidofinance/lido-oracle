@@ -372,7 +372,8 @@ def test_calculate_cl_rebase_between_blocks(
     abnormal_case.lido_keys = Mock()
     abnormal_case.w3.cc = Mock()
     abnormal_case.w3.lido_contracts = Mock()
-    abnormal_case.w3.cc.get_validators_no_cache = Mock()
+    abnormal_case.w3.cc.get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=[]))
+    abnormal_case.w3.cc.get_state_view_no_cache = Mock(return_value=Mock(payload_expected_withdrawals=[]))
 
     monkeypatch.setattr(
         LidoValidatorsProvider,
@@ -416,7 +417,7 @@ def test_get_lido_validators_balance_with_vault_pre_electra(
     lido_validators = abnormal_case.w3.cc.get_validators(blockstamp)[3:6]
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
-    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators, [])
 
     assert result == expected_result
 
@@ -440,7 +441,7 @@ def test_get_lido_validators_balance_with_vault_post_electra(
 
     abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
     abnormal_case.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=blockstamp.ref_epoch))
-    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators)
+    result = abnormal_case._get_lido_validators_balance_with_vault(blockstamp, lido_validators, [])
 
     assert result == expected_result
 

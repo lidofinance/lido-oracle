@@ -1,6 +1,24 @@
-from src.types import Gwei
+from src.providers.consensus.types import ExpectedWithdrawal
+from src.types import Gwei, ValidatorIndex
 from src.utils.validator_state import get_max_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
+
+
+def gloas_balance_correction(
+    expected_withdrawals: list[ExpectedWithdrawal],
+    lido_indices: set[ValidatorIndex],
+) -> Gwei:
+    """Sum of EIP-7732 in-flight withdrawal amounts for the given Lido validator indices.
+
+    Under Gloas, process_withdrawals reduces CL balances before the execution payload credits the
+    withdrawal vault, so the oracle adds these amounts back to keep the CL-side balance sum
+    consistent with the (not-yet-credited) EL side. Pre-fork states carry no such withdrawals and
+    the sum is zero.
+
+    Restricting to Lido validator indices also excludes EIP-7732 builder-registry entries
+    (index >= 2**40) automatically, since Lido validator indices are far below that.
+    """
+    return Gwei(sum((w.amount for w in expected_withdrawals if w.validator_index in lido_indices), Gwei(0)))
 
 
 def get_predictable_full_inbound_balance(validator: LidoValidator) -> Gwei:

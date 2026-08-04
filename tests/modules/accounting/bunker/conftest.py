@@ -238,8 +238,14 @@ def mock_get_validators(web3):
         }
         return validators[state.slot_number]
 
+    def _get_state_view(state):
+        # Pre-Gloas shape: no in-flight withdrawals, so the EIP-7732 add-back is zero.
+        return Mock(indexed_validators=_get_validators(state), payload_expected_withdrawals=[])
+
     web3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
     web3.cc.get_validators = Mock(side_effect=_get_validators)
+    web3.cc.get_state_view = Mock(side_effect=_get_state_view)
+    web3.cc.get_state_view_no_cache = Mock(side_effect=_get_state_view)
 
 
 @pytest.fixture
