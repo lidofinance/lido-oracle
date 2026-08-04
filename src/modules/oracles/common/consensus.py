@@ -240,7 +240,11 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Check if the current slot is higher than the member slot
+        # Finalization gate, part one: ref_slot itself has to be finalized. Post-EIP-7732 that is
+        # necessary but no longer sufficient - the report is built on ref_slot's child, so a block
+        # strictly after ref_slot must be finalized too. Whether the fork is active cannot be known
+        # here without fetching the block, so the resolver below enforces the second half and raises
+        # ChildSlotNotFinalized. Both halves must hold before a report is built.
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None

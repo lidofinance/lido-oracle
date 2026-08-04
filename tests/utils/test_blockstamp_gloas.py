@@ -230,6 +230,17 @@ class TestGetNextNonMissedSlot:
         # Assert
         assert result.message.slot == 103
 
+    def test_get_next_non_missed_slot__child_past_last_finalized__raises(self):
+        # Arrange: a resolver that hands back a header beyond the finalized slot must not be
+        # trusted - a report may only ever be built on a finalized block.
+        header = BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 500}}})
+        cc = Mock(get_block_header=Mock(return_value=header), get_block_details=Mock())
+
+        # Act / Assert
+        with pytest.raises(ChildSlotNotFinalized, match="past the last finalized slot"):
+            get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
+        cc.get_block_details.assert_not_called()
+
     def test_get_next_non_missed_slot__no_finalized_child__raises(self):
         # Arrange: the slot is at (or after) the last finalized slot, so it has no finalized child.
         cc = Mock()
