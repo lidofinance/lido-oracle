@@ -165,6 +165,34 @@ class TestDigestOf:
         """The encoding is self-delimiting: distinct values never collide by concatenation."""
         assert digest_of(left) != digest_of(right)
 
+    def test_digest_of__record_fast_path__matches_general_path(self, monkeypatch):
+        """The fast path for a list of leaf-only records must emit the same bytes as the
+        general one. If it ever does not, the digest depends on which path ran, and two
+        members would disagree over identical data."""
+        # Arrange
+        values = [_lido_key(i) for i in range(5)]
+        fast = digest_of(values)
+        # Act
+        monkeypatch.setattr('src.utils.fingerprint._flat_record_type', lambda _: None)
+        general = digest_of(values)
+        # Assert
+        assert fast == general
+
+    def test_digest_of__nested_state_fast_path__matches_general_path(self, monkeypatch):
+        # Arrange
+        fast = digest_of(_state())
+        # Act
+        monkeypatch.setattr('src.utils.fingerprint._flat_record_type', lambda _: None)
+        general = digest_of(_state())
+        # Assert
+        assert fast == general
+
+    def test_digest_of__mixed_record_types__raises(self):
+        """Silently encoding a heterogeneous list two different ways would make the digest
+        depend on which type happened to come first."""
+        with pytest.raises(TypeError, match='Mixed record types'):
+            digest_of([_lido_key(1), _pending_deposit(1)])
+
     def test_digest_of__unsupported_type__raises(self):
         with pytest.raises(TypeError, match='Cannot fingerprint'):
             digest_of({1.5})
