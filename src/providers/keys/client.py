@@ -88,8 +88,7 @@ class KeysAPIClient(HTTPProvider):
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         data = [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
         self._check_used_keys(data)
-        # ~485k keys / ~47 MB on mainnet, unrecoverable once the instance moves on.
-        log_fingerprint(logger, 'Keys API used keys', data, ordered=False, endpoint=self.USED_KEYS)
+        log_fingerprint(logger, 'Keys API used keys', data, endpoint=self.USED_KEYS)
         return data
 
     @lru_cache(maxsize=1)
@@ -105,13 +104,10 @@ class KeysAPIClient(HTTPProvider):
 
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
-        # The whole response: the operator records are an input to the CSM and CM reward
-        # split in their own right, not just carriers for the keys.
         log_fingerprint(
             logger,
             'Keys API module operators keys',
             data,
-            ordered=False,
             endpoint=self.USED_MODULE_OPERATORS_KEYS.format(module_address),
         )
 

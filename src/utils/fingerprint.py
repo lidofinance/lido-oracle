@@ -31,19 +31,12 @@ from eth_typing import HexStr
 _CHUNK_SIZE = 4096
 
 
-def digest_of(value: Any, *, ordered: bool = True) -> HexStr:
-    """keccak over a canonical encoding of `value`.
-
-    `ordered=False` treats every list as a set, by sorting per-entry digests instead of
-    encoding entries in place. Use it for a response whose row order is incidental — the
-    Keys API promises none, so an order-sensitive digest would flag two identical key sets
-    as different. The beacon state is the opposite case: its list order is part of the
-    state, so it is fingerprinted ordered.
-    """
+def digest_of(value: Any) -> HexStr:
+    """keccak over a canonical encoding of `value`, exactly as the provider returned it."""
     hasher = keccak.new(b'')
     buffer: list[str] = []
 
-    for piece in _encode(value, ordered):
+    for piece in _encode(value):
         buffer.append(piece)
         if len(buffer) >= _CHUNK_SIZE:
             hasher.update(''.join(buffer).encode())
@@ -53,13 +46,13 @@ def digest_of(value: Any, *, ordered: bool = True) -> HexStr:
     return HexStr('0x' + hasher.digest().hex())
 
 
-def log_fingerprint(logger: logging.Logger, subject: str, value: Any, *, ordered: bool = True, **context: Any) -> None:
+def log_fingerprint(logger: logging.Logger, subject: str, value: Any, **context: Any) -> None:
     """Log a one-line digest of `value`.
 
     Never raises: this is a diagnostic, and no report may fail over one.
     """
     try:
-        digest = digest_of(value, ordered=ordered)
+        digest = digest_of(value)
     except Exception as error:  # pylint: disable=broad-except
         logger.warning({'msg': f'{subject} fingerprint failed.', 'error': repr(error)})
         return
@@ -67,7 +60,7 @@ def log_fingerprint(logger: logging.Logger, subject: str, value: Any, *, ordered
     logger.info({'msg': f'{subject} fingerprint.', 'digest': digest, **context})
 
 
-def _encode(value: Any, ordered: bool) -> Iterator[str]:
+def _encode(value: Any) -> Iterator[str]:
     """Canonical encoding: self-delimiting, and independent of how the response arrived.
 
     Yields many small pieces rather than building one string — a mainnet beacon state does
@@ -82,24 +75,29 @@ def _encode(value: Any, ordered: bool) -> Iterator[str]:
         # character needs escaping.
         yield f'{len(value)}:{value}'
     elif isinstance(value, (list, tuple)):
-        yield from _encode_sequence(value, ordered)
+        yield '['
+        for item in value:
+            yield from _encode(item)
+            yield ','
+        yield ']'
     else:
-        yield from _encode_composite(value, ordered)
+        yield from _encode_composite(value)
 
 
-def _encode_composite(value: Any, ordered: bool) -> Iterator[str]:
+def _encode_composite(value: Any) -> Iterator[str]:
     """Everything the hot path in `_encode` does not handle inline."""
     if isinstance(value, bytes):
         yield f'{len(value)}:{value.hex()}'
     elif value is None:
         yield 'null'
     elif isinstance(value, dict):
-        # Sorted: an object's field order on the wire carries no meaning.
+        # Sorted: an object's field order on the wire carries no meaning, unlike the order
+        # of a list, which the beacon state and the deposit queue both depend on.
         yield '{'
         for key in sorted(value):
-            yield from _encode(str(key), ordered)
+            yield from _encode(str(key))
             yield '='
-            yield from _encode(value[key], ordered)
+            yield from _encode(value[key])
             yield ','
         yield '}'
     elif is_dataclass(value) and not isinstance(value, type):
@@ -107,26 +105,8 @@ def _encode_composite(value: Any, ordered: bool) -> Iterator[str]:
         for f in fields(value):
             yield f.name
             yield '='
-            yield from _encode(getattr(value, f.name), ordered)
+            yield from _encode(getattr(value, f.name))
             yield ','
         yield '}'
     else:
         raise TypeError(f'Cannot fingerprint {type(value).__name__}')
-
-
-def _encode_sequence(value: list | tuple, ordered: bool) -> Iterator[str]:
-    if ordered:
-        yield '['
-        for item in value:
-            yield from _encode(item, ordered)
-            yield ','
-        yield ']'
-        return
-
-    # Set semantics. Sorting the entries themselves would hold the whole response in memory
-    # a second time; sorting their digests costs 32 bytes an entry.
-    yield '{'
-    for entry_digest in sorted(digest_of(item, ordered=False) for item in value):
-        yield entry_digest
-        yield ','
-    yield '}'

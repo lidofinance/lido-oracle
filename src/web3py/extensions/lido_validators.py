@@ -292,10 +292,6 @@ class LidoValidatorsProvider(Module):
                 'msg': 'Get pending deposits and not-yet-indexed lido keys.',
                 'pending_deposits': len(pending_deposits),
                 'pending_lido_keys': len(pending_keys),
-                # The two constants the filter below depends on: if members disagree here,
-                # they disagree about configuration, not about data.
-                'lido_wc_list': lido_wc_list,
-                'genesis_fork_version': genesis_config.genesis_fork_version,
             }
         )
 
@@ -352,16 +348,10 @@ class LidoValidatorsProvider(Module):
                 # Fork-agnostic domain since deposits are valid across forks
                 # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
             ):
-                # The whole verified tuple, not just the pubkey: settling a disagreement
-                # between two BLS backends means re-verifying it, and the state it came from
-                # is gone by then.
                 logger.warning(
                     {
                         'msg': 'Ignoring key. Invalid deposit signature',
                         'value': d.pubkey,
-                        'withdrawal_credentials': d.withdrawal_credentials,
-                        'amount': d.amount,
-                        'signature': d.signature,
                     }
                 )
                 continue

@@ -111,7 +111,7 @@ class TestDigestOf:
         # Act
         mutated = [_mutated(keys[0], field), keys[1]]
         # Assert
-        assert digest_of(keys, ordered=False) != digest_of(mutated, ordered=False)
+        assert digest_of(keys) != digest_of(mutated)
 
     def test_digest_of__nested_validator_field_changes__digest_changes(self):
         # Arrange
@@ -122,9 +122,10 @@ class TestDigestOf:
         # Assert
         assert digest_of(state) != digest_of(other)
 
-    def test_digest_of__ordered_and_list_reordered__digest_changes(self):
-        """The deposit queue is processed in order and the filter keeps the first deposit per
-        pubkey, so the same deposits in a different order is a real divergence."""
+    def test_digest_of__list_reordered__digest_changes(self):
+        """The response is fingerprinted as it arrived, order included. For the beacon state
+        that is required: the deposit queue is processed in order and the filter keeps the
+        first deposit per pubkey."""
         # Arrange
         state = _state()
         reordered = _state()
@@ -132,36 +133,22 @@ class TestDigestOf:
         # Assert
         assert digest_of(state) != digest_of(reordered)
 
-    def test_digest_of__unordered_and_list_reordered__digest_unchanged(self):
-        """The Keys API promises no row order, so an order-sensitive digest would report two
-        identical key sets as different."""
+    def test_digest_of__entry_missing__digest_changes(self):
         # Arrange
         keys = [_lido_key(i) for i in range(10)]
         # Assert
-        assert digest_of(keys, ordered=False) == digest_of(list(reversed(keys)), ordered=False)
+        assert digest_of(keys) != digest_of(keys[1:])
 
-    def test_digest_of__unordered_and_nested_list_reordered__digest_unchanged(self):
-        # Arrange
-        response = {'keys': [_lido_key(i) for i in range(5)], 'module': {'id': 1}}
-        shuffled = {'module': {'id': 1}, 'keys': list(reversed(response['keys']))}
-        # Assert
-        assert digest_of(response, ordered=False) == digest_of(shuffled, ordered=False)
-
-    def test_digest_of__unordered_and_entry_missing__digest_changes(self):
-        # Arrange
-        keys = [_lido_key(i) for i in range(10)]
-        # Assert
-        assert digest_of(keys, ordered=False) != digest_of(keys[1:], ordered=False)
-
-    def test_digest_of__unordered_and_duplicate_entry__digest_changes(self):
-        """Set semantics on the ordering only. A key served twice is a Keys API bug and must
-        not hash the same as a key served once."""
+    def test_digest_of__duplicate_entry__digest_changes(self):
+        """A key served twice is a Keys API bug and must not hash the same as one served
+        once."""
         # Arrange
         keys = [_lido_key(1)]
         # Assert
-        assert digest_of(keys, ordered=False) != digest_of(keys * 2, ordered=False)
+        assert digest_of(keys) != digest_of(keys * 2)
 
     def test_digest_of__dict_key_order__digest_unchanged(self):
+        """A JSON object's field order carries no meaning, unlike a list's."""
         assert digest_of({'a': 1, 'b': 2}) == digest_of({'b': 2, 'a': 1})
 
     @pytest.mark.parametrize(
@@ -203,15 +190,15 @@ class TestLogFingerprint:
     def test_log_fingerprint__large_input__line_stays_small(self, logger, caplog):
         """One digest per response and nothing else, so the line can be shipped and grepped."""
         # Act
-        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(20_000)], ordered=False)
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(20_000)])
         # Assert
         assert len(json.dumps(caplog.records[0].msg)) < 256
 
     def test_log_fingerprint__differing_responses__digests_differ(self, logger, caplog):
         """What two operators actually do with one log line each."""
         # Act
-        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100)], ordered=False)
-        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100) if i != 42], ordered=False)
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100)])
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100) if i != 42])
         # Assert
         left, right = (record.msg['digest'] for record in caplog.records)
         assert left != right

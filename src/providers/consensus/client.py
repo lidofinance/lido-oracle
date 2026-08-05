@@ -275,14 +275,6 @@ class ConsensusClient(HTTPProvider):
                 raise
 
         state = BeaconStateView.from_response(**data)
-
-        # Ordered: the beacon state's list order is part of the state. Validator position is
-        # its index, and the deposit queue is processed in order — the pending-deposit filter
-        # keeps the first deposit seen per pubkey, so a reordering alone changes the report.
-        #
-        # An equal `state_root` already implies an equal state, since the state was fetched
-        # by that root. The digest is what catches a client handing back bytes inconsistent
-        # with the root it was asked for.
         log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
         return state
 
