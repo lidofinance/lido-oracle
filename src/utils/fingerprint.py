@@ -127,8 +127,9 @@ def _encode_sequence(value: list | tuple) -> Iterator[str]:
         yield ']'
         return
 
-    # Same output as the branch above, built one record at a time instead of three pieces
-    # per field. On a mainnet beacon state (2.3M validators) that is ~17 s against ~6 s.
+    # Same output as the branch above, but without a generator per field: 10 pieces a record
+    # rather than 35, and none of the ~21M nested generators that cost. Measured on a
+    # mainnet state (2.3M validators): 16.6 s against 8.2 s.
     cls, names = records
     yield '['
     for item in value:
