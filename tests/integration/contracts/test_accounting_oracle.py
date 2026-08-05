@@ -11,7 +11,7 @@ def test_accounting_oracle_contract(accounting_oracle_contract, caplog):
     check_contract(
         accounting_oracle_contract,
         [
-            ('get_processing_state', None, make_checker(AccountingProcessingState)),
+            ('get_processing_state', ('latest',), make_checker(AccountingProcessingState)),
             ('submit_report_extra_data_empty', None, make_checker(ContractFunction)),
             ('submit_report_extra_data_list', (b'',), make_checker(ContractFunction)),
         ],

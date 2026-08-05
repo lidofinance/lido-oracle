@@ -1,86 +1,132 @@
-"""Compact, comparable fingerprints of the large data sets an oracle report is built from.
+"""One comparable digest per large response an oracle report is built from.
 
-Two members log a fingerprint of their own inputs, and comparing the two log lines answers
-the first question an incident asks — did we read the same data? — without either operator
-sharing any of it:
+When members submit different report hashes they disagree about an *input*. The inputs big
+enough to hide a disagreement — the beacon state (~900 MB) and the Keys API used-key set
+(~485k keys) — cannot be logged as-is, so each is logged as a single digest instead. Two
+members compare one line each: equal digests mean the responses were identical, and that is
+the whole question the log answers.
 
-- equal `count` and `digest` mean the sets are identical;
-- if exactly one entry differs, `xor(a) ^ xor(b)` *is* that entry.
+It deliberately does not say *which* entry differs. Naming it needs the data itself, which
+is still on the live Keys API instances or on an archive node; pre-staging an answer in the
+logs would cost orders of magnitude more volume every cycle. How to read the lines:
+`docs/report-divergence-logs.md`.
 
-Finding *which* entries differ when more than one does is deliberately not solved here: it
-needs per-slice detail costing orders of magnitude more log volume than these three fields,
-for a case that has not yet occurred. How to read them: `docs/report-divergence-logs.md`.
+The digest covers the *parsed* response, not the bytes on the wire. Consensus clients
+serialise the same state differently — key order, whitespace, numeric formatting — so a
+digest of the raw body would differ between two correct members every cycle and mean
+nothing.
 """
 
 import logging
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import fields, is_dataclass
 from typing import Any
 
 from eth_hash.auto import keccak
 from eth_typing import HexStr
 
-from src.utils.types import hex_str_to_bytes
+
+# Pieces buffered between keccak updates. Hashing a mainnet beacon state is ~10M pieces;
+# feeding them one at a time triples the wall time.
+_CHUNK_SIZE = 4096
 
 
-@dataclass(frozen=True)
-class SetFingerprint:
-    """Order-independent fingerprint of a set of equal-length byte strings."""
+def digest_of(value: Any, *, ordered: bool = True) -> HexStr:
+    """keccak over a canonical encoding of `value`.
 
-    count: int
-    digest: HexStr
-    xor: HexStr
-
-    @property
-    def summary(self) -> dict[str, Any]:
-        return {'count': self.count, 'digest': self.digest, 'xor': self.xor}
-
-
-def fingerprint(items: Iterable[bytes]) -> SetFingerprint:
-    entries = sorted(items)
-
+    `ordered=False` treats every list as a set, by sorting per-entry digests instead of
+    encoding entries in place. Use it for a response whose row order is incidental — the
+    Keys API promises none, so an order-sensitive digest would flag two identical key sets
+    as different. The beacon state is the opposite case: its list order is part of the
+    state, so it is fingerprinted ordered.
+    """
     hasher = keccak.new(b'')
-    xor_acc = 0
-    width = 0
-    for entry in entries:
-        hasher.update(entry)
-        xor_acc ^= int.from_bytes(entry, 'big')
-        width = max(width, len(entry))
+    buffer: list[str] = []
 
-    return SetFingerprint(
-        count=len(entries),
-        digest=HexStr('0x' + hasher.digest().hex()),
-        xor=HexStr('0x' + xor_acc.to_bytes(width, 'big').hex()),
-    )
+    for piece in _encode(value, ordered):
+        buffer.append(piece)
+        if len(buffer) >= _CHUNK_SIZE:
+            hasher.update(''.join(buffer).encode())
+            buffer.clear()
 
-
-def fingerprint_hex(items: Iterable[str]) -> SetFingerprint:
-    """`fingerprint` over 0x-prefixed hex strings — pubkeys, roots, credentials."""
-    return fingerprint(hex_str_to_bytes(item) for item in items)
-
-
-def digest_of(chunks: Iterable[bytes]) -> HexStr:
-    """Order-sensitive digest — use for sequences whose order is itself meaningful."""
-    hasher = keccak.new(b'')
-    for chunk in chunks:
-        hasher.update(chunk)
+    hasher.update(''.join(buffer).encode())
     return HexStr('0x' + hasher.digest().hex())
 
 
-def log_fingerprint(logger: logging.Logger, subject: str, items: Iterable[bytes], **extra: Any) -> None:
-    """Log a one-line fingerprint of `items`.
+def log_fingerprint(logger: logging.Logger, subject: str, value: Any, *, ordered: bool = True, **context: Any) -> None:
+    """Log a one-line digest of `value`.
 
     Never raises: this is a diagnostic, and no report may fail over one.
     """
     try:
-        fp = fingerprint(items)
+        digest = digest_of(value, ordered=ordered)
     except Exception as error:  # pylint: disable=broad-except
         logger.warning({'msg': f'{subject} fingerprint failed.', 'error': repr(error)})
         return
 
-    logger.info({'msg': f'{subject} fingerprint.', **fp.summary, **extra})
+    logger.info({'msg': f'{subject} fingerprint.', 'digest': digest, **context})
 
 
-def log_fingerprint_hex(logger: logging.Logger, subject: str, items: Iterable[str], **extra: Any) -> None:
-    """`log_fingerprint` over 0x-prefixed hex strings."""
-    log_fingerprint(logger, subject, (hex_str_to_bytes(item) for item in items), **extra)
+def _encode(value: Any, ordered: bool) -> Iterator[str]:
+    """Canonical encoding: self-delimiting, and independent of how the response arrived.
+
+    Yields many small pieces rather than building one string — a mainnet beacon state does
+    not fit in memory twice.
+    """
+    if isinstance(value, bool):
+        yield 'true' if value else 'false'
+    elif isinstance(value, int):
+        yield str(value)
+    elif isinstance(value, str):
+        # Length-prefixed, so 'ab' + 'c' cannot encode the same as 'a' + 'bc' and no
+        # character needs escaping.
+        yield f'{len(value)}:{value}'
+    elif isinstance(value, (list, tuple)):
+        yield from _encode_sequence(value, ordered)
+    else:
+        yield from _encode_composite(value, ordered)
+
+
+def _encode_composite(value: Any, ordered: bool) -> Iterator[str]:
+    """Everything the hot path in `_encode` does not handle inline."""
+    if isinstance(value, bytes):
+        yield f'{len(value)}:{value.hex()}'
+    elif value is None:
+        yield 'null'
+    elif isinstance(value, dict):
+        # Sorted: an object's field order on the wire carries no meaning.
+        yield '{'
+        for key in sorted(value):
+            yield from _encode(str(key), ordered)
+            yield '='
+            yield from _encode(value[key], ordered)
+            yield ','
+        yield '}'
+    elif is_dataclass(value) and not isinstance(value, type):
+        yield '{'
+        for f in fields(value):
+            yield f.name
+            yield '='
+            yield from _encode(getattr(value, f.name), ordered)
+            yield ','
+        yield '}'
+    else:
+        raise TypeError(f'Cannot fingerprint {type(value).__name__}')
+
+
+def _encode_sequence(value: list | tuple, ordered: bool) -> Iterator[str]:
+    if ordered:
+        yield '['
+        for item in value:
+            yield from _encode(item, ordered)
+            yield ','
+        yield ']'
+        return
+
+    # Set semantics. Sorting the entries themselves would hold the whole response in memory
+    # a second time; sorting their digests costs 32 bytes an entry.
+    yield '{'
+    for entry_digest in sorted(digest_of(item, ordered=False) for item in value):
+        yield entry_digest
+        yield ','
+    yield '}'

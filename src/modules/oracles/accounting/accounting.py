@@ -260,6 +260,7 @@ class Accounting(OracleModule[Web3]):
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
+
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
         )
@@ -275,6 +276,7 @@ class Accounting(OracleModule[Web3]):
                 'validators_with_topups': len(validators_with_topups),
             }
         )
+
         cl_pending_balance = Gwei(new_validators_pending + topups_pending)
         logger.info({'msg': 'Calculate CL pending validators balance.', 'value': cl_pending_balance})
         return cl_pending_balance

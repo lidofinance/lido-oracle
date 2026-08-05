@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import cast
 from unittest import mock
@@ -19,7 +20,7 @@ from tests.factory.blockstamp import ReferenceBlockStampFactory
 @pytest.mark.integration
 @pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
+    # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#bls-signatures
     BLS_PUBLIC_KEY_SIZE = 48
     BLS_SIGNATURE_SIZE = 96
     BLS_PUBLIC_KEY_PATTERN = re.compile(r'^0x[0-9a-fA-F]{96}$')
@@ -67,12 +68,14 @@ class TestIntegrationKeysAPIClient:
         keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
 
         assert len(keys) > 0
-        keys_seen: list[str] = []
+        # A set, not a list: mainnet returns over half a million used keys, and a linear membership
+        # scan per key made this single test ~30 minutes, about 70% of the whole CI job.
+        keys_seen: set[str] = set()
         for lido_key in keys:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.append(lido_key.key)
+            keys_seen.add(lido_key.key)
 
     def test_get_used_module_operators_keys__csm_module__response_data_is_valid(
         self,
@@ -88,12 +91,12 @@ class TestIntegrationKeysAPIClient:
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
-        keys_seen: list[str] = []
+        keys_seen: set[str] = set()
         for lido_key in csm_module_operators_keys['keys']:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.append(lido_key.key)
+            keys_seen.add(lido_key.key)
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
@@ -470,34 +473,27 @@ class TestUnitKeysAPIClient:
             keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
 
     @responses.activate
-    def test_get_used_lido_keys_snapshot__after_keys_fetched__no_extra_http_request(
+    def test_get_used_lido_keys__response__logs_snapshot_and_size(
         self,
         keys_api_client: KeysAPIClient,
         empty_blockstamp,
+        caplog,
     ):
-        """The snapshot is a second view on the response the keys already came from, so
-        reading it must not cost another round trip to a service that serves ~47 MB."""
+        caplog.set_level(logging.INFO)
+        snapshot = {
+            'blockNumber': 0,
+            'blockHash': '0xabc',
+            'timestamp': 1,
+            'lastChangedBlockHash': '0xdef',
+        }
         responses.get(
             self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
-            json={
-                'data': [
-                    {
-                        'index': 0,
-                        'key': '',
-                        'used': True,
-                        'operatorIndex': 0,
-                        'moduleAddress': '',
-                        'depositSignature': '',
-                    }
-                ],
-                'meta': {'elBlockSnapshot': {'blockNumber': 0, 'blockHash': '0xabc', 'lastChangedBlockHash': '0xdef'}},
-            },
+            json={'data': [], 'meta': {'elBlockSnapshot': snapshot}},
         )
 
         keys_api_client.get_used_lido_keys(empty_blockstamp)
-        snapshot = keys_api_client.get_used_lido_keys_snapshot(empty_blockstamp)
-        keys_api_client.get_used_lido_keys(empty_blockstamp)
 
-        assert snapshot['blockHash'] == '0xabc'
-        assert snapshot['lastChangedBlockHash'] == '0xdef'
-        assert len(responses.calls) == 1
+        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API response.')
+        assert line['el_block_snapshot'] == snapshot
+        assert line['response_bytes'] == len(responses.calls[0].response.content)
+        assert line['requested_block_number'] == empty_blockstamp.block_number

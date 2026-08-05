@@ -1,87 +1,59 @@
 # Diagnosing a report divergence from logs
 
 When oracle members submit different report hashes for the same reference slot, they
-disagree about an *input*, not about arithmetic. The three inputs large enough to hide a
-disagreement are the beacon state (~900 MB), the Keys API used-key set (~485k keys,
-~47 MB) and the pending deposit queue. None can be logged as-is, so the oracle logs
-fingerprints of them: two members' log files are then enough to say which layer diverged,
-and usually to name the exact key or deposit responsible, without either operator sharing
-any data.
+disagree about an *input*, not about arithmetic. The two inputs large enough to hide a
+disagreement are the beacon state (~900 MB) and the Keys API used-key set (~485k keys,
+~47 MB). Neither can be logged as-is, so the oracle logs a single digest of each. Two
+members compare one line apiece and learn which layer diverged, without either operator
+sharing any data.
 
 Fingerprints go on the *inputs* only — what the oracle was handed, not what it computed
 from them. Everything downstream follows deterministically, so equal inputs and a differing
 report means the members are running different code, which `Oracle startup.` already
-reports. Inputs that are already anchored need nothing further: the beacon state by its
-`state_root`, and anything read from a contract by `blockstamp.block_hash`.
+reports.
 
-That leaves the Keys API, which has no such anchor, and the beacon state's contents, which
-no longer exist once the slot is old.
+## What the digest is, and is not
 
-## The fingerprint fields
+Each fingerprinted response is one log line, `<subject> fingerprint.`, carrying a `digest`
+and enough context to say which response it covers.
 
-Each fingerprinted set is one log line, `<subject> fingerprint.`, of a few hundred bytes.
+**Equal digests mean the responses were identical. That is the whole claim.** The digest
+covers every field of the response; it deliberately does not say *which* field or entry
+differs. Naming the culprit needs the data itself, and the data is still available — from
+the live Keys API instances, which still disagree, or from an archive node. Pre-staging an
+answer in the logs would cost orders of magnitude more volume every cycle for a case that
+has occurred once.
 
-| Field | Use |
-|---|---|
-| `count` | Did the two members see the same number of entries? |
-| `digest` | keccak over the sorted set — equal digests mean the sets are identical. |
-| `xor` | Every entry XOR-ed together. **If the sets differ by exactly one entry, XOR-ing the two members' values gives that entry.** |
+The digest is taken over the *parsed* response, not over the bytes on the wire: consensus
+clients serialise the same state differently — key order, whitespace, numeric formatting —
+so a digest of the raw body would differ between two correct members every cycle and mean
+nothing.
 
-### One entry differs
+Two orderings are used, because the two responses differ in whether row order carries
+meaning:
 
-`count` differs by 1. XOR the two `xor` values and you have the key — no tooling:
-
-```bash
-# 48-byte pubkeys
-python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
-
-# 192-byte deposit records — Pending deposits: pubkey|wc|amount|slot|signature
-python3 -c "print('0x%0384x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
-```
-
-This is the shape every pending-balance split has taken so far. Check the result with
-`GET /v1/keys/<pubkey>` against both Keys API instances: one has it `used: true`, the other
-does not, and the response names the module and operator.
-
-### Several entries differ
-
-The XOR is then several entries superimposed and cannot be read back. The logs tell you
-*that* the sets differ, which layer, and by how many — not which keys. Deliberately: the
-per-slice detail that would answer it costs orders of magnitude more log volume every
-cycle, for a case that has not yet occurred.
-
-To name them, go to the live data instead:
-
-- **Keys API** — a difference that can move a report is a persistent bookkeeping error
-  rather than a passing view, so the instance is still short today. Find it with
-  `scripts/ao_report_debug/keys_digest.py --selfcheck`, which needs one instance and
-  nothing else: for every operator, `count(key rows with used=true)` must equal that
-  operator's `usedSigningKeys`.
-- **Consensus layer** — re-derive from an archive node at the reference slot.
-
-`count`, `by_module` on the used-key set, and the per-operator conservation warnings below
-narrow it down first.
+| Response | Ordering | Why |
+|---|---|---|
+| Beacon state | ordered | List order is part of the state. A validator's position *is* its index, and the deposit queue is processed in order — the pending-deposit filter keeps the first deposit seen per pubkey, so a reordering alone changes which withdrawal credentials are checked for frontrun. |
+| Keys API | unordered | The Keys API promises no row order, so an order-sensitive digest would report two identical key sets as different. Entries are compared as a multiset: a key served twice still differs from a key served once. |
 
 ## What to compare, in order
 
 Work down the pipeline; the first line whose values differ names the layer at fault.
 
-| `msg`                                                  | Pins                                                                |
-|--------------------------------------------------------|---------------------------------------------------------------------|
-| `Beacon state summary.`                                  | `state_root`, validator count, balance sum, pending deposit count and total. |
-| `Pending deposits fingerprint.`                          | `digest`/`xor` over the deposit queue as a **set**, plus `queue_digest` over the same records **in order**. The two cover identical fields, so an equal `digest` with a differing `queue_digest` means a reordering and nothing else — itself a divergence, since the filter keeps the *first* deposit seen per pubkey and order therefore decides frontrun. Differs ⇒ the consensus layer, not the oracle. |
-| `CL validators fingerprint.`                             | The validator registry.                                              |
-| `Keys API response snapshot.`                            | Per request: the `elBlockSnapshot` the answer came from, including `lastChangedBlockHash`. Same value on both sides ⇒ both Keys APIs consumed the same on-chain key updates. |
-| `Used Lido keys fingerprint.`                            | The used-key set, plus per-module counts. **This is where the 2026-07-25 split lived.** |
-| `Keys API operators fingerprint.`                        | The operator records, an input to the CSM and CM reward split. Canonical JSON, so `xor` of a lone differing record decodes straight back to readable JSON. |
-| `Get pending deposits and not-yet-indexed lido keys.`    | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
-| `Collect valid pending deposits.`                        | How many signatures were verified and how many were rejected. Each rejected deposit is logged in full on its own `Ignoring key.` line. |
-| `Get pending lido validators.`                           | `total_amount_gwei` — half of what `clPendingBalanceGwei` is built from. |
+| `msg` | Covers |
+|---|---|
+| `Beacon state fingerprint.` | The whole `BeaconStateView`: validators, balances, slashings, the pending deposit queue, pending partial withdrawals and consolidations. Logged with `state_root` and `slot`. |
+| `Keys API response.` | Per request: the `elBlockSnapshot` the answer was served at, including `lastChangedBlockHash`, and the response size. |
+| `Keys API used keys fingerprint.` | The whole `v1/keys?used=true` response. **This is where the 2026-07-25 split lived.** |
+| `Keys API module operators keys fingerprint.` | The whole `v1/modules/{}/operators/keys?used=true` response — keys, module and operator records. An input to the CSM and CM reward split. |
+| `Get pending deposits and not-yet-indexed lido keys.` | `lido_wc_list` and `genesis_fork_version` — the two constants the deposit filter depends on. |
+| `Collect valid pending deposits.` | How many deposits were kept and how many keys were rejected. Each rejected deposit is on its own line, in full. |
+| `Get pending lido validators.` | `total_amount_gwei` — half of what `clPendingBalanceGwei` is built from. |
 
 ## Worked example: the pending balance differs
 
-Two members, same reference slot, different `clPendingBalanceGwei`. Work down; the first
-line whose values differ names the layer, and only then do you decode anything.
+Two members, same reference slot, different `clPendingBalanceGwei`.
 
 ### 0. Which half?
 
@@ -91,69 +63,61 @@ Calculate new pending validators balance.  value  ← half A: not-yet-activated 
 Calculate pending top-ups balance.         value  ← half B: top-ups to active validators
 ```
 
-Half A → steps 1–4. Half B → step 5.
-
 ### 1. Rule the consensus layer in or out
 
 ```
-Beacon state summary.          state_root, pending_deposits, pending_deposits_amount_gwei
-Pending deposits fingerprint.  count, digest, xor, queue_digest
+Beacon state fingerprint.   state_root, slot, digest
 ```
 
 - `state_root` differs → the members read *different states*. Not a data bug; check the
   reference slot and for a reorg.
-- `state_root` equal, `digest` and `queue_digest` equal → **the deposit queue is provably
-  identical.** The state is fetched by state root, which commits to the whole `BeaconState`.
-  Go to step 2.
-- `digest` equal, `queue_digest` differs → same deposits, different order, nothing else:
-  the two digests cover identical fields. Still a real divergence, since the filter keeps
-  the first deposit seen per pubkey and order therefore decides which withdrawal
-  credentials are checked for frontrun.
-- `state_root` equal, `digest` differs → a consensus client returned bytes inconsistent
-  with the root it was handed. That is a client bug; escalate with both digests. If `count`
-  differs by exactly one, `xor` names the deposit.
+- `state_root` equal, `digest` equal → **the state is provably identical**, including the
+  deposit queue and its order. Go to step 2.
+- `state_root` equal, `digest` differs → a consensus client returned a state inconsistent
+  with the root it was handed. That is a client bug; escalate with both digests and the
+  `state_root`, and re-fetch the state from an archive node to see which member's client
+  was wrong.
 
 ### 2. Rule the Keys API in or out
 
 ```
-Keys API response snapshot.    el_block_snapshot{blockNumber, blockHash, lastChangedBlockHash}
-Used Lido keys fingerprint.    count, digest, xor, by_module
+Keys API response.               el_block_snapshot{blockNumber, blockHash, lastChangedBlockHash}
+Keys API used keys fingerprint.  digest
 ```
 
 - Equal `lastChangedBlockHash` → both instances consumed the same on-chain key updates, so
-  a difference below is the instance's own bookkeeping, not a different view of the chain.
-- `count` differs → one instance is short; `by_module` says which module.
-- `digest` differs with equal counts → same size, different membership.
+  a differing digest below is the instance's own bookkeeping, not a different view of the
+  chain.
+- `digest` differs → the two instances served different key sets.
 
-Then recover the keys — this is the step the whole scheme exists for:
+Usually you will not get this far, because the oracle already names the culprit on one
+member's own data. `_kapi_sanity_check_by_operator` requires the Keys API to return every
+key index in `[0, total_deposited_validators)` for each operator, and logs the gap:
 
-`xor` names the key outright when exactly one differs, which is the shape observed so far:
-
-```bash
-python3 -c "print('0x%096x' % (int('<xor_a>', 16) ^ int('<xor_b>', 16)))"
+```
+Used keys from KAPI mismatched.   staking_module_address, operator_id,
+                                  missing_indexes, missing_count
 ```
 
-For more than one, run `scripts/ao_report_debug/keys_digest.py --selfcheck` against each
-instance — it names the operator whose used-key rows fall short of its own
-`usedSigningKeys`, with no second party involved.
-
-Either way you end with a pubkey. `GET /v1/keys/<pubkey>` against both instances: one has it
-`used: true`, the other does not, and the response names the module and operator.
+If neither member logged that — the sets differ without either being short of its on-chain
+counters — go to the live data. Both instances still disagree today, so
+`GET /v1/keys?used=true` against each and diffing the pubkeys names the keys, and
+`GET /v1/keys/<pubkey>` names the module and operator.
 
 ### 3. Both match? Then it is the filter
 
 ```
 Get pending deposits and not-yet-indexed lido keys.  lido_wc_list, genesis_fork_version
-Collect valid pending deposits.                      signatures_verified,
-                                                     invalid_signature_deposits,
-                                                     invalid_keys
+Collect valid pending deposits.                      valid_keys, invalid_keys
+Ignoring key. Invalid deposit signature              value, withdrawal_credentials, amount,
+                                                     slot, signature
 ```
 
 - `lido_wc_list` or `genesis_fork_version` differ → a configuration or contract difference,
   not a data one.
-- `invalid_signature_deposits` differ → the BLS backends disagree. The per-deposit
-  `Ignoring key. Invalid deposit signature` warnings give the exact tuples to re-verify
-  against the other library.
+- The `Ignoring key.` warnings differ → the BLS backends disagree. Each warning carries the
+  full deposit, which is the exact tuple to re-verify against the other library — the state
+  it came from will be gone by then.
 
 ### 4. Inputs all match?
 
@@ -164,35 +128,22 @@ Oracle startup.                     variables{version, branch, commit, ...}
 ```
 
 The selected pending validators and the top-ups are *derived* — nothing is fingerprinted
-here on purpose. Both follow deterministically from the three inputs above, so if those
-match and these counts do not, the members are running different code. Compare
-`Oracle startup.`, then replay the inputs locally against each build.
-
-## Warnings that name a culprit without a second member
-
-These fire on one member's own data, so they do not need anybody to compare against.
-
-- **`Used keys vs deposited validators at the Keys API block.`** — every deposited Lido key
-  must be in the used set, so `len(used keys) == depositedValidators` must hold *at the
-  Keys API's own block*. `_kapi_sanity_check` only asserts `>=` against the reference
-  block, which a stale key can hide: the Keys API is allowed to run ahead, and keys
-  deposited in that gap make up the shortfall. Evaluated at the Keys API's block the
-  identity is exact, and a stale key shows up as `deficit: 1`.
-- **`Used keys vs deposited validators per node operator.`** — the same identity against the
-  Staking Router's `totalDepositedValidators`, per operator. A `shortfalls` entry names the
-  operator whose key went missing.
-- **`Ignoring key. Invalid deposit signature`** / **`Ignoring key. Possible front run attack`** —
-  a deposit excluded from the pending balance, logged with the full record so it can be
-  re-verified against another BLS backend later.
-
-All of the above are diagnostics: they log and continue, and never fail a report.
+here on purpose. Both follow deterministically from the inputs above, so if those match and
+these counts do not, the members are running different code. Compare `Oracle startup.`, then
+replay the inputs locally against each build.
 
 ## Cost
 
-Fingerprinting the mainnet used-key set (~485k entries) takes ~0.7 s, once per report
-cycle, against a state fetch measured in minutes. Six lines of 250–400 bytes: under 2 KB a
-cycle, and nothing bulky in the report logs.
+Measured at mainnet scale (1.1M validators, 485k used keys) on a laptop:
 
-Summary lines are deliberately small so they can be grepped and shipped; everything bulk is
-on its own line and can be dropped by log shipping without losing the ability to *detect* a
-divergence, only the ability to resolve one from the logs alone.
+| Response | Time |
+|---|---|
+| Beacon state | ~5.5 s |
+| Keys API used keys | ~3.5 s |
+
+Once per report cycle each, against a state fetch measured in minutes. Bunker mode fetches
+two additional historical states and pays the state cost again for each; they are
+distinguishable by `state_root`.
+
+Each line is under 200 bytes, so the whole scheme adds well under 1 KB per cycle and nothing
+bulky to the report logs.

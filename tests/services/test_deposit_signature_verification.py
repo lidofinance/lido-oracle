@@ -183,6 +183,49 @@ class TestIsValidDepositSignature:
         result = is_valid_deposit_signature(bytes([0x11] * 48), bytes(32), 32_000_000_000, bytes([0x22] * 96))
         assert result is False
 
+    def _valid_deposit(self, sk: int = 777) -> tuple[bytes, bytes, int, bytes, bytes]:
+        genesis_fork_version = b'\x10\x00\x00\x38'
+        pubkey = self._pubkey(sk)
+        wc = bytes.fromhex((ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 11 + 'cc' * 20)[2:])
+        amount = 32_000_000_000
+        signature = self._sign(sk, pubkey, wc, amount, genesis_fork_version)
+        return pubkey, wc, amount, signature, genesis_fork_version
+
+    # blst's deserializers accept the uncompressed encodings as well, so a deposit carrying
+    # them would verify under blst while py_ecc — and every oracle release before the switch
+    # — rejects it. These assert the point is genuinely valid when compressed, so what is
+    # being tested is the encoding rule and not a broken fixture.
+
+    def test_is_valid_deposit_signature__uncompressed_signature__returns_false(self):
+        pubkey, wc, amount, signature, fork = self._valid_deposit()
+        assert is_valid_deposit_signature(pubkey, wc, amount, signature, genesis_fork_version=fork) is True
+
+        uncompressed = blst.P2_Affine(signature).serialize()
+        assert len(uncompressed) == 192
+
+        result = is_valid_deposit_signature(pubkey, wc, amount, uncompressed, genesis_fork_version=fork)
+
+        assert result is False
+
+    def test_is_valid_deposit_signature__uncompressed_pubkey__returns_false(self):
+        pubkey, wc, amount, signature, fork = self._valid_deposit()
+        assert is_valid_deposit_signature(pubkey, wc, amount, signature, genesis_fork_version=fork) is True
+
+        uncompressed = blst.P1_Affine(pubkey).serialize()
+        assert len(uncompressed) == 96
+
+        result = is_valid_deposit_signature(uncompressed, wc, amount, signature, genesis_fork_version=fork)
+
+        assert result is False
+
+    @pytest.mark.parametrize(
+        'pubkey_len, signature_len',
+        [(0, 96), (47, 96), (49, 96), (48, 0), (48, 95), (48, 97)],
+    )
+    def test_is_valid_deposit_signature__wrong_encoding_length__returns_false(self, pubkey_len, signature_len):
+        result = is_valid_deposit_signature(bytes(pubkey_len), bytes(32), 32_000_000_000, bytes(signature_len))
+        assert result is False
+
     def test_is_valid_deposit_signature__real_signature_from_mainnet__returns_true(self):
         result = is_valid_deposit_signature(
             b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x89\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',

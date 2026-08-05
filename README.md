@@ -342,8 +342,8 @@ Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager confi
 
 If members submit different report hashes for the same reference slot, see
 [diagnosing a report divergence from logs](docs/report-divergence-logs.md) — the oracle logs
-fingerprints of the Keys API, consensus layer and pending deposit inputs so two operators
-can locate the disagreement from their logs alone.
+one digest per consensus layer and Keys API response, so two operators can tell which input
+they disagree about by comparing a line each.
 
 ### Metrics
 

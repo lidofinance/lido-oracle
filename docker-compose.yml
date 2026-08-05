@@ -83,7 +83,7 @@ services:
       - "${PERFORMANCE_COLLECTOR_HEALTH_PORT:-9010}:9010"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   performance-web:
     build: .
@@ -108,7 +108,7 @@ services:
       - "${PERFORMANCE_WEB_PORT:-9020}:9020"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9020/health"]
 
   # ---------------------------------------------------------------------------
   # Oracle Services
@@ -143,7 +143,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   ejector-oracle:
     build: .
@@ -174,7 +174,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   csm-oracle:
     build: .
@@ -214,7 +214,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
   cm-oracle:
     build: .
@@ -254,7 +254,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
 volumes:
   postgres-data:

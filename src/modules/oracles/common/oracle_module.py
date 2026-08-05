@@ -24,7 +24,7 @@ from src.providers.keys.client import KAPIInconsistentData, KeysOutdatedExceptio
 from src.types import BlockStamp
 from src.utils.cache import clear_global_cache
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
-from src.web3py.extensions.lido_validators import CountOfKeysDiffersException
+from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
 from src.web3py.types import Web3Base
 
 
@@ -75,6 +75,15 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
                     'error': str(error),
                 }
             )
+        except CountOfKeysDiffersException as error:
+            logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
+            # Make sure the Oracle restarts and clears all cached responses from external sources.
+            # Such responses could change over time, even though they must not.
+            raise error
+        except FrontRunAttackError as error:
+            logger.error({'msg': 'Possible front-run attack detected. Refusing to report.', 'error': str(error)})
+            # restart to clear cached responses
+            raise error
         except DecoratorTimeoutError as error:
             logger.error({'msg': 'Oracle module do not respond.', 'error': str(error)})
         except NoActiveProviderError as error:
@@ -89,8 +98,6 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
             logger.error({'msg': 'Inconsistent response from Keys API service', 'error': str(error)})
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
-        except CountOfKeysDiffersException as error:
-            logger.error({'msg': 'Keys API service returned incorrect number of keys.', 'error': str(error)})
         except Web3Exception as error:
             logger.error({'msg': 'Web3py exception.', 'error': str(error)})
         except IPFSError as error:

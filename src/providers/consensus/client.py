@@ -35,8 +35,7 @@ from src.providers.http_provider import (
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
-from src.utils.fingerprint import digest_of, log_fingerprint, log_fingerprint_hex
-from src.utils.types import hex_str_to_bytes
+from src.utils.fingerprint import log_fingerprint
 
 
 logger = logging.getLogger(__name__)
@@ -276,53 +275,16 @@ class ConsensusClient(HTTPProvider):
                 raise
 
         state = BeaconStateView.from_response(**data)
-        self._log_state_fingerprint(state, blockstamp)
+
+        # Ordered: the beacon state's list order is part of the state. Validator position is
+        # its index, and the deposit queue is processed in order — the pending-deposit filter
+        # keeps the first deposit seen per pubkey, so a reordering alone changes the report.
+        #
+        # An equal `state_root` already implies an equal state, since the state was fetched
+        # by that root. The digest is what catches a client handing back bytes inconsistent
+        # with the root it was asked for.
+        log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
         return state
-
-    @staticmethod
-    def _log_state_fingerprint(state: BeaconStateView, blockstamp: BlockStamp) -> None:
-        """Fingerprint the parts of the beacon state a report is built from. Never raises."""
-        try:
-            # Whole records, not bare pubkeys: a key can have several queued deposits, and
-            # `xor` only names the odd one out over entries with no repeats. Carrying the
-            # signature too means a recovered entry is the exact tuple to re-verify against
-            # another BLS backend.
-            encoded_deposits = [
-                hex_str_to_bytes(d.pubkey)
-                + hex_str_to_bytes(d.withdrawal_credentials)
-                + d.amount.to_bytes(8, 'big')
-                + d.slot.to_bytes(8, 'big')
-                + hex_str_to_bytes(d.signature)
-                for d in state.pending_deposits
-            ]
-            queue_digest = digest_of(encoded_deposits)
-            logger.info(
-                {
-                    'msg': 'Beacon state summary.',
-                    'slot': state.slot,
-                    'state_root': blockstamp.state_root,
-                    'validators': len(state.validators),
-                    'balances_sum_gwei': sum(state.balances),
-                    'pending_deposits': len(state.pending_deposits),
-                    'pending_deposits_amount_gwei': sum(d.amount for d in state.pending_deposits),
-                    'pending_partial_withdrawals': len(state.pending_partial_withdrawals),
-                    'pending_consolidations': len(state.pending_consolidations),
-                }
-            )
-        except Exception as error:  # pylint: disable=broad-except
-            logger.warning({'msg': 'Beacon state summary failed.', 'error': repr(error)})
-            return
-
-        # Summaries only: the state is fetched by state root, so an equal `state_root`
-        # already proves both members read the same queue and registry. The digest is here
-        # to catch a client returning bytes inconsistent with the root it was handed, which
-        # is that client's bug — the Lido-filtered set downstream carries the bucket digests.
-        # `digest` and `queue_digest` cover the same records and differ *only* in whether
-        # they are sorted, so an equal `digest` with a differing `queue_digest` means the
-        # deposits were reordered and nothing else. That is itself a divergence: the filter
-        # keeps the first deposit seen per pubkey, so order decides frontrun.
-        log_fingerprint(logger, 'Pending deposits', encoded_deposits, queue_digest=queue_digest)
-        log_fingerprint_hex(logger, 'CL validators', (v.pubkey for v in state.validators))
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits

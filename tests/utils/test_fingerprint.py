@@ -1,127 +1,226 @@
+import dataclasses
 import json
 import logging
 
 import pytest
 
-from src.utils.fingerprint import (
-    digest_of,
-    fingerprint,
-    fingerprint_hex,
-    log_fingerprint,
-    log_fingerprint_hex,
+from src.providers.consensus.types import (
+    BeaconStateView,
+    PendingConsolidation,
+    PendingDeposit,
+    PendingPartialWithdrawal,
+    ValidatorState,
 )
+from src.providers.keys.types import LidoKey
+from src.utils.fingerprint import digest_of, log_fingerprint
 
 
-def _pubkey(seed: int) -> bytes:
-    return seed.to_bytes(48, 'big')
+def _pubkey(seed: int) -> str:
+    return '0x' + seed.to_bytes(48, 'big').hex()
 
 
-def _hex(seed: int) -> str:
-    return '0x' + _pubkey(seed).hex()
+def _lido_key(seed: int) -> LidoKey:
+    return LidoKey(
+        index=seed,
+        key=_pubkey(seed),
+        deposit_signature='0x' + seed.to_bytes(96, 'big').hex(),
+        operator_index=seed % 7,
+        used=True,
+        module_address='0x' + seed.to_bytes(20, 'big').hex(),
+    )
+
+
+def _validator_state(seed: int) -> ValidatorState:
+    return ValidatorState(
+        pubkey=_pubkey(seed),
+        withdrawal_credentials='0x01' + '00' * 11 + seed.to_bytes(20, 'big').hex(),
+        effective_balance=32 * 10**9,
+        slashed=False,
+        activation_eligibility_epoch=seed,
+        activation_epoch=seed + 1,
+        exit_epoch=2**64 - 1,
+        withdrawable_epoch=2**64 - 1,
+    )
+
+
+def _pending_deposit(seed: int) -> PendingDeposit:
+    return PendingDeposit(
+        pubkey=_pubkey(seed),
+        withdrawal_credentials='0x02' + '00' * 11 + seed.to_bytes(20, 'big').hex(),
+        amount=32 * 10**9,
+        signature='0x' + seed.to_bytes(96, 'big').hex(),
+        slot=1_000 + seed,
+    )
+
+
+def _state(validators: int = 4, deposits: int = 3) -> BeaconStateView:
+    return BeaconStateView(
+        slot=14846399,
+        validators=[_validator_state(i) for i in range(validators)],
+        balances=[32 * 10**9 + i for i in range(validators)],
+        slashings=[0, 7],
+        pending_deposits=[_pending_deposit(i) for i in range(deposits)],
+        pending_partial_withdrawals=[
+            PendingPartialWithdrawal(validator_index=0, amount=10**9, withdrawable_epoch=8),
+            PendingPartialWithdrawal(validator_index=1, amount=2 * 10**9, withdrawable_epoch=9),
+        ],
+        pending_consolidations=[
+            PendingConsolidation(source_index=0, target_index=1),
+            PendingConsolidation(source_index=2, target_index=3),
+        ],
+    )
+
+
+def _mutated(value, field: dataclasses.Field):
+    """A different-but-plausible value for `field`, so a digest that ignores it fails."""
+    current = getattr(value, field.name)
+    match current:
+        case bool():
+            replacement = not current
+        case int():
+            replacement = current + 1
+        case str():
+            replacement = current[:-1] + ('0' if current.endswith('1') else '1')
+        case list():
+            replacement = current[1:]
+        case _:
+            raise AssertionError(f'No mutation defined for {field.name}: {type(current).__name__}')
+    return dataclasses.replace(value, **{field.name: replacement})
 
 
 @pytest.mark.unit
-class TestFingerprint:
-    def test_fingerprint__same_set_different_order__same_result(self):
+class TestDigestOf:
+    def test_digest_of__same_value__same_digest(self):
+        assert digest_of(_state()) == digest_of(_state())
+
+    @pytest.mark.parametrize('field', dataclasses.fields(BeaconStateView), ids=lambda f: f.name)
+    def test_digest_of__any_beacon_state_field_changes__digest_changes(self, field):
+        """Every field of the CL response is covered — that is what 'full difference' means.
+        A field added later without being fingerprinted fails here."""
         # Arrange
-        items = [_pubkey(i) for i in range(100)]
+        state = _state()
         # Act
-        left = fingerprint(items)
-        right = fingerprint(reversed(items))
+        mutated = _mutated(state, field)
         # Assert
-        assert left == right
+        assert digest_of(state) != digest_of(mutated)
 
-    def test_fingerprint__different_set__different_digest(self):
-        assert fingerprint([_pubkey(1)]).digest != fingerprint([_pubkey(2)]).digest
-
-    def test_fingerprint__empty__does_not_raise(self):
-        # Arrange / Act
-        result = fingerprint([])
-        # Assert
-        assert result.count == 0
-        assert result.xor == '0x'
-
-    def test_fingerprint__counts_every_item__count_matches(self):
-        assert fingerprint(_pubkey(i) for i in range(1000)).count == 1000
-
-    def test_xor__one_missing_item__xor_delta_is_that_item(self):
-        """The property the whole diagnostic rests on: when two members' sets differ by a
-        single key, xor-ing their two logged values reproduces that key exactly."""
+    @pytest.mark.parametrize('field', dataclasses.fields(LidoKey), ids=lambda f: f.name)
+    def test_digest_of__any_lido_key_field_changes__digest_changes(self, field):
         # Arrange
-        full = [_pubkey(i) for i in range(500)]
-        missing = full[123]
-        short = [item for item in full if item != missing]
+        keys = [_lido_key(1), _lido_key(2)]
         # Act
-        delta = int(fingerprint(full).xor, 16) ^ int(fingerprint(short).xor, 16)
+        mutated = [_mutated(keys[0], field), keys[1]]
         # Assert
-        assert delta.to_bytes(48, 'big') == missing
+        assert digest_of(keys, ordered=False) != digest_of(mutated, ordered=False)
 
-    def test_xor__identical_sets__delta_is_zero(self):
-        items = [_pubkey(i) for i in range(50)]
-        assert int(fingerprint(items).xor, 16) ^ int(fingerprint(items).xor, 16) == 0
+    def test_digest_of__nested_validator_field_changes__digest_changes(self):
+        # Arrange
+        state = _state()
+        # Act
+        other = _state()
+        other.validators[2] = dataclasses.replace(other.validators[2], slashed=True)
+        # Assert
+        assert digest_of(state) != digest_of(other)
 
-    def test_summary__is_the_whole_fingerprint(self):
-        assert set(fingerprint([_pubkey(1)]).summary) == {'count', 'digest', 'xor'}
+    def test_digest_of__ordered_and_list_reordered__digest_changes(self):
+        """The deposit queue is processed in order and the filter keeps the first deposit per
+        pubkey, so the same deposits in a different order is a real divergence."""
+        # Arrange
+        state = _state()
+        reordered = _state()
+        reordered.pending_deposits.reverse()
+        # Assert
+        assert digest_of(state) != digest_of(reordered)
 
-    def test_fingerprint_hex__hex_strings__matches_bytes_input(self):
-        assert fingerprint_hex(_hex(i) for i in range(10)) == fingerprint(_pubkey(i) for i in range(10))
+    def test_digest_of__unordered_and_list_reordered__digest_unchanged(self):
+        """The Keys API promises no row order, so an order-sensitive digest would report two
+        identical key sets as different."""
+        # Arrange
+        keys = [_lido_key(i) for i in range(10)]
+        # Assert
+        assert digest_of(keys, ordered=False) == digest_of(list(reversed(keys)), ordered=False)
 
-    def test_digest_of__order_changes__digest_changes(self):
-        """Unlike `fingerprint`, this one must see reordering — the deposit queue is
-        processed in order, so the same deposits in a different order is a divergence."""
-        assert digest_of([b'a', b'b']) != digest_of([b'b', b'a'])
+    def test_digest_of__unordered_and_nested_list_reordered__digest_unchanged(self):
+        # Arrange
+        response = {'keys': [_lido_key(i) for i in range(5)], 'module': {'id': 1}}
+        shuffled = {'module': {'id': 1}, 'keys': list(reversed(response['keys']))}
+        # Assert
+        assert digest_of(response, ordered=False) == digest_of(shuffled, ordered=False)
 
-    def test_digest_of__same_order__digest_matches(self):
-        assert digest_of([b'a', b'b']) == digest_of([b'a', b'b'])
+    def test_digest_of__unordered_and_entry_missing__digest_changes(self):
+        # Arrange
+        keys = [_lido_key(i) for i in range(10)]
+        # Assert
+        assert digest_of(keys, ordered=False) != digest_of(keys[1:], ordered=False)
+
+    def test_digest_of__unordered_and_duplicate_entry__digest_changes(self):
+        """Set semantics on the ordering only. A key served twice is a Keys API bug and must
+        not hash the same as a key served once."""
+        # Arrange
+        keys = [_lido_key(1)]
+        # Assert
+        assert digest_of(keys, ordered=False) != digest_of(keys * 2, ordered=False)
+
+    def test_digest_of__dict_key_order__digest_unchanged(self):
+        assert digest_of({'a': 1, 'b': 2}) == digest_of({'b': 2, 'a': 1})
+
+    @pytest.mark.parametrize(
+        ('left', 'right'),
+        [
+            (['ab'], ['a', 'b']),
+            ({'a': 'bc'}, {'ab': 'c'}),
+            ([1, 23], [12, 3]),
+            (['1'], [1]),
+            ([[1], [2]], [[1, 2]]),
+        ],
+    )
+    def test_digest_of__ambiguous_looking_values__digests_differ(self, left, right):
+        """The encoding is self-delimiting: distinct values never collide by concatenation."""
+        assert digest_of(left) != digest_of(right)
+
+    def test_digest_of__unsupported_type__raises(self):
+        with pytest.raises(TypeError, match='Cannot fingerprint'):
+            digest_of({1.5})
 
 
 @pytest.mark.unit
 class TestLogFingerprint:
-    def test_log_fingerprint__valid_items__emits_one_summary_line(self, caplog):
-        # Arrange
+    @pytest.fixture
+    def logger(self, caplog):
         caplog.set_level(logging.INFO)
-        logger = logging.getLogger('test')
+        return logging.getLogger('test')
+
+    def test_log_fingerprint__valid_value__emits_one_line_with_context(self, logger, caplog):
         # Act
-        log_fingerprint(logger, 'Used Lido keys', [_pubkey(1), _pubkey(2)], el_block_number=42)
+        log_fingerprint(logger, 'Beacon state', _state(), state_root='0xabc')
         # Assert
         assert len(caplog.records) == 1
         line = caplog.records[0].msg
-        assert line['msg'] == 'Used Lido keys fingerprint.'
-        assert line['count'] == 2
-        assert line['el_block_number'] == 42
+        assert line['msg'] == 'Beacon state fingerprint.'
+        assert line['state_root'] == '0xabc'
+        assert line['digest'].startswith('0x')
 
-    def test_log_fingerprint__mainnet_scale__line_stays_small(self, caplog):
-        """The whole point of dropping per-bucket detail: nothing bulky in the report logs."""
-        # Arrange
-        caplog.set_level(logging.INFO)
-        logger = logging.getLogger('test')
+    def test_log_fingerprint__large_input__line_stays_small(self, logger, caplog):
+        """One digest per response and nothing else, so the line can be shipped and grepped."""
         # Act
-        log_fingerprint(logger, 'Pending Lido validators', [_pubkey(i) for i in range(24_000)])
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(20_000)], ordered=False)
         # Assert
-        assert len(json.dumps(caplog.records[0].msg)) < 512
+        assert len(json.dumps(caplog.records[0].msg)) < 256
 
-    def test_log_fingerprint__two_members__xor_of_the_logged_values_names_the_key(self, caplog):
-        """What an operator actually does with two log lines."""
-        # Arrange
-        caplog.set_level(logging.INFO)
-        logger = logging.getLogger('test')
-        full = [_pubkey(i) for i in range(1000)]
-        stale = full[404]
+    def test_log_fingerprint__differing_responses__digests_differ(self, logger, caplog):
+        """What two operators actually do with one log line each."""
         # Act
-        log_fingerprint(logger, 'Pending Lido validators', full)
-        log_fingerprint(logger, 'Pending Lido validators', [k for k in full if k != stale])
-        left, right = [record.msg['xor'] for record in caplog.records]
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100)], ordered=False)
+        log_fingerprint(logger, 'Keys API used keys', [_lido_key(i) for i in range(100) if i != 42], ordered=False)
         # Assert
-        assert (int(left, 16) ^ int(right, 16)).to_bytes(48, 'big') == stale
+        left, right = (record.msg['digest'] for record in caplog.records)
+        assert left != right
 
-    def test_log_fingerprint_hex__malformed_hex__warns_instead_of_raising(self, caplog):
+    def test_log_fingerprint__unfingerprintable_value__warns_instead_of_raising(self, logger, caplog):
         """A report must never fail over a diagnostic."""
-        # Arrange
-        caplog.set_level(logging.INFO)
-        logger = logging.getLogger('test')
         # Act
-        log_fingerprint_hex(logger, 'Used Lido keys', ['0xnothex'])
+        log_fingerprint(logger, 'Beacon state', object())
         # Assert
         assert len(caplog.records) == 1
         assert caplog.records[0].levelno == logging.WARNING
-        assert caplog.records[0].msg['msg'] == 'Used Lido keys fingerprint failed.'
+        assert caplog.records[0].msg['msg'] == 'Beacon state fingerprint failed.'

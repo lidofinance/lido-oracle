@@ -17,7 +17,7 @@ class CSModuleContract(ContractInterface):
 
     MAX_OPERATORS_COUNT = UINT64_MAX
 
-    def accounting(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+    def accounting(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Returns the address of the CSAccounting contract"""
 
         resp = self.functions.ACCOUNTING().call(block_identifier=block_identifier)
@@ -30,7 +30,7 @@ class CSModuleContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    def parameters_registry(self, block_identifier: BlockIdentifier = "latest") -> ChecksumAddress:
+    def parameters_registry(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """Returns the address of the CSParametersRegistry contract"""
 
         resp = self.functions.PARAMETERS_REGISTRY().call(block_identifier=block_identifier)
@@ -43,7 +43,7 @@ class CSModuleContract(ContractInterface):
         )
         return Web3.to_checksum_address(resp)
 
-    def is_paused(self, block: BlockIdentifier = "latest") -> bool:
+    def is_paused(self, block: BlockIdentifier) -> bool:
         resp = self.functions.isPaused().call(block_identifier=block)
         logger.info(
             {

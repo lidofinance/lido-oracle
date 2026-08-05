@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.integration
 class TestDelegationContract:
     def test_get_admin__real_contract__returns_valid_address(self, delegation_contract, caplog):
-        admin_address = delegation_contract.get_admin()
+        admin_address = delegation_contract.get_admin('latest')
 
         assert isinstance(admin_address, str)
         assert admin_address.startswith('0x')
@@ -13,7 +13,7 @@ class TestDelegationContract:
         assert any('Call admin()' in message for message in caplog.messages)
 
     def test_get_delegatee__real_contract__returns_valid_address(self, delegation_contract, caplog):
-        delegatee_address = delegation_contract.get_delegatee()
+        delegatee_address = delegation_contract.get_delegatee('latest')
 
         assert isinstance(delegatee_address, str)
         assert delegatee_address.startswith('0x')

@@ -23,7 +23,11 @@ from src.providers.consensus.types import (
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_inbound_balance
+from src.utils.validator_balance import (
+    get_predictable_full_inbound_balance,
+    get_predictable_inbound_balance,
+    get_predictable_inbound_sweep,
+)
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -141,6 +145,14 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
     result = ejector.execute_module(last_finalized_blockstamp=blockstamp)
 
     assert result is ModuleExecuteDelay.NEXT_SLOT, "execute_module should wait for the next slot"
+    # Compatibility check reads versions both at the report block and at the chain head
+    vebo = ejector.w3.lido_contracts.validators_exit_bus_oracle
+    vebo.get_contract_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_contract_version.assert_any_call('latest')
+    vebo.get_consensus_version.assert_any_call(blockstamp.block_hash)
+    vebo.get_consensus_version.assert_any_call('latest')
+    # Pause state is intentionally checked at the chain head
+    vebo.is_paused.assert_called_once_with('latest')
 
 
 @pytest.mark.unit
@@ -302,6 +314,119 @@ class TestGetValidatorsToEject:
         assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
             "Exact coverage after second validator must eject exactly two"
         )
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__dust_balance_shortfall_after_first__ejects_second_to_cover(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Validators carry non-32-multiple ("dust") balances. When the withdrawal queue misses
+        # coverage by a single Wei after the first validator, the loop must eject the whole second
+        # validator instead of stopping short. Dust never causes under-ejection.
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            (
+                (StakingModuleId(0), NodeOperatorId(1)),
+                build_extended_validator_with_balance(100_300_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 100.3 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(3)),
+                build_extended_validator_with_balance(63_700_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 63.7 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(5)),
+                build_extended_validator_with_balance(50_500_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 50.5 ETH
+            ),
+        ]
+        first_validator_balance_wei = get_predictable_inbound_balance(validators[0][1]) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_wei + 1
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+            "A one-Wei shortfall after the first dusty validator must eject the second, never under-eject"
+        )
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__dust_exact_coverage_after_first__ejects_only_first(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # With a dusty balance the loop must still stop as soon as coverage is reached and not
+        # over-eject beyond one validator.
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            (
+                (StakingModuleId(0), NodeOperatorId(1)),
+                build_extended_validator_with_balance(100_300_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 100.3 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(3)),
+                build_extended_validator_with_balance(63_700_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 63.7 ETH
+            ),
+        ]
+        first_validator_balance_gwei = Gwei(100 * 10**9 + 300_000_000)  # 100.3 ETH
+        assert get_predictable_inbound_balance(validators[0][1]) == first_validator_balance_gwei, (
+            "dust must be preserved: predictable inbound balance must keep the full 100.3 ETH"
+        )
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_gwei * GWEI_TO_WEI
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index], (
+            "Exact coverage with a dusty balance must not eject an extra validator"
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("balance", "meb"),
+    [
+        # Compounding 0x02 validator: 0.3 ETH of dust above the 2048 ETH cap.
+        (2_048_300_000_000, MAX_EFFECTIVE_BALANCE_ELECTRA),  # 2048.3 ETH
+        # Regular 0x01 validator: 0.3 ETH of dust above the 32 ETH cap.
+        (32_300_000_000, MAX_EFFECTIVE_BALANCE),  # 32.3 ETH
+    ],
+)
+def test_predictable_inbound_plus_sweep__dust_validator__equals_full_inbound(balance: int, meb: int) -> None:
+    # A balance above the effective-balance cap splits into a capped inbound part and a sweep excess.
+    # The two must always reconstruct the full inbound balance, so dust above the cap is never lost
+    # or double-counted.
+    # Arrange
+    validator = build_extended_validator_with_balance(balance, meb=meb)
+
+    # Act
+    inbound = get_predictable_inbound_balance(validator)
+    sweep = get_predictable_inbound_sweep(validator)
+    full = get_predictable_full_inbound_balance(validator)
+
+    # Assert
+    assert sweep > 0, "the balance must exceed the cap so the sweep excess is actually exercised"
+    assert inbound + sweep == full, "inbound + sweep must equal the full inbound balance"
 
 
 @pytest.mark.unit
@@ -615,6 +740,7 @@ def test_ejector_get_processing_state_no_yet_init_epoch(ejector: Ejector):
     assert processing_state.current_frame_ref_slot == 100
     assert processing_state.processing_deadline_time == 200
     assert processing_state.data_submitted is False
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -625,6 +751,7 @@ def test_ejector_get_processing_state(ejector: Ejector):
     result = ejector._get_processing_state(bs)
 
     assert accounting_processing_state == result
+    ejector.report_contract.get_processing_state.assert_called_once_with(bs.block_hash)
 
 
 @pytest.mark.unit
@@ -702,6 +829,10 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     # 2.5 frames → 25 // 10 = 2 frames
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
 
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
+
 
 @pytest.mark.unit
 def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
@@ -720,6 +851,10 @@ def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
     # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
     assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
     assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
+
+    # All on-chain reads must be pinned to the report block, not the chain head
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
+    mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
 
 
 class ForcedIterator:

@@ -44,6 +44,8 @@ class TestDelegationModule:
         assert module.delegation_contract is not None
         assert module.is_enabled() is True
         assert 'Delegation contract validation passed' in caplog.text
+        module.delegation_contract.get_delegatee.assert_called_once_with('latest')
+        module.delegation_contract.get_admin.assert_called_once_with('latest')
 
     def test_init__no_account__skips_validation(self, mock_w3, monkeypatch, caplog):
         monkeypatch.setattr(variables, 'ACCOUNT', None)
@@ -59,6 +61,7 @@ class TestDelegationModule:
 
         with pytest.raises(DelegationModule.NotConfiguredError):
             DelegationModule(mock_w3, delegation_address=DUMMY_ADDRESS)
+        mock_w3.eth.contract.return_value.get_delegatee.assert_called_once_with('latest')
 
     def test_init__delegatee_mismatch__raises_mismatch_error(self, mock_w3, mock_account, monkeypatch):
         monkeypatch.setattr(variables, 'ACCOUNT', mock_account)
@@ -67,6 +70,7 @@ class TestDelegationModule:
 
         with pytest.raises(DelegationModule.DelegateMismatchError):
             DelegationModule(mock_w3, delegation_address=DUMMY_ADDRESS)
+        mock_w3.eth.contract.return_value.get_delegatee.assert_called_once_with('latest')
 
     def test_wrap_call_for_delegation__disabled_delegation__raises_runtime_error(self, mock_w3):
         module = DelegationModule(mock_w3, delegation_address=None)
