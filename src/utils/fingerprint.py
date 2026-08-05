@@ -1,10 +1,18 @@
 """One comparable digest per large response an oracle report is built from.
 
 When members submit different report hashes they disagree about an *input*. The inputs big
-enough to hide a disagreement — the beacon state (2.3M validators on mainnet) and the Keys
-API used-key set (~487k keys, a 216 MB response) — cannot be logged as-is, so each is logged
-as a single digest instead. Two members compare one line each: equal digests mean the
-responses were identical, and that is the whole question the log answers.
+enough to hide a disagreement — the beacon state (2.3M validators, a 956 MB response on
+mainnet) and the Keys API used-key set (~487k keys, 216 MB) — cannot be logged as-is, so
+each is logged as a single digest instead. Two members compare one line each: equal digests
+mean they read the same inputs, and that is the whole question the log answers.
+
+Scope: the digest covers the *parsed* value, which is a projection. `BeaconStateView` keeps
+nine fields of a `BeaconState`, and `LidoKey` drops `vetted`; `from_response` discards the
+rest before the digest sees them. That is the right scope — a report can only diverge over
+something the oracle read — but it does mean an equal digest says the oracle read the same
+data, not that the two responses were byte-identical. They are not: the state response
+envelope alone carries per-node `execution_optimistic`, which differs between two correct
+members whenever one node's execution client is lagging.
 
 It deliberately does not say *which* entry differs. Naming it needs the data itself, which
 is still on the live Keys API instances or on an archive node; pre-staging an answer in the

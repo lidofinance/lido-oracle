@@ -5,10 +5,14 @@ unit tests would catch an encoding change that is self-consistent but different 
 previous release — every digest would simply move together. These fixtures pin the encoding
 to real data captured at mainnet slot 14921600, so such a change has to be deliberate.
 
-Captured with `scripts/fingerprint_e2e.py`; both slices are verbatim provider output,
-truncated to the first 2000 entries. Regenerating them is a breaking change for anyone
-comparing against a running release, so update the expected digests only alongside a
-deliberate encoding change.
+Captured with `scripts/fingerprint_e2e.py`. Both are slices, twice over: the values are the
+*parsed* projections the oracle keeps (`BeaconStateView` of a 956 MB response, `LidoKey`
+without `vetted`), and each list is truncated to its first 2000 entries. That is enough for
+what this file tests — every field of every type is exercised, and the encoding is what is
+being pinned, not the response. Whether two real providers agree is the e2e script's job.
+
+Regenerating these is a breaking change for anyone comparing against a running release, so
+update the expected digests only alongside a deliberate encoding change.
 """
 
 import gzip

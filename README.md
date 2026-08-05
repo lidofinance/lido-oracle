@@ -351,11 +351,16 @@ operators compare a line apiece to find the layer they disagree about:
 | `Keys API used keys fingerprint.` | The whole `v1/keys?used=true` response. |
 | `Keys API module operators keys fingerprint.` | The whole `v1/modules/{}/operators/keys?used=true` response. |
 
-Equal digests mean the responses were identical — that is the whole claim. Each digest
-covers the response as it arrived, order included, and does not say *which* entry differs;
-to name it, use `Used keys from KAPI mismatched.` (logged against the operator's on-chain
-deposit count) or query the Keys API instances directly, since a difference that can move a
-report is still there afterwards.
+Equal digests mean both members read the same inputs — that is the whole claim. Each digest
+covers every field the oracle parses out of the response, in the order it arrived. It is
+deliberately not a hash of the raw body: the beacon state envelope carries per-node
+`execution_optimistic`, so two correct members would differ whenever one node's execution
+client lags. Fields the oracle never reads are outside the digest, which is the right scope
+— a report can only diverge over something it was computed from.
+
+A digest does not say *which* entry differs. To name it, use `Used keys from KAPI
+mismatched.` (logged against the operator's on-chain deposit count) or query the Keys API
+instances directly, since a difference that can move a report is still there afterwards.
 
 Compare in pipeline order and stop at the first line that differs: `Beacon state
 fingerprint.`, then `Keys API response.` (the `elBlockSnapshot` each answer was served at)
