@@ -8,8 +8,8 @@ the whole question the log answers.
 
 It deliberately does not say *which* entry differs. Naming it needs the data itself, which
 is still on the live Keys API instances or on an archive node; pre-staging an answer in the
-logs would cost orders of magnitude more volume every cycle. How to read the lines:
-`docs/report-divergence-logs.md`.
+logs would cost orders of magnitude more volume every cycle. Which lines to compare, in
+which order: the "Report divergence" section of `README.md`.
 
 The digest covers the *parsed* response, not the bytes on the wire. Consensus clients
 serialise the same state differently — key order, whitespace, numeric formatting — so a

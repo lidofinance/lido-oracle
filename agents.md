@@ -211,7 +211,6 @@ Five scoped instruction files live in `.github/instructions/` and apply automati
 - `docs/development.md` — local setup guide (Docker and host-based workflows)
 - `docs/testing.md` — testing strategy and patterns (authoritative)
 - `docs/alerts.md` — example Prometheus alert rules for oracle health monitoring
-- `docs/report-divergence-logs.md` — which log lines to compare when members' report hashes differ
 - `docs/delegation.md` — delegation feature: separating protocol permissions from oracle hot keys via DelegationContract
 - `docs/reproducible-builds.md` — how to produce and verify reproducible Docker images
 - `docs/monitoring/` — Prometheus and Alertmanager config examples

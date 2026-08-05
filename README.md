@@ -340,10 +340,28 @@ Check out our [alerting guide](docs/alerts.md) for Prometheus Alertmanager confi
 
 ### Report divergence
 
-If members submit different report hashes for the same reference slot, see
-[diagnosing a report divergence from logs](docs/report-divergence-logs.md) — the oracle logs
-one digest per consensus layer and Keys API response, so two operators can tell which input
-they disagree about by comparing a line each.
+Members that submit different report hashes for the same reference slot disagree about an
+*input*. The two inputs large enough to hide a disagreement — the beacon state and the Keys
+API used-key set — are too big to log, so the oracle logs one digest of each instead. Two
+operators compare a line apiece to find the layer they disagree about:
+
+| `msg` | Covers |
+|---|---|
+| `Beacon state fingerprint.` | The whole consensus layer state response, with `state_root` and `slot`. |
+| `Keys API used keys fingerprint.` | The whole `v1/keys?used=true` response. |
+| `Keys API module operators keys fingerprint.` | The whole `v1/modules/{}/operators/keys?used=true` response. |
+
+Equal digests mean the responses were identical — that is the whole claim. The digest does
+not say *which* entry differs; to name it, use `Used keys from KAPI mismatched.` (logged
+against the operator's on-chain deposit count) or query the Keys API instances directly,
+since a difference that can move a report is still there afterwards.
+
+Compare in pipeline order and stop at the first line that differs: `Beacon state
+fingerprint.`, then `Keys API response.` (the `elBlockSnapshot` each answer was served at)
+and the Keys API digests, then `Get pending deposits and not-yet-indexed lido keys.`
+(`lido_wc_list` and `genesis_fork_version` — a configuration difference rather than a data
+one). If every input matches and the reports still differ, the members are running different
+code: compare `Oracle startup.`.
 
 ### Metrics
 

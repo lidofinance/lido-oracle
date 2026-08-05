@@ -352,16 +352,15 @@ class LidoValidatorsProvider(Module):
                 # Fork-agnostic domain since deposits are valid across forks
                 # genesis_validators_root=hex_str_to_bytes(genesis_config.genesis_validators_root),
             ):
-                # The full deposit, not just the pubkey: settling a disagreement between two
-                # BLS backends means re-verifying this exact tuple, and the state it came
-                # from is gone by then.
+                # The whole verified tuple, not just the pubkey: settling a disagreement
+                # between two BLS backends means re-verifying it, and the state it came from
+                # is gone by then.
                 logger.warning(
                     {
                         'msg': 'Ignoring key. Invalid deposit signature',
                         'value': d.pubkey,
                         'withdrawal_credentials': d.withdrawal_credentials,
                         'amount': d.amount,
-                        'slot': d.slot,
                         'signature': d.signature,
                     }
                 )
