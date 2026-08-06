@@ -66,7 +66,7 @@ class SignerModule(Module):
     def process_members(self, members: list[ChecksumAddress]) -> None:
         """Resolve the active signer from the current HashConsensus member list.
 
-        Resets `active_signer`/`is_delegated` before resolving, so a member/delegatee that is no
+        Resets `active_signer`/`is_delegated` before resolving, so a member/delegate that is no
         longer valid never lingers from a previous cycle.
         """
         self.active_signer = None

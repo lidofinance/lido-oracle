@@ -76,5 +76,3 @@ To rotate the oracle hot key with no downtime:
 2. The contract owner calls `nominateDelegate(newOracleAddress)` on the delegation contract.
 3. Once the cooldown elapses and the new delegate becomes active on-chain, the oracle picks it up automatically on its next reporting cycle — no further restart is needed.
 4. Once rotation is confirmed, the old key can be dropped from `MEMBER_PRIV_KEY`/`MEMBER_PRIV_KEY_2` (requires a restart to take effect; leaving it configured is harmless, it will simply never match the on-chain delegate again).
-
-No governance vote is required.
