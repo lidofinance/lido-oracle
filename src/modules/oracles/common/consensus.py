@@ -162,11 +162,10 @@ class ConsensusModule[W3: Web3Base](ABC):
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
         hash_consensus_member_address = self.w3.signer.hash_consensus_member_address
+        active_signer = self.w3.signer.active_signer
 
-        if hash_consensus_member_address:
-            ACCOUNT_BALANCE.labels(str(hash_consensus_member_address)).set(
-                self.w3.eth.get_balance(hash_consensus_member_address)
-            )
+        if hash_consensus_member_address and active_signer:
+            ACCOUNT_BALANCE.labels(str(active_signer.address)).set(self.w3.eth.get_balance(active_signer.address))
 
             try:
                 (

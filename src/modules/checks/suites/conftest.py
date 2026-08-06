@@ -45,8 +45,7 @@ def web3():
 
     signer = SignerModule(
         web3,
-        variables.ACCOUNT,
-        variables.ACCOUNT_2,
+        [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
         variables.DELEGATION_CONTRACT_ADDRESS,
     )
     telemetry_data_bus = TelemetryDataBus(

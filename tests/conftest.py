@@ -211,7 +211,9 @@ def web3_integration() -> Generator[Web3]:
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
             'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
             'signer': lambda: SignerModule(
-                w3, variables.ACCOUNT, variables.ACCOUNT_2, variables.DELEGATION_CONTRACT_ADDRESS
+                w3,
+                [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
+                variables.DELEGATION_CONTRACT_ADDRESS,
             ),
         }
     )

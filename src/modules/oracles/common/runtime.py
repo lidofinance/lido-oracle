@@ -69,8 +69,7 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
     logger.info({'msg': 'Initialize signer module.'})
     signer = SignerModule(
         web3,
-        variables.ACCOUNT,
-        variables.ACCOUNT_2,
+        [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
         variables.DELEGATION_CONTRACT_ADDRESS,
     )
 

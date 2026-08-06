@@ -23,7 +23,7 @@ def delegatee_account(accounts_from_fork, monkeypatch):
     _, private_keys = accounts_from_fork
     account = Account.from_key(private_keys[1])
     monkeypatch.setattr(variables, 'ACCOUNT', account)
-    return account, private_keys[1]
+    return account
 
 
 @pytest.fixture()
@@ -33,8 +33,7 @@ def delegation_address():
 
 @pytest.fixture()
 def web3_with_delegation(web3, delegatee_account, delegation_address, monkeypatch):
-    delegatee_acc, _ = delegatee_account
-    delegatee_address = delegatee_acc.address
+    delegatee_address = delegatee_account.address
 
     web3.provider.make_request('anvil_setBalance', [delegatee_address, hex(10**18)])
 
@@ -49,7 +48,7 @@ def web3_with_delegation(web3, delegatee_account, delegation_address, monkeypatc
 
     delegation_contract.functions.assignDelegate(delegatee_address).transact({'from': current_admin})
 
-    signer_module = SignerModule(web3, delegatee_acc, None, delegation_address)
+    signer_module = SignerModule(web3, [delegatee_account], delegation_address)
     # The delegation contract isn't a HashConsensus member yet at this point (that happens in
     # hash_consensus_with_delegation_member below) - resolve the signer against its known future
     # identity directly, rather than re-deriving it from a live member list here.
