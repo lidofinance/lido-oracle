@@ -1,3 +1,4 @@
+from collections import Counter
 from unittest.mock import Mock
 
 import pytest
@@ -310,6 +311,25 @@ def test_no_target_balance_deviation_predicate(iterator):
 
 
 @pytest.mark.unit
+def test_no_target_balance_deviation_predicate__zero_total_weight__returns_total_stake(iterator):
+    """_no_target_balance_deviation_predicate must not divide by zero when total_weight is 0,
+    and falls back to the NO's own total_stake (no target to compare against)."""
+    sm = make_staking_module(1)
+    no = make_node_operator(1, sm)
+    ms = StakingModuleStats(staking_module=sm, total_stake=Gwei(1000 * 10**9), total_weight=0)
+
+    nos = NodeOperatorStats(
+        node_operator=no,
+        module_stats=ms,
+        predictable_validators=1,
+        total_stake=Gwei(500 * 10**9),
+        weight=0,
+    )
+
+    assert iterator._no_target_balance_deviation_predicate(nos) == Gwei(500 * 10**9)
+
+
+@pytest.mark.unit
 def test_max_share_rate_coefficient_predicate(iterator):
     """_max_share_rate_coefficient_predicate orders modules by excess balance above their share threshold."""
     threshold = int(0.15 * 10000)  # 15%
@@ -505,6 +525,55 @@ class TestProcessGroup:
 
         with pytest.raises(NodeOperatorExpectedToBeInCMv1Error):
             iterator._process_group(group, cm_v1, cm_v2)
+
+    def test_process_group__zero_internal_weight__distributes_external_balance_by_share(self, iterator):
+        """When all internal NOs have weight 0, external balance is distributed by operator share."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+        nos_int1 = NodeOperatorStats(node_operator=no_int1, module_stats=ms_v2, weight=0)
+        nos_int2 = NodeOperatorStats(node_operator=no_int2, module_stats=ms_v2, weight=0)
+        no_ext1 = make_node_operator(20, sm_v1)
+        no_ext2 = make_node_operator(21, sm_v1)
+        nos_ext1 = NodeOperatorStats(
+            node_operator=no_ext1,
+            module_stats=ms_v1,
+            predictable_balance=Gwei(50 * 10**9),
+        )
+        nos_ext2 = NodeOperatorStats(
+            node_operator=no_ext2,
+            module_stats=ms_v1,
+            predictable_balance=Gwei(30 * 10**9),
+        )
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            (sm_v2.id, no_int1.id): nos_int1,
+            (sm_v2.id, no_int2.id): nos_int2,
+            (sm_v1.id, no_ext1.id): nos_ext1,
+            (sm_v1.id, no_ext2.id): nos_ext2,
+        }
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=4_000),
+                SubNodeOperator(node_operator_id=no_int2.id, share=6_000),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext1.id)),
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext2.id)),
+            ],
+        )
+
+        cm_v1 = (sm_v1.id, Mock())
+        cm_v2 = (sm_v2.id, Mock())
+        iterator._process_group(group, cm_v1, cm_v2)
+
+        # external_balance = 50 + 30 = 80, distributed by shares 40% and 60%.
+        assert nos_int1.total_stake == Gwei(32 * 10**9)
+        assert nos_int2.total_stake == Gwei(48 * 10**9)
+        assert nos_int1.total_stake + nos_int2.total_stake == Gwei(80 * 10**9)
 
     def test_process_group__already_grouped_external__raises_error(self, iterator):
         sm_v2 = make_staking_module(2)
@@ -1050,6 +1119,163 @@ class TestDecreaseAffectedStake:
         assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
         assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
 
+    def test_decrease_affected_stake__fractional_weights__consistent_total_and_deterministic_order(self, iterator):
+        """Fractional weight splits must not crash, must conserve the exit balance within float dust,
+        and must keep the sort order deterministic."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(
+            staking_module=sm_v2,
+            total_stake=Gwei(300 * 10**9),
+            predictable_balance=Gwei(300 * 10**9),
+            total_weight=3.0,
+        )
+        ms_v1 = StakingModuleStats(
+            staking_module=sm_v1,
+            total_stake=Gwei(300 * 10**9),
+            predictable_balance=Gwei(300 * 10**9),
+            total_weight=1.0,
+        )
+
+        no_ext = make_node_operator(20, sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+        no_int3 = make_node_operator(12, sm_v2)
+
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=3333),
+                SubNodeOperator(node_operator_id=no_int2.id, share=3333),
+                SubNodeOperator(node_operator_id=no_int3.id, share=3334),
+            ],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
+        )
+
+        nos_ext = NodeOperatorStats(
+            node_operator=no_ext,
+            module_stats=ms_v1,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+            external_operator_group=group,
+        )
+        nos_int1 = NodeOperatorStats(
+            node_operator=no_int1,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+        nos_int2 = NodeOperatorStats(
+            node_operator=no_int2,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+        nos_int3 = NodeOperatorStats(
+            node_operator=no_int3,
+            module_stats=ms_v2,
+            total_stake=Gwei(100 * 10**9),
+            predictable_balance=Gwei(100 * 10**9),
+            weight=1.0,
+        )
+
+        gid_ext = (sm_v1.id, no_ext.id)
+        gid_int1 = (sm_v2.id, no_int1.id)
+        gid_int2 = (sm_v2.id, no_int2.id)
+        gid_int3 = (sm_v2.id, no_int3.id)
+        iterator.cm_v2_id = sm_v2.id
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            gid_ext: nos_ext,
+            gid_int1: nos_int1,
+            gid_int2: nos_int2,
+            gid_int3: nos_int3,
+        }
+        iterator.exitable_validators = {gid_ext: [], gid_int1: [], gid_int2: [], gid_int3: []}
+        iterator.total_lido_predictable_balance = Gwei(600 * 10**9)
+
+        exit_balance = Gwei(100 * 10**9)  # 100 / 3 does not divide evenly among three internal NOs
+        before = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
+
+        iterator._decrease_affected_stake(gid_ext, exit_balance)
+
+        after = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
+        # The three fractional decrements together conserve the whole exit balance within float dust.
+        assert abs((before - after) - exit_balance) < 1
+        # The module-level decrement is integer, so it stays exact.
+        assert ms_v2.total_stake == Gwei(300 * 10**9) - exit_balance
+        # Sorting over the now-float stats must be stable across repeated calls.
+        order1 = [
+            (s.node_operator.staking_module.id, s.node_operator.id)
+            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
+        ]
+        order2 = [
+            (s.node_operator.staking_module.id, s.node_operator.id)
+            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
+        ]
+        assert order1 == order2
+
+    def test_external_exit__zero_total_weight__decreases_internal_stake_by_share(self, iterator):
+        """When all internal NO weights are 0, their stake decreases by operator share."""
+        sm_v2 = make_staking_module(2)
+        sm_v1 = make_staking_module(1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
+        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
+
+        no_ext = make_node_operator(20, sm_v1)
+        no_int1 = make_node_operator(10, sm_v2)
+        no_int2 = make_node_operator(11, sm_v2)
+
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=no_int1.id, share=4_000),
+                SubNodeOperator(node_operator_id=no_int2.id, share=6_000),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id)),
+            ],
+        )
+
+        nos_ext = NodeOperatorStats(
+            node_operator=no_ext,
+            module_stats=ms_v1,
+            total_stake=Gwei(100 * 10**9),
+            external_operator_group=group,
+        )
+        nos_int1 = NodeOperatorStats(
+            node_operator=no_int1,
+            module_stats=ms_v2,
+            total_stake=Gwei(80 * 10**9),
+            weight=0,
+        )
+        nos_int2 = NodeOperatorStats(
+            node_operator=no_int2,
+            module_stats=ms_v2,
+            total_stake=Gwei(120 * 10**9),
+            weight=0,
+        )
+
+        gid_ext = (sm_v1.id, no_ext.id)
+        gid_int1 = (sm_v2.id, no_int1.id)
+        gid_int2 = (sm_v2.id, no_int2.id)
+        iterator.cm_v2_id = sm_v2.id
+        iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
+        iterator.node_operators_stats = {
+            gid_ext: nos_ext,
+            gid_int1: nos_int1,
+            gid_int2: nos_int2,
+        }
+
+        exit_balance = Gwei(50 * 10**9)
+        iterator._decrease_affected_stake(gid_ext, exit_balance)
+
+        # total_weight = 0, so a 50 ETH exit is distributed by shares: 20 ETH and 30 ETH.
+        assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
+        assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
+        assert nos_int1.total_stake + nos_int2.total_stake == Gwei(150 * 10**9)
+
     def test_internal_exit__unfulfilled_group__no_cross_module_propagation(self, iterator):
         """When group is not fulfilled, only own module/NO are decreased."""
         sm_v2 = make_staking_module(2)
@@ -1296,6 +1522,52 @@ class TestNextAndIterFull:
         with pytest.raises(StopIteration):
             iterator.__next__()
 
+    def test_next__high_priority_no_empty_list__skips_and_selects_populated_no(self, iterator):
+        """A high-priority NO with predictable balance/count but no exitable validator must be
+        skipped, and the next populated NO selected, without an IndexError."""
+        sm = make_staking_module(1)
+        no_empty = make_node_operator(1, sm, total_dep=3, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        no_populated = make_node_operator(2, sm)
+        gid_empty = (sm.id, no_empty.id)
+        gid_populated = (sm.id, no_populated.id)
+        weight = float(10 * 10000)
+        ms = StakingModuleStats(
+            staking_module=sm,
+            predictable_balance=Gwei(128 * 10**9),
+            total_stake=Gwei(128 * 10**9),
+            total_weight=weight * 2,
+        )
+        nos_empty = NodeOperatorStats(
+            node_operator=no_empty,
+            module_stats=ms,
+            predictable_validators=3,
+            force_exit_to=0,
+            predictable_balance=Gwei(96 * 10**9),
+            total_stake=Gwei(96 * 10**9),
+            weight=weight,
+        )
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        nos_populated = NodeOperatorStats(
+            node_operator=no_populated,
+            module_stats=ms,
+            predictable_validators=1,
+            predictable_balance=Gwei(32 * 10**9),
+            total_stake=Gwei(32 * 10**9),
+            weight=weight,
+        )
+
+        iterator.module_stats = {sm.id: ms}
+        iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
+        iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
+        iterator.total_lido_predictable_balance = Gwei(128 * 10**9)
+        iterator.max_current_exit_balance = Gwei(0)
+        iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+
+        gid, v = iterator.__next__()
+
+        assert gid == gid_populated, "The populated operator must be selected"
+        assert v is validator, "The populated operator's validator must be returned"
+
     def test_iter__initializes_all_state(self, iterator):
         """__iter__ sets up max_current_exit_balance=0 and returns self."""
         iterator._reset_iterator_data = Mock()
@@ -1311,6 +1583,181 @@ class TestNextAndIterFull:
         iterator._prepare_data_structure.assert_called_once()
         iterator._calculate_lido_stats.assert_called_once()
         iterator._get_report_limits.assert_called_once()
+
+    @staticmethod
+    def _make_ext_data(sm_id, no_id):
+        return bytes([0, sm_id]) + no_id.to_bytes(8, byteorder='big')
+
+    def test_full_iteration__mixed_weight_groups_and_ungrouped_nos__ejects_all_via_full_pipeline(self, iterator):
+        sm_v1 = make_staking_module(1, name=CURATED_V1_MODULE_NAME)
+        sm_v1.staking_module_address = "0x" + "1" * 40
+        sm_v2 = make_staking_module(2, name=CURATED_V2_MODULE_NAME)
+        sm_v2.staking_module_address = "0x" + "2" * 40
+
+        ext1 = make_node_operator(1, sm_v1)
+        ext2 = make_node_operator(2, sm_v1)
+        ext3 = make_node_operator(3, sm_v1)
+        ext4 = make_node_operator(4, sm_v1)  # ungrouped
+        int1 = make_node_operator(1, sm_v2)
+        int2 = make_node_operator(2, sm_v2)
+        int3 = make_node_operator(3, sm_v2)
+        int4 = make_node_operator(4, sm_v2)
+        int5 = make_node_operator(5, sm_v2)  # ungrouped
+
+        gids = {
+            'ext1': (sm_v1.id, ext1.id),
+            'ext2': (sm_v1.id, ext2.id),
+            'ext3': (sm_v1.id, ext3.id),
+            'ext4': (sm_v1.id, ext4.id),
+            'int1': (sm_v2.id, int1.id),
+            'int2': (sm_v2.id, int2.id),
+            'int3': (sm_v2.id, int3.id),
+            'int4': (sm_v2.id, int4.id),
+            'int5': (sm_v2.id, int5.id),
+        }
+        balances_eth = {
+            'ext1': 30,
+            'ext2': 20,
+            'ext3': 28,
+            'ext4': 18,
+            'int1': 25,
+            'int2': 15,
+            'int3': 22,
+            'int4': 12,
+            'int5': 27,
+        }
+        validators = {
+            name: LidoValidatorFactory.build_with_activation_epoch_bound(
+                iterator.blockstamp.ref_epoch, balance=Gwei(balances_eth[name] * 10**9)
+            )
+            for name in gids
+        }
+
+        iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm_v1, sm_v2])
+        iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(
+            return_value={
+                sm_v1.id: [ext1, ext2, ext3, ext4],
+                sm_v2.id: [int1, int2, int3, int4, int5],
+            }
+        )
+        iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+            return_value={gids[name]: [validators[name]] for name in gids}
+        )
+        iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
+            return_value={gid: [-1] for gid in gids.values()}
+        )
+        iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+        iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+            return_value=Mock(max_balance_exit_requested_per_report_in_eth=100_000)
+        )
+
+        group_a = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=int1.id, share=5_000),
+                SubNodeOperator(node_operator_id=int2.id, share=5_000),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext1.id)),
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext2.id)),
+            ],
+        )
+        group_b = OperatorGroupFactory.build(
+            sub_node_operators=[
+                SubNodeOperator(node_operator_id=int3.id, share=4_000),
+                SubNodeOperator(node_operator_id=int4.id, share=6_000),
+            ],
+            external_operators=[
+                ExternalOperator(data=self._make_ext_data(sm_v1.id, ext3.id)),
+            ],
+        )
+        # ext4 / int5 are intentionally not referenced in any group -> stay ungrouped.
+
+        mock_cm_v1_contract = Mock()
+        mock_cm_v1_contract.get_type.return_value = CURATED_V1_TYPE
+
+        mock_cm_v2_contract = Mock()
+        mock_cm_v2_contract.get_type.return_value = CURATED_V2_TYPE
+        mock_cm_v2_contract.get_node_operator_deposit_info_to_update_count.return_value = 0
+        # Order must match no_ids order = insertion order of sm_v2's node operators: int1..int5
+        mock_cm_v2_contract.get_operator_weights.return_value = [0.0, 0.0, 4.0, 6.0, 3.0]
+        meta_registry_address = "0x" + "9" * 40
+        mock_cm_v2_contract.get_meta_registry_address.return_value = meta_registry_address
+
+        mock_meta_registry = Mock()
+        mock_meta_registry.get_all_groups.return_value = [group_a, group_b]
+
+        contracts_by_addr = {
+            sm_v1.staking_module_address: mock_cm_v1_contract,
+            sm_v2.staking_module_address: mock_cm_v2_contract,
+            meta_registry_address: mock_meta_registry,
+        }
+        iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
+
+        iterator.max_current_exit_balance = Gwei(0)
+        iterator._prepare_data_structure()
+        iterator._calculate_lido_stats()
+        iterator._get_report_limits()
+
+        nos_stats = iterator.node_operators_stats
+        ETH = 10**9
+
+        # Grouped NOs got linked to their respective group...
+        assert nos_stats[gids['int1']].internal_operator_group is group_a
+        assert nos_stats[gids['int2']].internal_operator_group is group_a
+        assert nos_stats[gids['int3']].internal_operator_group is group_b
+        assert nos_stats[gids['int4']].internal_operator_group is group_b
+        assert nos_stats[gids['ext1']].external_operator_group is group_a
+        assert nos_stats[gids['ext2']].external_operator_group is group_a
+        assert nos_stats[gids['ext3']].external_operator_group is group_b
+        # ...while ungrouped NOs stayed ungrouped.
+        assert nos_stats[gids['int5']].internal_operator_group is None
+        assert nos_stats[gids['ext4']].external_operator_group is None
+
+        # Group A (zero internal_weight): external_balance (30+20=50) split equally between int1/int2;
+        # internal_balance (25+15=40) split equally between ext1/ext2.
+        assert nos_stats[gids['int1']].total_stake == 25 * ETH + 50 * ETH / 2
+        assert nos_stats[gids['int2']].total_stake == 15 * ETH + 50 * ETH / 2
+        assert nos_stats[gids['ext1']].total_stake == 30 * ETH + 40 * ETH / 2
+        assert nos_stats[gids['ext2']].total_stake == 20 * ETH + 40 * ETH / 2
+
+        # Group B (nonzero internal_weight=10): external_balance (28) split by weight 4/10, 6/10;
+        # internal_balance (22+12=34) attributed wholly to the single external NO (ext3).
+        assert nos_stats[gids['int3']].total_stake == 22 * ETH + 28 * ETH * 4.0 / 10.0
+        assert nos_stats[gids['int4']].total_stake == 12 * ETH + 28 * ETH * 6.0 / 10.0
+        assert nos_stats[gids['ext3']].total_stake == 28 * ETH + 34 * ETH
+
+        # Ungrouped NOs: total_stake is just their own predictable balance, untouched by any group.
+        assert nos_stats[gids['int5']].total_stake == 27 * ETH
+        assert nos_stats[gids['ext4']].total_stake == 18 * ETH
+
+        # Module-level total_stake accumulates both groups' cross-attributed balances.
+        assert iterator.module_stats[sm_v1.id].total_stake == 96 * ETH + 40 * ETH + 34 * ETH
+        assert iterator.module_stats[sm_v2.id].total_stake == 101 * ETH + 50 * ETH + 28 * ETH
+
+        # Module-level total_weight sums every NO's weight, zero and nonzero alike;
+        # sm_v2 is genuinely nonzero here (0 + 0 + 4.0 + 6.0 + 3.0), unlike the all-zero unit test case.
+        assert iterator.module_stats[sm_v2.id].total_weight == 0.0 + 0.0 + 4.0 + 6.0 + 3.0
+
+        # --- Now drain the iterator for real and verify ejection completeness/module attribution ---
+        ejected: list[tuple] = []
+        for _i in range(8):
+            ejected.append(next(iterator))
+
+        assert len(ejected) == 8
+
+        ejected_module_counts = Counter(gid[0] for gid, _ in ejected)
+        assert ejected_module_counts[sm_v1.id] == 4  # ext1, ext2, ext3, ext4
+        assert ejected_module_counts[sm_v2.id] == 4  # int1, int2, int3, int5
+
+        assert nos_stats[gids['int5']].total_stake == 0 * ETH
+        assert nos_stats[gids['ext4']].total_stake == 0 * ETH
+        assert nos_stats[gids['int4']].total_stake == 12 * ETH
+
+        assert iterator.module_stats[gids['int4'][0]].total_stake == 12 * ETH
+        assert iterator.module_stats[gids['int4'][0]].predictable_balance == 12 * ETH
+
+        assert iterator.module_stats[gids['ext1'][0]].total_stake == 12 * ETH
+        assert iterator.module_stats[gids['ext1'][0]].predictable_balance == 0 * ETH
 
 
 @pytest.mark.unit
@@ -1371,3 +1818,38 @@ class TestGetRemainingForcedEdgeCases:
         result = iterator.get_remaining_forced_validators()
 
         assert result == [], "Empty list when no validators are available despite forced exit need"
+
+    def test_get_remaining_forced_validators__high_priority_no_empty_list__ejects_from_populated_no(self, iterator):
+        """A forced NO with an empty exitable list must be skipped without an IndexError, while the
+        next forced NO that still has a validator is ejected."""
+        sm = make_staking_module(1)
+        no_empty = make_node_operator(1, sm, total_dep=3, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        no_populated = make_node_operator(2, sm, total_dep=1, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
+        gid_empty = (sm.id, no_empty.id)
+        gid_populated = (sm.id, no_populated.id)
+        ms = StakingModuleStats(staking_module=sm)
+        nos_empty = NodeOperatorStats(
+            node_operator=no_empty,
+            module_stats=ms,
+            predictable_validators=3,
+            force_exit_to=0,
+        )
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        nos_populated = NodeOperatorStats(
+            node_operator=no_populated,
+            module_stats=ms,
+            predictable_validators=1,
+            force_exit_to=0,
+        )
+
+        iterator.module_stats = {sm.id: ms}
+        iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
+        iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
+        iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+        iterator.max_current_exit_balance = Gwei(0)
+
+        result = iterator.get_remaining_forced_validators()
+
+        assert len(result) == 1, "Only the populated operator yields a forced validator"
+        assert result[0][0] == gid_populated
+        assert result[0][1] is validator

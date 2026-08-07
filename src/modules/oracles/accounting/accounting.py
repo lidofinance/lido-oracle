@@ -253,18 +253,33 @@ class Accounting(OracleModule[Web3]):
         """Calculate the total pending balance on the Consensus Layer.
 
         Includes both new validators awaiting activation and pending top-up deposits for
-        existing active validators. Top-ups must be included because they are not yet reflected
+        existing active validators. Top-ups must be included  because they are not yet reflected
         in validator.balance on the CL; if they remain unprocessed across a frame boundary,
         they would otherwise be invisible to the contract's accounting (absent from both
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
+        logger.info({'msg': 'Get pending lido validators.', 'value': len(lido_pending_balance_by_keys)})
+
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
         )
+        logger.info({'msg': 'Calculate new pending validators balance.', 'value': new_validators_pending})
+
         active_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
+        validators_with_topups = [v for v in active_validators if v.pending_topups]
         topups_pending = Gwei(sum(topup.amount for v in active_validators for topup in v.pending_topups))
-        return Gwei(new_validators_pending + topups_pending)
+        logger.info(
+            {
+                'msg': 'Calculate pending top-ups balance.',
+                'value': topups_pending,
+                'validators_with_topups': len(validators_with_topups),
+            }
+        )
+
+        cl_pending_balance = Gwei(new_validators_pending + topups_pending)
+        logger.info({'msg': 'Calculate CL pending validators balance.', 'value': cl_pending_balance})
+        return cl_pending_balance
 
     def _get_newly_exited_validators_by_modules(
         self,
