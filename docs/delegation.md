@@ -1,6 +1,6 @@
 ## Delegation
 
-Delegation allows separating protocol permissions from oracle hot keys. Instead of granting permissions directly to the oracle account, they are granted to a [DelegationContract](https://github.com/lidofinance/delegation-execution-authority), and the oracle executes calls through it.
+Delegation allows separating protocol permissions from oracle hot keys. Instead of granting permissions directly to the oracle account, they are granted to a [DelegationContract](https://github.com/lidofinance/execution-delegation-framework), and the oracle executes calls through it.
 
 This enables hot key rotation by the contract owner without governance voting.
 
@@ -35,7 +35,7 @@ The target contract sees `DelegationContract` as `msg.sender`, so all permission
 
 #### 1. Deploy delegation contract
 
-The contract owner deploys a `DelegationContract` instance via `DelegationFactory` from the [delegation-execution-authority](https://github.com/lidofinance/delegation-execution-authority) repository.
+The contract owner deploys a `DelegationContract` instance via `DelegationFactory` from the [execution-delegation-framework](https://github.com/lidofinance/execution-delegation-framework) repository.
 
 #### 2. Grant protocol permissions
 
