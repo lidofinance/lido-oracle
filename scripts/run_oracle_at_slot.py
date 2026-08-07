@@ -92,6 +92,8 @@ def main() -> None:
     # Force dry mode (no on-chain tx signing/sending) regardless of the caller's shell env.
     os.environ.pop('MEMBER_PRIV_KEY', None)
     os.environ.pop('MEMBER_PRIV_KEY_FILE', None)
+    os.environ.pop('TELEMETRY_PRIV_KEY', None)
+    os.environ.pop('TELEMETRY_PRIV_KEY_FILE', None)
     os.environ['PROMETHEUS_PORT'] = str(prometheus_port)
     os.environ['HEALTHCHECK_SERVER_PORT'] = str(healthcheck_port)
 
