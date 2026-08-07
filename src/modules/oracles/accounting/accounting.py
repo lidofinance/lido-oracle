@@ -6,7 +6,6 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_BALANCE_GWEI,
@@ -131,11 +130,11 @@ class Accounting(OracleModule[Web3]):
 
         if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
             tx = self.report_contract.submit_report_extra_data_empty()
-            self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+            self.w3.transaction.check_and_send_transaction(tx)
         else:
             for tx_data in extra_data.extra_data_list:
                 tx = self.report_contract.submit_report_extra_data_list(tx_data)
-                self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+                self.w3.transaction.check_and_send_transaction(tx)
 
     @lru_cache(maxsize=1)
     @duration_meter()

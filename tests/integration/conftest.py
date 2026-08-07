@@ -230,7 +230,8 @@ def delegation_contract(web3_provider_integration):
     return get_contract(
         web3_provider_integration,
         DelegationContract,
-        variables.DELEGATION_CONTRACT_ADDRESS,
+        # Hoodi delegation contract address
+        '0xf4665f4f62a06c27999a9a2127715912214c875a',
     )
 
 
