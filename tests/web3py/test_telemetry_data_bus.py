@@ -7,7 +7,12 @@ import pytest
 from src import variables
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.utils.version import get_oracle_version
-from src.web3py.extensions.telemetry_data_bus import TelemetryDataBus, TelemetryEventId
+from src.web3py.extensions.telemetry_data_bus import (
+    ContractNotDeployedError,
+    SendTimeoutError,
+    TelemetryDataBus,
+    TelemetryEventId,
+)
 
 
 DUMMY_RPC = 'http://localhost:8545'
@@ -85,7 +90,7 @@ class TestTelemetryDataBus:
     def test___init____no_code_at_address__raises_contract_not_deployed(self, mock_create_web3, web3):
         mock_create_web3.return_value = self._mock_data_bus_w3(chain_id=17000, code=b'')
 
-        with pytest.raises(TelemetryDataBus.ContractNotDeployedError, match="No contract deployed"):
+        with pytest.raises(ContractNotDeployedError, match="No contract deployed"):
             self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
 
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
@@ -164,12 +169,9 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
-    def test_send_telemetry__all_attempts_fail__raises_attribute_error(
+    def test_send_telemetry__all_attempts_fail__logs_timeout(
         self, mock_create_web3, mock_validate, mock_build_params, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
-        # NOTE: `_send_with_retry` currently falls off the end of its loop on timeout instead of
-        # raising `SendTimeoutError`, so it implicitly returns None and `send_telemetry` blows up
-        # calling `.hex()` on it. This test documents the current (buggy) behavior.
         monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', Mock())
         monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
         # deadline=1; iter1 check(0.1)<1 -> attempt; remaining calc(0.2); iter2 check(2.0)<1 is False -> stop.
@@ -182,10 +184,9 @@ class TestTelemetryDataBus:
         mock_build_params.side_effect = ValueError('nonce too low')
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
-        with pytest.raises(AttributeError, match="'NoneType' object has no attribute 'hex'"):
-            module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
-
+        assert 'Timed out sending DataBus telemetry transaction.' in caplog.text
         assert mock_build_params.call_count == 1
         mock_sleep.assert_called_once()
         assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
@@ -273,7 +274,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
-    def test_send_telemetry__tx_never_included_same_nonce__raises_attribute_error(
+    def test_send_telemetry__tx_never_included_same_nonce__logs_timeout(
         self,
         mock_create_web3,
         mock_validate,
@@ -285,8 +286,6 @@ class TestTelemetryDataBus:
         caplog,
         monkeypatch,
     ):
-        # NOTE: see test_send_telemetry__all_attempts_fail__raises_attribute_error — timeout with a
-        # still-pending tx falls off the end of `_send_with_retry` instead of raising SendTimeoutError.
         monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', Mock())
         monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
         # deadline=1; attempt1: build+send (no monotonic calls in try body); attempt2: while-check(0.2)<1,
@@ -303,10 +302,9 @@ class TestTelemetryDataBus:
         mock_data_bus_w3.eth.get_transaction_count.return_value = 5
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
-        with pytest.raises(AttributeError, match="'NoneType' object has no attribute 'hex'"):
-            module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
-
+        assert 'Timed out sending DataBus telemetry transaction.' in caplog.text
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
         mock_sleep.assert_called_once()
@@ -403,12 +401,9 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__all_attempts_fail__returns_none(
+    def test__send_with_retry__all_attempts_fail__raises_send_timeout_error(
         self, mock_build_params, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
-        # NOTE: the loop currently falls off the end on timeout instead of raising
-        # `SendTimeoutError` (that class is defined but never raised) — this documents the
-        # actual behavior so a future fix has a failing test to flip green.
         monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
         # deadline=1; iter1 check(0.1)<1 -> attempt; remaining calc(0.2); iter2 check(2.0)<1 is False -> stop.
         mock_monotonic.side_effect = [0, 0.1, 0.2, 2.0]
@@ -416,9 +411,10 @@ class TestTelemetryDataBus:
         mock_build_params.side_effect = ValueError('nonce too low')
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
 
-        assert result is None
+        with pytest.raises(SendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module._send_with_retry(tx, w3_mock, account)
+
         assert mock_build_params.call_count == 1
         mock_sleep.assert_called_once()
         assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
@@ -427,7 +423,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__tx_never_included_same_nonce__returns_none(
+    def test__send_with_retry__tx_never_included_same_nonce__raises_send_timeout_error(
         self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, monkeypatch
     ):
         monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
@@ -441,9 +437,10 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction_count.return_value = 1
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
 
-        assert result is None
+        with pytest.raises(SendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module._send_with_retry(tx, w3_mock, account)
+
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
 

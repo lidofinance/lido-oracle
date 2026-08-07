@@ -161,10 +161,11 @@ class ConsensusModule[W3: Web3Base](ABC):
         last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
-        if self.w3.signer.active_signer:
-            ACCOUNT_BALANCE.labels(str(self.w3.signer.active_signer.address)).set(
-                self.w3.eth.get_balance(self.w3.signer.active_signer.address)
-            )
+        hash_consensus_member_address = self.w3.signer.hash_consensus_member_address
+        active_signer = self.w3.signer.active_signer
+
+        if hash_consensus_member_address and active_signer:
+            ACCOUNT_BALANCE.labels(str(active_signer.address)).set(self.w3.eth.get_balance(active_signer.address))
 
             try:
                 (
@@ -184,8 +185,7 @@ class ConsensusModule[W3: Web3Base](ABC):
                     # The hash reported by the member for the current frame, if any.
                     current_frame_member_report,
                 ) = consensus_contract.get_consensus_state_for_member(
-                    self.w3.signer.active_signer.address,
-                    blockstamp.block_hash,
+                    hash_consensus_member_address, blockstamp.block_hash
                 )
             except ContractCustomError as revert:
                 if revert.data != InitialEpochIsYetToArriveRevert:
@@ -193,7 +193,7 @@ class ConsensusModule[W3: Web3Base](ABC):
 
             is_submit_member = self.report_contract.has_role(
                 self.report_contract.submit_data_role(blockstamp.block_hash),
-                self.w3.signer.active_signer.address,
+                hash_consensus_member_address,
                 blockstamp.block_hash,
             )
 
@@ -493,12 +493,14 @@ class ConsensusModule[W3: Web3Base](ABC):
         Returns in slots time to sleep before a data report.
         """
         member = self.get_member_info(blockstamp)
-        if member.is_submit_member or self.w3.signer.active_signer is None:
+        report_address = self.w3.signer.hash_consensus_member_address
+
+        if member.is_submit_member or report_address is None:
             return 0
 
         members, _ = self._get_consensus_contract_members(blockstamp)
 
-        mem_position = members.index(self.w3.signer.active_signer.address)
+        mem_position = members.index(report_address)
 
         converter = self._get_web3_converter(blockstamp)
 

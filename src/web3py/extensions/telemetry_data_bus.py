@@ -32,13 +32,14 @@ class TelemetryEventId(Enum):
     DIAGNOSTIC = Web3.keccak(text="Diagnostic")
 
 
+class ContractNotDeployedError(Exception):
+    pass
+
+class SendTimeoutError(Exception):
+    pass
+
+
 class TelemetryDataBus(Module):
-    class ContractNotDeployedError(Exception):
-        pass
-
-    class SendTimeoutError(Exception):
-        pass
-
     _data_bus_w3: Web3 | None
     _contract: DataBusContract | None
 
@@ -91,7 +92,7 @@ class TelemetryDataBus(Module):
         chain_id = self._data_bus_w3.eth.chain_id
         code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
-            raise self.ContractNotDeployedError(
+            raise ContractNotDeployedError(
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
@@ -121,7 +122,12 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
+        try:
+            tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
+        except SendTimeoutError:
+            logger.warning({'msg': 'Timed out sending DataBus telemetry transaction.', 'module': self._module_name})
+            return
+
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
@@ -162,3 +168,7 @@ class TelemetryDataBus(Module):
                 if remaining <= 0:
                     break
                 time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+
+        raise SendTimeoutError(
+            f"Timed out sending DataBus telemetry transaction after {variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s."
+        )

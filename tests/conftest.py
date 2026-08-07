@@ -164,6 +164,15 @@ def web3(monkeypatch) -> Generator[Web3]:
 
     w3.eth.contract = create_contract_mock
 
+    def create_signer_mock():
+        # `spec=SignerModule` only recognizes methods, not the plain `is_delegated`/
+        # `delegation_contract` instance attributes set in __init__ - default them here
+        # to a no-delegation state so tests don't have to stub them individually.
+        signer_mock = Mock(spec=SignerModule)
+        signer_mock.is_delegated = False
+        signer_mock.delegation_contract = None
+        return signer_mock
+
     w3.attach_modules(
         {
             # Mocked on the contract level, see create_contract_mock
@@ -175,7 +184,7 @@ def web3(monkeypatch) -> Generator[Web3]:
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
             'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
-            'signer': lambda: Mock(spec=SignerModule),
+            'signer': create_signer_mock,
         }
     )
 
@@ -202,7 +211,9 @@ def web3_integration() -> Generator[Web3]:
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
             'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
             'signer': lambda: SignerModule(
-                w3, variables.ACCOUNT, variables.ACCOUNT_2, variables.DELEGATION_CONTRACT_ADDRESS
+                w3,
+                [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
+                variables.DELEGATION_CONTRACT_ADDRESS,
             ),
         }
     )

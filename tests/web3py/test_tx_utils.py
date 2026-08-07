@@ -120,9 +120,11 @@ class TestTransactionUtils:
         utils, account = fake_transaction_utils
         tx = MagicMock()
         input.get_input = MagicMock(return_value='y')
-        utils._send_transaction = MagicMock()
-        utils._manual_tx_processing(tx, {}, account)
+        receipt = MagicMock()
+        utils._send_transaction = MagicMock(return_value=receipt)
+        result = utils._manual_tx_processing(tx, {}, account)
         utils._send_transaction.assert_called_once()
+        assert result is receipt
 
     def test_manual_tx_processing_decline(self, fake_transaction_utils):
         utils, account = fake_transaction_utils

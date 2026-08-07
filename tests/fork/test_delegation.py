@@ -19,11 +19,11 @@ def finalized_slots(real_finalized_slot):
 
 
 @pytest.fixture()
-def delegatee_account(accounts_from_fork, monkeypatch):
+def delegate_account(accounts_from_fork, monkeypatch):
     _, private_keys = accounts_from_fork
     account = Account.from_key(private_keys[1])
     monkeypatch.setattr(variables, 'ACCOUNT', account)
-    return account, private_keys[1]
+    return account
 
 
 @pytest.fixture()
@@ -32,11 +32,10 @@ def delegation_address():
 
 
 @pytest.fixture()
-def web3_with_delegation(web3, delegatee_account, delegation_address, monkeypatch):
-    delegatee_acc, _ = delegatee_account
-    delegatee_address = delegatee_acc.address
+def web3_with_delegation(web3, delegate_account, delegation_address, monkeypatch):
+    delegate_address = delegate_account.address
 
-    web3.provider.make_request('anvil_setBalance', [delegatee_address, hex(10**18)])
+    web3.provider.make_request('anvil_setBalance', [delegate_address, hex(10**18)])
 
     delegation_contract = web3.eth.contract(
         address=delegation_address,
@@ -47,9 +46,9 @@ def web3_with_delegation(web3, delegatee_account, delegation_address, monkeypatc
     web3.provider.make_request('anvil_impersonateAccount', [current_admin])
     web3.provider.make_request('anvil_setBalance', [current_admin, hex(10**18)])
 
-    delegation_contract.functions.assignDelegate(delegatee_address).transact({'from': current_admin})
+    delegation_contract.functions.assignDelegate(delegate_address).transact({'from': current_admin})
 
-    signer_module = SignerModule(web3, delegatee_acc, None, delegation_address)
+    signer_module = SignerModule(web3, [delegate_account], delegation_address)
     # The delegation contract isn't a HashConsensus member yet at this point (that happens in
     # hash_consensus_with_delegation_member below) - resolve the signer against its known future
     # identity directly, rather than re-deriving it from a live member list here.
@@ -104,7 +103,7 @@ def hash_consensus_with_delegation_member(web3_with_delegation, delegation_addre
 class TestDelegationFork:
     def test_check_and_send_transaction__submit_report_via_delegation__transaction_succeeds(
         self,
-        delegatee_account,
+        delegate_account,
         web3_with_delegation,
         hash_consensus_with_delegation_member,
         delegation_address,

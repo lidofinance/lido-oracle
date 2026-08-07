@@ -34,7 +34,7 @@ def make_w3(delegate=None):
 @pytest.mark.unit
 class TestSignerModuleInit:
     def test_init__no_delegation_contract_address__delegation_contract_is_none(self):
-        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
 
         assert module.delegation_contract is None
         assert module.active_signer is None
@@ -43,7 +43,7 @@ class TestSignerModuleInit:
     def test_init__delegation_contract_address_set__builds_contract(self, caplog):
         w3 = make_w3()
 
-        module = SignerModule(w3, make_account(ACCOUNT_1_ADDRESS), None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(w3, [make_account(ACCOUNT_1_ADDRESS)], DELEGATION_CONTRACT_ADDRESS)
 
         assert module.delegation_contract is not None
         assert module.delegation_contract.address == DELEGATION_CONTRACT_ADDRESS
@@ -51,17 +51,25 @@ class TestSignerModuleInit:
         assert 'Initialize delegation contract.' in caplog.text
 
     def test_init__no_accounts_configured__dry_defaults(self):
-        module = SignerModule(make_w3(), None, None, None)
+        module = SignerModule(make_w3(), [], None)
 
         assert module.active_signer is None
         assert module.is_delegated is False
+
+    def test_init__duplicate_account_addresses__raises_value_error(self):
+        with pytest.raises(ValueError, match='Duplicate accounts'):
+            SignerModule(
+                make_w3(),
+                [make_account(ACCOUNT_1_ADDRESS), make_account(ACCOUNT_1_ADDRESS)],
+                None,
+            )
 
 
 @pytest.mark.unit
 class TestProcessMembers:
     def test_process_members__account_1_is_plain_member__activates_account_1(self):
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(), account_1, None, None)
+        module = SignerModule(make_w3(), [account_1], None)
 
         module.process_members([ACCOUNT_1_ADDRESS])
 
@@ -72,7 +80,7 @@ class TestProcessMembers:
         """Regression test: a previous version activated account_1 even when account_2 matched."""
         account_1 = make_account(ACCOUNT_1_ADDRESS)
         account_2 = make_account(ACCOUNT_2_ADDRESS)
-        module = SignerModule(make_w3(), account_1, account_2, None)
+        module = SignerModule(make_w3(), [account_1, account_2], None)
 
         module.process_members([ACCOUNT_2_ADDRESS])
 
@@ -83,7 +91,7 @@ class TestProcessMembers:
         # In practice, we should not get it in production.
         account_1 = make_account(ACCOUNT_1_ADDRESS)
         account_2 = make_account(ACCOUNT_2_ADDRESS)
-        module = SignerModule(make_w3(), account_1, account_2, None)
+        module = SignerModule(make_w3(), [account_1, account_2], None)
 
         module.process_members([ACCOUNT_2_ADDRESS, ACCOUNT_1_ADDRESS])
         assert module.active_signer is account_2
@@ -93,7 +101,7 @@ class TestProcessMembers:
 
     def test_process_members__empty_member_list__active_signer_none_and_warns(self, caplog):
         """E.g. the first frame hasn't started yet and HashConsensus has no members configured."""
-        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
 
         module.process_members([])
 
@@ -102,7 +110,7 @@ class TestProcessMembers:
         assert 'None of the configured accounts is an active member.' in caplog.text
 
     def test_process_members__no_configured_account_is_member__active_signer_none_and_warns(self, caplog):
-        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
 
         module.process_members([UNRELATED_ADDRESS])
 
@@ -113,7 +121,7 @@ class TestProcessMembers:
     def test_process_members__no_delegation_contract_configured__does_not_crash(self):
         """Regression test: a previous version crashed with AttributeError whenever no
         delegation contract was configured - the common, delegation-disabled case."""
-        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
 
         module.process_members([UNRELATED_ADDRESS, ACCOUNT_1_ADDRESS])
 
@@ -121,7 +129,7 @@ class TestProcessMembers:
 
     def test_process_members__delegation_contract_member_delegate_is_account_1__activates_account_1_delegated(self):
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), account_1, None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), [account_1], DELEGATION_CONTRACT_ADDRESS)
 
         module.process_members([DELEGATION_CONTRACT_ADDRESS])
 
@@ -133,7 +141,7 @@ class TestProcessMembers:
         matched account_2's address."""
         account_1 = make_account(ACCOUNT_1_ADDRESS)
         account_2 = make_account(ACCOUNT_2_ADDRESS)
-        module = SignerModule(make_w3(delegate=ACCOUNT_2_ADDRESS), account_1, account_2, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_2_ADDRESS), [account_1, account_2], DELEGATION_CONTRACT_ADDRESS)
 
         module.process_members([DELEGATION_CONTRACT_ADDRESS])
 
@@ -142,7 +150,7 @@ class TestProcessMembers:
 
     def test_process_members__delegate_matches_no_configured_account__active_signer_none_and_warns(self, caplog):
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(delegate=UNRELATED_ADDRESS), account_1, None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(make_w3(delegate=UNRELATED_ADDRESS), [account_1], DELEGATION_CONTRACT_ADDRESS)
 
         module.process_members([DELEGATION_CONTRACT_ADDRESS])
 
@@ -153,7 +161,7 @@ class TestProcessMembers:
     def test_process_members__delegation_contract_and_plain_account_both_members__delegation_wins(self):
         """Mid-rotation transitional state: prefer the delegation contract identity."""
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), account_1, None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), [account_1], DELEGATION_CONTRACT_ADDRESS)
 
         module.process_members([ACCOUNT_1_ADDRESS, DELEGATION_CONTRACT_ADDRESS])
 
@@ -163,7 +171,7 @@ class TestProcessMembers:
     def test_process_members__previously_active_signer_no_longer_a_member__resets_to_none(self):
         """Correctness fix: state must not leak across cycles once an identity stops being active."""
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(), account_1, None, None)
+        module = SignerModule(make_w3(), [account_1], None)
 
         module.process_members([ACCOUNT_1_ADDRESS])
         assert module.active_signer is account_1
@@ -175,7 +183,7 @@ class TestProcessMembers:
 
     def test_process_members__was_delegated_then_becomes_plain_eoa__is_delegated_flips_to_false(self):
         account_1 = make_account(ACCOUNT_1_ADDRESS)
-        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), account_1, None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), [account_1], DELEGATION_CONTRACT_ADDRESS)
 
         module.process_members([DELEGATION_CONTRACT_ADDRESS])
         assert module.is_delegated is True
@@ -187,9 +195,32 @@ class TestProcessMembers:
 
 
 @pytest.mark.unit
+class TestReportingAddress:
+    def test_hash_consensus_member_address__delegated__returns_delegation_contract_address(self):
+        account_1 = make_account(ACCOUNT_1_ADDRESS)
+        module = SignerModule(make_w3(delegate=ACCOUNT_1_ADDRESS), [account_1], DELEGATION_CONTRACT_ADDRESS)
+        module.process_members([DELEGATION_CONTRACT_ADDRESS])
+
+        assert module.hash_consensus_member_address == DELEGATION_CONTRACT_ADDRESS
+
+    def test_hash_consensus_member_address__not_delegated__returns_active_signer_address(self):
+        account_1 = make_account(ACCOUNT_1_ADDRESS)
+        module = SignerModule(make_w3(), [account_1], None)
+        module.process_members([ACCOUNT_1_ADDRESS])
+
+        assert module.hash_consensus_member_address == ACCOUNT_1_ADDRESS
+
+    def test_hash_consensus_member_address__no_active_signer__returns_none(self):
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
+        module.process_members([UNRELATED_ADDRESS])
+
+        assert module.hash_consensus_member_address is None
+
+
+@pytest.mark.unit
 class TestWrapCallForDelegation:
     def test_wrap_call_for_delegation__no_delegation_contract__raises_runtime_error(self):
-        module = SignerModule(make_w3(), make_account(ACCOUNT_1_ADDRESS), None, None)
+        module = SignerModule(make_w3(), [make_account(ACCOUNT_1_ADDRESS)], None)
 
         with pytest.raises(RuntimeError, match="Delegation is not enabled"):
             module.wrap_call_for_delegation(Mock())
@@ -197,7 +228,7 @@ class TestWrapCallForDelegation:
     def test_wrap_call_for_delegation__correct_encoding__returns_delegation_execute_call(self):
         # Arrange
         w3 = make_w3()
-        module = SignerModule(w3, make_account(ACCOUNT_1_ADDRESS), None, DELEGATION_CONTRACT_ADDRESS)
+        module = SignerModule(w3, [make_account(ACCOUNT_1_ADDRESS)], DELEGATION_CONTRACT_ADDRESS)
 
         mock_delegation_execute = Mock()
         module.delegation_contract.execute.return_value = mock_delegation_execute
