@@ -32,7 +32,6 @@ from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, Re
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
-    get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
     get_predictable_inbound_sweep,
 )
@@ -64,9 +63,10 @@ class Ejector(OracleModule[Web3]):
         3. Check whether the sum of the following components will be enough to cover all WR:
             - Exiting validators’ balances
             - Validators’ balances in the "to eject" list
-            - Predicted rewards
-            - Predicted validator top-ups
+            - Rewards expected to reach the EL until the last validator is withdrawn
+            - Staked ETH coming back from validators that finish exiting in the meantime
             - Current balance on EL
+            - Minus the ETH reserved for new deposits over the same period
         4. If the sum is already enough to cover WR, exit the loop.
         5. Get the next validator to eject.
 
@@ -254,34 +254,69 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        future_withdrawals = self._get_withdrawable_lido_validators_balance(withdrawal_epoch, blockstamp)
-        logger.info({'msg': 'Calculate future withdrawals sum.', 'value': future_withdrawals})
+        unswept_rewards = self._get_unswept_rewards(blockstamp)
+        logger.info({'msg': 'Calculate unswept rewards.', 'value': unswept_rewards})
+
+        # Everything above the cap gets swept to the EL sooner or later, and the rewards rate already
+        # counts it arriving. Adding it again would count the same ETH twice. It is kept only as a
+        # floor, for when the rate has nothing to go on: no events in the window, or a negative
+        # rebase clamped it to zero.
+        # The floor is loose: the pile drains over a full sweep cycle, which can outlast the horizon.
+        future_inflow = max(future_rewards, unswept_rewards)
+        logger.info({'msg': 'Calculate future EL inflow.', 'value': future_inflow})
+
+        withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
+        logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
         return Wei(
-            future_rewards
-            + future_withdrawals
+            future_inflow
+            + withdrawable_principal
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
             - deposit_lock,
         )
 
     @lru_cache(maxsize=1)
-    def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
+    def _sweepable_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        """Active Lido validators the sweep will actually pay out.
 
+        A consolidation source is excluded: its balance goes to the target validator, not to the vault.
+        """
+        return [
+            v
+            for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
+            if not v.consolidating_as_source
+        ]
+
+    @lru_cache(maxsize=1)
+    def _get_unswept_rewards(self, blockstamp: BlockStamp) -> Wei:
+        """Rewards already earned but not swept yet: whatever the validators hold above their cap.
+
+        A snapshot at `blockstamp`. It does not depend on how far ahead the report looks.
+        """
         result = Gwei(0)
 
-        for v in lido_validators:
-            if v.consolidating_as_source:
-                continue
+        for v in self._sweepable_validators(blockstamp):
+            result += get_predictable_inbound_sweep(v)
 
+        return gwei_to_wei(result)
+
+    @lru_cache(maxsize=1)
+    def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
+        """Principal — the staked 32 (or 2048) ETH — coming back from validators exiting by `on_epoch`.
+
+        Principal is not income, it is Lido's own ETH moving back from the CL, so the rewards rate
+        does not contain it: on exit the same amount leaves `postCLBalance` and enters
+        `withdrawalsWithdrawn`, cancelling out. That is why it is added on top instead of merged in.
+        """
+        result = Gwei(0)
+
+        for v in self._sweepable_validators(blockstamp):
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
-                result += get_predictable_full_inbound_balance(v)
-            else:
-                result += get_predictable_inbound_sweep(v)
+                result += get_predictable_inbound_balance(v)
 
         return gwei_to_wei(result)
 
