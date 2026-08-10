@@ -201,7 +201,6 @@ class TestGetValidatorsToEject:
         ejector._get_total_el_balance = Mock(return_value=Wei(50))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
-        ejector._get_unswept_rewards = Mock(return_value=Wei(0))
         ejector._get_withdrawable_principal = Mock(return_value=Wei(10))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
@@ -231,7 +230,6 @@ class TestGetValidatorsToEject:
         ejector._get_total_el_balance = Mock(return_value=Wei(100))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
 
-        ejector._get_unswept_rewards = Mock(return_value=Wei(0))
         ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
         ejector._get_predicted_withdrawable_balance = Mock(return_value=Wei(50))
@@ -465,7 +463,6 @@ class TestGetPredictedElBalance:
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
-        ejector._get_unswept_rewards = Mock(return_value=Wei(0))
         ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
@@ -526,12 +523,12 @@ class TestPredictedElBalanceChargesHalfDepositLock:
     def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
         ejector.get_chain_config = Mock(return_value=chain_config)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
-        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
         # Distinct powers of ten, so a missing or duplicated term shows up in the total.
         ejector._get_total_el_balance = Mock(return_value=Wei(10_000))
-        ejector._get_unswept_rewards = Mock(return_value=Wei(1_000))
-        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+        # horizon is 10 epochs (sweep delay 0), so this projects to 1_000 of future_rewards
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(100))
         ejector._get_withdrawable_principal = Mock(return_value=Wei(100))
 
     def test_get_predicted_el_balance__deposit_lock_set__only_half_subtracted(
@@ -734,36 +731,13 @@ def test_get_total_active_balance(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
-def test_get_unswept_rewards__counts_every_balance_above_the_cap(
-    ejector: Ejector,
-    ref_blockstamp: ReferenceBlockStamp,
-) -> None:
-    # Whatever sits above the effective balance cap is a reward waiting for the sweep — for every
-    # validator, whether or not it is about to become withdrawable.
-    # Arrange
-    ejector.w3.lido_validators.get_active_lido_validators = Mock(
-        return_value=[
-            build_extended_validator_with_balance(Gwei(32_300_000_000)),  # 0.3 ETH above the cap
-            build_extended_validator_with_balance(Gwei(33_000_000_000)),  # 1 ETH above the cap
-            build_extended_validator_with_balance(Gwei(31_000_000_000)),  # nothing to sweep
-        ]
-    )
-
-    # Act
-    result = ejector._get_unswept_rewards(ref_blockstamp)
-
-    # Assert
-    assert result == Gwei(1_300_000_000) * GWEI_TO_WEI
-
-
-@pytest.mark.unit
 def test_get_withdrawable_principal__only_fully_withdrawable_validators_count(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Principal comes back only from validators that are fully withdrawable by the horizon, and only
-    # up to the cap — the excess is already accounted for as unswept rewards.
+    # up to the cap — the excess above it is delivered by the sweep, which the rate already covers.
     # Arrange
     withdrawable = build_extended_validator_with_balance(Gwei(33_000_000_000))
     staying = build_extended_validator_with_balance(Gwei(32_300_000_000))
@@ -794,49 +768,56 @@ def _mock_predicted_el_balance_terms(ejector: Ejector, chain_config: ChainConfig
 
 
 @pytest.mark.unit
-def test_get_predicted_el_balance__prediction_above_unswept__unswept_not_added_on_top(
+def test_get_predicted_el_balance__unswept_balance_above_cap__not_added_on_top(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
 ) -> None:
-    # The rewards rate is measured on the EL side, so projecting it over the horizon already covers
-    # the rewards that are waiting on the CL for the next sweep. Counting the unswept balance again
-    # would inflate the predicted EL balance and under-eject.
+    # Projecting the rewards rate over the horizon already covers the balance waiting above the cap
+    # for the next sweep: the sweep reaches H/cycle of the set and each validator it reaches hands
+    # over a full cycle of accrual, which comes to rate * H. Counting that balance again would
+    # inflate the predicted EL balance and under-eject. This is issue #993.
     # Arrange
     _mock_predicted_el_balance_terms(ejector, chain_config)
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(3))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
-    ejector._get_unswept_rewards = Mock(return_value=Wei(7))
     ejector._get_withdrawable_principal = Mock(return_value=Wei(5))
+    # Validators sitting well above the cap: whatever the sweep is holding must not reach the total.
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
+        return_value=[build_extended_validator_with_balance(Gwei(40_000_000_000))]
+    )
 
     # Act
     result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
 
     # Assert
-    assert result == Wei(10 * 3 + 5), "Predicted rewards must absorb the unswept balance, not be summed with it"
+    assert result == Wei(10 * 3 + 5), "Only the projected rate and the principal may count, never the unswept pile"
 
 
 @pytest.mark.unit
-def test_get_predicted_el_balance__prediction_below_unswept__unswept_used_as_lower_bound(
+def test_get_predicted_el_balance__rate_prediction_degenerate__no_floor_from_unswept(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
 ) -> None:
-    # With no rewards prediction to project (no events in the window, or a negative rebase clamped it
-    # to zero) the balance sitting above the effective balance cap is still observed on-chain and
-    # still gets swept, so it must not be dropped.
+    # A zero rate means the predictor had nothing to go on (no events in the window, or losses large
+    # enough to trip the clamp), NOT that the unswept balance may stand in for it: a pile is a stock
+    # and this term is a flow. The estimate reads low, so the ejector requests more exits — the
+    # recoverable direction. Fixing a degenerate rate belongs in RewardsPredictionService.
     # Arrange
     _mock_predicted_el_balance_terms(ejector, chain_config)
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
-    ejector._get_unswept_rewards = Mock(return_value=Wei(7))
     ejector._get_withdrawable_principal = Mock(return_value=Wei(5))
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
+        return_value=[build_extended_validator_with_balance(Gwei(40_000_000_000))]
+    )
 
     # Act
     result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
 
     # Assert
-    assert result == Wei(7 + 5), "The unswept balance is a lower bound of what the sweep will deliver"
+    assert result == Wei(5), "With a zero rate the inflow estimate must be zero, not the unswept balance"
 
 
 @pytest.mark.unit
@@ -1035,7 +1016,6 @@ def test_get_validators_to_eject__forced_validators_present__included_in_result(
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_unswept_rewards = Mock(return_value=Wei(0))
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -1071,7 +1051,6 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_unswept_rewards = Mock(return_value=Wei(0))
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -1107,7 +1086,6 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_unswept_rewards = Mock(return_value=Wei(0))
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(1000 * 10**18))

@@ -33,7 +33,6 @@ from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
     get_predictable_inbound_balance,
-    get_predictable_inbound_sweep,
 )
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
@@ -254,17 +253,27 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        unswept_rewards = self._get_unswept_rewards(blockstamp)
-        logger.info({'msg': 'Calculate unswept rewards.', 'value': unswept_rewards})
-
-        # Everything above the cap gets swept to the EL sooner or later, and the rewards rate already
-        # counts it arriving. Adding it again would count the same ETH twice. It is kept only as a
-        # floor, for when the rate has nothing to go on: no events in the window, or a negative
-        # rebase clamped it to zero.
-        # The floor is loose: the pile drains over a full sweep cycle, which can outlast the horizon.
-        future_inflow = max(future_rewards, unswept_rewards)
-        logger.info({'msg': 'Calculate future EL inflow.', 'value': future_inflow})
-
+        # The balance validators hold above their effective-balance cap — rewards earned but not yet
+        # swept — is deliberately NOT a term here, neither added nor used as a floor.
+        #
+        # `future_rewards` already covers it exactly. Over a horizon H, the sweep reaches a fraction
+        # H/cycle of the set, and each validator it reaches hands over a whole cycle's worth of
+        # accrual (what it was holding, plus what it accrues while waiting its turn). Those cancel to
+        # rate * H regardless of where each validator sits in the sweep order — so in steady state
+        # rate * H is the exact inflow, not an approximation. Adding the unswept pile on top counts
+        # the same ETH twice, which is what issue #993 was about.
+        #
+        # It is not kept as a lower bound either: a pile of ETH is a stock and this term is a flow,
+        # so `max()` between them compares different units. It also would not have helped where it
+        # looks like it should. A negative rebase only zeroes the rate when losses outrun the rewards
+        # of the whole prediction window; a milder one leaves `rate * H` the larger of the two, so
+        # `max()` would keep picking the stale event-based average and discard the fresh measurement.
+        #
+        # Consequence: when the rate prediction does degenerate — no `ETHDistributed` in the window,
+        # or losses large enough to trip the clamp in `RewardsPredictionService` — the estimated
+        # inflow is 0 instead of the pile's size. The estimate then reads low and the ejector requests
+        # more exits than needed. Those exits are irreversible, unlike the delay in the opposite
+        # direction, so the degenerate cases belong in the rate prediction, not behind a floor here.
         withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
@@ -299,7 +308,7 @@ class Ejector(OracleModule[Web3]):
         logger.info({'msg': 'Charge half of the deposit lock.', 'value': charged_deposit_lock})
 
         return Wei(
-            future_inflow
+            future_rewards
             + withdrawable_principal
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
@@ -317,19 +326,6 @@ class Ejector(OracleModule[Web3]):
             for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
             if not v.consolidating_as_source
         ]
-
-    @lru_cache(maxsize=1)
-    def _get_unswept_rewards(self, blockstamp: BlockStamp) -> Wei:
-        """Rewards already earned but not swept yet: whatever the validators hold above their cap.
-
-        A snapshot at `blockstamp`. It does not depend on how far ahead the report looks.
-        """
-        result = Gwei(0)
-
-        for v in self._sweepable_validators(blockstamp):
-            result += get_predictable_inbound_sweep(v)
-
-        return gwei_to_wei(result)
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
