@@ -124,7 +124,7 @@ def configure_testnet_tests(request, monkeypatch):
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
         monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
-        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0x25561dee2f25d728c3da3d1fcc915d6a77f6ac0c')
+        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0xaa9784e761332347b5b96feb5978ebb9259ef7b6')
 
         # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
         monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
