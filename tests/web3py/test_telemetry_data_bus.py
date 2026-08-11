@@ -169,7 +169,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
-    def test_send_telemetry__all_attempts_fail__logs_timeout(
+    def test_send_telemetry__all_attempts_fail__raises_send_timeout_error(
         self, mock_create_web3, mock_validate, mock_build_params, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
         monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', Mock())
@@ -184,9 +184,10 @@ class TestTelemetryDataBus:
         mock_build_params.side_effect = ValueError('nonce too low')
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
-        assert 'Timed out sending DataBus telemetry transaction.' in caplog.text
+        with pytest.raises(SendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
+
         assert mock_build_params.call_count == 1
         mock_sleep.assert_called_once()
         assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
@@ -274,7 +275,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
     @patch.object(TelemetryDataBus, '_validate')
     @patch.object(TelemetryDataBus, '_create_web3')
-    def test_send_telemetry__tx_never_included_same_nonce__logs_timeout(
+    def test_send_telemetry__tx_never_included_same_nonce__raises_send_timeout_error(
         self,
         mock_create_web3,
         mock_validate,
@@ -302,9 +303,10 @@ class TestTelemetryDataBus:
         mock_data_bus_w3.eth.get_transaction_count.return_value = 5
 
         module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
-        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
 
-        assert 'Timed out sending DataBus telemetry transaction.' in caplog.text
+        with pytest.raises(SendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report': [1, 2, 3]})
+
         mock_build_params.assert_called_once()
         mock_sign_and_send.assert_called_once()
         mock_sleep.assert_called_once()

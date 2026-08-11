@@ -35,6 +35,7 @@ class TelemetryEventId(Enum):
 class ContractNotDeployedError(Exception):
     pass
 
+
 class SendTimeoutError(Exception):
     pass
 
@@ -92,9 +93,7 @@ class TelemetryDataBus(Module):
         chain_id = self._data_bus_w3.eth.chain_id
         code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
-            raise ContractNotDeployedError(
-                f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
-            )
+            raise ContractNotDeployedError(f"No contract deployed at DataBus address {address} (chain_id={chain_id}).")
 
     def update_telemetry_account_balance_metric(self) -> None:
         if self._data_bus_w3 is None or variables.TELEMETRY_ACCOUNT is None:
@@ -103,7 +102,7 @@ class TelemetryDataBus(Module):
         balance = self._data_bus_w3.eth.get_balance(variables.TELEMETRY_ACCOUNT.address)
         TELEMETRY_ACCOUNT_BALANCE.labels(address=variables.TELEMETRY_ACCOUNT.address).set(balance)
 
-    def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> None:
+    def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> bytes | None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
@@ -122,15 +121,12 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        try:
-            tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
-        except SendTimeoutError:
-            logger.warning({'msg': 'Timed out sending DataBus telemetry transaction.', 'module': self._module_name})
-            return
+        tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
 
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
+        return tx_hash
 
     def _send_with_retry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
         deadline = time.monotonic() + variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS
