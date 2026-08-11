@@ -16,7 +16,7 @@ logger = logging.getLogger('fork_tests')
 
 # Deployed by the Lido team on Hoodi; deploy() mints a DelegationContract matching the current
 # assets/DelegationContract.json interface (owner/execute/getDelegate/...).
-DELEGATION_FACTORY_ADDRESS = Web3.to_checksum_address('0x76Af23C7e71004038BeE4a1ceba8c441f4cA239b')
+DELEGATION_FACTORY_ADDRESS = Web3.to_checksum_address('0xEb49f72DB1546B0E63e1114E2e403edbcE722AE6')
 DELEGATION_FACTORY_ABI = [
     {
         'type': 'function',
@@ -125,7 +125,8 @@ def granted_submit_role(report_contract, six_members_with_delegation, fresh_dele
 def signer_from(web3):
     @contextmanager
     def _use(account, account_2, delegation_contract_address):
-        web3.signer = SignerModule(web3, account, account_2, delegation_contract_address)
+        accounts = [candidate for candidate in (account, account_2) if candidate is not None]
+        web3.signer = SignerModule(web3, accounts, delegation_contract_address)
         yield
 
     return _use

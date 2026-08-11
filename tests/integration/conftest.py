@@ -231,7 +231,7 @@ def delegation_contract(web3_provider_integration):
         web3_provider_integration,
         DelegationContract,
         # Hoodi delegation contract address
-        '0xf4665f4f62a06c27999a9a2127715912214c875a',
+        '0xaa9784e761332347b5b96feb5978ebb9259ef7b6',
     )
 
 

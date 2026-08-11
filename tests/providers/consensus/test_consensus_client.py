@@ -22,7 +22,7 @@ from tests.factory.blockstamp import BlockStampFactory
 def consensus_client(request):
     params = getattr(request, 'param', {})
     rpc_endpoint = params.get('endpoint', variables.CONSENSUS_CLIENT_URI[0])
-    return ConsensusClient([rpc_endpoint], 10)
+    return ConsensusClient([rpc_endpoint], 30)
 
 
 # --- Unit tests for HTTPSessionManagerProxy integration ---

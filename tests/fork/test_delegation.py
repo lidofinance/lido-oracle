@@ -42,11 +42,18 @@ def web3_with_delegation(web3, delegate_account, delegation_address, monkeypatch
         abi=DelegationContract.load_abi(DelegationContract.abi_path),
     )
 
-    current_admin = delegation_contract.functions.admin().call()
-    web3.provider.make_request('anvil_impersonateAccount', [current_admin])
-    web3.provider.make_request('anvil_setBalance', [current_admin, hex(10**18)])
+    current_owner = delegation_contract.functions.owner().call()
+    web3.provider.make_request('anvil_impersonateAccount', [current_owner])
+    web3.provider.make_request('anvil_setBalance', [current_owner, hex(10**18)])
 
-    delegation_contract.functions.assignDelegate(delegate_address).transact({'from': current_admin})
+    delegation_contract.functions.nominateDelegate(delegate_address).transact({'from': current_owner})
+
+    pending_delegate, active_from = delegation_contract.functions.getPendingDelegate().call()
+    if int(pending_delegate, 16) != 0:
+        web3.provider.make_request('evm_setNextBlockTimestamp', [active_from])
+        web3.provider.make_request('evm_mine', [])
+
+    assert delegation_contract.functions.getDelegate().call() == delegate_address
 
     signer_module = SignerModule(web3, [delegate_account], delegation_address)
     # The delegation contract isn't a HashConsensus member yet at this point (that happens in
