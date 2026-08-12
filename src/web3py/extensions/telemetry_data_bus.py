@@ -23,7 +23,7 @@ from src.utils.version import get_oracle_version
 logger = logging.getLogger(__name__)
 
 # Interval between transaction status polls while waiting for inclusion or a nonce change.
-_POLL_INTERVAL_SECONDS = 12
+_POLL_INTERVAL_SECONDS = 10
 
 
 class TelemetryEventId(Enum):
@@ -134,16 +134,19 @@ class TelemetryDataBus(Module):
         start_time = time.monotonic()
 
         tx_hash = None
-        error = None
+        last_error = None
 
         while True:
             try:
                 params = build_transaction_params(w3, tx, account)
                 tx_hash = sign_and_send_transaction(w3, tx, params, account)
-            except Exception as error:
-                logger.warning({'msg': 'DataBus telemetry send failed.', 'error': error, 'module': self._module_name})
-            else:
                 sent_tx = w3.eth.get_transaction(HexBytes(tx_hash))
+            except Exception as error:
+                last_error = error
+                logger.warning(
+                    {'msg': 'DataBus telemetry send failed.', 'error': str(error), 'module': self._module_name}
+                )
+            else:
                 if sent_tx.get('blockNumber') is not None:
                     return tx_hash
 
@@ -151,6 +154,6 @@ class TelemetryDataBus(Module):
                 if tx_hash:
                     return tx_hash
                 else:
-                    raise Exception('DataBus telemetry send failed.') from error
+                    raise Exception('DataBus telemetry send failed.') from last_error
 
             time.sleep(_POLL_INTERVAL_SECONDS)
