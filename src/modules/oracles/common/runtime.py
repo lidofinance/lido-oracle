@@ -133,15 +133,9 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
 def run_oracle_module(module: OracleModule):
     module.check_contract_configs()
 
-    kapi_version = None
-    try:
-        kapi_version = module.w3.kac.get_status().app_version
-    except Exception:
-        logger.warning({'msg': 'Failed to fetch KAPI version for startup telemetry.'}, exc_info=True)
-
     startup_data = {
         'delegation_contract_address': variables.DELEGATION_CONTRACT_ADDRESS or None,
-        'kapi_version': kapi_version,
+        'kapi_version': module.w3.kac.get_status().app_version,
     }
 
     try:

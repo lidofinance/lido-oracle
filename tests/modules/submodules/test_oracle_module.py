@@ -255,17 +255,3 @@ def test_run_oracle_module__kapi_available__sends_version_in_startup_telemetry()
     event_id, startup_data = module.w3.telemetry_data_bus.send_telemetry.call_args[0]
     assert event_id == TelemetryEventId.ORACLE_STARTUP
     assert startup_data['kapi_version'] == '4.0.4'
-
-
-@pytest.mark.unit
-@patch.object(variables, 'DAEMON', False)
-def test_run_oracle_module__kapi_status_fails__sends_none_version(caplog):
-    module = Mock()
-    module.w3.kac.get_status.side_effect = Exception('KAPI is down')
-
-    run_oracle_module(module)
-
-    event_id, startup_data = module.w3.telemetry_data_bus.send_telemetry.call_args[0]
-    assert event_id == TelemetryEventId.ORACLE_STARTUP
-    assert startup_data['kapi_version'] is None
-    assert 'Failed to fetch KAPI version' in caplog.text

@@ -105,8 +105,6 @@ class KeysAPIClient(HTTPProvider):
 
         return cast(ModuleOperatorsKeys, data)
 
-    # Cached because the method is used only at oracle startup. Remove the cache if this changes.
-    @lru_cache(maxsize=1)
     def get_status(self) -> KeysApiStatus:
         """Docs: https://keys-api.lido.fi/api/static/index.html#/status/StatusController_get"""
         data, _ = self._get(self.STATUS, validate_response=data_is_dict)
