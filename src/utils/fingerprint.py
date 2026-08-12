@@ -62,7 +62,7 @@ def log_fingerprint(logger: logging.Logger, subject: str, value: Any, **context:
     try:
         digest = digest_of(value)
     except Exception as error:  # pylint: disable=broad-except
-        logger.warning({'msg': f'{subject} fingerprint failed.', 'error': repr(error)})
+        logger.warning({'msg': f'{subject} fingerprint failed.', 'error': repr(error), **context})
         return
 
     logger.info({'msg': f'{subject} fingerprint.', 'digest': digest, **context})

@@ -362,6 +362,11 @@ A digest does not say *which* entry differs. To name it, use `Used keys from KAP
 mismatched.` (logged against the operator's on-chain deposit count) or query the Keys API
 instances directly, since a difference that can move a report is still there afterwards.
 
+`Beacon state fingerprint.` appears more than once per accounting cycle. The bunker check
+reads the state at the previous report's reference slot as well as at this one, and a frame
+whose CL rebase looks abnormal reads several more. Match the lines by `state_root` and
+`slot` first — digests taken at different slots say nothing about each other.
+
 Compare in pipeline order and stop at the first line that differs: `Beacon state
 fingerprint.`, then `Keys API response.` (the `elBlockSnapshot` each answer was served at)
 and the Keys API digests. If every input matches and the reports still differ, the members
