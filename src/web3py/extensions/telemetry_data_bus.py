@@ -23,7 +23,7 @@ from src.utils.version import get_oracle_version
 logger = logging.getLogger(__name__)
 
 # Interval between transaction status polls while waiting for inclusion or a nonce change.
-_POLL_INTERVAL_SECONDS = 12
+_POLL_INTERVAL_SECONDS = 10
 
 
 class TelemetryEventId(Enum):
@@ -144,13 +144,12 @@ class TelemetryDataBus(Module):
 
                     current_nonce = w3.eth.get_transaction_count(account.address)
                     if current_nonce == nonce:
-                        remaining = deadline - time.monotonic()
-                        time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+                        time.sleep(_POLL_INTERVAL_SECONDS)
                         continue
 
                 params = build_transaction_params(w3, tx, account)
-                nonce = params.get('nonce')
                 tx_hash = sign_and_send_transaction(w3, tx, params, account)
+                nonce = params.get('nonce')
             except Exception as error:  # pylint: disable=broad-exception-caught
                 remaining = deadline - time.monotonic()
                 logger.warning(
@@ -164,6 +163,9 @@ class TelemetryDataBus(Module):
                 if remaining <= 0:
                     break
                 time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+
+        if tx_hash:
+            return tx_hash
 
         raise SendTimeoutError(
             f"Timed out sending DataBus telemetry transaction after {variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s."
