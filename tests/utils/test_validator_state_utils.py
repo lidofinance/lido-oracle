@@ -27,9 +27,6 @@ from src.utils.validator_state import (
     is_partially_withdrawable_validator,
 )
 from tests.factory.no_registry import ValidatorFactory
-from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import (
-    simple_validators,
-)
 
 
 @pytest.mark.unit
@@ -308,10 +305,11 @@ class TestCalculateTotalEffectiveBalance:
         assert actual == Gwei(3000000000)
 
     @pytest.mark.unit
-    def test_no_balance_validators(self):
-        actual = calculate_total_active_effective_balance(
-            simple_validators(0, 9, effective_balance="0"), EpochNumber(170256)
-        )
+    def test_no_balance_validators(self, validators: list[Validator]):
+        for validator in validators:
+            validator.validator.effective_balance = Gwei(0)
+
+        actual = calculate_total_active_effective_balance(validators, EpochNumber(170256))
         assert actual == EFFECTIVE_BALANCE_INCREMENT
 
     @pytest.mark.unit

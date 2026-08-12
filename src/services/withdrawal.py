@@ -2,7 +2,7 @@ from web3.types import Wei
 
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.modules.oracles.accounting.types import BatchState
-from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
+from src.modules.oracles.common.consensus import ChainConfig
 from src.services.safe_border import SafeBorder
 from src.types import FinalizationBatches, ReferenceBlockStamp
 from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
@@ -22,13 +22,11 @@ class Withdrawal:
         w3: Web3,
         blockstamp: ReferenceBlockStamp,
         chain_config: ChainConfig,
-        frame_config: FrameConfig,
     ) -> None:
         self.w3 = w3
-        self.safe_border_service = SafeBorder(self.w3, blockstamp, chain_config, frame_config)
+        self.safe_border_service = SafeBorder(self.w3, blockstamp, chain_config)
 
         self.chain_config = chain_config
-        self.frame_config = frame_config
         self.blockstamp = blockstamp
 
     def get_finalization_batches(

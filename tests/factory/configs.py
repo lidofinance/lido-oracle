@@ -8,7 +8,6 @@ from src.providers.consensus.types import (
     Checkpoint,
     SlotAttestationCommittee,
 )
-from src.services.bunker_cases.types import BunkerConfig
 from tests.factory.web3_factory import Web3DataclassFactory
 
 
@@ -33,10 +32,6 @@ class OracleReportLimitsFactory(Web3DataclassFactory[OracleReportLimits]):
     max_node_operators_per_extra_data_item = 0
     request_timestamp_margin = 0
     max_positive_token_rebase = 0
-
-
-class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
-    ...
 
 
 class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):

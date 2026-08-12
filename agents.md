@@ -53,7 +53,7 @@ src/
 ├── services/                # Business logic (stateless, testable)
 │   ├── validator_state.py
 │   ├── exit_order_iterator.py
-│   ├── bunker.py / bunker_cases/
+│   ├── bunker.py
 │   ├── safe_border.py
 │   ├── withdrawal.py
 │   ├── prediction.py

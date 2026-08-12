@@ -31,8 +31,8 @@ Review oracle-specific business logic for correctness and safety.
 - Flag changes that could create oracle manipulation vectors
 - Verify bunker mode triggers aren't bypassed or weakened
 - Check negative rebase detection logic remains intact
-- Ensure slashing penalty calculations preserved
-- Review safe-border and withdrawal finalization logic carefully: bunker mode depends on correct handling of new-request, associated-slashing, and negative-rebase borders
+- Ensure the Bunker slashing-impact calculation follows the configured base rate and the CL proportional slashing factor
+- Review safe-border and withdrawal finalization logic carefully: every request must satisfy the ordinary timestamp margin, and Bunker Mode adds its configured request-age delay
 - Verify contract-address refresh logic still clears stale cached state when deployments change
 
 ## Data Integrity
