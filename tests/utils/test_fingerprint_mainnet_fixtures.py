@@ -1,18 +1,9 @@
 """Golden-master digests over real mainnet responses, captured once and replayed offline.
 
-Two members can only compare digests if their oracles encode identically. Nothing in the
-unit tests would catch an encoding change that is self-consistent but different from the
-previous release — every digest would simply move together. These fixtures pin the encoding
-to real data captured at mainnet slot 14921600, so such a change has to be deliberate.
-
-Captured with `scripts/fingerprint_e2e.py`. Both are slices, twice over: the values are the
-*parsed* projections the oracle keeps (`BeaconStateView` of a 956 MB response, `LidoKey`
-without `vetted`), and each list is truncated to its first 2000 entries. That is enough for
-what this file tests — every field of every type is exercised, and the encoding is what is
-being pinned, not the response. Whether two real providers agree is the e2e script's job.
-
-Regenerating these is a breaking change for anyone comparing against a running release, so
-update the expected digests only alongside a deliberate encoding change.
+Nothing else catches an encoding change that is self-consistent but differs from the previous
+release, which would silently stop members on different versions from comparing. Repin only
+alongside a deliberate encoding change. Captured from mainnet slot 14921600 with
+`scripts/fingerprint_e2e.py`, each list truncated to its first 2000 entries.
 """
 
 import gzip
