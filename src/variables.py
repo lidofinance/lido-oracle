@@ -34,7 +34,7 @@ ACCOUNT_2 = Account.from_key(MEMBER_PRIV_KEY_2) if MEMBER_PRIV_KEY_2 else None  
 DELEGATION_CONTRACT_ADDRESS: Final = os.getenv('DELEGATION_CONTRACT_ADDRESS', '')
 
 TELEMETRY_PRIV_KEY = from_file_or_env('TELEMETRY_PRIV_KEY')
-TELEMETRY_ACCOUNT = Account.from_key(TELEMETRY_PRIV_KEY) if TELEMETRY_PRIV_KEY else ACCOUNT  # pylint: disable=no-value-for-parameter
+TELEMETRY_ACCOUNT = Account.from_key(TELEMETRY_PRIV_KEY) if TELEMETRY_PRIV_KEY else ACCOUNT or ACCOUNT_2  # pylint: disable=no-value-for-parameter
 
 # - App specific -
 LIDO_LOCATOR_ADDRESS: Final = os.getenv('LIDO_LOCATOR_ADDRESS')

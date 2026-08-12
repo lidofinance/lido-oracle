@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
 from web3.contract.contract import ContractFunction
+from web3.exceptions import TransactionNotFound
 from web3.module import Module
 
 from src import variables
@@ -32,11 +33,11 @@ class TelemetryEventId(Enum):
     DIAGNOSTIC = Web3.keccak(text="Diagnostic")
 
 
-class ContractNotDeployedError(Exception):
+class DataBusContractNotDeployedError(Exception):
     pass
 
 
-class SendTimeoutError(Exception):
+class TelemetrySendTimeoutError(Exception):
     pass
 
 
@@ -93,7 +94,9 @@ class TelemetryDataBus(Module):
         chain_id = self._data_bus_w3.eth.chain_id
         code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
-            raise ContractNotDeployedError(f"No contract deployed at DataBus address {address} (chain_id={chain_id}).")
+            raise DataBusContractNotDeployedError(
+                f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
+            )
 
     def update_telemetry_account_balance_metric(self) -> None:
         if self._data_bus_w3 is None or variables.TELEMETRY_ACCOUNT is None:
@@ -121,52 +124,52 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        tx_hash = self._send_with_retry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
+        tx_hash = self._send_telemetry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
 
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
         return tx_hash
 
-    def _send_with_retry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
+    def _send_telemetry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
         deadline = time.monotonic() + variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS
-        attempt = 0
         tx_hash: bytes | None = None
         nonce: int | None = None
 
         while time.monotonic() < deadline:
-            attempt += 1
             try:
-                if tx_hash is not None:
+                params = build_transaction_params(w3, tx, account)
+
+                # no new transactions yet
+                if tx_hash and params['nonce'] == nonce:
+                    time.sleep(_POLL_INTERVAL_SECONDS)
+                    continue
+
+                # Check if this is telemetry transaction
+                if tx_hash:
                     sent_tx = w3.eth.get_transaction(HexBytes(tx_hash))
                     if sent_tx.get('blockNumber') is not None:
                         return tx_hash
 
-                    current_nonce = w3.eth.get_transaction_count(account.address)
-                    if current_nonce == nonce:
-                        time.sleep(_POLL_INTERVAL_SECONDS)
-                        continue
-
-                params = build_transaction_params(w3, tx, account)
-                tx_hash = sign_and_send_transaction(w3, tx, params, account)
                 nonce = params.get('nonce')
+                logger.info({'msg': 'Sending DataBus telemetry transaction...', 'nonce': nonce})
+                tx_hash = sign_and_send_transaction(w3, tx, params, account)
+                logger.info({'msg': 'Transaction sent.', 'tx_hash': tx_hash})
             except Exception as error:  # pylint: disable=broad-exception-caught
                 remaining = deadline - time.monotonic()
                 logger.warning(
                     {
                         'msg': 'Failed to send DataBus telemetry transaction. Will retry.',
-                        'attempt': attempt,
                         'remaining_seconds': max(remaining, 0),
                         'error': str(error),
                     }
                 )
-                if remaining <= 0:
-                    break
-                time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
+
+            time.sleep(_POLL_INTERVAL_SECONDS)
 
         if tx_hash:
             return tx_hash
 
-        raise SendTimeoutError(
+        raise TelemetrySendTimeoutError(
             f"Timed out sending DataBus telemetry transaction after {variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s."
         )

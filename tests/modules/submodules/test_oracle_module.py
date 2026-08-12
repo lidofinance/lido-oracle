@@ -21,11 +21,13 @@ from src.metrics.prometheus.basic import (
 from src.modules.common.types import ModuleExecuteDelay
 from src.modules.oracles.common.exceptions import IncompatibleOracleVersion
 from src.modules.oracles.common.oracle_module import OracleModule
+from src.modules.oracles.common.runtime import run_oracle_module
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
+from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import BlockDetailsResponseFactory
 
@@ -239,3 +241,17 @@ def test_cycle__slot_below_threshold__records_success_metric(oracle: OracleModul
 
     assert CYCLE_COUNT.labels(result=CycleResult.SUCCESS.value)._value.get() == success_before + 1
     assert CYCLE_COUNT.labels(result=CycleResult.ERROR.value)._value.get() == error_before
+
+
+@pytest.mark.unit
+@patch.object(variables, 'DAEMON', False)
+def test_run_oracle_module__kapi_available__sends_version_in_startup_telemetry():
+    module = Mock()
+    module.w3.kac.get_status.return_value = Mock(app_version='4.0.4')
+
+    run_oracle_module(module)
+
+    module.w3.kac.get_status.assert_called_once_with()
+    event_id, startup_data = module.w3.telemetry_data_bus.send_telemetry.call_args[0]
+    assert event_id == TelemetryEventId.ORACLE_STARTUP
+    assert startup_data['kapi_version'] == '4.0.4'

@@ -8,10 +8,10 @@ from src import variables
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.utils.version import get_oracle_version
 from src.web3py.extensions.telemetry_data_bus import (
-    ContractNotDeployedError,
-    SendTimeoutError,
+    DataBusContractNotDeployedError,
     TelemetryDataBus,
     TelemetryEventId,
+    TelemetrySendTimeoutError,
 )
 
 
@@ -90,7 +90,7 @@ class TestTelemetryDataBus:
     def test___init____no_code_at_address__raises_contract_not_deployed(self, mock_create_web3, web3):
         mock_create_web3.return_value = self._mock_data_bus_w3(chain_id=17000, code=b'')
 
-        with pytest.raises(ContractNotDeployedError, match="No contract deployed"):
+        with pytest.raises(DataBusContractNotDeployedError, match="No contract deployed"):
             self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
 
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
@@ -115,8 +115,9 @@ class TestTelemetryDataBus:
         report_hash = b'\x00' * 32
 
         data = {'report_hash': '0x' + report_hash.hex(), 'report': list(report_data)}
-        module.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
+        result = module.send_telemetry(TelemetryEventId.ORACLE_REPORT, data)
 
+        assert result == b'\xab' * 32
         mock_contract.send_message.assert_called_once()
         payload = json.loads(mock_contract.send_message.call_args[0][1])
         assert payload['chain_id'] == web3.eth.chain_id
@@ -141,7 +142,7 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction.return_value = {'blockNumber': 42}
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_telemetry(tx, w3_mock, account)
 
         assert result == tx_hash
         mock_build_params.assert_called_once_with(w3_mock, tx, account)
@@ -163,7 +164,7 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction_count.return_value = 3
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_telemetry(tx, w3_mock, account)
 
         assert result == tx_hash
         assert mock_build_params.call_count == 1
@@ -186,7 +187,7 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction_count.return_value = 4
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_telemetry(tx, w3_mock, account)
 
         assert result == second_hash
         assert mock_build_params.call_count == 2
@@ -209,12 +210,111 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction.return_value = {'blockNumber': 5}
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_telemetry(tx, w3_mock, account)
 
         assert result == tx_hash
         assert mock_build_params.call_count == 2
         mock_sign_and_send.assert_called_once()
         mock_sleep.assert_called_once()
+        assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
+
+    @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
+    @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
+    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    def test__send_with_retry__sign_and_send_fails_then_succeeds__retries_and_returns_tx_hash(
+        self, mock_build_params, mock_sign_and_send, mock_sleep, web3, caplog, monkeypatch
+    ):
+        monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 120)
+        w3_mock, account, tx = self._mock_send_retry_env()
+        mock_build_params.side_effect = [{'nonce': 1}, {'nonce': 2}]
+        tx_hash = b'\xbb' * 32
+        mock_sign_and_send.side_effect = [ValueError('replacement transaction underpriced'), tx_hash]
+        w3_mock.eth.get_transaction.return_value = {'blockNumber': 5}
+
+        module = self._create_module(web3)
+        result = module._send_telemetry(tx, w3_mock, account)
+
+        assert result == tx_hash
+        assert mock_build_params.call_count == 2
+        assert mock_sign_and_send.call_count == 2
+        mock_sleep.assert_called_once()
+        assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
+
+    @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
+    @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
+    @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
+    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    def test__send_with_retry__get_transaction_raises_after_send__returns_stale_tx_hash_without_resending(
+        self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
+    ):
+        # Documents a real defect: once a tx is sent, an exception from get_transaction (e.g. the node
+        # not finding it yet, or evicting it) is retried by re-polling the SAME stale hash forever -- the
+        # code never goes back to build_transaction_params/sign_and_send_transaction. On timeout it
+        # returns that stale hash as if it were a successful send.
+        monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
+        # deadline=1; attempt1: build+send (no monotonic calls in try body); attempt2: while-check(0.2)<1,
+        # get_transaction raises -> remaining calc(0.3); attempt3: while-check(2.0)<1 is False -> stop.
+        mock_monotonic.side_effect = [0, 0.1, 0.2, 0.3, 2.0]
+        w3_mock, account, tx = self._mock_send_retry_env()
+        mock_build_params.return_value = {'nonce': 1}
+        tx_hash = b'\xaa' * 32
+        mock_sign_and_send.return_value = tx_hash
+        w3_mock.eth.get_transaction.side_effect = ValueError('not found')
+
+        module = self._create_module(web3)
+        result = module._send_telemetry(tx, w3_mock, account)
+
+        assert result == tx_hash
+        mock_build_params.assert_called_once()
+        mock_sign_and_send.assert_called_once()
+        assert w3_mock.eth.get_transaction.call_count == 1
+        assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
+
+    @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
+    @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
+    @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
+    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    def test__send_with_retry__get_transaction_count_raises_while_pending__returns_stale_tx_hash_without_resending(
+        self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
+    ):
+        # Same defect as above, triggered via get_transaction_count instead of get_transaction.
+        monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
+        mock_monotonic.side_effect = [0, 0.1, 0.2, 0.3, 2.0]
+        w3_mock, account, tx = self._mock_send_retry_env()
+        mock_build_params.return_value = {'nonce': 1}
+        tx_hash = b'\xaa' * 32
+        mock_sign_and_send.return_value = tx_hash
+        w3_mock.eth.get_transaction.return_value = {'blockNumber': None}
+        w3_mock.eth.get_transaction_count.side_effect = ValueError('rpc error')
+
+        module = self._create_module(web3)
+        result = module._send_telemetry(tx, w3_mock, account)
+
+        assert result == tx_hash
+        mock_build_params.assert_called_once()
+        mock_sign_and_send.assert_called_once()
+        assert w3_mock.eth.get_transaction_count.call_count == 1
+        assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
+
+    @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
+    @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
+    @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
+    def test__send_with_retry__deadline_exceeded_inside_except__breaks_and_raises(
+        self, mock_build_params, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
+    ):
+        monkeypatch.setattr(variables, 'TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 1)
+        # deadline=1; while-check(0.5)<1 -> attempt; remaining calc uses monotonic()=1.5 -> remaining=-0.5 -> break.
+        mock_monotonic.side_effect = [0, 0.5, 1.5]
+        w3_mock, account, tx = self._mock_send_retry_env()
+        mock_build_params.side_effect = ValueError('boom')
+
+        module = self._create_module(web3)
+
+        with pytest.raises(TelemetrySendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module._send_telemetry(tx, w3_mock, account)
+
+        mock_build_params.assert_called_once()
+        mock_sleep.assert_not_called()
         assert 'Failed to send DataBus telemetry transaction. Will retry.' in caplog.text
 
     @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
@@ -231,8 +331,8 @@ class TestTelemetryDataBus:
 
         module = self._create_module(web3)
 
-        with pytest.raises(SendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
-            module._send_with_retry(tx, w3_mock, account)
+        with pytest.raises(TelemetrySendTimeoutError, match="Timed out sending DataBus telemetry transaction"):
+            module._send_telemetry(tx, w3_mock, account)
 
         assert mock_build_params.call_count == 1
         mock_sleep.assert_called_once()
@@ -257,7 +357,7 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction_count.return_value = 1
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_telemetry(tx, w3_mock, account)
 
         assert result == tx_hash
         mock_build_params.assert_called_once()

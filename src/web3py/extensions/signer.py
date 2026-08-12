@@ -21,7 +21,7 @@ class SignerModule(Module):
     `process_members` is given the current HashConsensus member list and decides:
 
     - if the delegation contract's address is a member, the active signer is whichever
-      configured account is currently its delegate (see DelegationContract.assignDelegate);
+      configured account is currently its delegate (see DelegationContract.nominateDelegate);
     - otherwise, the active signer is whichever configured account is a member directly (a
       plain EOA member, no delegation involved).
 
