@@ -136,7 +136,11 @@ def run_oracle_module(module: OracleModule):
     startup_data = {'delegation_contract_address': variables.DELEGATION_CONTRACT_ADDRESS or None}
 
     try:
-        module.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_STARTUP, startup_data)
+        module.w3.telemetry_data_bus.send_telemetry(
+            TelemetryEventId.ORACLE_STARTUP,
+            startup_data,
+            variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS,
+        )
     except Exception:
         logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
 
