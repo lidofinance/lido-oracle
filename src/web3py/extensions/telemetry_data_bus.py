@@ -133,19 +133,24 @@ class TelemetryDataBus(Module):
     ) -> bytes:
         start_time = time.monotonic()
 
+        tx_hash = None
+        error = None
+
         while True:
             try:
                 params = build_transaction_params(w3, tx, account)
                 tx_hash = sign_and_send_transaction(w3, tx, params, account)
             except Exception as error:
                 logger.warning({'msg': 'DataBus telemetry send failed.', 'error': error, 'module': self._module_name})
-                continue
             else:
                 sent_tx = w3.eth.get_transaction(HexBytes(tx_hash))
                 if sent_tx.get('blockNumber') is not None:
                     return tx_hash
 
             if start_time + timeout < time.monotonic():
-                return tx_hash
+                if tx_hash:
+                    return tx_hash
+                else:
+                    raise Exception('DataBus telemetry send failed.') from error
 
             time.sleep(_POLL_INTERVAL_SECONDS)
