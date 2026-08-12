@@ -150,10 +150,9 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__no_timeout__pending_tx_returned_without_retry(
+    def test__send_with_retry__zero_timeout__pending_tx_returned_without_retry(
         self, mock_build_params, mock_sign_and_send, mock_monotonic, mock_sleep, web3
     ):
-        # start_time=0; deadline check uses default timeout=0, so any later monotonic() value gives up.
         mock_monotonic.side_effect = [0, 0.001]
         w3_mock, account, tx = self._mock_send_retry_env()
         mock_build_params.return_value = {'nonce': 1}
@@ -162,7 +161,7 @@ class TestTelemetryDataBus:
         w3_mock.eth.get_transaction.return_value = {'blockNumber': None}
 
         module = self._create_module(web3)
-        result = module._send_with_retry(tx, w3_mock, account)
+        result = module._send_with_retry(tx, w3_mock, account, timeout=0)
 
         assert result == tx_hash
         mock_build_params.assert_called_once()
