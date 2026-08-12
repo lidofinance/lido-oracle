@@ -3,7 +3,7 @@ from eth_typing import BlockNumber
 from web3.types import Timestamp
 
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig
 from src.services.withdrawal import Withdrawal
 from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
 
@@ -29,18 +29,13 @@ def chain_config():
 
 
 @pytest.fixture
-def frame_config():
-    return FrameConfig(initial_epoch=0, epochs_per_frame=10, fast_lane_length_slots=0)
-
-
-@pytest.fixture
 def past_blockstamp(web3_integration):
     return get_blockstamp_by_state(web3_integration, 'finalized')
 
 
 @pytest.fixture
-def subject(web3_integration, past_blockstamp, chain_config, frame_config):
-    return Withdrawal(web3_integration, past_blockstamp, chain_config, frame_config)
+def subject(web3_integration, past_blockstamp, chain_config):
+    return Withdrawal(web3_integration, past_blockstamp, chain_config)
 
 
 @pytest.mark.testnet

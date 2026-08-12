@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from src.constants import SHARE_RATE_PRECISION_E27
-from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.common.types import ChainConfig
 from src.modules.oracles.accounting.types import BatchState
 from src.services.withdrawal import Withdrawal
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -16,21 +16,16 @@ def chain_config():
 
 
 @pytest.fixture
-def frame_config():
-    return FrameConfig(initial_epoch=0, epochs_per_frame=10, fast_lane_length_slots=0)
-
-
-@pytest.fixture
 def past_blockstamp(web3):
     return ReferenceBlockStampFactory.build()
 
 
 @pytest.fixture
-def subject(web3, past_blockstamp, chain_config, frame_config):
+def subject(web3, past_blockstamp, chain_config):
     web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=OracleReportLimitsFactory.build()
     )
-    return Withdrawal(web3, past_blockstamp, chain_config, frame_config)
+    return Withdrawal(web3, past_blockstamp, chain_config)
 
 
 @pytest.mark.unit
@@ -59,12 +54,19 @@ def test_returns_batch_if_there_are_finalizable_requests(subject: Withdrawal):
     subject._has_unfinalized_requests = Mock(return_value=True)
     subject._get_available_eth = Mock(return_value=100)
 
-    subject.safe_border_service.get_safe_border_epoch = Mock(return_value=0)
+    safe_border_epoch = 10
+    subject.safe_border_service.get_safe_border_epoch = Mock(return_value=safe_border_epoch)
     subject._calculate_finalization_batches = Mock(return_value=[1, 2, 3])
 
     result = subject.get_finalization_batches(True, 100, 0, 0)
 
     subject.w3.lido_contracts.withdrawal_queue_nft.is_paused.assert_called_once_with(subject.blockstamp.block_hash)
+    subject._calculate_finalization_batches.assert_called_once_with(
+        100,
+        100,
+        subject.chain_config.genesis_time
+        + safe_border_epoch * subject.chain_config.slots_per_epoch * subject.chain_config.seconds_per_slot,
+    )
     assert result == [1, 2, 3]
 
 

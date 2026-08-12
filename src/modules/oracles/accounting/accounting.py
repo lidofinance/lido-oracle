@@ -70,7 +70,7 @@ class Accounting(OracleModule[Web3]):
     """
 
     COMPATIBLE_CONTRACT_VERSION = 5
-    COMPATIBLE_CONSENSUS_VERSION = 6
+    COMPATIBLE_CONSENSUS_VERSION = 7
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
@@ -334,7 +334,6 @@ class Accounting(OracleModule[Web3]):
     ) -> tuple[FinalizationBatches, FinalizationShareRate]:
         simulation = self.simulate_full_rebase(blockstamp)
         chain_config = self.get_chain_config(blockstamp)
-        frame_config = self.get_frame_config(blockstamp)
         is_bunker = self._is_bunker(blockstamp)
 
         share_rate = (
@@ -344,7 +343,7 @@ class Accounting(OracleModule[Web3]):
         )
         logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
-        withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
+        withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config)
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             share_rate,
@@ -419,14 +418,10 @@ class Accounting(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _is_bunker(self, blockstamp: ReferenceBlockStamp) -> BunkerMode:
-        frame_config = self.get_frame_config(blockstamp)
-        chain_config = self.get_chain_config(blockstamp)
         cl_rebase_report = self.simulate_cl_rebase(blockstamp)
 
         bunker_mode = self.bunker_service.is_bunker_mode(
             blockstamp,
-            frame_config,
-            chain_config,
             cl_rebase_report,
         )
         logger.info({'msg': 'Calculate bunker mode.', 'value': bunker_mode})

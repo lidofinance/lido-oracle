@@ -588,25 +588,17 @@ def test_get_newly_exited_validators_by_modules_empty(accounting: Accounting, re
 def test_is_bunker(
     accounting: Accounting,
     ref_bs: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-    frame_config: FrameConfig,
 ):
     CL_REBASE = object()
     BUNKER = object()
 
-    accounting.get_frame_config = Mock(return_value=frame_config)
-    accounting.get_chain_config = Mock(return_value=chain_config)
     accounting.simulate_cl_rebase = Mock(return_value=CL_REBASE)
     accounting.bunker_service.is_bunker_mode = Mock(return_value=BUNKER)
 
     out = accounting._is_bunker(ref_bs)
     assert out is BUNKER, "_is_bunker returned unexpected value"
 
-    args = accounting.bunker_service.is_bunker_mode.call_args[0]
-    assert ref_bs in args, "is_bunker_mode called with unexpected blockstamp"
-    assert frame_config in args, "is_bunker_mode called with unexpected frame_config"
-    assert chain_config in args, "is_bunker_mode called with unexpected chain_config"
-    assert CL_REBASE in args, "is_bunker_mode called with unexpected cl_rebase_report"
+    accounting.bunker_service.is_bunker_mode.assert_called_once_with(ref_bs, CL_REBASE)
 
     # @lru_cache
     accounting.bunker_service.is_bunker_mode.reset_mock()
@@ -919,7 +911,7 @@ def test_update_metrics():
 
 @pytest.mark.unit
 def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
-    accounting.get_consensus_version = Mock(return_value=6)
+    accounting.get_consensus_version = Mock(return_value=accounting.COMPATIBLE_CONSENSUS_VERSION)
     accounting._get_cl_validators_balance = Mock(return_value=Gwei(1000))
     accounting._get_cl_pending_validators_balance = Mock(return_value=Gwei(500))
     accounting._get_newly_exited_validators_by_modules = Mock(return_value=([StakingModuleId(1)], [5]))
@@ -939,7 +931,7 @@ def test_calculate_report(accounting: Accounting, ref_bs: ReferenceBlockStamp):
         report_data = accounting._calculate_report(ref_bs)
 
     assert isinstance(report_data, ReportData)
-    assert report_data.consensus_version == 6
+    assert report_data.consensus_version == accounting.COMPATIBLE_CONSENSUS_VERSION
     assert report_data.ref_slot == ref_bs.ref_slot
     assert report_data.cl_validators_balance_gwei == 1000
     assert report_data.cl_pending_balance_gwei == 500

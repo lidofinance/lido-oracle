@@ -145,7 +145,7 @@ Requires an [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/
 
 ### Consensus Client Node
 
-Also, to calculate some metrics for bunker mode Oracle needs [archive](https://ethereum.org/en/developers/docs/nodes-and-clients/#archive-node) consensus node.
+The Performance Collector used by Staking Module Oracles queries historical checkpoint states and requires an archive consensus node. Bunker Mode only reads the current report reference state.
 
 | Client                                          | Tested | Notes                                                                                                                                           |
 |-------------------------------------------------|:------:|-------------------------------------------------------------------------------------------------------------------------------------------------|

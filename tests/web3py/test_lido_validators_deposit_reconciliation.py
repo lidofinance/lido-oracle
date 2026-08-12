@@ -280,7 +280,7 @@ def test_report__frontrun_validator_created_on_cl__reporting_is_refused(lido_pro
     Once the CL creates the validator the pubkey leaves that set, and nothing downstream reinstates
     the exclusion: `compute_lido_validators` decides which CL validators are Lido's **by pubkey
     alone**, and no caller consults `get_lido_wc_list` on the active path (it is checked for pending
-    deposits and in `abnormal_cl_rebase`, never for active validators).
+    deposits, never for active validators).
 
     So the ether is reported as Lido's through both TVL terms -- measured here, 64.2 ETH in
     `clValidatorsBalance` and 64.0 ETH in `clPendingBalance`, i.e. 64.1 ETH attributed to a key only
