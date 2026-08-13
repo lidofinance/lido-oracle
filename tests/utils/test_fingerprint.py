@@ -197,6 +197,21 @@ class TestDigestOf:
         with pytest.raises(TypeError, match='Cannot fingerprint'):
             digest_of({1.5})
 
+    def test_digest_of__input_spanning_several_buffer_flushes__matches_single_flush(self, monkeypatch):
+        """`digest_of` hands keccak one chunk per `_CHUNK_SIZE` pieces, so a mainnet-sized
+        input takes a path the small fixtures never reach. Hashing the same value under a
+        tiny chunk size must not move the digest — if it does, the buffer drops or reorders
+        pieces at the boundary, and members on identical inputs disagree by response size
+        alone."""
+        # Arrange — enough keys to fill the buffer many times over at the patched size.
+        keys = [_lido_key(i) for i in range(500)]
+        flushed_once = digest_of(keys)
+        # Act
+        monkeypatch.setattr('src.utils.fingerprint._CHUNK_SIZE', 4)
+        many_flushes = digest_of(keys)
+        # Assert
+        assert many_flushes == flushed_once
+
 
 @pytest.mark.unit
 class TestLogFingerprint:

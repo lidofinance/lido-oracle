@@ -3,10 +3,10 @@
 Nothing else catches an encoding change that is self-consistent but differs from the previous
 release, which would silently stop members on different versions from comparing. Repin only
 alongside a deliberate encoding change. Captured from mainnet slot 14921600 with
-`scripts/fingerprint_e2e.py`, each list truncated to its first 2000 entries.
+`scripts/fingerprint_e2e.py`, each list truncated to its first 100 entries — small enough to
+read in review, since a pin nobody can check against its input is a pin nobody can trust.
 """
 
-import gzip
 import json
 import pathlib
 
@@ -19,13 +19,13 @@ from src.utils.fingerprint import digest_of
 
 FIXTURES = pathlib.Path(__file__).parent / 'fixtures'
 
-# Mainnet, slot 14921600, first 2000 entries of each list.
-BEACON_STATE_DIGEST = '0x84e677f732a20ff156026040f068b83374acb2036a02998a9ca76072e2a44f5d'
-USED_KEYS_DIGEST = '0xe7a0f2013983d1bebab74b7690b61ec36c6b60a54f737aaa40c617fd8131efeb'
+# Mainnet, slot 14921600, first 100 entries of each list.
+BEACON_STATE_DIGEST = '0xb3f502f6d5cffc8af70622c453b83399b48d29da56e26fed5ed9a1c5c63c8bd0'
+USED_KEYS_DIGEST = '0x8734ab5671c2e52f0854acf1cb234996dd75a8543eed82c220dfad051bf2843c'
 
 
 def _load(name: str):
-    with gzip.open(FIXTURES / name, 'rt') as fd:
+    with open(FIXTURES / name) as fd:
         return json.load(fd)
 
 
@@ -33,11 +33,11 @@ def _load(name: str):
 class TestMainnetFixtures:
     @pytest.fixture
     def state(self) -> BeaconStateView:
-        return BeaconStateView.from_response(**_load('mainnet_beacon_state_slice.json.gz'))
+        return BeaconStateView.from_response(**_load('mainnet_beacon_state_slice.json'))
 
     @pytest.fixture
     def used_keys(self) -> list[LidoKey]:
-        return [LidoKey.from_response(**key) for key in _load('mainnet_kapi_used_keys_slice.json.gz')]
+        return [LidoKey.from_response(**key) for key in _load('mainnet_kapi_used_keys_slice.json')]
 
     def test_digest_of__mainnet_beacon_state__matches_pinned_digest(self, state):
         assert digest_of(state) == BEACON_STATE_DIGEST
@@ -48,14 +48,14 @@ class TestMainnetFixtures:
     def test_digest_of__mainnet_beacon_state_reparsed__is_stable(self, state):
         """Same bytes parsed twice must digest the same — no dependence on object identity,
         dict ordering or iteration order anywhere in the encoder."""
-        other = BeaconStateView.from_response(**_load('mainnet_beacon_state_slice.json.gz'))
+        other = BeaconStateView.from_response(**_load('mainnet_beacon_state_slice.json'))
         assert digest_of(other) == digest_of(state)
 
     def test_digest_of__one_mainnet_validator_changed__digest_changes(self, state):
         # Arrange — downward, since this validator sits at its maximum effective balance
         # and `ValidatorState` rejects anything above it.
-        raw = _load('mainnet_beacon_state_slice.json.gz')
-        raw['validators'][1337]['effective_balance'] -= 10**9
+        raw = _load('mainnet_beacon_state_slice.json')
+        raw['validators'][3]['effective_balance'] -= 10**9
         # Act
         mutated = BeaconStateView.from_response(**raw)
         # Assert
@@ -63,7 +63,7 @@ class TestMainnetFixtures:
 
     def test_digest_of__one_mainnet_deposit_dropped__digest_changes(self, state):
         # Arrange
-        raw = _load('mainnet_beacon_state_slice.json.gz')
+        raw = _load('mainnet_beacon_state_slice.json')
         del raw['pending_deposits'][42]
         # Act
         mutated = BeaconStateView.from_response(**raw)
@@ -73,6 +73,6 @@ class TestMainnetFixtures:
     def test_digest_of__one_mainnet_key_dropped__digest_changes(self, used_keys):
         """The 2026-07-25 shape: one member's Keys API is short exactly one key."""
         # Act
-        short = [key for key in used_keys if key is not used_keys[999]]
+        short = [key for key in used_keys if key is not used_keys[42]]
         # Assert
         assert digest_of(short) != digest_of(used_keys)

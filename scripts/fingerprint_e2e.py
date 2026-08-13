@@ -23,7 +23,6 @@ comparing against a running release — do it only alongside a deliberate encodi
 
 import argparse
 import gc
-import gzip
 import json
 import logging
 import pathlib
@@ -47,7 +46,7 @@ def main() -> int:
     parser.add_argument('--kapi', metavar='HOST', help='Keys API host')
     parser.add_argument('--slot', type=int, help='slot to fetch; defaults to finalized on the first --cl host')
     parser.add_argument('--out', type=pathlib.Path, help='write fixture slices here')
-    parser.add_argument('--slice', type=int, default=2000, help='entries per list in the fixtures')
+    parser.add_argument('--slice', type=int, default=100, help='entries per list in the fixtures')
     args = parser.parse_args()
 
     if args.out:
@@ -78,7 +77,7 @@ def _kapi(args) -> dict:
 
     keys, fetch_s = _timed('keys api fetch', lambda: client.get_used_lido_keys(blockstamp))
     digest, digest_s = _timed('keys api digest', lambda: digest_of(keys))
-    _write(args, 'mainnet_kapi_used_keys_slice.json.gz', [vars(key) for key in keys[: args.slice]])
+    _write(args, 'mainnet_kapi_used_keys_slice.json', [vars(key) for key in keys[: args.slice]])
 
     # A second call: the Keys API promises no row order, so this is where a digest that is
     # sensitive to it would show up as a spurious difference.
@@ -127,7 +126,7 @@ def _cl(args) -> dict:
             }
         )
         if index == 0:
-            _write(args, 'mainnet_beacon_state_slice.json.gz', _slice(state, args.slice))
+            _write(args, 'mainnet_beacon_state_slice.json', _slice(state, args.slice))
         del state
         gc.collect()
 
@@ -161,8 +160,9 @@ def _write(args, name: str, payload) -> None:
     if not args.out:
         return
     path = args.out / name
-    with gzip.open(path, 'wt') as fd:
-        json.dump(payload, fd)
+    with open(path, 'w') as fd:
+        json.dump(payload, fd, indent=2)
+        fd.write('\n')
     logger.info('%-46s %6.0f KB', f'wrote {name}', path.stat().st_size / 1024)
 
 
