@@ -150,9 +150,9 @@ class TelemetryDataBus(Module):
                     if sent_tx.get('blockNumber') is not None:
                         return tx_hash
 
-                nonce = params.get('nonce')
-                logger.info({'msg': 'Sending DataBus telemetry transaction...', 'nonce': nonce})
+                logger.info({'msg': 'Sending DataBus telemetry transaction...', 'nonce': params.get('nonce')})
                 tx_hash = sign_and_send_transaction(w3, tx, params, account)
+                nonce = params.get('nonce')
                 logger.info({'msg': 'Transaction sent.', 'tx_hash': tx_hash})
             except Exception as error:  # pylint: disable=broad-exception-caught
                 remaining = deadline - time.monotonic()
