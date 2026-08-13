@@ -14,6 +14,7 @@ from src import constants, variables
 from src.providers.keys.client import KAPIClientError, KAPIInconsistentData, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
 from src.types import StakingModuleAddress
+from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
@@ -497,3 +498,73 @@ class TestUnitKeysAPIClient:
         assert line['el_block_snapshot'] == snapshot
         assert line['response_bytes'] == len(responses.calls[0].response.content)
         assert line['requested_block_number'] == empty_blockstamp.block_number
+
+    @responses.activate
+    def test_get_used_lido_keys__response__logs_fingerprint_of_returned_keys(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        caplog,
+    ):
+        """Without this the call site can be dropped in a refactor and CI stays green."""
+        caplog.set_level(logging.INFO)
+        responses.get(
+            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
+            json={
+                'data': [
+                    {
+                        'index': 0,
+                        'key': '0x' + '11' * 48,
+                        'used': True,
+                        'operatorIndex': 3,
+                        'moduleAddress': '0x' + '22' * 20,
+                        'depositSignature': '0x' + '33' * 96,
+                    }
+                ],
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
+
+        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API used keys fingerprint.')
+        assert line['digest'] == digest_of(keys)
+        assert line['endpoint'] == keys_api_client.USED_KEYS
+
+    @responses.activate
+    def test_get_used_module_operators_keys__response__logs_fingerprint_of_returned_data(
+        self,
+        keys_api_client: KeysAPIClient,
+        empty_blockstamp,
+        caplog,
+    ):
+        """Covers the whole response — keys, module and operator records — not just the keys."""
+        caplog.set_level(logging.INFO)
+        module_address = cast(StakingModuleAddress, '0xdtestest')
+        endpoint = keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address)
+        responses.get(
+            self.KEYS_API_MOCK_URL + endpoint,
+            json={
+                'data': {
+                    'keys': [
+                        {
+                            'index': 0,
+                            'key': '0x' + '11' * 48,
+                            'used': True,
+                            'operatorIndex': 3,
+                            'moduleAddress': '0x' + '22' * 20,
+                            'depositSignature': '0x' + '33' * 96,
+                        }
+                    ],
+                    'module': {'stakingModuleAddress': str(module_address), 'id': 1},
+                    'operators': [{'index': 3, 'name': 'operator'}],
+                },
+                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
+            },
+        )
+
+        result = keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
+
+        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API module operators keys fingerprint.')
+        assert line['digest'] == digest_of(result)
+        assert line['endpoint'] == endpoint
