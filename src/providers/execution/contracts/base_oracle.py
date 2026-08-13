@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class BaseOracleContract(ContractInterface):
     @lru_cache(maxsize=1)
-    def get_consensus_contract(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
+    def get_consensus_contract(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
         """
         Returns the address of the HashConsensus contract.
         """
@@ -30,7 +30,7 @@ class BaseOracleContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def submit_data_role(self, block_identifier: BlockIdentifier = 'latest') -> Hash32:
+    def submit_data_role(self, block_identifier: BlockIdentifier) -> Hash32:
         """
         An ACL role granting the permission to submit the data for a committee report.
         """
@@ -46,7 +46,7 @@ class BaseOracleContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def has_role(self, role: Hash32, address: ChecksumAddress, block_identifier: BlockIdentifier = 'latest') -> bool:
+    def has_role(self, role: Hash32, address: ChecksumAddress, block_identifier: BlockIdentifier) -> bool:
         """
         Returns `true` if `account` has been granted `role`.
         """
@@ -62,7 +62,7 @@ class BaseOracleContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_contract_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_contract_version(self, block_identifier: BlockIdentifier) -> int:
         """
         Returns the current contract version.
         """
@@ -78,7 +78,7 @@ class BaseOracleContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_consensus_version(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_consensus_version(self, block_identifier: BlockIdentifier) -> int:
         """
         Returns the current consensus version expected by the oracle contract.
         Consensus version must change every time consensus rules change, meaning that
@@ -116,7 +116,7 @@ class BaseOracleContract(ContractInterface):
         return tx
 
     @lru_cache(maxsize=1)
-    def get_last_processing_ref_slot(self, block_identifier: BlockIdentifier = 'latest') -> SlotNumber:
+    def get_last_processing_ref_slot(self, block_identifier: BlockIdentifier) -> SlotNumber:
         """
         Returns the last reference slot for which processing of the report was started.
         HashConsensus won't submit reports for any slot less than or equal to this slot.

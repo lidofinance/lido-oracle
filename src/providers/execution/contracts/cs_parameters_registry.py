@@ -80,7 +80,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_performance_coefficients(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest",
+        block_identifier: BlockIdentifier,
     ) -> PerformanceCoefficients:
         """Returns performance coefficients for given node operator"""
 
@@ -98,7 +98,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_reward_share_data(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest",
+        block_identifier: BlockIdentifier,
     ) -> KeyNumberValueIntervalList:
         """Returns reward share data for given node operator"""
 
@@ -116,7 +116,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_performance_leeway_data(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest",
+        block_identifier: BlockIdentifier,
     ) -> KeyNumberValueIntervalList:
         """Returns performance leeway data for given node operator"""
 
@@ -134,7 +134,7 @@ class CSParametersRegistryContract(ContractInterface):
     def get_strikes_params(
         self,
         curve_id: int,
-        block_identifier: BlockIdentifier = "latest",
+        block_identifier: BlockIdentifier,
     ) -> StrikesParams:
         """Returns strikes params for a given curve id"""
 
