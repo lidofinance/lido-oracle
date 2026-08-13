@@ -11,7 +11,6 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
 from web3.contract.contract import ContractFunction
-from web3.exceptions import TransactionNotFound
 from web3.module import Module
 
 from src import variables
@@ -141,7 +140,7 @@ class TelemetryDataBus(Module):
                 params = build_transaction_params(w3, tx, account)
 
                 # no new transactions yet
-                if tx_hash and params['nonce'] == nonce:
+                if tx_hash and params.get('nonce') == nonce:
                     time.sleep(_POLL_INTERVAL_SECONDS)
                     continue
 
