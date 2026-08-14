@@ -1,13 +1,15 @@
 from unittest.mock import Mock
 
 import pytest
+from eth_typing import HexStr
+from web3.types import Wei
 
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import EpochNumber, Gwei, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
 from src.web3py.extensions import LidoValidatorsProvider
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -364,8 +366,8 @@ def test_calculate_cl_rebase_between_blocks(
     withdrawn_from_vault,
     expected_rebase,
 ):
-    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=8)
-    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=88)
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=8, state_root=StateRoot(HexStr('0x08')))
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=88, state_root=StateRoot(HexStr('0x88')))
     abnormal_case = AbnormalClRebase(
         web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
     )
@@ -857,3 +859,91 @@ def test_calculate_normal_cl_rebase(epoch_passed, mean_lido, mean_total, expecte
         epoch_passed,
     )
     assert normal_cl_rebase == expected
+
+
+@pytest.mark.unit
+class TestClSampleIdentityUnderEip7732:
+    """A withheld payload leaves the blockstamp's execution anchor unchanged while CL state moves on,
+    so distinct CL samples can share one execution block. Sample identity is the CL state root."""
+
+    @staticmethod
+    def _abnormal_case(web3, prev_balance: Gwei, ref_balance: Gwei) -> AbnormalClRebase:
+        abnormal_case = AbnormalClRebase(
+            web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+        )
+        abnormal_case.lido_keys = Mock()
+        abnormal_case.w3.cc = Mock()
+        abnormal_case.w3.lido_contracts = Mock()
+        abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(return_value=Wei(0))
+        abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+        abnormal_case._get_last_report_reference_blockstamp = Mock(
+            return_value=ReferenceBlockStampFactory.build(block_number=0)
+        )
+        abnormal_case.lido_validators = simple_validators(0, 0, balance=ref_balance)
+        return abnormal_case
+
+    def test_calculate_cl_rebase_between_blocks__same_el_anchor_different_state__cl_delta_counted(
+        self, web3, monkeypatch
+    ):
+        # Arrange
+        prev_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xaa')))
+        ref_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xbb')))
+        abnormal_case = self._abnormal_case(web3, Gwei(32 * 10**9), Gwei(31 * 10**9))
+        monkeypatch.setattr(
+            LidoValidatorsProvider,
+            "compute_lido_validators",
+            Mock(return_value=(simple_validators(0, 0, balance=Gwei(32 * 10**9)), [])),
+        )
+
+        # Act
+        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
+        # Assert
+        assert result == -1 * 10**9
+
+    def test_calculate_cl_rebase_between_blocks__same_state_root__returns_zero(self, web3):
+        # Arrange
+        state_root = StateRoot(HexStr('0xaa'))
+        prev_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=state_root)
+        ref_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=state_root)
+        abnormal_case = self._abnormal_case(web3, Gwei(32 * 10**9), Gwei(31 * 10**9))
+
+        # Act
+        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
+        # Assert
+        assert result == 0
+
+    def test_get_withdrawn_from_vault_between_blocks__same_el_anchor__returns_zero_without_query(self, web3):
+        # Arrange
+        prev_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xaa')))
+        ref_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xbb')))
+        abnormal_case = AbnormalClRebase(
+            web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+        )
+        abnormal_case._get_eth_distributed_events = Mock()
+
+        # Act
+        result = abnormal_case._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
+
+        # Assert
+        assert result == 0
+        abnormal_case._get_eth_distributed_events.assert_not_called()
+
+    def test_is_negative_specific_cl_rebase__samples_share_el_anchor__both_are_checked(self, web3):
+        # Arrange
+        nearest = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xaa')))
+        distant = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xbb')))
+        ref_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xcc')))
+        abnormal_case = AbnormalClRebase(
+            web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+        )
+        abnormal_case._get_nearest_and_distant_blockstamps = Mock(return_value=(nearest, distant))
+        abnormal_case._calculate_cl_rebase_between_blocks = Mock(return_value=Gwei(1))
+
+        # Act
+        result = abnormal_case._is_negative_specific_cl_rebase(ref_blockstamp)
+
+        # Assert
+        assert result is False
+        assert abnormal_case._calculate_cl_rebase_between_blocks.call_count == 2
