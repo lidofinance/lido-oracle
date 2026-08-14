@@ -322,7 +322,8 @@ class Ejector(OracleModule[Web3]):
         if self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)):
             # Post-EIP-8061 the capped limit overestimates withdrawal_epoch, which would make the
             # ejector under-request exits.
-            per_epoch_churn = get_exit_churn_limit(total_active_balance)
+            min_per_epoch_churn, churn_limit_quotient = self.w3.cc.get_config_spec().gloas_exit_churn_params()
+            per_epoch_churn = get_exit_churn_limit(total_active_balance, min_per_epoch_churn, churn_limit_quotient)
         else:
             per_epoch_churn = get_activation_exit_churn_limit(total_active_balance)
         # New epoch for exits.
