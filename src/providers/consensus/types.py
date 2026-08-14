@@ -33,8 +33,17 @@ class BeaconSpecResponse(Nested, FromResponse):
     # ejector paths stay inactive on pre-fork networks. Exact spec constant name to be confirmed
     # against the final consensus-specs config before mainnet activation.
     GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(2**64 - 1)
+    # EIP-8061 exit churn parameters. Network configuration rather than oracle constants: they differ
+    # between presets (mainnet 128 ETH / 2**15, minimal 64 ETH / 2**4) and may still be retuned before
+    # mainnet activation, so they are never compiled in. 0 means "this node does not announce it",
+    # which every pre-Gloas client does — see gloas_exit_churn_params for the post-fork requirement.
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: Gwei = Gwei(0)
+    CHURN_LIMIT_QUOTIENT_GLOAS: int = 0
 
     class NeitherSlotDurationFieldPresent(Exception):
+        pass
+
+    class MissingGloasChurnParams(Exception):
         pass
 
     class UnsupportedSlotDuration(Exception):
@@ -79,6 +88,31 @@ class BeaconSpecResponse(Nested, FromResponse):
 
         if self.SECONDS_PER_SLOT == 0:
             self.SECONDS_PER_SLOT = self.SLOT_DURATION_MS // 1000
+
+    def gloas_exit_churn_params(self) -> tuple[Gwei, int]:
+        """Return (MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, CHURN_LIMIT_QUOTIENT_GLOAS) for get_exit_churn_limit.
+
+        Raises if the node does not announce both. Every Gloas-capable client does, so an absent key
+        means the parameter was renamed or dropped upstream and any compiled-in fallback is stale.
+        Guessing would silently mis-project the exit queue — and therefore the withdrawal epoch,
+        the future liquidity and the final exit count — so the ejector stops instead. The failure is
+        a client-version property, hence loud and identical for every oracle member rather than a
+        single member submitting a divergent report.
+        """
+        missing = [
+            name
+            for name, value in (
+                ('MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA', self.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA),
+                ('CHURN_LIMIT_QUOTIENT_GLOAS', self.CHURN_LIMIT_QUOTIENT_GLOAS),
+            )
+            if not value
+        ]
+        if missing:
+            raise BeaconSpecResponse.MissingGloasChurnParams(
+                f"CL spec response does not announce {', '.join(missing)}, "
+                f"required to compute the EIP-8061 exit churn limit after the Gloas fork."
+            )
+        return self.MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, self.CHURN_LIMIT_QUOTIENT_GLOAS
 
 
 @dataclass

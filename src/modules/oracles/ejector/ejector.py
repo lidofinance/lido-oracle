@@ -322,7 +322,8 @@ class Ejector(OracleModule[Web3]):
             # EIP-8061 removes the cap on the exit churn limit and halves the quotient. Using the old
             # capped formula post-fork overestimates withdrawal_epoch, which makes the ejector
             # under-request exits (the unsafe direction).
-            per_epoch_churn = get_exit_churn_limit(total_active_balance)
+            min_per_epoch_churn, churn_limit_quotient = self.w3.cc.get_config_spec().gloas_exit_churn_params()
+            per_epoch_churn = get_exit_churn_limit(total_active_balance, min_per_epoch_churn, churn_limit_quotient)
         else:
             per_epoch_churn = get_activation_exit_churn_limit(total_active_balance)
         # New epoch for exits.

@@ -47,6 +47,9 @@ class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
     SLOTS_PER_HISTORICAL_ROOT = 8192
     # Default to "Gloas never active" so factory-built specs are pre-fork unless a test sets it.
     GLOAS_FORK_EPOCH = 2**64 - 1
+    # Mainnet-preset churn parameters, as announced by every Gloas-capable client.
+    MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = 128 * 10**9
+    CHURN_LIMIT_QUOTIENT_GLOAS = 2**15
 
 
 class SlotAttestationCommitteeFactory(Web3DataclassFactory[SlotAttestationCommittee]):
