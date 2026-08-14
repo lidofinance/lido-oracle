@@ -36,7 +36,7 @@ from src.web3py.extensions.lido_validators import (
 from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
-from tests.factory.configs import ChainConfigFactory
+from tests.factory.configs import BeaconSpecResponseFactory, ChainConfigFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
@@ -622,7 +622,12 @@ class TestPredictedWithdrawableEpoch:
     @pytest.fixture(autouse=True)
     def _patch_ejector(self, ejector: Ejector):
         ejector.w3.cc = Mock()
-        ejector.w3.cc.get_config_spec = Mock(return_value=Mock(ELECTRA_FORK_EPOCH=0))
+        # A real pre-fork spec, not a bare Mock: the factory defaults GLOAS_FORK_EPOCH to "never", so
+        # these cases stay on the Electra churn path instead of being pulled onto the EIP-8061 one by
+        # a Mock's truthy is_gloas_epoch. Gloas coverage lives in test_gloas_ejector.py.
+        spec = BeaconSpecResponseFactory.build()
+        ejector.w3.cc.get_config_spec = Mock(return_value=spec)
+        ejector.w3.cc.is_gloas_epoch = Mock(side_effect=lambda epoch: epoch >= spec.GLOAS_FORK_EPOCH)
 
 
 @pytest.mark.unit
