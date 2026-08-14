@@ -129,10 +129,10 @@ class AbnormalClRebase:
 
         nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
 
-        # dict preserves insertion order and deduplicates by block_number
+        # dict preserves insertion order and deduplicates by state_root
         for bs in {
-            nearest_blockstamp.block_number: nearest_blockstamp,
-            distant_blockstamp.block_number: distant_blockstamp,
+            nearest_blockstamp.state_root: nearest_blockstamp,
+            distant_blockstamp.state_root: distant_blockstamp,
         }.values():
             rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
             logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
@@ -189,8 +189,8 @@ class AbnormalClRebase:
         Check for these events is enough to account for all withdrawals since the protocol assumes that
         the vault can only be withdrawn at the time of the Oracle report between reference slots.
         """
-        if prev_blockstamp.block_number == ref_blockstamp.block_number:
-            # Can't calculate rebase between the same block
+        if prev_blockstamp.state_root == ref_blockstamp.state_root:
+            # Can't calculate rebase between the same CL state
             return Gwei(0)
 
         (prev_lido_validators, _) = LidoValidatorsProvider.compute_lido_validators(
@@ -258,6 +258,10 @@ class AbnormalClRebase:
                 )
             }
         )
+
+        if prev_blockstamp.block_number >= ref_blockstamp.block_number:
+            logger.info({"msg": "No execution blocks between samples. Vault withdrawals: 0 Gwei."})
+            return Gwei(0)
 
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
