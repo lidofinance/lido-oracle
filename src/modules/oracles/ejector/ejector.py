@@ -28,13 +28,14 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
+from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
     get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
     get_predictable_inbound_sweep,
+    gloas_balance_correction,
 )
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
@@ -240,6 +241,7 @@ class Ejector(OracleModule[Web3]):
                 ),
                 Gwei(0),
             )
+            + self._in_flight_withdrawals(blockstamp, {v.index for v in validators_going_to_exit})
         )
 
         withdrawal_epoch = self._get_predicted_withdrawable_epoch(
@@ -268,20 +270,50 @@ class Ejector(OracleModule[Web3]):
             - deposit_lock,
         )
 
+    def _in_flight_withdrawals(self, blockstamp: BlockStamp, lido_indices: set[ValidatorIndex]) -> Gwei:
+        """Lido-owned withdrawals debited from CL balances but not yet credited to the EL vaults.
+
+        Under EIP-7732 `process_withdrawals` deducts these amounts at the report block, while the
+        payload that credits the Withdrawal Vault is revealed only afterwards. At
+        `blockstamp.block_hash` they are therefore missing from both `validator.balance` and
+        `_get_total_el_balance`, so every term that turns CL balances into expected EL liquidity has
+        to add them back — the protocol delivers them within one slot.
+
+        Adding them back on the CL side only is what keeps the amount counted exactly once: the EL
+        terms must stay uncorrected, or the same ETH would be counted twice once the payload lands.
+
+        Empty before the fork — pre-Gloas states carry no `payload_expected_withdrawals` — so the
+        correction is simply zero and no fork gate is needed.
+        """
+        expected = self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
+        correction = gloas_balance_correction(expected, lido_indices)
+        if correction:
+            logger.info({'msg': 'Gloas in-flight withdrawal correction.', 'value': correction})
+        return correction
+
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
 
         result = Gwei(0)
+        counted_indices: set[ValidatorIndex] = set()
 
         for v in lido_validators:
             if v.consolidating_as_source:
                 continue
 
+            counted_indices.add(v.index)
+
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
                 result += get_predictable_full_inbound_balance(v)
             else:
                 result += get_predictable_inbound_sweep(v)
+
+        # An in-flight full withdrawal leaves `v.balance` at zero, which fails the `balance > 0`
+        # arm of `is_fully_withdrawable_validator` and drops the whole payout from this sum; an
+        # in-flight partial sweep removes exactly the excess this term is meant to count. Both are
+        # restored by adding the debited amounts back — see `_in_flight_withdrawals`.
+        result = Gwei(result + self._in_flight_withdrawals(blockstamp, counted_indices))
 
         return gwei_to_wei(result)
 

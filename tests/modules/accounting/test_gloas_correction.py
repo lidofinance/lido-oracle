@@ -8,7 +8,7 @@ import pytest
 from src.modules.oracles.accounting.accounting import Accounting
 from src.providers.consensus.types import ExpectedWithdrawal
 from src.types import Gwei, ReferenceBlockStamp, StakingModuleId, ValidatorIndex
-from src.utils.validator_balance import gloas_balance_correction
+from src.utils.validator_balance import gloas_balance_correction, gloas_correction_by_index
 from src.web3py.extensions.lido_validators import NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -41,6 +41,30 @@ class TestGloasBalanceCorrection:
 
     def test_gloas_balance_correction__empty__returns_zero(self):
         assert gloas_balance_correction([], {ValidatorIndex(1)}) == Gwei(0)
+
+    def test_gloas_balance_correction__duplicate_indices__summed(self):
+        # One payload may hold several withdrawals for the same validator: the pending-partial
+        # queue can carry more than one EIP-7002 request for it, and the validator sweep does not
+        # skip a validator already served earlier in the same payload.
+        withdrawals = [
+            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
+            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
+        ]
+        assert gloas_balance_correction(withdrawals, {ValidatorIndex(1)}) == Gwei(35)
+
+
+@pytest.mark.unit
+class TestGloasCorrectionByIndex:
+    def test_gloas_correction_by_index__duplicate_indices__summed_not_overwritten(self):
+        withdrawals = [
+            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
+            ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
+            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
+        ]
+        assert gloas_correction_by_index(withdrawals) == {ValidatorIndex(1): Gwei(35), ValidatorIndex(2): Gwei(20)}
+
+    def test_gloas_correction_by_index__empty__returns_empty_mapping(self):
+        assert gloas_correction_by_index([]) == {}
 
 
 def _ref_bs() -> ReferenceBlockStamp:

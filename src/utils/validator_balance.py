@@ -1,7 +1,23 @@
+from collections import defaultdict
+
 from src.providers.consensus.types import ExpectedWithdrawal
 from src.types import Gwei, ValidatorIndex
 from src.utils.validator_state import get_max_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
+
+
+def gloas_correction_by_index(expected_withdrawals: list[ExpectedWithdrawal]) -> dict[ValidatorIndex, Gwei]:
+    """Per-validator sum of EIP-7732 in-flight withdrawal amounts.
+
+    A single payload can carry more than one withdrawal for the same validator: the pending-partial
+    queue may hold several EIP-7002 requests for it, and the validator sweep does not skip a
+    validator already served earlier in the same payload — it only recomputes the balance via
+    `get_balance_after_withdrawals`. Amounts must therefore be summed per index, never overwritten.
+    """
+    by_index: defaultdict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
+    for withdrawal in expected_withdrawals:
+        by_index[withdrawal.validator_index] = Gwei(by_index[withdrawal.validator_index] + withdrawal.amount)
+    return dict(by_index)
 
 
 def gloas_balance_correction(

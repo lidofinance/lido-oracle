@@ -44,12 +44,11 @@ from src.types import (
     Gwei,
     ReferenceBlockStamp,
     StakingModuleId,
-    ValidatorIndex,
 )
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import gloas_balance_correction
+from src.utils.validator_balance import gloas_balance_correction, gloas_correction_by_index
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 
@@ -511,16 +510,12 @@ class Accounting(OracleModule[Web3]):
         frame_config = self.get_frame_config(blockstamp)
         simulation = self.simulate_full_rebase(blockstamp)
 
-        gloas_correction_by_index: dict[ValidatorIndex, Gwei] = {
-            w.validator_index: w.amount for w in self._expected_withdrawals(blockstamp)
-        }
-
         vaults_total_values = self.staking_vaults.get_vaults_total_values(
             vaults=vaults,
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
-            gloas_correction_by_index=gloas_correction_by_index,
+            gloas_correction_by_index=gloas_correction_by_index(self._expected_withdrawals(blockstamp)),
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
