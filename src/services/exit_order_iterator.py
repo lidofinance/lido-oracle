@@ -179,7 +179,7 @@ class ValidatorExitIterator:
 
     def _prepare_validator_stats(self):
         recently_requested_indexes = self.lvs.get_recently_requested_to_exit_validators_by_node_operator(
-            self.chain_config.seconds_per_slot,
+            self.chain_config,
             self.blockstamp,
         )
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
