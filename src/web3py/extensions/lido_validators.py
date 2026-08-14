@@ -307,7 +307,7 @@ class LidoValidatorsProvider(Module):
                 'msg': 'Get pending lido validators.',
                 'value': len(result),
                 # Half of what `clPendingBalanceGwei` is summed from.
-                'total_amount_gwei': sum(d.amount for _, deposits in result.values() for d in deposits),
+                'pending_deposits_sum_gwei': sum(d.amount for _, deposits in result.values() for d in deposits),
             }
         )
         return result
