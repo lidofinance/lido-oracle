@@ -82,7 +82,7 @@ class Withdrawal:
             remaining_eth_budget=available_eth, finished=False, batches=list([0] * max_length), batches_length=0
         )
 
-        while not state.finished:
+        while not state.finished and state.remaining_eth_budget > 0:
             state = self.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches(
                 share_rate,
                 until_timestamp,

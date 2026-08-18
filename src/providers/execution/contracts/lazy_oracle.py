@@ -23,7 +23,7 @@ class LazyOracleContract(ContractInterface):
     abi_path = './assets/LazyOracle.json'
 
     @lru_cache(maxsize=1)
-    def get_vaults_count(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_vaults_count(self, block_identifier: BlockIdentifier) -> int:
         """
         Returns the number of vaults attached to the VaultHub.
         """
@@ -40,7 +40,7 @@ class LazyOracleContract(ContractInterface):
 
         return response
 
-    def get_latest_report_data(self, block_identifier: BlockIdentifier = 'latest') -> OnChainIpfsVaultReportData:
+    def get_latest_report_data(self, block_identifier: BlockIdentifier) -> OnChainIpfsVaultReportData:
         response = self.functions.latestReportData.call(block_identifier=block_identifier)
 
         logger.info(
@@ -55,7 +55,7 @@ class LazyOracleContract(ContractInterface):
         response = named_tuple_to_dataclass(response, OnChainIpfsVaultReportData)
         return response
 
-    def get_vaults(self, offset: int, limit: int, block_identifier: BlockIdentifier = 'latest') -> list[VaultInfo]:
+    def get_vaults(self, offset: int, limit: int, block_identifier: BlockIdentifier) -> list[VaultInfo]:
         """
         Returns the Vaults
         """
@@ -93,7 +93,7 @@ class LazyOracleContract(ContractInterface):
 
         return out
 
-    def get_all_vaults(self, block_identifier: BlockIdentifier = 'latest') -> list[VaultInfo]:
+    def get_all_vaults(self, block_identifier: BlockIdentifier) -> list[VaultInfo]:
         """
         Fetch all vaults using pagination via `get_vaults` in batches of `page_size`.
         """
@@ -119,7 +119,7 @@ class LazyOracleContract(ContractInterface):
         self,
         pubkeys: list[str],
         batch_size: int,
-        block_identifier: BlockIdentifier = 'latest',
+        block_identifier: BlockIdentifier,
     ) -> dict[str, ValidatorStatus]:
         """
         Fetch validator statuses for a list of pubkeys, batching requests for efficiency.

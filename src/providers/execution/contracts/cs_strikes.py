@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class CSStrikesContract(ContractInterface):
     abi_path = "./assets/CSStrikes.json"
 
-    def tree_root(self, block_identifier: BlockIdentifier = "latest") -> HexBytes:
+    def tree_root(self, block_identifier: BlockIdentifier) -> HexBytes:
         """Root of the latest published Merkle tree"""
 
         resp = self.functions.treeRoot().call(block_identifier=block_identifier)
@@ -25,7 +25,7 @@ class CSStrikesContract(ContractInterface):
         )
         return HexBytes(resp)
 
-    def tree_cid(self, block_identifier: BlockIdentifier = "latest") -> str:
+    def tree_cid(self, block_identifier: BlockIdentifier) -> str:
         """CID of the latest published Merkle tree"""
 
         resp = self.functions.treeCid().call(block_identifier=block_identifier)

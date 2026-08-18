@@ -13,8 +13,8 @@ def test_vebo(validators_exit_bus_oracle_contract, caplog):
     check_contract(
         validators_exit_bus_oracle_contract,
         [
-            ('is_paused', None, make_checker(bool)),
-            ('get_processing_state', None, make_checker(EjectorProcessingState)),
+            ('is_paused', ('latest',), make_checker(bool)),
+            ('get_processing_state', ('latest',), make_checker(EjectorProcessingState)),
         ],
         caplog,
     )

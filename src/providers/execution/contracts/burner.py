@@ -15,7 +15,7 @@ class BurnerContract(ContractInterface):
     abi_path = './assets/Burner.json'
 
     @lru_cache(maxsize=1)
-    def get_shares_requested_to_burn(self, block_identifier: BlockIdentifier = 'latest') -> SharesRequestedToBurn:
+    def get_shares_requested_to_burn(self, block_identifier: BlockIdentifier) -> SharesRequestedToBurn:
         """
         Returns the current amount of shares locked on the contract to be burnt.
         """

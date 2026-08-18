@@ -3,45 +3,45 @@ from packaging.version import Version
 from src.types import Gwei
 
 
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#misc
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#misc
 FAR_FUTURE_EPOCH = 2**64 - 1
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters-1
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters-1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
 MAX_SEED_LOOKAHEAD = 4
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#state-list-lengths
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#state-list-lengths
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#rewards-and-penalties
 PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX = 3
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#gwei-values
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#gwei-values
 EFFECTIVE_BALANCE_INCREMENT = Gwei(2**0 * 10**9)
 MAX_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
 MIN_DEPOSIT_AMOUNT = Gwei(2**0 * 10**9)
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#gwei-values
+# https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#gwei-values
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
 MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#execution
+# https://github.com/ethereum/consensus-specs/blob/master/specs/capella/beacon-chain.md#execution
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#withdrawal-prefixes
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#withdrawal-prefixes
 ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawal-prefixes
+# https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawal-prefixes
 COMPOUNDING_WITHDRAWAL_PREFIX = '0x02'
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator-cycle
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT = 2**2
 CHURN_LIMIT_QUOTIENT = 2**16
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#validator-cycle
+# https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = Gwei(2**7 * 10**9)
 MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#time-parameters
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#sync-committee
+# https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#sync-committee
 SYNC_COMMITTEE_SIZE = 512
 EPOCHS_PER_SYNC_COMMITTEE_PERIOD = 256
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#domain-types
+# https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#domain-types
 DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
 # https://github.com/ethereum/consensus-specs/blob/f0f41198d6a8d7ae709d7d36a61c1e97c235d8ec/specs/phase0/beacon-chain.md?plain=1#L329C52-L329C62
 GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 
-# https://github.com/ethereum/consensus-specs/blob/dev/specs/electra/beacon-chain.md#withdrawals-processing
+# https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
 MAX_BLOCK_GAS_LIMIT = 16_000_000

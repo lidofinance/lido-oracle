@@ -10,8 +10,8 @@ def test_cs_module(cs_module_contract, caplog):
     check_contract(
         cs_module_contract,
         [
-            ("accounting", None, make_checker(ChecksumAddress)),
-            ("is_paused", None, make_checker(bool)),
+            ("accounting", ('latest',), make_checker(ChecksumAddress)),
+            ("is_paused", ('latest',), make_checker(bool)),
         ],
         caplog,
     )
@@ -23,7 +23,7 @@ def test_cs_module_v2(cs_module_contract, caplog):
     check_contract(
         cs_module_contract,
         [
-            ("parameters_registry", None, make_checker(ChecksumAddress)),
+            ("parameters_registry", ('latest',), make_checker(ChecksumAddress)),
         ],
         caplog,
     )

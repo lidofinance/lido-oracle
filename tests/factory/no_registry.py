@@ -13,9 +13,9 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MAX_EFFECTIVE_BALANCE,
 )
-from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.consensus.types import PendingDeposit, Validator, ValidatorState
 from src.providers.keys.types import LidoKey
-from src.types import Gwei, NodeOperatorId, StakingModuleId
+from src.types import Gwei, NodeOperatorId, SlotNumber, StakingModuleId
 from src.web3py.extensions.lido_validators import UNINITIALIZED, LidoValidator, NodeOperator, StakingModule
 from tests.factory.web3_factory import Web3DataclassFactory
 
@@ -134,6 +134,24 @@ class LidoValidatorFactory(Web3DataclassFactory[LidoValidator]):
             ),
             **kwargs,
         )
+
+
+class PendingDepositFactory(Web3DataclassFactory[PendingDeposit]):
+    """A deposit sitting in the CL queue.
+
+    Defaults describe a plain 32 ETH Lido-style deposit with 0x01 credentials. Pass
+    ``pubkey`` of an already-indexed validator to model a top-up.
+    """
+
+    amount = Gwei(32 * 10**9)
+    slot = SlotNumber(0)
+
+    @classmethod
+    def build(cls, **kwargs: Any) -> PendingDeposit:
+        kwargs.setdefault('pubkey', HexBytes(faker.binary(48)).hex())
+        kwargs.setdefault('withdrawal_credentials', ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 31)
+        kwargs.setdefault('signature', HexBytes(faker.binary(96)).hex())
+        return super().build(**kwargs)
 
 
 class NodeOperatorFactory(Web3DataclassFactory[NodeOperator]):
