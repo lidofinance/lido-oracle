@@ -1,0 +1,60 @@
+{
+  "base_cassette": "../AC-01-confirmed-payload-36255",
+  "base_manifest_sha256": "e429811189f780748e3f3640d8479803fcd713fa462ac1d869f3b476bcbd5acb",
+  "description": "Model ref-slot payload withholding with two internally balanced Lido withdrawals.",
+  "patches": [
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x37d5c10036bcbdeb13985f1fc84197943b668f026365b9329444decde1666264",
+        "slot_number": 36256
+      },
+      "path": "/data/latest_block_hash",
+      "value": "0x7971c05e1851dbaa46101c3497367637ecf64a3c546321a163f143b2b0ef3880"
+    },
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c",
+        "slot_number": 36255
+      },
+      "path": "/data/payload_expected_withdrawals",
+      "value": [
+        {
+          "index": "437331",
+          "validator_index": "384",
+          "address": "0x57e5d642648f54973e504f10d21ea06360151caf",
+          "amount": "1000000000"
+        },
+        {
+          "index": "437332",
+          "validator_index": "394",
+          "address": "0x57e5d642648f54973e504f10d21ea06360151caf",
+          "amount": "2000000000"
+        }
+      ]
+    },
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c",
+        "slot_number": 36255
+      },
+      "path": "/data/balances/384",
+      "value": "31000000000"
+    },
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c",
+        "slot_number": 36255
+      },
+      "path": "/data/balances/394",
+      "value": "30000000000"
+    }
+  ]
+}

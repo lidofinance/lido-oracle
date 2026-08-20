@@ -77,6 +77,7 @@ markers = [
     "mainnet: integration tests reliant on the mainnet",
     "testnet: integration tests reliant on the testnet",
     "fork: integration tests using a forked Ethereum network",
+    "scenario: report-level oracle scenario tests (see tests/scenarios)",
 ]
 addopts = "-s -vv --strict-markers"
 

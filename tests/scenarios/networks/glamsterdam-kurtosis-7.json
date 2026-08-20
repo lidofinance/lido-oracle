@@ -1,0 +1,18 @@
+{
+  "network": "glamsterdam-kurtosis-7",
+  "chain_id": 32382,
+  "endpoints": {
+    "execution": "${ORACLE_SCENARIO_KURTOSIS_7_EXECUTION_URI}",
+    "consensus": "${ORACLE_SCENARIO_KURTOSIS_7_CONSENSUS_URI}",
+    "keys_api": "${ORACLE_SCENARIO_KURTOSIS_7_KEYS_API_URI}"
+  },
+  "contracts": {
+    "lido_locator": "0x2694cfcc47aAbC5C042dea104b6ac37e9924a4B1",
+    "accounting_oracle": "0x8A28E51A50CB8b532457486443a4ab56000D0811",
+    "validators_exit_bus_oracle": "0x2af486b3C64D73B03A01Ee8aBD5A94287a5BFD49",
+    "hash_consensus_accounting": "0x05cE5c99898b2a4376381C3c39217833ED0E15a4",
+    "hash_consensus_ejector": "0xdFb2fAc1519eDA2b3ee1Edf578ee0509DC8633f7",
+    "lido": "0xDFB23e97fD89590D6D1A9BcC9384877FCC50b3E3",
+    "oracle_report_sanity_checker": "0xc5092f6c1f30C8970dc835F0F754057f79b89CC6"
+  }
+}
