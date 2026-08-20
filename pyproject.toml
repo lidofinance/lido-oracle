@@ -176,6 +176,12 @@ extend-select = [
     "C90",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Devnet preflight probes: each gate is a flat sequence of independent chain checks whose
+# readability comes from staying in one place. Splitting them per branch would scatter the
+# report a reader has to follow top to bottom.
+"scripts/glamsterdam_preflight.py" = ["C901"]
+
 [tool.ruff.format]
 # Equivalent to black's skip-string-normalization = true
 quote-style = "preserve"

@@ -59,6 +59,12 @@ class CassetteConsensusClient:
         )
         return BeaconStateView.from_response(**_response_data(response))
 
+    def get_state_view_no_cache(self, state_identifier: BlockStamp | tuple[StateRoot, SlotNumber]) -> BeaconStateView:
+        # A cassette is a fixed recording, so there is no cache to bypass. The bunker's CL-rebase
+        # sampling calls this to force a fresh read per state root; replaying the same recorded
+        # response is the faithful equivalent.
+        return self.get_state_view(state_identifier)
+
     def get_validators(self, blockstamp: BlockStamp) -> list[Validator]:
         return self.get_state_view(blockstamp).indexed_validators
 

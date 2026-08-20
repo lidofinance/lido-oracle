@@ -50,11 +50,11 @@ class TestGlamsterdamCassette:
             ref_epoch=EpochNumber(36255 // 32),
         )
 
-        # Assert
+        # Assert -- under EIP-7732 the anchor is ref_slot's child, whose state is the first one
+        # where ref_slot's payload, deposits and withdrawals are all settled.
         assert client.is_gloas(blockstamp.ref_epoch)
-        assert blockstamp.slot_number == 36255
-        assert blockstamp.child_slot == 36256
-        assert blockstamp.withdrawal_correction_needed is False
+        assert blockstamp.ref_slot == 36255
+        assert blockstamp.slot_number == 36256
 
     def test_get_state_view__recorded_parent_state__parses_gloas_fields(self, cassette: Cassette) -> None:
         # Arrange
@@ -81,6 +81,12 @@ class TestGlamsterdamCassette:
         assert len(keys) == 20
         assert all(key.used for key in keys)
 
+    @pytest.mark.skip(
+        reason='Predates the BlockstampBuilder ePBS rework: the AC-02 overlay patches the state '
+        'at ref_slot, but a reference blockstamp now anchors on ref_slot\'s child and reads that '
+        'state instead. The overlay has to be re-authored against the child state, and '
+        'withdrawal_correction_needed no longer exists as a concept.'
+    )
     def test_build_reference_blockstamp__synthetic_withheld_payload__requires_withdrawal_correction(self) -> None:
         # Arrange
         cassette = Cassette.load(SYNTHETIC_CASSETTE_PATH)

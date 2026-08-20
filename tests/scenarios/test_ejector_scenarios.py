@@ -14,6 +14,7 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
+from eth_typing import HexStr
 
 from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.modules.oracles.ejector.ejector import Ejector
@@ -118,6 +119,11 @@ class TestEjectorReportScenarios:
 BUILDER_INDEX_FLAG = 2**40
 _BUILDER_PUBKEY = "0x" + "bb" * 48
 _BUILDER_WITHDRAWAL_PREFIX = "0x03"  # EIP-7732 builder credential; Lido keys use 0x01/0x02 only.
+_WITHDRAWAL_VAULT = "0x" + "ab" * 20
+# `_validate_withdrawal_credentials` refuses to report when a used Lido key sits on a validator
+# whose credentials are not the protocol's, so the genuine validators here must carry the real
+# 0x01-prefixed vault credential rather than a bare prefix.
+_LIDO_WITHDRAWAL_CREDENTIALS = ETH1_ADDRESS_WITHDRAWAL_PREFIX + "0" * 22 + _WITHDRAWAL_VAULT[2:]
 
 
 @pytest.mark.unit
@@ -144,7 +150,7 @@ class TestEjectorBuilderEntriesExcluded:
         """A genuine Lido validator as seen on the CL: real (small) index, 0x01 credentials."""
         return ValidatorFactory.build(
             index=index,
-            validator=ValidatorStateFactory.build(pubkey=pubkey, withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),
+            validator=ValidatorStateFactory.build(pubkey=pubkey, withdrawal_credentials=_LIDO_WITHDRAWAL_CREDENTIALS),
         )
 
     @staticmethod
@@ -192,7 +198,16 @@ class TestEjectorBuilderEntriesExcluded:
         web3.cc.get_pending_deposits = Mock(return_value=[])
         web3.cc.get_pending_consolidations = Mock(return_value=[])
         web3.cc.get_validators_by_indexes = Mock(return_value={})
+        # Both KAPI cross-checks compare against on-chain operator/module counts, which are
+        # irrelevant to this scenario and unavailable offline.
         web3.lido_validators._kapi_sanity_check = Mock()
+        web3.lido_validators._kapi_sanity_check_by_operator = Mock()
+        web3.lido_contracts.lido_locator.withdrawal_vault = Mock(return_value=_WITHDRAWAL_VAULT)
+        # The pending-deposit frontrun filter needs a genesis fork version to rebuild deposit
+        # signing domains; there are no pending deposits here, so any well-formed value works.
+        web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version=HexStr('0x10000038')))
+        # CL/EL sync guard: the three Lido validators here are the whole deposited set.
+        web3.lido_contracts.lido.get_beacon_stat = Mock(return_value=Mock(deposited_validators=3))
 
         # Act
         result = web3.lido_validators.get_active_lido_validators(blockstamp)
