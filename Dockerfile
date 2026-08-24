@@ -84,7 +84,10 @@ ENV HEALTHCHECK_SERVER_PORT=9010
 EXPOSE $PROMETHEUS_PORT
 USER www-data
 
-HEALTHCHECK --interval=10s --timeout=3s \
+# The python probe spends ~0.5-1 CPU-second on interpreter startup alone.
+# Under a container CPU limit with a busy application this can stretch to
+# several seconds of wall time, so the timeout must stay generous.
+HEALTHCHECK --interval=10s --timeout=30s \
     CMD /opt/venv/bin/python3 -m src.scripts.healthcheck "http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck" || exit 1
 
 WORKDIR /app/
