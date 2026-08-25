@@ -92,3 +92,16 @@ def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
     result = subject._calculate_finalization_batches(1, SHARE_RATE_PRECISION_E27, past_blockstamp.block_timestamp)
 
     assert result == [2]
+
+
+@pytest.mark.unit
+def test__calculate_finalization_batches__available_eth_zero__does_not_call_contract(
+    subject: Withdrawal, past_blockstamp
+):
+    subject.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches = Mock()
+    subject.w3.lido_contracts.withdrawal_queue_nft.max_batches_length = Mock(return_value=36)
+
+    result = subject._calculate_finalization_batches(1, 0, past_blockstamp.block_timestamp)
+
+    subject.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches.assert_not_called()
+    assert result == []

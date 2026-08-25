@@ -14,11 +14,11 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
-    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    SignerModule,
     TelemetryDataBus,
     TelemetryEventId,
     TransactionUtils,
@@ -66,12 +66,16 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
 
     check_providers_chain_ids(web3, cc, kac)
 
-    logger.info({'msg': 'Initialize delegation module.'})
-    delegation = DelegationModule(web3, variables.DELEGATION_CONTRACT_ADDRESS)
+    logger.info({'msg': 'Initialize signer module.'})
+    signer = SignerModule(
+        web3,
+        [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
+        variables.DELEGATION_CONTRACT_ADDRESS,
+    )
 
     modules: dict[str, Any] = {
         'transaction': TransactionUtils,
-        'delegation': lambda: delegation,
+        'signer': lambda: signer,
         'cc': lambda: cc,
         'kac': lambda: kac,
         'telemetry_data_bus': lambda: telemetry_data_bus,
@@ -129,8 +133,13 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
 def run_oracle_module(module: OracleModule):
     module.check_contract_configs()
 
+    startup_data = {
+        'delegation_contract_address': variables.DELEGATION_CONTRACT_ADDRESS or None,
+        'kapi_version': module.w3.kac.get_status().app_version,
+    }
+
     try:
-        module.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_STARTUP)
+        module.w3.telemetry_data_bus.send_telemetry(TelemetryEventId.ORACLE_STARTUP, startup_data)
     except Exception:
         logger.warning({'msg': 'Failed to send startup telemetry to DataBus.'}, exc_info=True)
 

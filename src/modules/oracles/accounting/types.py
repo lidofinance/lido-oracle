@@ -153,6 +153,21 @@ class BeaconStat:
     beacon_balance: int
 
 
+@dataclass
+class BalanceStats:
+    cl_validators_balance_at_last_report: int
+    cl_pending_balance_at_last_report: int
+    # `depositedPostReport` on-chain: cumulative ETH deposited by Lido since the last report was
+    # actually processed on-chain. Only resets when a report settles, so diffing two reads of this
+    # taken within the same still-unsettled span gives the deposits made strictly between them.
+    deposited_since_last_report: int
+    # `deposited_since_last_report` minus deposits made within the current, still-open frame
+    # (`depositedNextReport`) — i.e. deposits attributed to already-elapsed, still-unsettled frames.
+    # Constant within a single open frame regardless of when it's read, so diffing two reads of
+    # this within the same frame always yields 0.
+    deposited_for_current_report: int
+
+
 @dataclass(frozen=True)
 class ReportSimulationPayload:
     timestamp: int

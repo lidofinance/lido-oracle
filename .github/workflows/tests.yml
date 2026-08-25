@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Python 3.14
         uses: actions/setup-python@v4
@@ -30,6 +32,12 @@ jobs:
         run: |
           poetry install --no-interaction --with=dev
 
+      - name: Install swig
+        run: poetry run pip install swig==4.3.0
+
+      - name: Build blst Python bindings
+        run: poetry run sh scripts/build_blst.sh
+
       - name: Test with pytest
         timeout-minutes: 60
         # Fork tests running in separate workflow
@@ -42,7 +50,7 @@ jobs:
           TESTNET_CONSENSUS_CLIENT_URI: ${{ secrets.TESTNET_CONSENSUS_CLIENT_URI }}
           TESTNET_KAPI_URI: ${{ secrets.TESTNET_KAPI_URI }}
           CS_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F"
-          CURATED_MODULE_ADDRESS: "0xdA7dE2ECdDfccC6c3AF10108Db212ACBBf9EA83F" # TODO: replace with actual address
+          CURATED_MODULE_ADDRESS: "0xDa5F930cE326EB5205085D66c72A4E79d60cB8C1"
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
           PINATA_DEDICATED_GATEWAY_URL: ${{ secrets.PINATA_DEDICATED_GATEWAY_URL }}
           PINATA_DEDICATED_GATEWAY_TOKEN: ${{ secrets.PINATA_DEDICATED_GATEWAY_TOKEN }}

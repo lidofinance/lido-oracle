@@ -31,7 +31,14 @@ You can find the full list of available Make commands [here](https://github.com/
 poetry install
 ```
 
-3. Install pre-commit hooks
+3. Fetch and build the [blst](https://github.com/supranational/blst) BLS bindings (vendored as a git submodule; requires `swig` and a C++ compiler on `PATH`):
+
+```bash
+git submodule update --init
+poetry run sh scripts/build_blst.sh
+```
+
+4. Install pre-commit hooks
 
 ```bash
 poetry run pre-commit install
@@ -96,6 +103,19 @@ Where `<module>` is one of:
 - `csm`
 - `cm`
 - `check`
+
+### Run oracle module for a specific slot
+
+`scripts/run_oracle_at_slot.py` runs a single Accounting or Ejector cycle (`DAEMON=False`) against a chosen
+reference slot, on free Prometheus/healthcheck ports so it can run alongside other instances:
+
+```bash
+poetry run python scripts/run_oracle_at_slot.py accounting              # latest finalized slot
+poetry run python scripts/run_oracle_at_slot.py ejector --slot 8500000  # forced slot
+```
+
+Requires the same env vars as above (e.g. `set -a && source .env && set +a` first). At the end of the run it prints the built
+report and the `Build `submitReport(...)`` log line in green for a quick manual check.
 
 ## Code quality
 

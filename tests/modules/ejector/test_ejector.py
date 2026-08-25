@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from web3.exceptions import ContractCustomError
@@ -23,7 +23,11 @@ from src.providers.consensus.types import (
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import get_predictable_inbound_balance
+from src.utils.validator_balance import (
+    get_predictable_full_inbound_balance,
+    get_predictable_inbound_balance,
+    get_predictable_inbound_sweep,
+)
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -248,6 +252,182 @@ class TestGetValidatorsToEject:
             result = ejector.get_validators_to_eject(ref_blockstamp)
             assert [v[1].index for v in result] == [validators[0][1].index], "Unexpected validators to eject"
 
+    @pytest.mark.unit
+    def test_get_validators_to_eject__exact_coverage_after_first_validator__ejects_only_first(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator_with_balance(32)),
+        ]
+        first_validator_balance_wei = get_predictable_inbound_balance(validators[0][1]) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_wei
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index], "Exact coverage must not eject extra validator"
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__exact_coverage_after_second_validator__ejects_two(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator_with_balance(32)),
+            ((StakingModuleId(0), NodeOperatorId(5)), build_extended_validator_with_balance(32)),
+        ]
+        first_two_validators_balance_wei = (
+            get_predictable_inbound_balance(validators[0][1]) + get_predictable_inbound_balance(validators[1][1])
+        ) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_two_validators_balance_wei
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+            "Exact coverage after second validator must eject exactly two"
+        )
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__dust_balance_shortfall_after_first__ejects_second_to_cover(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Validators carry non-32-multiple ("dust") balances. When the withdrawal queue misses
+        # coverage by a single Wei after the first validator, the loop must eject the whole second
+        # validator instead of stopping short. Dust never causes under-ejection.
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            (
+                (StakingModuleId(0), NodeOperatorId(1)),
+                build_extended_validator_with_balance(100_300_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 100.3 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(3)),
+                build_extended_validator_with_balance(63_700_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 63.7 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(5)),
+                build_extended_validator_with_balance(50_500_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 50.5 ETH
+            ),
+        ]
+        first_validator_balance_wei = get_predictable_inbound_balance(validators[0][1]) * GWEI_TO_WEI
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_wei + 1
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+            "A one-Wei shortfall after the first dusty validator must eject the second, never under-eject"
+        )
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__dust_exact_coverage_after_first__ejects_only_first(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # With a dusty balance the loop must still stop as soon as coverage is reached and not
+        # over-eject beyond one validator.
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        predicted_el_balance = Wei(100)
+        ejector._get_predicted_el_balance = Mock(return_value=predicted_el_balance)
+
+        validators = [
+            (
+                (StakingModuleId(0), NodeOperatorId(1)),
+                build_extended_validator_with_balance(100_300_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 100.3 ETH
+            ),
+            (
+                (StakingModuleId(0), NodeOperatorId(3)),
+                build_extended_validator_with_balance(63_700_000_000, meb=MAX_EFFECTIVE_BALANCE_ELECTRA),  # 63.7 ETH
+            ),
+        ]
+        first_validator_balance_gwei = Gwei(100 * 10**9 + 300_000_000)  # 100.3 ETH
+        assert get_predictable_inbound_balance(validators[0][1]) == first_validator_balance_gwei, (
+            "dust must be preserved: predictable inbound balance must keep the full 100.3 ETH"
+        )
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(
+            return_value=predicted_el_balance + first_validator_balance_gwei * GWEI_TO_WEI
+        )
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert [v[1].index for v in result] == [validators[0][1].index], (
+            "Exact coverage with a dusty balance must not eject an extra validator"
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("balance", "meb"),
+    [
+        # Compounding 0x02 validator: 0.3 ETH of dust above the 2048 ETH cap.
+        (2_048_300_000_000, MAX_EFFECTIVE_BALANCE_ELECTRA),  # 2048.3 ETH
+        # Regular 0x01 validator: 0.3 ETH of dust above the 32 ETH cap.
+        (32_300_000_000, MAX_EFFECTIVE_BALANCE),  # 32.3 ETH
+    ],
+)
+def test_predictable_inbound_plus_sweep__dust_validator__equals_full_inbound(balance: int, meb: int) -> None:
+    # A balance above the effective-balance cap splits into a capped inbound part and a sweep excess.
+    # The two must always reconstruct the full inbound balance, so dust above the cap is never lost
+    # or double-counted.
+    # Arrange
+    validator = build_extended_validator_with_balance(balance, meb=meb)
+
+    # Act
+    inbound = get_predictable_inbound_balance(validator)
+    sweep = get_predictable_inbound_sweep(validator)
+    full = get_predictable_full_inbound_balance(validator)
+
+    # Assert
+    assert sweep > 0, "the balance must exceed the cap so the sweep excess is actually exercised"
+    assert inbound + sweep == full, "inbound + sweep must equal the full inbound balance"
+
 
 @pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
@@ -265,6 +445,68 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
     ejector.is_main_data_submitted = Mock(return_value=False)
     assert ejector.is_contract_reportable(blockstamp) is True, "Unexpected is_contract_reportable result"
     ejector.is_main_data_submitted.assert_called_once_with(blockstamp)
+
+
+class TestGetPredictedElBalance:
+    """
+    Covers the going-to-exit balance leg of `_get_predicted_el_balance`: validators recently
+    requested to exit but not yet exiting must contribute only their capped (sweep-excluded)
+    balance, both to the returned EL balance and to the churn/withdrawal-epoch prediction —
+    otherwise the excess above the effective balance cap (which is separately swept) gets
+    double-counted.
+    """
+
+    @pytest.fixture(autouse=True)
+    def mock_common(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_total_el_balance = Mock(return_value=Wei(0))
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+    @pytest.mark.unit
+    def test_going_to_exit_validator_above_cap__returned_balance_uses_capped_amount(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Regular (non-compounding) validator sitting above its 32 ETH effective balance cap,
+        # e.g. because it hasn't been swept yet.
+        balance = Gwei(40 * 10**9)
+        going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE)
+        capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
+
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[going_to_exit_validator]
+        )
+
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        assert result == capped_balance * GWEI_TO_WEI, (
+            "Only the capped portion of a going-to-exit validator's balance should count — "
+            "the excess above the cap is already accounted for via the sweep and must not be added twice"
+        )
+
+    @pytest.mark.unit
+    def test_going_to_exit_validator_above_cap__withdrawal_epoch_prediction_uses_capped_amount(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        balance = Gwei(40 * 10**9)
+        going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE)
+        capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
+        to_exit_gwei = Gwei(5 * 10**9)
+
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[going_to_exit_validator]
+        )
+
+        ejector._get_predicted_el_balance(to_exit_gwei, ref_blockstamp)
+
+        ejector._get_predicted_withdrawable_epoch.assert_called_once_with(capped_balance + to_exit_gwei, ref_blockstamp)
 
 
 class TestPredictedWithdrawableEpoch:

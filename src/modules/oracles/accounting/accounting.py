@@ -6,7 +6,6 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
-from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_BALANCE_GWEI,
@@ -131,11 +130,11 @@ class Accounting(OracleModule[Web3]):
 
         if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
             tx = self.report_contract.submit_report_extra_data_empty()
-            self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+            self.w3.transaction.check_and_send_transaction(tx)
         else:
             for tx_data in extra_data.extra_data_list:
                 tx = self.report_contract.submit_report_extra_data_list(tx_data)
-                self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
+                self.w3.transaction.check_and_send_transaction(tx)
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -260,12 +259,26 @@ class Accounting(OracleModule[Web3]):
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
+
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)
         )
+        logger.info({'msg': 'Calculate new pending validators balance.', 'value': new_validators_pending})
+
         active_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
+        validators_with_topups = [v for v in active_validators if v.pending_topups]
         topups_pending = Gwei(sum(topup.amount for v in active_validators for topup in v.pending_topups))
-        return Gwei(new_validators_pending + topups_pending)
+        logger.info(
+            {
+                'msg': 'Calculate pending top-ups balance.',
+                'value': topups_pending,
+                'validators_with_topups': len(validators_with_topups),
+            }
+        )
+
+        cl_pending_balance = Gwei(new_validators_pending + topups_pending)
+        logger.info({'msg': 'Calculate CL pending validators balance.', 'value': cl_pending_balance})
+        return cl_pending_balance
 
     def _get_newly_exited_validators_by_modules(
         self,

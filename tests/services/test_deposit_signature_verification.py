@@ -1,9 +1,9 @@
-from unittest.mock import patch
-
+import blst
 import pytest
 
-from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+from src.constants import DOMAIN_DEPOSIT_TYPE, ETH1_ADDRESS_WITHDRAWAL_PREFIX, GENESIS_FORK_VERSION
 from src.services.deposit_signature_verification import (
+    _POP_DST,
     DepositMessage,
     compute_domain,
     compute_fork_data_root,
@@ -20,8 +20,6 @@ _SIGNATURE = bytes(96)
 
 
 # ---- compute_fork_data_root ----
-
-
 @pytest.mark.unit
 def test_compute_fork_data_root_returns_32_bytes():
     root = compute_fork_data_root(bytes(4), bytes(32))
@@ -51,8 +49,6 @@ def test_compute_fork_data_root_differs_on_genesis_validators_root():
 
 
 # ---- compute_domain ----
-
-
 @pytest.mark.unit
 def test_compute_domain_length():
     domain = compute_domain(DOMAIN_DEPOSIT_TYPE)
@@ -95,8 +91,6 @@ def test_compute_domain_differs_on_domain_type():
 
 
 # ---- compute_signing_root ----
-
-
 @pytest.mark.unit
 def test_compute_signing_root_returns_32_bytes():
     msg = DepositMessage(pubkey=_PUBKEY, withdrawal_credentials=_WC, amount=_AMOUNT)
@@ -138,75 +132,126 @@ def test_compute_signing_root_differs_on_domain():
 
 
 # ---- is_valid_deposit_signature ----
-
-
 @pytest.mark.unit
-def test_is_valid_deposit_signature_returns_true():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = True
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is True
+class TestIsValidDepositSignature:
+    """Exercises the real blst binding with actual BLS12-381 keys, complementing
+    the mocked plumbing tests above with genuine cryptographic verification."""
 
+    def _sign(self, sk: int, pubkey: bytes, wc: bytes, amount: int, genesis_fork_version: bytes) -> bytes:
+        deposit_message = DepositMessage(pubkey=pubkey, withdrawal_credentials=wc, amount=amount)
+        domain = compute_domain(DOMAIN_DEPOSIT_TYPE, genesis_fork_version)
+        signing_root = compute_signing_root(deposit_message, domain)
 
-@pytest.mark.unit
-def test_is_valid_deposit_signature_returns_false():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = False
-        result = is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
-    assert result is False
+        secret_key = blst.SecretKey()
+        secret_key.keygen(sk.to_bytes(32, 'big'))
+        return blst.P2().hash_to(signing_root, _POP_DST).sign_with(secret_key).compress()
 
+    def _pubkey(self, sk: int) -> bytes:
+        secret_key = blst.SecretKey()
+        secret_key.keygen(sk.to_bytes(32, 'big'))
+        return blst.P1(secret_key).compress()
 
-@pytest.mark.unit
-def test_is_valid_deposit_signature_passes_correct_pubkey_and_signature():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = True
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE)
+    def test_is_valid_deposit_signature__real_valid_deposit__returns_true(self):
+        genesis_fork_version = b'\x10\x00\x00\x38'
+        pubkey = self._pubkey(sk=12345)
+        wc = ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 11 + 'aa' * 20
+        wc_bytes = bytes.fromhex(wc[2:])
+        amount = 32_000_000_000
+        signature = self._sign(12345, pubkey, wc_bytes, amount, genesis_fork_version)
 
-    pubkey_arg, signing_root_arg, sig_arg = mock_bls.Verify.call_args[0]
-    assert pubkey_arg == _PUBKEY
-    assert sig_arg == _SIGNATURE
-    assert isinstance(signing_root_arg, bytes)
-    assert len(signing_root_arg) == 32
-
-
-@pytest.mark.unit
-def test_is_valid_deposit_signature_with_explicit_genesis_fork_version():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = True
         result = is_valid_deposit_signature(
-            _PUBKEY,
-            _WC,
-            _AMOUNT,
-            _SIGNATURE,
-            genesis_fork_version=b'\x01\x00\x00\x00',
+            pubkey, wc_bytes, amount, signature, genesis_fork_version=genesis_fork_version
         )
-    assert result is True
 
+        assert result is True
 
-@pytest.mark.unit
-def test_is_valid_deposit_signature_with_explicit_genesis_validators_root():
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = True
+    def test_is_valid_deposit_signature__tampered_amount__returns_false(self):
+        genesis_fork_version = b'\x10\x00\x00\x38'
+        pubkey = self._pubkey(sk=54321)
+        wc = ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 11 + 'bb' * 20
+        wc_bytes = bytes.fromhex(wc[2:])
+        amount = 32_000_000_000
+        signature = self._sign(54321, pubkey, wc_bytes, amount, genesis_fork_version)
+
         result = is_valid_deposit_signature(
-            _PUBKEY,
-            _WC,
-            _AMOUNT,
-            _SIGNATURE,
-            genesis_validators_root=b'\xab' * 32,
+            pubkey, wc_bytes, amount + 1, signature, genesis_fork_version=genesis_fork_version
         )
-    assert result is True
 
+        assert result is False
 
-@pytest.mark.unit
-def test_is_valid_deposit_signature_different_fork_versions_produce_different_signing_roots():
-    # Two calls with different fork versions must produce different signing roots
-    with patch('src.services.deposit_signature_verification.BLSVerifier') as mock_bls:
-        mock_bls.Verify.return_value = True
+    def test_is_valid_deposit_signature__garbage_pubkey__returns_false(self):
+        result = is_valid_deposit_signature(bytes([0x11] * 48), bytes(32), 32_000_000_000, bytes([0x22] * 96))
+        assert result is False
 
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE, genesis_fork_version=b'\x00\x00\x00\x00')
-        root1 = mock_bls.Verify.call_args[0][1]
+    def _valid_deposit(self, sk: int = 777) -> tuple[bytes, bytes, int, bytes, bytes]:
+        genesis_fork_version = b'\x10\x00\x00\x38'
+        pubkey = self._pubkey(sk)
+        wc = bytes.fromhex((ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 11 + 'cc' * 20)[2:])
+        amount = 32_000_000_000
+        signature = self._sign(sk, pubkey, wc, amount, genesis_fork_version)
+        return pubkey, wc, amount, signature, genesis_fork_version
 
-        is_valid_deposit_signature(_PUBKEY, _WC, _AMOUNT, _SIGNATURE, genesis_fork_version=b'\x01\x00\x00\x00')
-        root2 = mock_bls.Verify.call_args[0][1]
+    # blst's deserializers accept the uncompressed encodings as well, so a deposit carrying
+    # them would verify under blst while py_ecc — and every oracle release before the switch
+    # — rejects it. These assert the point is genuinely valid when compressed, so what is
+    # being tested is the encoding rule and not a broken fixture.
 
-    assert root1 != root2
+    def test_is_valid_deposit_signature__uncompressed_signature__returns_false(self):
+        pubkey, wc, amount, signature, fork = self._valid_deposit()
+        assert is_valid_deposit_signature(pubkey, wc, amount, signature, genesis_fork_version=fork) is True
+
+        uncompressed = blst.P2_Affine(signature).serialize()
+        assert len(uncompressed) == 192
+
+        result = is_valid_deposit_signature(pubkey, wc, amount, uncompressed, genesis_fork_version=fork)
+
+        assert result is False
+
+    def test_is_valid_deposit_signature__uncompressed_pubkey__returns_false(self):
+        pubkey, wc, amount, signature, fork = self._valid_deposit()
+        assert is_valid_deposit_signature(pubkey, wc, amount, signature, genesis_fork_version=fork) is True
+
+        uncompressed = blst.P1_Affine(pubkey).serialize()
+        assert len(uncompressed) == 96
+
+        result = is_valid_deposit_signature(uncompressed, wc, amount, signature, genesis_fork_version=fork)
+
+        assert result is False
+
+    @pytest.mark.parametrize(
+        'pubkey_len, signature_len',
+        [(0, 96), (47, 96), (49, 96), (48, 0), (48, 95), (48, 97)],
+    )
+    def test_is_valid_deposit_signature__wrong_encoding_length__returns_false(self, pubkey_len, signature_len):
+        result = is_valid_deposit_signature(bytes(pubkey_len), bytes(32), 32_000_000_000, bytes(signature_len))
+        assert result is False
+
+    def test_is_valid_deposit_signature__real_signature_from_mainnet__returns_true(self):
+        result = is_valid_deposit_signature(
+            b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x89\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
+            b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
+            32000000000,
+            b"\xa1\xdd\x00\x02\x07\xb9\x9ca\xc2:KH\xebC;\xa1p\x0b7\x17\x05\xcaN\xa5\xc08\xd5\r\xe4G\xe4\xed\xf1\xaa\x96P\xcaN\xe2r\x99-\xb9\xb5\xb0[\x19\xa3\x05\\\x0c'\x11\x1bc\xee\x85\x16\xe6D\x0e\xaa\x9c!\xdd\xd2\xce\xf05x\x7f\xd28\x18e\xed\x94<\x9d\x01U'\x9am4\xdb\xfe\xe49\xf7t\xa2\x99\x04_\xcf",
+            b'\x00\x00\x00\x00',
+        )
+        assert result is True
+
+    def test_is_valid_deposit_signature__invalid_signature_from_mainnet__returns_false(self):
+        result = is_valid_deposit_signature(
+            b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x88\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
+            b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
+            32000000000,
+            b"\xa1\xdd\x00\x02\x07\xb9\x9ca\xc2:KH\xebC;\xa1p\x0b7\x17\x05\xcaN\xa5\xc08\xd5\r\xe4G\xe4\xed\xf1\xaa\x96P\xcaN\xe2r\x99-\xb9\xb5\xb0[\x19\xa3\x05\\\x0c'\x11\x1bc\xee\x85\x16\xe6D\x0e\xaa\x9c!\xdd\xd2\xce\xf05x\x7f\xd28\x18e\xed\x94<\x9d\x01U'\x9am4\xdb\xfe\xe49\xf7t\xa2\x99\x04_\xcf",
+            b'\x00\x00\x00\x00',
+        )
+        assert result is False
+
+    def test_is_valid_deposit_signature__invalid_amount_from_mainnet__returns_false(self):
+        result = is_valid_deposit_signature(
+            b'\x80}\xfeG.\xc5`\xdb\x080-\xc2"\xa1\x86\xec\x89\x1e\xcf\x96\xec\xbd\xcf\xfec\xf33\x17\x1a\xa7KIV?\xfb\xddYFJAX)\x15a\x9d5\xfc\xd1',
+            b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\xd7\x93Hx\xb5\xfb\x96\x10\xb3\xfe\x8a^D\x1e\x8f\xad~)?',
+            33000000000,
+            b"\xa1\xdd\x00\x02\x07\xb9\x9ca\xc2:KH\xebC;\xa1p\x0b7\x17\x05\xcaN\xa5\xc08\xd5\r\xe4G\xe4\xed\xf1\xaa\x96P\xcaN\xe2r\x99-\xb9\xb5\xb0[\x19\xa3\x05\\\x0c'\x11\x1bc\xee\x85\x16\xe6D\x0e\xaa\x9c!\xdd\xd2\xce\xf05x\x7f\xd28\x18e\xed\x94<\x9d\x01U'\x9am4\xdb\xfe\xe49\xf7t\xa2\x99\x04_\xcf",
+            b'\x00\x00\x00\x00',
+        )
+        assert result is False

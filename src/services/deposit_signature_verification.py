@@ -1,10 +1,23 @@
 # pyright: reportPrivateImportUsage=false
+import blst
 import ssz
 from eth_typing import Hash32
-from py_ecc.bls import G2ProofOfPossession as BLSVerifier
-from py_ecc.bls.g2_primitives import BLSPubkey, BLSSignature
 
 from src.constants import DOMAIN_DEPOSIT_TYPE, GENESIS_FORK_VERSION
+
+
+# Domain separation tag for the BLS "proof of possession" ciphersuite (min-pubkey-size,
+# RFC 9380 SSWU random-oracle hash-to-curve) used by Ethereum deposits.
+_POP_DST = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_"
+
+# Sizes of the *compressed* BLS12-381 encodings the consensus spec uses for deposits.
+# blst's deserializers also accept the uncompressed forms (96 and 192 bytes), so without
+# an explicit length check it would validate a deposit that py_ecc — and therefore every
+# oracle release before the switch to blst — rejects outright. Two implementations
+# disagreeing about whether a deposit counts is exactly what breaks report consensus, so
+# the accepted encoding is pinned rather than left to the library.
+_COMPRESSED_PUBKEY_LEN = 48
+_COMPRESSED_SIGNATURE_LEN = 96
 
 
 class DepositMessage(ssz.Serializable):
@@ -92,9 +105,14 @@ def is_valid_deposit_signature(
     """
     Return **True** if the deposit proof-of-possession (BLS signature) is valid.
 
+    Only the compressed encodings are accepted, see `_COMPRESSED_PUBKEY_LEN`.
+
     Source:
     https://github.com/ethereum/consensus-specs/blob/139ff2875783ccba26c34aa15acebbcfba5f6eae/specs/electra/beacon-chain.md#new-is_valid_deposit_signature
     """
+    if len(pubkey) != _COMPRESSED_PUBKEY_LEN or len(signature) != _COMPRESSED_SIGNATURE_LEN:
+        return False
+
     deposit_message = DepositMessage(
         pubkey=pubkey,
         withdrawal_credentials=withdrawal_credentials,
@@ -102,4 +120,10 @@ def is_valid_deposit_signature(
     )
     domain = compute_domain(DOMAIN_DEPOSIT_TYPE, genesis_fork_version, genesis_validators_root)
     signing_root = compute_signing_root(deposit_message, domain)
-    return BLSVerifier.Verify(BLSPubkey(pubkey), signing_root, BLSSignature(signature))
+
+    try:
+        bls_pubkey = blst.P1_Affine(pubkey)
+        bls_signature = blst.P2_Affine(signature)
+        return bls_signature.core_verify(bls_pubkey, True, signing_root, _POP_DST) == blst.BLST_SUCCESS
+    except (RuntimeError, ValueError):  # Invalid signature
+        return False

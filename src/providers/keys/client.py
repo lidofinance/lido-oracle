@@ -1,3 +1,4 @@
+import logging
 from time import sleep
 from typing import TypedDict, cast
 
@@ -6,6 +7,10 @@ from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dic
 from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
+from src.utils.fingerprint import log_fingerprint
+
+
+logger = logging.getLogger(__name__)
 
 
 class KeysOutdatedException(Exception):
@@ -55,8 +60,19 @@ class KeysAPIClient(HTTPProvider):
         """
         for i in range(self.retry_count):
             data, meta = self._get(url, query_params=params)
-            blocknumber_meta = meta['meta']['elBlockSnapshot']['blockNumber']
+            snapshot = meta['meta']['elBlockSnapshot']
+            blocknumber_meta = snapshot['blockNumber']
             KEYS_API_LATEST_BLOCKNUMBER.set(blocknumber_meta)
+            logger.info(
+                {
+                    'msg': 'Keys API response.',
+                    'endpoint': url,
+                    'attempt': i + 1,
+                    'requested_block_number': blockstamp.block_number,
+                    'response_bytes': meta.get('response_bytes'),
+                    'el_block_snapshot': snapshot,
+                }
+            )
             if blocknumber_meta >= blockstamp.block_number:
                 return data
 
@@ -72,6 +88,7 @@ class KeysAPIClient(HTTPProvider):
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         data = [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
         self._check_used_keys(data)
+        log_fingerprint(logger, 'Keys API used keys', data, endpoint=self.USED_KEYS)
         return data
 
     @lru_cache(maxsize=1)
@@ -87,6 +104,12 @@ class KeysAPIClient(HTTPProvider):
 
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
+        log_fingerprint(
+            logger,
+            'Keys API module operators keys',
+            data,
+            endpoint=self.USED_MODULE_OPERATORS_KEYS.format(module_address),
+        )
 
         return cast(ModuleOperatorsKeys, data)
 
