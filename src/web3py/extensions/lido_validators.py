@@ -302,7 +302,14 @@ class LidoValidatorsProvider(Module):
             hex_str_to_bytes(genesis_config.genesis_fork_version),
         )
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
-        logger.info({'msg': 'Get pending lido validators.', 'value': len(result)})
+        logger.info(
+            {
+                'msg': 'Get pending lido validators.',
+                'value': len(result),
+                # Half of what `clPendingBalanceGwei` is summed from.
+                'pending_deposits_sum_gwei': sum(d.amount for _, deposits in result.values() for d in deposits),
+            }
+        )
         return result
 
     @staticmethod

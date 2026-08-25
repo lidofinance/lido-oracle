@@ -1,6 +1,8 @@
 # pylint: disable=protected-access
 """Simple tests for the consensus client responses validity."""
 
+import json
+import logging
 from unittest.mock import Mock
 
 import pytest
@@ -15,6 +17,7 @@ from src.providers.consensus.types import Validator
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
+from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import BlockStampFactory
 
 
@@ -22,7 +25,7 @@ from tests.factory.blockstamp import BlockStampFactory
 def consensus_client(request):
     params = getattr(request, 'param', {})
     rpc_endpoint = params.get('endpoint', variables.CONSENSUS_CLIENT_URI[0])
-    return ConsensusClient([rpc_endpoint], 10)
+    return ConsensusClient([rpc_endpoint], 30)
 
 
 # --- Unit tests for HTTPSessionManagerProxy integration ---
@@ -277,6 +280,28 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
 
     with raises:
         consensus_client._get_chain_id_with_provider(0)
+
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_state(
+    consensus_client: ConsensusClient, caplog
+):
+    """Without this the call site can be dropped in a refactor and CI stays green."""
+    caplog.set_level(logging.INFO)
+    resp = requests.Response()
+    resp.status_code = 200
+    resp._content = json.dumps({'data': {'slot': 42, 'validators': [], 'balances': [], 'slashings': []}}).encode()
+    consensus_client.session.get = Mock(return_value=resp)
+    bs = BlockStampFactory.build()
+
+    state = consensus_client.get_state_view_no_cache(bs)
+
+    line = next(
+        r.msg for r in caplog.records if isinstance(r.msg, dict) and r.msg.get('msg') == 'Beacon state fingerprint.'
+    )
+    assert line['digest'] == digest_of(state)
+    assert line['state_root'] == bs.state_root
+    assert line['slot'] == 42
 
 
 @pytest.mark.unit

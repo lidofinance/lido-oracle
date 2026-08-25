@@ -58,7 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     # curl is only used here in development. The Debian repo updates it
     # often, so a pinned version can disappear and break the build. The
     # development stage does not run in pipelines, so this is safe here.
-    curl=8.14.1-2+deb13u3 \
+    curl=8.14.1-2+deb13u4 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -84,7 +84,10 @@ ENV HEALTHCHECK_SERVER_PORT=9010
 EXPOSE $PROMETHEUS_PORT
 USER www-data
 
-HEALTHCHECK --interval=10s --timeout=3s \
+# The python probe spends ~0.5-1 CPU-second on interpreter startup alone.
+# Under a container CPU limit with a busy application this can stretch to
+# several seconds of wall time, so the timeout must stay generous.
+HEALTHCHECK --interval=10s --timeout=30s \
     CMD /opt/venv/bin/python3 -m src.scripts.healthcheck "http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck" || exit 1
 
 WORKDIR /app/

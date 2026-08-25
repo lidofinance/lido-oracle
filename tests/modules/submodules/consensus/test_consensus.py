@@ -7,10 +7,9 @@ from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
-from src import variables
 from src.modules.common.types import ChainConfig
 from src.modules.oracles.common import consensus as consensus_module
-from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
+from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.providers.consensus.types import BeaconSpecResponse
 from src.types import BlockStamp, ReferenceBlockStamp
@@ -31,52 +30,36 @@ class Account:
 
 
 @pytest.fixture()
-def set_no_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(variables, "ACCOUNT", None)
-        yield
+def set_no_account(consensus):
+    consensus.w3.signer.active_signer = None
+    consensus.w3.signer.hash_consensus_member_address = None
 
 
 @pytest.fixture()
-def set_submit_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "ACCOUNT",
-            Account(
-                address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
-                _private_key='0x0',
-            ),
-        )
-        yield
+def set_submit_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address='0xe576e37b0c3e52E45993D20161a6CB289e0c8CA1',
+        _private_key='0x0',
+    )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.fixture()
-def set_not_member_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "ACCOUNT",
-            Account(
-                address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
-                _private_key='0x0',
-            ),
-        )
-        yield
+def set_not_member_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address='0x25F76608A3FbC9C75840E070e3c285ce1732F834',
+        _private_key='0x0',
+    )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.fixture()
-def set_report_account(monkeypatch):
-    with monkeypatch.context():
-        monkeypatch.setattr(
-            variables,
-            "ACCOUNT",
-            Account(
-                address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
-                _private_key='0x0',
-            ),
-        )
-        yield
+def set_report_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
+        _private_key='0x0',
+    )
+    consensus.w3.signer.hash_consensus_member_address = consensus.w3.signer.active_signer.address
 
 
 @pytest.mark.unit
@@ -87,6 +70,39 @@ def test_get_latest_blockstamp(consensus, set_no_account):
     bs = consensus._get_latest_blockstamp()
 
     assert isinstance(bs, BlockStamp)
+
+
+# ------ _get_latest_data / signer wiring tests ---------
+@pytest.mark.unit
+def test_get_latest_data__feeds_current_members_to_signer(consensus):
+    blockstamp = ReferenceBlockStampFactory.build()
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    members = ['0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa', '0xBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBbBb']
+    consensus._get_consensus_contract_members = Mock(return_value=(members, [1, 2]))
+    consensus.get_member_info = Mock(return_value=MemberInfoFactory.build())
+
+    consensus._get_latest_data()
+
+    consensus._get_consensus_contract_members.assert_called_once_with(blockstamp)
+    consensus.w3.signer.process_members.assert_called_once_with(members)
+
+
+@pytest.mark.unit
+def test_get_latest_data__resolves_signer_before_fetching_member_info(consensus):
+    """get_member_info reads w3.signer.active_signer, so process_members must run first."""
+    blockstamp = ReferenceBlockStampFactory.build()
+    consensus._get_latest_blockstamp = Mock(return_value=blockstamp)
+    consensus._get_consensus_contract_members = Mock(return_value=(['0xAaAa'], []))
+
+    call_order = []
+    consensus.w3.signer.process_members = Mock(side_effect=lambda _: call_order.append('process_members'))
+    consensus.get_member_info = Mock(
+        side_effect=lambda _: call_order.append('get_member_info') or MemberInfoFactory.build()
+    )
+
+    consensus._get_latest_data()
+
+    assert call_order == ['process_members', 'get_member_info']
 
 
 # ------ MemberInfo tests ---------
@@ -129,7 +145,7 @@ def test_get_member_info_without_account(consensus, set_no_account):
 
 
 @pytest.mark.unit
-def test_get_member_info_no_member_account(consensus, set_not_member_account):
+def test_get_member_info_no_member_account(consensus, set_not_member_account, caplog):
     bs = ReferenceBlockStampFactory.build()
     consensus.w3.eth.get_balance = Mock(return_value=1)
     consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
@@ -143,8 +159,12 @@ def test_get_member_info_no_member_account(consensus, set_not_member_account):
     )
     consensus.report_contract.has_role.return_value = False
 
-    with pytest.raises(IsNotMemberException):
-        consensus.get_member_info(bs)
+    member_info = consensus.get_member_info(bs)
+
+    assert isinstance(member_info, MemberInfo)
+    assert not member_info.is_report_member
+    assert not member_info.is_submit_member
+    assert "is not part of Oracle's members and has no submit role" in caplog.text
 
 
 @pytest.mark.unit
@@ -168,6 +188,45 @@ def test_get_member_info_submit_only_account(consensus, set_submit_account):
     assert not member_info.is_report_member
     assert member_info.is_submit_member
     assert not member_info.is_fast_lane
+
+
+DELEGATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000dEaD'
+
+
+@pytest.fixture()
+def set_delegated_account(consensus):
+    consensus.w3.signer.active_signer = Account(
+        address='0xF6d4bA61810778fF95BeA0B7DB2F103Dc042C5f7',
+        _private_key='0x0',
+    )
+    consensus.w3.signer.hash_consensus_member_address = DELEGATION_CONTRACT_ADDRESS
+
+
+@pytest.mark.unit
+def test_get_member_info__delegated__queries_delegation_contract_address(consensus, set_delegated_account):
+    bs = ReferenceBlockStampFactory.build()
+    consensus.w3.eth.get_balance = Mock(return_value=1)
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.return_value = (
+        0,  # current_frame_ref_slot
+        0,  # current_frame_consensus_report
+        True,  # is_member
+        True,  # is_fast_lane
+        True,  # can_report
+        0,  # last_member_report_ref_slot
+        0,  # current_frame_member_report
+    )
+    consensus.report_contract.has_role.return_value = True
+
+    consensus.get_member_info(bs)
+
+    consensus._get_consensus_contract(bs).get_consensus_state_for_member.assert_called_once_with(
+        DELEGATION_CONTRACT_ADDRESS, bs.block_hash
+    )
+    consensus.report_contract.has_role.assert_called_once_with(
+        consensus.report_contract.submit_data_role.return_value,
+        DELEGATION_CONTRACT_ADDRESS,
+        bs.block_hash,
+    )
 
 
 @pytest.mark.unit
