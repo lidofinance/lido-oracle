@@ -12,7 +12,7 @@ from src.modules.common.types import ChainConfig
 from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, IsNotMemberException, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.providers.consensus.types import BeaconSpecResponse
-from src.types import BlockStamp, ReferenceBlockStamp
+from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -349,6 +349,9 @@ class TestGetBlockstampForReportWaitsForChild:
             is_report_member=True,
             is_fast_lane=True,
             current_frame_ref_slot=self.REF_SLOT,
+            # Pinned: a Faker-generated deadline at or below REF_SLOT sends every test in this class
+            # down the "Deadline missed." branch before it reaches the child-finalization gate.
+            deadline_slot=SlotNumber(self.REF_SLOT + 1000),
         )
         consensus.get_member_info = Mock(return_value=member_info)
         consensus._get_latest_blockstamp = Mock(
