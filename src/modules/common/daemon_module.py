@@ -38,9 +38,8 @@ class DaemonModule(ABC):
     def __init__(self, cc: ConsensusClient, el: Eth | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._cc = cc
-        # Optional execution client. Needed post-EIP-7732 to resolve the execution anchor of the
-        # finalized liveness blockstamp (a block's own execution payload is no longer embedded).
-        # CL-only daemons (the performance collector) leave this None and never read EL fields.
+        # Needed post-EIP-7732 to resolve the finalized blockstamp's execution anchor. CL-only
+        # daemons (the performance collector) leave it None and never read EL fields.
         self._el = el
         self._slot_threshold = SlotNumber(0)
 

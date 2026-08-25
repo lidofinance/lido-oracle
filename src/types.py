@@ -76,10 +76,9 @@ class BlockStamp:
 
 @dataclass(frozen=True)
 class ReferenceBlockStamp(BlockStamp):
-    # Ref slot could differ from slot_number. Before Glamsterdam, a missed ref_slot makes
-    # slot_number the previous non-missed slot. After Glamsterdam (EIP-7732) slot_number is always
-    # ref_slot's child — the first non-missed slot *after* ref_slot — because that is the earliest
-    # block whose state settles ref_slot's execution payload. See src/utils/blockstamp.py.
+    # ref_slot labels the report on-chain; slot_number is the block it is built from. Under
+    # EIP-7732 that block is ref_slot's child, so slot_number can be greater than ref_slot, and the
+    # block_* fields belong to ref_slot rather than to slot_number. See BlockstampBuilder.
     ref_slot: SlotNumber
     ref_epoch: EpochNumber
 

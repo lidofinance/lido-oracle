@@ -240,11 +240,8 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Finalization gate, part one: ref_slot itself has to be finalized. Post-EIP-7732 that is
-        # necessary but no longer sufficient - the report is built on ref_slot's child, so a block
-        # strictly after ref_slot must be finalized too. Whether the fork is active cannot be known
-        # here without fetching the block, so the resolver below enforces the second half and raises
-        # ChildSlotNotFinalized. Both halves must hold before a report is built.
+        # Necessary but not sufficient under EIP-7732, where the report is built on ref_slot's
+        # child: the resolver below raises ChildSlotNotFinalized for the other half.
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
@@ -263,8 +260,7 @@ class ConsensusModule[W3: Web3Base](ABC):
                 last_finalized_slot_number=last_finalized_blockstamp.slot_number,
             )
         except ChildSlotNotFinalized:
-            # Post-EIP-7732 the report is built from ref_slot's child block. If that child isn't
-            # finalized yet, wait and retry, exactly as for an unfinalized ref slot.
+            # Same treatment as an unfinalized ref slot above: wait and retry next cycle.
             logger.info({'msg': "Reference slot's child is not yet finalized."})
             return None
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})

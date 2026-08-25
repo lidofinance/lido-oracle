@@ -126,24 +126,16 @@ def get_next_non_missed_slot(
 ) -> BlockDetailsResponse:
     """Get the first non-missed block strictly after `slot` (its child).
 
-    Under EIP-7732 this child is the block a blockstamp for `slot` is built from: its state is the
-    earliest one where `slot`'s execution payload, deposits and withdrawals are settled. Raises
-    ChildSlotNotFinalized when no finalized block exists after `slot` yet (the report should wait,
-    exactly as it does for an unfinalized ref slot).
+    Raises ChildSlotNotFinalized when no finalized block exists after `slot` yet.
     """
     if slot >= last_finalized_slot_number:
         raise ChildSlotNotFinalized(
             f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'
         )
-    # get_non_missed_slot_header scans forward and returns the first existing header in the range,
-    # which for a start of `slot + 1` is exactly the first non-missed block after `slot`.
     _, existing_header = get_non_missed_slot_header(cc, SlotNumber(slot + 1), last_finalized_slot_number)
 
-    # A report may only ever be built on a finalized block. The scan above is bounded by
-    # last_finalized_slot_number and _check_block_header rejects a non-finalized or non-canonical
-    # header, so this cannot trip today - it states the invariant explicitly rather than leaving it
-    # to be inferred from the scan range, because unlike the pre-fork resolver this one reaches at
-    # slots the caller has not itself checked.
+    # Unlike the pre-fork resolver, this one reaches at slots the caller has not itself checked, so
+    # the finalized-only invariant is asserted rather than left to the scan bound.
     child_slot = existing_header.data.header.message.slot
     if child_slot > last_finalized_slot_number:
         raise ChildSlotNotFinalized(

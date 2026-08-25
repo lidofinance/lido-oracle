@@ -134,11 +134,9 @@ class ExecutionPayloadBid(Nested, FromResponse):
     """
     EIP-7732 builder bid header (subset we need).
 
-    `parent_block_hash` is the execution block the builder builds on top of, and it is the block's
+    `parent_block_hash` is the execution block the builder builds on top of, and so the block's
     execution-layer anchor: `process_execution_payload_bid` asserts
-    `bid.parent_block_hash == state.latest_block_hash`. Blockstamps a report is computed on read the
-    anchor from the state itself; only the per-cycle liveness stamps, which never read CL state, use
-    this equivalent value instead of downloading one.
+    `bid.parent_block_hash == state.latest_block_hash`.
 
     The `message.parent_block_hash` path is per the consensus-specs container; confirm against the
     final beacon-APIs serialization before mainnet activation.
@@ -191,9 +189,8 @@ class SyncAggregate(FromResponse):
 class BeaconBlockBody(Nested, FromResponse):
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
-    # EIP-7732: pre-fork blocks carry `execution_payload`; post-fork blocks carry
-    # `signed_execution_payload_bid` instead (the full payload is revealed separately).
-    # Exactly one of the two is present depending on whether the block is pre- or post-Gloas.
+    # Exactly one of these is present: `execution_payload` pre-EIP-7732, and post-fork
+    # `signed_execution_payload_bid`, where the payload itself is revealed separately.
     execution_payload: ExecutionPayload | None = None
     signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
 
@@ -292,10 +289,11 @@ class ExpectedWithdrawal(Nested, FromResponse):
     """
     A single entry in BeaconState.payload_expected_withdrawals (EIP-7732).
 
-    Under Gloas, process_withdrawals deducts these amounts from CL validator balances before the
-    matching execution payload credits the withdrawal vault. Off-chain consumers that need CL/EL
-    balance consistency add them back (see src/utils/validator_balance.py::gloas_balance_correction).
-    FromResponse ignores extra fields (e.g. index, address) present in the API response.
+    `process_withdrawals` deducts these amounts from CL validator balances before the matching
+    execution payload credits the withdrawal vault, so consumers that need CL/EL balance
+    consistency add them back.
+
+    FromResponse ignores the extra fields (index, address) the API returns alongside these.
     """
 
     validator_index: ValidatorIndex
@@ -321,14 +319,11 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
-    # New in Gloas (EIP-7732), default values for backward compatibility with pre-fork states.
-    #
-    # payload_expected_withdrawals: withdrawals already deducted from CL balances whose execution
-    # payload has not been applied yet, so the withdrawal vault has not received them at this
-    # state's `latest_block_hash`.
+    # These fields are new in Gloas, so here are default values for backward compatibility.
+    # Withdrawals deducted from CL balances whose payload has not been applied, so the withdrawal
+    # vault has not yet received them at `latest_block_hash`.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
-    # latest_block_hash: the block's execution-layer anchor, and the source report blockstamps use.
-    # Liveness blockstamps read the equal value from the block body — see ExecutionPayloadBid.
+    # The state's execution-layer anchor.
     latest_block_hash: BlockHash = BlockHash(HexStr(''))
 
     @cached_property

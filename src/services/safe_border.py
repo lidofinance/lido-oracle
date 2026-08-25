@@ -248,9 +248,7 @@ class SafeBorder(Web3Converter):
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        # Post-EIP-7732 the report's own block sits after its ref slot, so it — not the ref slot —
-        # is the latest slot known to be finalized here. Pre-fork the report's block is at or
-        # before the ref slot, and the ref slot stays the bound.
+        # Both slots are known finalized; under EIP-7732 the report's own block is the later one.
         last_finalized_slot = max(self.blockstamp.ref_slot, self.blockstamp.slot_number)
         return self._blockstamp_builder.get_blockstamp(last_slot_in_frame, last_finalized_slot)
 

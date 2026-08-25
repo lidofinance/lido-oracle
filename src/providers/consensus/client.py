@@ -41,9 +41,8 @@ logger = logging.getLogger(__name__)
 
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
-# A beacon state can be addressed either by a full BlockStamp or by an explicit
-# (state_root, slot_number) pair. The pair form is used while a BlockStamp is still being built and
-# its execution-layer anchor has to be read from the state (see src/utils/blockstamp.py).
+# The pair form addresses a state while its BlockStamp is still being built and the execution
+# anchor has yet to be read out of it (see BlockstampBuilder).
 StateIdentifier = BlockStamp | tuple[StateRoot, SlotNumber]
 
 
@@ -261,9 +260,8 @@ class ConsensusClient(HTTPProvider):
         return state_identifier
 
     def get_state_view(self, state_identifier: StateIdentifier) -> BeaconStateView:
-        # Normalize to a canonical (state_root, slot) cache key so that the same state fetched via
-        # a BlockStamp and via an explicit (state_root, slot) pair — the form used while the
-        # BlockStamp is still being built — hits the same entry and is downloaded only once.
+        # Canonical cache key, so a state reached through either identifier form hits one entry and
+        # is downloaded once.
         return self._get_state_view_cached(*self._state_root_and_slot(state_identifier))
 
     @lru_cache(maxsize=1)

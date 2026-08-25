@@ -120,8 +120,7 @@ def finalized_blockstamp(web3):
     block_root = BlockRoot(web3.cc.get_block_root('finalized').root)
     block_details = web3.cc.get_block_details(block_root)
     cc_config = web3.cc.get_config_spec()
-    # The finalized block is the chain tip for these checks and has no child to build from, so the
-    # reference blockstamp is built from the block itself rather than resolved via its ref slot.
+    # The finalized block is the tip here and has no child, so build from the block itself.
     return BlockstampBuilder(web3.cc, web3.eth).build_reference_blockstamp(
         block_details,
         ref_slot=block_details.message.slot,
