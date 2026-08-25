@@ -3,8 +3,7 @@
 These require a Lido devnet with Gloas active and are SKIPPED until one is stable (there is no
 public Glamsterdam testnet yet). They encode the highest-risk end-to-end invariants — that a report
 blockstamp is built from ref_slot's child and anchored on that child's state.latest_block_hash, and
-that the block's bid carries the same value (which is what the liveness path relies on). See
-docs/glamsterdam-devnet-testplan.md for the full manual plan.
+that the block's bid carries the same value (which is what the liveness path relies on).
 """
 
 import pytest
