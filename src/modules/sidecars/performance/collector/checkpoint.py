@@ -23,7 +23,7 @@ from src.modules.sidecars.performance.common.types import AttDutyMisses, Proposa
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import BlockAttestation, SyncAggregate, SyncCommittee
 from src.types import BlockRoot, BlockStamp, CommitteeIndex, EpochNumber, SlotNumber, ValidatorIndex
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import build_blockstamp
 from src.utils.range import sequence
 from src.utils.slot import get_prev_non_missed_slot
 from src.utils.timeit import timeit
@@ -373,10 +373,11 @@ class FrameCheckpointProcessor:
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
         logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
         # CL-only consumer: no execution client, so the EL fields stay placeholders.
-        state_blockstamp = BlockstampBuilder(self.cc).build_blockstamp(
+        state_blockstamp = build_blockstamp(
+            self.cc,
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            )
+            ),
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee

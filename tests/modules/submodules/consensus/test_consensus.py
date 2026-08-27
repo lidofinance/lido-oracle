@@ -8,6 +8,7 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src.modules.common.types import ChainConfig
+from src.modules.oracles.common import consensus as consensus_module
 from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
 from src.providers.consensus.types import BeaconSpecResponse
@@ -521,7 +522,7 @@ def test_no_report_contract(web3, impl: type[ConsensusModule]):
 def test_check_contract_config(consensus: ConsensusModule, monkeypatch: pytest.MonkeyPatch):
     bs = ReferenceBlockStampFactory.build()
     with monkeypatch.context() as m:
-        m.setattr(consensus._blockstamp_builder, "get_blockstamp_by_state", Mock(return_value=bs))
+        m.setattr(consensus_module, "get_blockstamp_by_state", Mock(return_value=bs))
         chain_config = cast(ChainConfig, ChainConfigFactory.build())
         consensus.get_chain_config = Mock(return_value=chain_config)
         bc_spec = cast(BeaconSpecResponse, BeaconSpecResponseFactory.build())

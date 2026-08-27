@@ -3,7 +3,6 @@ import signal
 import time
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
-from functools import cached_property
 
 from timeout_decorator import timeout
 from web3.eth import Eth
@@ -18,7 +17,7 @@ from src.metrics.prometheus.basic import (
 from src.modules.common.types import ModuleExecuteDelay
 from src.providers.consensus.client import ConsensusClient
 from src.types import BlockStamp, SlotNumber
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_blockstamp_by_state
 
 
 logger = logging.getLogger(__name__)
@@ -38,14 +37,10 @@ class DaemonModule(ABC):
     def __init__(self, cc: ConsensusClient, el: Eth | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._cc = cc
-        # Needed post-EIP-7732 to resolve the finalized blockstamp's execution anchor. CL-only
-        # daemons (the performance collector) leave it None and never read EL fields.
+        # Post-EIP-7732 the finalized blockstamp needs an EL client to resolve its execution anchor.
+        # CL-only daemons (the performance collector) leave it None and never read EL fields.
         self._el = el
         self._slot_threshold = SlotNumber(0)
-
-    @cached_property
-    def _blockstamp_builder(self) -> BlockstampBuilder:
-        return BlockstampBuilder(self._cc, self._el)
 
     def run_as_daemon(self):
         """Starts module in daemon mode with infinite loop"""
@@ -100,7 +95,7 @@ class DaemonModule(ABC):
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         """Gets last finalized BlockStamp"""
-        return self._blockstamp_builder.get_blockstamp_by_state('finalized')
+        return get_blockstamp_by_state(self.cc, 'finalized', self._el)
 
     def run_cycle(self, last_finalized_blockstamp: BlockStamp):
         """Base logic for daemon module cycle execution"""

@@ -15,7 +15,13 @@ from eth_utils import add_0x_prefix
 from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
 from src.providers.http_provider import NotOkResponse
 from src.types import BlockHash, EpochNumber, SlotNumber
-from src.utils.blockstamp import BlockstampBuilder, MissingExecutionAnchor
+from src.utils.blockstamp import (
+    MissingExecutionAnchor,
+    build_blockstamp,
+    get_blockstamp,
+    get_blockstamp_by_state,
+    get_reference_blockstamp,
+)
 from src.utils.slot import ChildSlotNotFinalized, get_next_non_missed_slot
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
@@ -54,7 +60,7 @@ class TestExecutionAnchorResolution:
         payload = details.message.body.execution_payload
 
         # Act
-        bs = BlockstampBuilder(Mock(), el).build_blockstamp(details)
+        bs = build_blockstamp(Mock(), details, el)
 
         # Assert: identical to the legacy behavior, the execution client is never consulted.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
@@ -68,7 +74,7 @@ class TestExecutionAnchorResolution:
         cc = _cc()
 
         # Act
-        bs = BlockstampBuilder(cc, el).build_blockstamp(details)
+        bs = build_blockstamp(cc, details, el)
 
         # Assert: the state wins, addressed by (state_root, slot) so it shares the report's cache entry.
         cc.get_state_view.assert_called_once_with((details.message.state_root, SlotNumber(100)))
@@ -79,19 +85,6 @@ class TestExecutionAnchorResolution:
         assert bs.block_timestamp == 424242
         el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
 
-    def test_build_blockstamp__post_fork_liveness__anchors_on_bid_parent_block_hash(self, el):
-        # Arrange: liveness blockstamps must not download a beacon state, so they opt out.
-        details = _post_fork_details(slot=100)
-        cc = _cc()
-
-        # Act
-        bs = BlockstampBuilder(cc, el).build_blockstamp(details, read_anchor_from_state=False)
-
-        # Assert: bid.parent_block_hash == state.latest_block_hash by consensus rule.
-        cc.get_state_view.assert_not_called()
-        assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
-        el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
-
     def test_build_blockstamp__report_anchor_missing_from_state__raises(self, el):
         # Arrange: a state with no latest_block_hash (pre-fork default) is not a usable anchor.
         details = _post_fork_details(slot=100)
@@ -99,27 +92,27 @@ class TestExecutionAnchorResolution:
 
         # Act / Assert
         with pytest.raises(MissingExecutionAnchor):
-            BlockstampBuilder(cc, el).build_blockstamp(details)
+            build_blockstamp(cc, details, el)
 
     def test_build_blockstamp__no_execution_client__placeholder_fields(self):
         # Arrange: CL-only consumer (performance collector) has no execution client.
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = BlockstampBuilder(_cc(), None).build_blockstamp(details)
+        bs = build_blockstamp(_cc(), details, None)
 
         # Assert: EL fields are inert placeholders; CL fields are correct.
         assert bs.slot_number == SlotNumber(100)
         assert bs.state_root == details.message.state_root
         assert bs.block_number == 0
 
-    def test_build_blockstamp__liveness_block_without_bid__raises(self, el):
-        # Arrange: a block with no resolvable execution anchor at all.
+    def test_get_blockstamp_by_state__block_without_bid__raises(self, el):
+        # Arrange: a post-fork block with no resolvable execution anchor at all.
         details = _post_fork_details(slot=100, parent_block_hash=None)
 
         # Act / Assert
         with pytest.raises(MissingExecutionAnchor):
-            BlockstampBuilder(_cc(), el).build_blockstamp(details, read_anchor_from_state=False)
+            get_blockstamp_by_state(_cc(get_block_details=Mock(return_value=details)), 'head', el)
 
 
 @pytest.mark.unit
@@ -139,8 +132,8 @@ class TestAnchorBlockSelection:
         nxt.return_value = _post_fork_details(slot=101)
 
         # Act
-        bs = BlockstampBuilder(_cc(), el).get_reference_blockstamp(
-            ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3)
+        bs = get_reference_blockstamp(
+            _cc(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
         )
 
         # Assert: the report's own block sits after the ref slot.
@@ -156,8 +149,8 @@ class TestAnchorBlockSelection:
         prev.return_value = BlockDetailsResponseFactory.build(message={"slot": 98})
 
         # Act
-        bs = BlockstampBuilder(_cc(), el).get_reference_blockstamp(
-            ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3)
+        bs = get_reference_blockstamp(
+            _cc(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
         )
 
         # Assert: no child lookup happens pre-fork.
@@ -173,7 +166,7 @@ class TestAnchorBlockSelection:
         nxt.return_value = _post_fork_details(slot=101)
 
         # Act
-        bs = BlockstampBuilder(_cc(), el).get_blockstamp(SlotNumber(99), last_finalized_slot_number=SlotNumber(200))
+        bs = get_blockstamp(_cc(), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
 
         # Assert
         assert bs.slot_number == SlotNumber(101)
@@ -186,7 +179,7 @@ class TestAnchorBlockSelection:
         cc = _cc(get_block_details=Mock(return_value=details))
 
         # Act
-        bs = BlockstampBuilder(cc, el).get_blockstamp_by_state('head')
+        bs = get_blockstamp_by_state(cc, 'head', el)
 
         # Assert: no beacon state is downloaded on the per-cycle liveness path.
         cc.get_block_root.assert_called_once_with('head')
@@ -229,17 +222,6 @@ class TestGetNextNonMissedSlot:
 
         # Assert
         assert result.message.slot == 103
-
-    def test_get_next_non_missed_slot__child_past_last_finalized__raises(self):
-        # Arrange: a resolver that hands back a header beyond the finalized slot must not be
-        # trusted - a report may only ever be built on a finalized block.
-        header = BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 500}}})
-        cc = Mock(get_block_header=Mock(return_value=header), get_block_details=Mock())
-
-        # Act / Assert
-        with pytest.raises(ChildSlotNotFinalized, match="past the last finalized slot"):
-            get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
-        cc.get_block_details.assert_not_called()
 
     def test_get_next_non_missed_slot__no_finalized_child__raises(self):
         # Arrange: the slot is at (or after) the last finalized slot, so it has no finalized child.

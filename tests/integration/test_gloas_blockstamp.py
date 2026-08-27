@@ -9,7 +9,7 @@ that the block's bid carries the same value (which is what the liveness path rel
 import pytest
 
 from src.types import SlotNumber
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_blockstamp_by_state, get_reference_blockstamp
 
 
 pytestmark = [
@@ -18,12 +18,8 @@ pytestmark = [
 ]
 
 
-def _builder(web3_integration) -> BlockstampBuilder:
-    return BlockstampBuilder(web3_integration.cc, web3_integration.eth)
-
-
 def _finalized(web3_integration):
-    return _builder(web3_integration).get_blockstamp_by_state('finalized')
+    return get_blockstamp_by_state(web3_integration.cc, 'finalized', web3_integration.eth)
 
 
 def test_is_gloas__matches_devnet_config(web3_integration):
@@ -40,10 +36,12 @@ def test_reference_blockstamp__built_from_child_and_anchored_on_state_latest_blo
     ref_slot = finalized.slot_number - 2 * spec.SLOTS_PER_EPOCH
     ref_epoch = ref_slot // spec.SLOTS_PER_EPOCH
 
-    bs = _builder(web3_integration).get_reference_blockstamp(
+    bs = get_reference_blockstamp(
+        web3_integration.cc,
         ref_slot=ref_slot,
         last_finalized_slot_number=finalized.slot_number,
         ref_epoch=ref_epoch,
+        el=web3_integration.eth,
     )
 
     # The report's block is ref_slot's child, and its EL anchor is a real, resolvable EL block.

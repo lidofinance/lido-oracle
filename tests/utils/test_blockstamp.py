@@ -4,7 +4,7 @@ import pytest
 from eth_utils import add_0x_prefix
 
 from src.types import BlockStamp
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_blockstamp_by_state
 from tests.factory.configs import BlockDetailsResponseFactory
 
 
@@ -20,7 +20,7 @@ class TestGetBlockstampByState:
 
     def test_get_blockstamp_by_state__finalized__returns_blockstamp(self, cc, block_details):
         # Act
-        bs = BlockstampBuilder(cc).get_blockstamp_by_state('finalized')
+        bs = get_blockstamp_by_state(cc, 'finalized')
 
         # Assert
         cc.get_block_root.assert_called_once_with('finalized')
@@ -36,7 +36,7 @@ class TestGetBlockstampByState:
 
     def test_get_blockstamp_by_state__head__requests_head_block(self, cc):
         # Act
-        BlockstampBuilder(cc).get_blockstamp_by_state('head')
+        get_blockstamp_by_state(cc, 'head')
 
         # Assert
         cc.get_block_root.assert_called_once_with('head')

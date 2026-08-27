@@ -20,8 +20,8 @@ class SlotNotFinalized(Exception):
 
 
 class ChildSlotNotFinalized(Exception):
-    """Raised when a slot's child (the block a post-EIP-7732 blockstamp is built from) is not yet
-    finalized. Callers building a report treat this like an unfinalized ref slot: wait and retry."""
+    """The child block a post-EIP-7732 blockstamp is built from is not finalized yet. Callers
+    building a report treat this like an unfinalized ref slot: wait and retry."""
 
 
 def get_non_missed_slot_header(
@@ -124,25 +124,14 @@ def get_next_non_missed_slot(
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
 ) -> BlockDetailsResponse:
-    """Get the first non-missed block strictly after `slot` (its child).
-
-    Raises ChildSlotNotFinalized when no finalized block exists after `slot` yet.
-    """
+    """Get the first non-missed block after `slot`."""
+    # Same bound as get_non_missed_slot_header, raised as ChildSlotNotFinalized: a caller building a
+    # report waits and retries instead of failing.
     if slot >= last_finalized_slot_number:
         raise ChildSlotNotFinalized(
             f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'
         )
     _, existing_header = get_non_missed_slot_header(cc, SlotNumber(slot + 1), last_finalized_slot_number)
-
-    # Unlike the pre-fork resolver, this one reaches at slots the caller has not itself checked, so
-    # the finalized-only invariant is asserted rather than left to the scan bound.
-    child_slot = existing_header.data.header.message.slot
-    if child_slot > last_finalized_slot_number:
-        raise ChildSlotNotFinalized(
-            f'Child block at slot [{child_slot}] is past the last finalized slot '
-            f'[{last_finalized_slot_number}]; refusing to build a report on a non-finalized block.'
-        )
-
     return cc.get_block_details(existing_header.data.root)
 
 

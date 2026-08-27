@@ -1,7 +1,6 @@
 import logging
 import math
 from collections.abc import Sequence
-from functools import cached_property
 from typing import cast
 
 from eth_typing import HexStr
@@ -14,7 +13,7 @@ from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
@@ -39,10 +38,6 @@ class AbnormalClRebase:
         self.c_conf = c_conf
         self.b_conf = b_conf
         self._web3_converter = Web3Converter(c_conf, frame_config)
-
-    @cached_property
-    def _blockstamp_builder(self) -> BlockstampBuilder:
-        return BlockstampBuilder(self.w3.cc, self.w3.eth)
 
     def is_abnormal_cl_rebase(
         self,
@@ -159,11 +154,11 @@ class AbnormalClRebase:
 
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
-        nearest_blockstamp = self._blockstamp_builder.get_blockstamp(
-            nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        nearest_blockstamp = get_blockstamp(
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
-        distant_blockstamp = self._blockstamp_builder.get_blockstamp(
-            distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+        distant_blockstamp = get_blockstamp(
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -385,10 +380,12 @@ class AbnormalClRebase:
     def _get_last_report_reference_blockstamp(self, ref_blockstamp: ReferenceBlockStamp) -> ReferenceBlockStamp:
         """Get blockstamp of last report"""
         last_report_ref_slot = self.w3.lido_contracts.get_accounting_last_processing_ref_slot(ref_blockstamp)
-        return self._blockstamp_builder.get_reference_blockstamp(
+        return get_reference_blockstamp(
+            self.w3.cc,
             last_report_ref_slot,
             ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            el=self.w3.eth,
         )
 
     @staticmethod

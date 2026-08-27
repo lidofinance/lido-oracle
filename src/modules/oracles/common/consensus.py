@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from functools import cached_property
 from time import sleep
 from typing import TypeVar, cast
 
@@ -30,7 +29,7 @@ from src.modules.oracles.common.exceptions import (
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_blockstamp_by_state, get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import ChildSlotNotFinalized
 from src.utils.web3converter import Web3Converter
@@ -74,10 +73,6 @@ class ConsensusModule[W3: Web3Base](ABC):
         for var in ('COMPATIBLE_CONTRACT_VERSION', 'COMPATIBLE_CONSENSUS_VERSION'):
             if getattr(self, var, None) is None:
                 raise NotImplementedError(f'{var} attribute should be set.')
-
-    @cached_property
-    def _blockstamp_builder(self) -> BlockstampBuilder:
-        return BlockstampBuilder(self.w3.cc, self.w3.eth)
 
     def check_contract_configs(self):
         bs = self._get_latest_blockstamp()
@@ -242,8 +237,8 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Necessary but not sufficient under EIP-7732, where the report is built on ref_slot's
-        # child: the resolver below raises ChildSlotNotFinalized for the other half.
+        # Post-EIP-7732 this is necessary but not sufficient: the report is built on ref_slot's
+        # child, and the resolver below raises ChildSlotNotFinalized if that child is not finalized.
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
@@ -256,10 +251,12 @@ class ConsensusModule[W3: Web3Base](ABC):
         converter = self._get_web3_converter(last_finalized_blockstamp)
 
         try:
-            bs = self._blockstamp_builder.get_reference_blockstamp(
+            bs = get_reference_blockstamp(
+                cc=self.w3.cc,
                 ref_slot=member_info.current_frame_ref_slot,
                 ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
                 last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+                el=self.w3.eth,
             )
         except ChildSlotNotFinalized:
             # Same treatment as an unfinalized ref slot above: wait and retry next cycle.
@@ -488,7 +485,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         self.w3.transaction.check_and_send_transaction(tx)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        return self._blockstamp_builder.get_blockstamp_by_state('head')
+        return get_blockstamp_by_state(self.w3.cc, 'head', self.w3.eth)
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
