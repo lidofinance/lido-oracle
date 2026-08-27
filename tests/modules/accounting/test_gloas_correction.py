@@ -36,7 +36,7 @@ class TestInFlightWithdrawalSum:
         assert state.in_flight_withdrawal_sum({ValidatorIndex(1), ValidatorIndex(2)}) == Gwei(30)
 
     def test_in_flight_withdrawal_sum__excludes_builder_registry_entries(self):
-        # Builder-registry entries carry indices >= 2**40 and are never Lido validators.
+        # A builder entry: its index carries BUILDER_INDEX_FLAG and is never a Lido validator.
         state = _state(
             [
                 ExpectedWithdrawal(validator_index=ValidatorIndex(5), amount=Gwei(40)),
