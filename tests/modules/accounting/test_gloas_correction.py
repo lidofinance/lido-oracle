@@ -4,11 +4,11 @@ from unittest.mock import Mock
 import pytest
 
 from src.modules.oracles.accounting.accounting import Accounting
-from src.providers.consensus.types import ExpectedWithdrawal
+from src.providers.consensus.types import BeaconStateView, ExpectedWithdrawal
 from src.types import Gwei, ReferenceBlockStamp, StakingModuleId, ValidatorIndex
-from src.utils.validator_balance import gloas_balance_correction, gloas_correction_by_index
 from src.web3py.extensions.lido_validators import NodeOperatorId
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.consensus import BeaconStateViewFactory
 
 
 BUILDER_INDEX_FLAG = 2**40
@@ -19,47 +19,59 @@ def accounting(web3):
     return Accounting(web3)
 
 
-@pytest.mark.unit
-class TestGloasBalanceCorrection:
-    def test_gloas_balance_correction__sums_only_matching_lido_indices(self):
-        withdrawals = [
-            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(3), amount=Gwei(99)),
-        ]
-        assert gloas_balance_correction(withdrawals, {ValidatorIndex(1), ValidatorIndex(2)}) == Gwei(30)
+def _state(withdrawals: list[ExpectedWithdrawal]) -> BeaconStateView:
+    return BeaconStateViewFactory.build_without_validators(payload_expected_withdrawals=withdrawals)
 
-    def test_gloas_balance_correction__excludes_builder_registry_entries(self):
+
+@pytest.mark.unit
+class TestInFlightWithdrawalSum:
+    def test_in_flight_withdrawal_sum__sums_only_matching_lido_indices(self):
+        state = _state(
+            [
+                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(3), amount=Gwei(99)),
+            ]
+        )
+        assert state.in_flight_withdrawal_sum({ValidatorIndex(1), ValidatorIndex(2)}) == Gwei(30)
+
+    def test_in_flight_withdrawal_sum__excludes_builder_registry_entries(self):
         # Builder-registry entries carry indices >= 2**40 and are never Lido validators.
-        withdrawals = [
-            ExpectedWithdrawal(validator_index=ValidatorIndex(5), amount=Gwei(40)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(BUILDER_INDEX_FLAG + 7), amount=Gwei(1000)),
-        ]
-        assert gloas_balance_correction(withdrawals, {ValidatorIndex(5)}) == Gwei(40)
+        state = _state(
+            [
+                ExpectedWithdrawal(validator_index=ValidatorIndex(5), amount=Gwei(40)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(BUILDER_INDEX_FLAG + 7), amount=Gwei(1000)),
+            ]
+        )
+        assert state.in_flight_withdrawal_sum({ValidatorIndex(5)}) == Gwei(40)
 
-    def test_gloas_balance_correction__empty__returns_zero(self):
-        assert gloas_balance_correction([], {ValidatorIndex(1)}) == Gwei(0)
+    def test_in_flight_withdrawal_sum__pre_gloas_state__returns_zero(self):
+        assert _state([]).in_flight_withdrawal_sum({ValidatorIndex(1)}) == Gwei(0)
 
-    def test_gloas_balance_correction__duplicate_indices__summed(self):
-        withdrawals = [
-            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
-        ]
-        assert gloas_balance_correction(withdrawals, {ValidatorIndex(1)}) == Gwei(35)
+    def test_in_flight_withdrawal_sum__duplicate_indices__summed(self):
+        state = _state(
+            [
+                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
+            ]
+        )
+        assert state.in_flight_withdrawal_sum({ValidatorIndex(1)}) == Gwei(35)
 
 
 @pytest.mark.unit
-class TestGloasCorrectionByIndex:
-    def test_gloas_correction_by_index__duplicate_indices__summed_not_overwritten(self):
-        withdrawals = [
-            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
-            ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
-        ]
-        assert gloas_correction_by_index(withdrawals) == {ValidatorIndex(1): Gwei(35), ValidatorIndex(2): Gwei(20)}
+class TestInFlightWithdrawals:
+    def test_in_flight_withdrawals__duplicate_indices__summed_not_overwritten(self):
+        state = _state(
+            [
+                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
+            ]
+        )
+        assert state.in_flight_withdrawals == {ValidatorIndex(1): Gwei(35), ValidatorIndex(2): Gwei(20)}
 
-    def test_gloas_correction_by_index__empty__returns_empty_mapping(self):
-        assert gloas_correction_by_index([]) == {}
+    def test_in_flight_withdrawals__pre_gloas_state__returns_empty_mapping(self):
+        assert _state([]).in_flight_withdrawals == {}
 
 
 def _ref_bs() -> ReferenceBlockStamp:
@@ -74,7 +86,7 @@ class TestClValidatorsBalanceCorrection:
             Mock(index=ValidatorIndex(2), balance=Gwei(200)),
         ]
         accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
-        accounting.w3.cc.get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=withdrawals))
+        accounting.w3.cc.get_state_view = Mock(return_value=_state(withdrawals))
 
     def test_get_cl_validators_balance__in_flight_withdrawal__added_back(self, accounting):
         # Arrange
@@ -123,8 +135,8 @@ class TestBalancesByModulesCorrection:
             }
         )
         accounting.w3.cc.get_state_view = Mock(
-            return_value=Mock(
-                payload_expected_withdrawals=[
+            return_value=_state(
+                [
                     ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
                     ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(20)),
                     # A builder-registry entry, never attributable to a module.

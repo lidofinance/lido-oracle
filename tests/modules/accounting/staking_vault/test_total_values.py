@@ -8,7 +8,7 @@ from src.providers.consensus.types import ExpectedWithdrawal
 from src.services.staking_vaults import StakingVaultsService
 from src.types import Gwei, SlotNumber, ValidatorIndex
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import gloas_correction_by_index
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
     TestPubkeys,
@@ -675,7 +675,7 @@ class TestGloasInFlightWithdrawalCorrection:
             validators=[validator],
             pending_deposits=[],
             block_identifier="latest",
-            gloas_correction_by_index={ValidatorIndex(7): Gwei(1_000_000_000)},
+            in_flight_withdrawals={ValidatorIndex(7): Gwei(1_000_000_000)},
         )
 
         # Assert: 32 ETH balance + 1 ETH vault EL balance + 1 ETH in flight
@@ -695,12 +695,12 @@ class TestGloasInFlightWithdrawalCorrection:
         )
         configure_validator_statuses(web3, {})
         service = StakingVaultsService(web3)
-        corrections = gloas_correction_by_index(
-            [
+        corrections = BeaconStateViewFactory.build_without_validators(
+            payload_expected_withdrawals=[
                 ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(1_000_000_000)),
                 ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(2_000_000_000)),
             ]
-        )
+        ).in_flight_withdrawals
 
         # Act
         result = service.get_vaults_total_values(
@@ -708,7 +708,7 @@ class TestGloasInFlightWithdrawalCorrection:
             validators=[validator],
             pending_deposits=[],
             block_identifier="latest",
-            gloas_correction_by_index=corrections,
+            in_flight_withdrawals=corrections,
         )
 
         # Assert: 32 ETH balance + 1 ETH vault EL balance + 3 ETH in flight, not 2
@@ -733,7 +733,7 @@ class TestGloasInFlightWithdrawalCorrection:
             validators=[validator],
             pending_deposits=[],
             block_identifier="latest",
-            gloas_correction_by_index=gloas_correction_by_index([]),
+            in_flight_withdrawals={},
         )
 
         # Assert

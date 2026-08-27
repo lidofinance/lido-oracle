@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
@@ -298,6 +299,7 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
+    # Raw feed for `in_flight_withdrawals`; read that instead.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
@@ -310,6 +312,31 @@ class BeaconStateView(Nested, FromResponse):
             )
             for (i, v) in enumerate(self.validators)
         ]
+
+    @cached_property
+    def in_flight_withdrawals(self) -> dict[ValidatorIndex, Gwei]:
+        """Per-validator amounts EIP-7732 debited from `balances` before the EL credited them.
+
+        `balances` stays the protocol's own view, so anything modelling what the chain does next
+        — the withdrawal sweep — reads it directly. Anything pairing CL balances with an EL-side
+        balance adds these back instead, and on the CL side only: correcting both sides counts the
+        same ETH twice once the payload lands. Pre-fork the mapping is empty.
+
+        Summed per index, because one payload can carry several withdrawals for one validator: the
+        pending-partial queue may hold several EIP-7002 requests for it, and the sweep does not
+        skip a validator already served earlier in the same payload.
+        """
+        by_index: defaultdict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        for withdrawal in self.payload_expected_withdrawals:
+            by_index[withdrawal.validator_index] = Gwei(by_index[withdrawal.validator_index] + withdrawal.amount)
+        return dict(by_index)
+
+    def in_flight_withdrawal_sum(self, indices: set[ValidatorIndex]) -> Gwei:
+        """`in_flight_withdrawals` restricted to `indices`.
+
+        Passing Lido indices also drops EIP-7732 builder-registry entries (index >= 2**40).
+        """
+        return Gwei(sum((w.amount for w in self.payload_expected_withdrawals if w.validator_index in indices), Gwei(0)))
 
 
 @dataclass

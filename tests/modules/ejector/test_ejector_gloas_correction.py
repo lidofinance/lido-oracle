@@ -3,13 +3,20 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+)
 from src.modules.oracles.ejector.ejector import Ejector
 from src.providers.consensus.types import ExpectedWithdrawal
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex, Wei
+from src.utils.units import gwei_to_wei
 from src.web3py.extensions.lido_validators import ConsolidationRequest, LidoValidator
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.factory.no_registry import LidoValidatorFactory
 
 
@@ -36,6 +43,22 @@ def _validator(
     )
 
 
+def _compounding_validator(index: int, balance: Gwei) -> LidoValidator:
+    """A 0x02 validator: its max effective balance is high enough that an in-flight EIP-7002
+    partial withdrawal moves what `get_predictable_inbound_balance` reports."""
+    built = LidoValidatorFactory.build_with_balance(balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
+    built.validator.withdrawable_epoch = FAR_FUTURE_EPOCH
+    return LidoValidator(
+        index=ValidatorIndex(index),
+        balance=balance,
+        validator=built.validator,
+        lido_id=built.lido_id,
+        pending_topups=[],
+        consolidating_as_source=None,
+        consolidating_as_target=[],
+    )
+
+
 def _ref_bs() -> ReferenceBlockStamp:
     return cast(ReferenceBlockStamp, ReferenceBlockStampFactory.build())
 
@@ -47,7 +70,9 @@ def ejector(web3: Web3) -> Ejector:
 
 
 def _set_in_flight(ejector: Ejector, withdrawals: list[ExpectedWithdrawal]) -> None:
-    ejector.w3.cc.get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=withdrawals))
+    ejector.w3.cc.get_state_view = Mock(
+        return_value=BeaconStateViewFactory.build_without_validators(payload_expected_withdrawals=withdrawals)
+    )
 
 
 @pytest.mark.unit
@@ -140,29 +165,33 @@ class TestWithdrawableLidoValidatorsBalanceCorrection:
 
 
 @pytest.mark.unit
-class TestInFlightWithdrawals:
-    def test_in_flight_withdrawals__no_matching_indices__returns_zero(self, ejector):
-        # Arrange
-        _set_in_flight(ejector, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(50))])
+class TestNoDoubleCounting:
+    """`going_to_withdraw` and `future_withdrawals` are complementary halves of one balance, and
+    `_get_withdrawable_lido_validators_balance` spans the whole active Lido set — so correcting
+    the going-to-exit subset a second time counted the same ETH twice."""
 
-        # Act
-        result = ejector._in_flight_withdrawals(_ref_bs(), set())
-
-        # Assert
-        assert result == Gwei(0)
-
-    def test_in_flight_withdrawals__matching_indices__sums_amounts(self, ejector):
-        # Arrange
-        _set_in_flight(
-            ejector,
-            [
-                ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(50)),
-                ExpectedWithdrawal(validator_index=ValidatorIndex(2), amount=Gwei(70)),
-            ],
+    def test_get_predicted_el_balance__validator_going_to_exit__in_flight_added_back_once(self, ejector):
+        # Arrange: a compounding validator with an in-flight EIP-7002 partial withdrawal. It is
+        # both active-Lido and recently-requested-to-exit, so it reaches both terms.
+        in_flight = Gwei(1000 * 10**9)
+        validator = _compounding_validator(1, Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA - in_flight))
+        ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+            return_value=[validator]
         )
+        _set_in_flight(ejector, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=in_flight)])
+
+        # Everything the prediction adds on top of the two CL-balance terms is zeroed out.
+        ejector.get_chain_config = Mock(return_value=Mock(slots_per_epoch=32))
+        ejector._get_total_el_balance = Mock(return_value=Wei(0))
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+        blockstamp = _ref_bs()
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(blockstamp.ref_epoch))
 
         # Act
-        result = ejector._in_flight_withdrawals(_ref_bs(), {ValidatorIndex(1), ValidatorIndex(2)})
+        result = ejector._get_predicted_el_balance(Gwei(0), blockstamp)
 
-        # Assert
-        assert result == Gwei(120)
+        # Assert: the two terms reconstruct the pre-deduction balance, not one in-flight batch more.
+        assert result == gwei_to_wei(Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA))

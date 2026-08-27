@@ -1,36 +1,6 @@
-from collections import defaultdict
-
-from src.providers.consensus.types import ExpectedWithdrawal
-from src.types import Gwei, ValidatorIndex
+from src.types import Gwei
 from src.utils.validator_state import get_max_effective_balance
 from src.web3py.extensions.lido_validators import LidoValidator
-
-
-def gloas_correction_by_index(expected_withdrawals: list[ExpectedWithdrawal]) -> dict[ValidatorIndex, Gwei]:
-    """Per-validator sum of the amounts from `gloas_balance_correction`.
-
-    Summed rather than keyed, because one payload can carry several withdrawals for the same
-    validator: the pending-partial queue may hold several EIP-7002 requests for it, and the sweep
-    does not skip a validator already served earlier in the same payload.
-    """
-    by_index: defaultdict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
-    for withdrawal in expected_withdrawals:
-        by_index[withdrawal.validator_index] = Gwei(by_index[withdrawal.validator_index] + withdrawal.amount)
-    return dict(by_index)
-
-
-def gloas_balance_correction(
-    expected_withdrawals: list[ExpectedWithdrawal],
-    lido_indices: set[ValidatorIndex],
-) -> Gwei:
-    """Withdrawals EIP-7732 has debited from CL balances but not yet credited to the EL vaults.
-
-    Callers add this back on the CL side only — correcting the EL side too would count the same
-    ETH twice once the payload lands. Pre-fork states carry no such withdrawals, so the sum is
-    zero and no fork gate is needed. Filtering by Lido index also drops builder-registry entries
-    (index >= 2**40) for free.
-    """
-    return Gwei(sum((w.amount for w in expected_withdrawals if w.validator_index in lido_indices), Gwei(0)))
 
 
 def get_predictable_full_inbound_balance(validator: LidoValidator) -> Gwei:

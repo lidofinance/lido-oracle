@@ -240,7 +240,9 @@ def mock_get_validators(web3):
 
     def _get_state_view(state):
         # Pre-Gloas shape, so the EIP-7732 add-back is zero.
-        return Mock(indexed_validators=_get_validators(state), payload_expected_withdrawals=[])
+        view = Mock(indexed_validators=_get_validators(state), in_flight_withdrawals={})
+        view.in_flight_withdrawal_sum.return_value = Gwei(0)
+        return view
 
     web3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
     web3.cc.get_validators = Mock(side_effect=_get_validators)

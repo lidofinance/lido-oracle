@@ -35,7 +35,6 @@ from src.utils.validator_balance import (
     get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
     get_predictable_inbound_sweep,
-    gloas_balance_correction,
 )
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
@@ -233,6 +232,9 @@ class Ejector(OracleModule[Web3]):
             blockstamp,
         )
 
+        # Not corrected for in-flight withdrawals: these validators are a subset of the active
+        # Lido set, whose whole in-flight batch `_get_withdrawable_lido_validators_balance` already
+        # adds back below. Adding it here too counted the same ETH twice.
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
@@ -241,7 +243,6 @@ class Ejector(OracleModule[Web3]):
                 ),
                 Gwei(0),
             )
-            + self._in_flight_withdrawals(blockstamp, {v.index for v in validators_going_to_exit})
         )
 
         withdrawal_epoch = self._get_predicted_withdrawable_epoch(
@@ -270,14 +271,6 @@ class Ejector(OracleModule[Web3]):
             - deposit_lock,
         )
 
-    def _in_flight_withdrawals(self, blockstamp: BlockStamp, lido_indices: set[ValidatorIndex]) -> Gwei:
-        """Applied to the terms that turn CL balances into expected EL liquidity, and to no others."""
-        expected = self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
-        correction = gloas_balance_correction(expected, lido_indices)
-        if correction:
-            logger.info({'msg': 'Gloas in-flight withdrawal correction.', 'value': correction})
-        return correction
-
     @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
@@ -298,7 +291,10 @@ class Ejector(OracleModule[Web3]):
 
         # An in-flight full withdrawal leaves `v.balance` at zero, which fails the `balance > 0`
         # arm of `is_fully_withdrawable_validator` and drops the entire payout from this sum.
-        result = Gwei(result + self._in_flight_withdrawals(blockstamp, counted_indices))
+        in_flight = self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(counted_indices)
+        if in_flight:
+            logger.info({'msg': 'In-flight withdrawals added back.', 'value': in_flight})
+        result = Gwei(result + in_flight)
 
         return gwei_to_wei(result)
 

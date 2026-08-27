@@ -9,7 +9,7 @@ from web3.types import EventData, Wei
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig, FrameConfig
-from src.providers.consensus.types import ExpectedWithdrawal, Validator
+from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -17,7 +17,6 @@ from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
-from src.utils.validator_balance import gloas_balance_correction
 from src.utils.validator_state import calculate_active_effective_balance_sum
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator, LidoValidatorsProvider
@@ -203,13 +202,13 @@ class AbnormalClRebase:
         ref_balance_with_vault = self._get_lido_validators_balance_with_vault(
             ref_blockstamp,
             self.lido_validators,
-            self.w3.cc.get_state_view(ref_blockstamp).payload_expected_withdrawals,
+            self.w3.cc.get_state_view(ref_blockstamp),
         )
 
         prev_balance_with_vault = self._get_lido_validators_balance_with_vault(
             prev_blockstamp,
             prev_lido_validators,
-            prev_state.payload_expected_withdrawals,
+            prev_state,
         )
 
         # Raw CL rebase is calculated as the difference between reference and previous Lido validators' balances
@@ -242,7 +241,7 @@ class AbnormalClRebase:
         self,
         blockstamp: BlockStamp,
         lido_validators: Sequence[LidoValidator],
-        expected_withdrawals: list[ExpectedWithdrawal],
+        state: BeaconStateView,
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance.
@@ -253,7 +252,7 @@ class AbnormalClRebase:
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
 
         lido_indices = {validator.index for validator in lido_validators}
-        real_cl_balance = Gwei(real_cl_balance + gloas_balance_correction(expected_withdrawals, lido_indices))
+        real_cl_balance = Gwei(real_cl_balance + state.in_flight_withdrawal_sum(lido_indices))
 
         withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
         total_balance = real_cl_balance + withdrawals_vault_balance

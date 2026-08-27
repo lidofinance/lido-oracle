@@ -32,7 +32,6 @@ from src.modules.oracles.common.consensus import (
     InitialEpochIsYetToArriveRevert,
 )
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.providers.consensus.types import ExpectedWithdrawal
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.services.bunker import BunkerService
 from src.services.staking_vaults import StakingVaultsService
@@ -48,7 +47,6 @@ from src.types import (
 from src.utils.apr import calculate_gross_core_apr
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import gloas_balance_correction, gloas_correction_by_index
 from src.variables import ALLOW_REPORTING_IN_BUNKER_MODE
 from src.web3py.types import Web3
 
@@ -242,9 +240,6 @@ class Accounting(OracleModule[Web3]):
         self._update_metrics(report_data)
         return report_data
 
-    def _expected_withdrawals(self, blockstamp: ReferenceBlockStamp) -> list[ExpectedWithdrawal]:
-        return self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
-
     def _get_cl_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp)
         logger.info({'msg': 'Get lido validators.', 'value': len(lido_validators)})
@@ -253,9 +248,9 @@ class Accounting(OracleModule[Web3]):
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
         lido_indices = {validator.index for validator in lido_validators}
-        correction = gloas_balance_correction(self._expected_withdrawals(blockstamp), lido_indices)
+        correction = self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(lido_indices)
         if correction:
-            logger.info({'msg': 'Gloas in-flight withdrawal correction.', 'value': correction})
+            logger.info({'msg': 'In-flight withdrawals added back.', 'value': correction})
 
         return Gwei(validator_balance_sum + correction)
 
@@ -333,10 +328,10 @@ class Accounting(OracleModule[Web3]):
             for (module_id, _), validators in validators_by_no.items()
             for validator in validators
         }
-        for withdrawal in self._expected_withdrawals(blockstamp):
-            module_id = validator_to_module.get(withdrawal.validator_index)
+        for validator_index, amount in self.w3.cc.get_state_view(blockstamp).in_flight_withdrawals.items():
+            module_id = validator_to_module.get(validator_index)
             if module_id is not None:
-                module_stats[module_id] = Gwei(module_stats[module_id] + withdrawal.amount)
+                module_stats[module_id] = Gwei(module_stats[module_id] + amount)
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
@@ -506,7 +501,7 @@ class Accounting(OracleModule[Web3]):
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
-            gloas_correction_by_index=gloas_correction_by_index(self._expected_withdrawals(blockstamp)),
+            in_flight_withdrawals=self.w3.cc.get_state_view(blockstamp).in_flight_withdrawals,
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)
