@@ -43,6 +43,7 @@ from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
 )
+from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -318,7 +319,7 @@ class Ejector(OracleModule[Web3]):
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
         total_active_balance = self._get_total_active_balance(blockstamp)
-        if self.w3.cc.is_gloas_epoch(blockstamp.ref_epoch):
+        if self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)):
             # EIP-8061 removes the cap on the exit churn limit and halves the quotient. Using the old
             # capped formula post-fork overestimates withdrawal_epoch, which makes the ejector
             # under-request exits (the unsafe direction).
@@ -344,7 +345,16 @@ class Ejector(OracleModule[Web3]):
         """Returns the number of epochs that will take to sweep all validators in the chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas_epoch(blockstamp.ref_epoch))
+        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)))
+
+    def _state_epoch(self, blockstamp: ReferenceBlockStamp) -> EpochNumber:
+        """Epoch of the block the state view is read from.
+
+        Fork gating has to follow the state we actually read, not the on-chain report label:
+        under EIP-7732 the anchor block is ref_slot's child, so it can sit in a later epoch than
+        ref_epoch, and a missed ref_slot puts it in an earlier one.
+        """
+        return epoch_from_slot(blockstamp.slot_number, self.get_chain_config(blockstamp).slots_per_epoch)
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
