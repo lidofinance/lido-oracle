@@ -510,8 +510,6 @@ class TestGetPredictedElBalance:
 
 
 class TestPredictedWithdrawableEpoch:
-    """Pre-Gloas (Electra) regression: the capped activation/exit churn limit."""
-
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
         return ReferenceBlockStampFactory.build(
