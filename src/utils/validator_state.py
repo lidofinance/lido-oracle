@@ -133,9 +133,7 @@ def get_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
     return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
 
 
-# EIP-8061 (Glamsterdam): uncapped exit churn limit with a halved quotient. Unlike
-# get_activation_exit_churn_limit there is no MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT cap, so at
-# ~40M ETH total active stake this yields ~1220 ETH/epoch (~5x the pre-fork capped value).
+# @see https://eips.ethereum.org/EIPS/eip-8061
 def get_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
     churn = max(MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, total_active_balance // CHURN_LIMIT_QUOTIENT_GLOAS)
     return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)

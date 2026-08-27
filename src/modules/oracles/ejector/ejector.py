@@ -320,9 +320,8 @@ class Ejector(OracleModule[Web3]):
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
         total_active_balance = self._get_total_active_balance(blockstamp)
         if self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)):
-            # EIP-8061 removes the cap on the exit churn limit and halves the quotient. Using the old
-            # capped formula post-fork overestimates withdrawal_epoch, which makes the ejector
-            # under-request exits (the unsafe direction).
+            # Post-EIP-8061 the capped limit overestimates withdrawal_epoch, which would make the
+            # ejector under-request exits.
             per_epoch_churn = get_exit_churn_limit(total_active_balance)
         else:
             per_epoch_churn = get_activation_exit_churn_limit(total_active_balance)
@@ -348,12 +347,7 @@ class Ejector(OracleModule[Web3]):
         return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)))
 
     def _state_epoch(self, blockstamp: ReferenceBlockStamp) -> EpochNumber:
-        """Epoch of the block the state view is read from.
-
-        Fork gating has to follow the state we actually read, not the on-chain report label:
-        under EIP-7732 the anchor block is ref_slot's child, so it can sit in a later epoch than
-        ref_epoch, and a missed ref_slot puts it in an earlier one.
-        """
+        """Epoch of the block the state is read from, which under EIP-7732 is not ref_epoch."""
         return epoch_from_slot(blockstamp.slot_number, self.get_chain_config(blockstamp).slots_per_epoch)
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance

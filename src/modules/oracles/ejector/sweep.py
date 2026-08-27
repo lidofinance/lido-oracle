@@ -61,12 +61,9 @@ def predict_withdrawals_number_in_sweep_cycle(
     This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
     """
     if is_gloas_active:
-        # Post-Glamsterdam (EIP-7732) pending_partial_withdrawals (and builder withdrawals) are excluded
-        # from the projection: the partials queue is an externally-triggerable EIP-7002 queue whose future
-        # size is not derivable from current protocol state, and post-fork it competes for withdrawal slots
-        # at higher priority than the validator sweep. Excluding it makes the estimated delay <= the real
-        # sweep delay, so the ejector requests at least as many exits as the withdrawal queue needs
-        # (over-ejection is the safe direction). This mirrors why builder withdrawals are already excluded.
+        # The partials queue is externally triggerable, so its post-EIP-7732 size is not derivable
+        # from current state. Dropping it keeps the estimate below the real delay, and a too-short
+        # delay only makes the ejector request more exits than needed.
         return len(get_validators_withdrawals(state, [], slots_per_epoch))
 
     pending_partial_withdrawals = get_pending_partial_withdrawals(state)

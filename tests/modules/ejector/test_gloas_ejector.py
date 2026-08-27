@@ -1,5 +1,3 @@
-"""Unit tests for the EIP-8061 exit churn limit and the EIP-7732 sweep-delay adjustment."""
-
 from typing import cast
 from unittest.mock import Mock
 
@@ -27,11 +25,9 @@ FORTY_MILLION_ETH = Gwei(40_000_000 * ETH)
 @pytest.mark.unit
 class TestExitChurnLimitEip8061:
     def test_get_exit_churn_limit__at_40m_eth__is_about_1220_eth(self):
-        # ~40M ETH total active stake -> ~1220 ETH/epoch (uncapped, halved quotient).
         assert get_exit_churn_limit(FORTY_MILLION_ETH) == Gwei(1220 * ETH)
 
     def test_get_exit_churn_limit__uncapped_is_about_5x_activation_limit(self):
-        # The pre-fork activation/exit churn is capped (256 ETH/epoch); EIP-8061 removes the cap.
         exit_churn = get_exit_churn_limit(FORTY_MILLION_ETH)
         activation_churn = get_activation_exit_churn_limit(FORTY_MILLION_ETH)
         assert activation_churn == Gwei(256 * ETH)
@@ -55,7 +51,7 @@ class TestSweepDelayGloas:
         # Act
         result = predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch=32, is_gloas_active=True)
 
-        # Assert: only validator withdrawals counted; partials are neither fetched nor passed in.
+        # Assert
         assert result == len(validators_withdrawals)
         get_partials.assert_not_called()
         assert get_validators.call_args.args[1] == []
@@ -70,7 +66,7 @@ class TestSweepDelayGloas:
         # Act
         predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch=32, is_gloas_active=False)
 
-        # Assert: legacy path still consults the partials queue.
+        # Assert
         get_partials.assert_called_once()
 
     def test_get_sweep_delay_in_epochs__passes_is_gloas_through(self, monkeypatch):
@@ -89,12 +85,7 @@ class TestSweepDelayGloas:
 
 @pytest.mark.unit
 class TestForkGateEpoch:
-    """The fork gate must follow the state the ejector actually reads, not the report label.
-
-    Under EIP-7732 the anchor block is ref_slot's child (see BlockstampBuilder), so its epoch can
-    differ from ref_epoch — around the fork that is the difference between the capped and the
-    uncapped churn limit.
-    """
+    """Under EIP-7732 the anchor block is ref_slot's child, so its epoch can differ from ref_epoch."""
 
     @pytest.fixture
     def ejector(self, web3: Web3) -> Ejector:
@@ -123,12 +114,12 @@ class TestForkGateEpoch:
         assert result == EpochNumber(2)
 
     def test_compute_exit_epoch_and_update_churn__fork_active_at_anchor__uses_uncapped_churn(self, ejector: Ejector):
-        # Arrange: Gloas starts at epoch 2 — active at the anchor block, not yet at ref_epoch.
+        # Arrange: the fork starts at epoch 2 — active at the anchor block, not yet at ref_epoch.
         ejector.w3.cc.is_gloas_epoch = Mock(side_effect=lambda epoch: epoch >= 2)
         ejector._get_total_active_balance = Mock(return_value=FORTY_MILLION_ETH)
         blockstamp = self._blockstamp_with_child_anchor()
         state = Mock(earliest_exit_epoch=EpochNumber(0), exit_balance_to_consume=Gwei(0))
-        # Exactly one uncapped churn: fits in a single epoch post-fork, spills over ~5 pre-fork.
+        # One uncapped churn: fits a single epoch post-fork, spills over ~5 epochs pre-fork.
         exit_balance = get_exit_churn_limit(FORTY_MILLION_ETH)
 
         # Act
