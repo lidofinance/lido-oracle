@@ -510,12 +510,20 @@ class TestGetPredictedElBalance:
 
 
 class TestPredictedWithdrawableEpoch:
+    """Pre-Gloas (Electra) regression: the capped activation/exit churn limit."""
+
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
         return ReferenceBlockStampFactory.build(
+            slot_number=10_000_000,
             ref_slot=10_000_000,
             ref_epoch=10_000_000 // 32,
         )
+
+    @pytest.fixture(autouse=True)
+    def pre_gloas(self, ejector: Ejector, chain_config: ChainConfig) -> None:
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector.w3.cc.is_gloas_epoch = Mock(return_value=False)
 
     @pytest.mark.unit
     def test_earliest_exit_epoch_is_old(

@@ -1,14 +1,23 @@
 """Unit tests for the EIP-8061 exit churn limit and the EIP-7732 sweep-delay adjustment."""
 
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
 
 import src.modules.oracles.ejector.sweep as sweep_module
 from src.modules.common.types import ChainConfig
+from src.modules.oracles.ejector.ejector import Ejector
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs, predict_withdrawals_number_in_sweep_cycle
-from src.types import Gwei
-from src.utils.validator_state import get_activation_exit_churn_limit, get_exit_churn_limit
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.utils.validator_state import (
+    compute_activation_exit_epoch,
+    get_activation_exit_churn_limit,
+    get_exit_churn_limit,
+)
+from src.web3py.types import Web3
+from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.configs import ChainConfigFactory
 
 
 ETH = 10**9  # Gwei
@@ -76,3 +85,55 @@ class TestSweepDelayGloas:
 
         # Assert
         assert predict.call_args.args[2] is True
+
+
+@pytest.mark.unit
+class TestForkGateEpoch:
+    """The fork gate must follow the state the ejector actually reads, not the report label.
+
+    Under EIP-7732 the anchor block is ref_slot's child (see BlockstampBuilder), so its epoch can
+    differ from ref_epoch — around the fork that is the difference between the capped and the
+    uncapped churn limit.
+    """
+
+    @pytest.fixture
+    def ejector(self, web3: Web3) -> Ejector:
+        web3.lido_contracts.validators_exit_bus_oracle.get_consensus_version = Mock(return_value=1)
+        instance = Ejector(web3)
+        instance.get_chain_config = Mock(return_value=cast(ChainConfig, ChainConfigFactory.build()))
+        return instance
+
+    @staticmethod
+    def _blockstamp_with_child_anchor() -> ReferenceBlockStamp:
+        """ref_slot is the last slot of epoch 1; its data lives in the first block of epoch 2."""
+        return cast(
+            ReferenceBlockStamp,
+            ReferenceBlockStampFactory.build(
+                ref_slot=SlotNumber(63),
+                ref_epoch=EpochNumber(1),
+                slot_number=SlotNumber(64),
+            ),
+        )
+
+    def test_state_epoch__anchor_in_next_epoch__follows_slot_number(self, ejector: Ejector):
+        # Act
+        result = ejector._state_epoch(self._blockstamp_with_child_anchor())
+
+        # Assert
+        assert result == EpochNumber(2)
+
+    def test_compute_exit_epoch_and_update_churn__fork_active_at_anchor__uses_uncapped_churn(self, ejector: Ejector):
+        # Arrange: Gloas starts at epoch 2 — active at the anchor block, not yet at ref_epoch.
+        ejector.w3.cc.is_gloas_epoch = Mock(side_effect=lambda epoch: epoch >= 2)
+        ejector._get_total_active_balance = Mock(return_value=FORTY_MILLION_ETH)
+        blockstamp = self._blockstamp_with_child_anchor()
+        state = Mock(earliest_exit_epoch=EpochNumber(0), exit_balance_to_consume=Gwei(0))
+        # Exactly one uncapped churn: fits in a single epoch post-fork, spills over ~5 pre-fork.
+        exit_balance = get_exit_churn_limit(FORTY_MILLION_ETH)
+
+        # Act
+        result = ejector.compute_exit_epoch_and_update_churn(state, exit_balance, blockstamp)
+
+        # Assert
+        assert result == compute_activation_exit_epoch(blockstamp.ref_epoch)
+        assert ejector.w3.cc.is_gloas_epoch.call_args.args[0] == EpochNumber(2)
