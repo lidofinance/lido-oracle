@@ -28,7 +28,7 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, ValidatorIndex
+from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
@@ -232,8 +232,6 @@ class Ejector(OracleModule[Web3]):
             blockstamp,
         )
 
-        # In-flight withdrawals are added back once, in `_get_withdrawable_lido_validators_balance`
-        # below: these validators are a subset of the active set it spans.
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(
@@ -259,43 +257,56 @@ class Ejector(OracleModule[Web3]):
         future_withdrawals = self._get_withdrawable_lido_validators_balance(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate future withdrawals sum.', 'value': future_withdrawals})
 
+        in_flight_withdrawals = self._get_in_flight_withdrawals(blockstamp)
+        logger.info({'msg': 'Calculate in-flight withdrawals.', 'value': in_flight_withdrawals})
+
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
         return Wei(
             future_rewards
             + future_withdrawals
+            + in_flight_withdrawals
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
             - deposit_lock,
         )
 
     @lru_cache(maxsize=1)
+    def _get_payable_lido_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        """Active Lido validators whose balance the protocol will pay out to the vaults.
+
+        Consolidation sources are excluded: their balance moves to the target validator instead.
+        """
+        return [
+            v
+            for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
+            if not v.consolidating_as_source
+        ]
+
+    @lru_cache(maxsize=1)
     def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
-
         result = Gwei(0)
-        counted_indices: set[ValidatorIndex] = set()
 
-        for v in lido_validators:
-            if v.consolidating_as_source:
-                continue
-
-            counted_indices.add(v.index)
-
+        for v in self._get_payable_lido_validators(blockstamp):
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
                 result += get_predictable_full_inbound_balance(v)
             else:
                 result += get_predictable_inbound_sweep(v)
 
-        # An in-flight full withdrawal leaves `v.balance` at zero, which fails the `balance > 0`
-        # arm of `is_fully_withdrawable_validator` and drops the entire payout from this sum.
-        in_flight = self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(counted_indices)
-        if in_flight:
-            logger.info({'msg': 'In-flight withdrawals added back.', 'value': in_flight})
-        result = Gwei(result + in_flight)
-
         return gwei_to_wei(result)
+
+    @lru_cache(maxsize=1)
+    def _get_in_flight_withdrawals(self, blockstamp: BlockStamp) -> Wei:
+        """Lido balance EIP-7732 has already debited on the CL but not yet credited to the vaults.
+
+        A separate term because it spans every payable validator: the other balance terms read
+        post-deduction balances and must not add it back themselves. An in-flight full withdrawal
+        also leaves `balance` at zero, which is why this cannot be folded into the loop above --
+        such a validator fails the `balance > 0` arm of `is_fully_withdrawable_validator`.
+        """
+        indices = {v.index for v in self._get_payable_lido_validators(blockstamp)}
+        return gwei_to_wei(self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(indices))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
