@@ -232,9 +232,8 @@ class Ejector(OracleModule[Web3]):
             blockstamp,
         )
 
-        # Not corrected for in-flight withdrawals: these validators are a subset of the active
-        # Lido set, whose whole in-flight batch `_get_withdrawable_lido_validators_balance` already
-        # adds back below. Adding it here too counted the same ETH twice.
+        # In-flight withdrawals are added back once, in `_get_withdrawable_lido_validators_balance`
+        # below: these validators are a subset of the active set it spans.
         going_to_withdraw_balance_gwei = Gwei(
             sum(
                 map(

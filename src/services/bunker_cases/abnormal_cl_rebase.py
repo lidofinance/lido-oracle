@@ -244,10 +244,10 @@ class AbnormalClRebase:
         state: BeaconStateView,
     ) -> Gwei:
         """
-        Get Lido validator balance with withdrawals vault balance.
+        Get Lido validator balance with withdrawals vault balance
 
-        Every blockstamp carries the EIP-7732 asymmetry, so the add-back applies to both ends of a
-        rebase interval — correcting only the reference side would overstate every rebase.
+        Both ends of a rebase interval carry the EIP-7732 asymmetry, so correcting only the
+        reference side would overstate every rebase.
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
 

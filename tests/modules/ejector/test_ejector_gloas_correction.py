@@ -44,8 +44,8 @@ def _validator(
 
 
 def _compounding_validator(index: int, balance: Gwei) -> LidoValidator:
-    """A 0x02 validator: its max effective balance is high enough that an in-flight EIP-7002
-    partial withdrawal moves what `get_predictable_inbound_balance` reports."""
+    """A 0x02 validator, whose max effective balance leaves room for an EIP-7002 partial
+    withdrawal to move what `get_predictable_inbound_balance` reports."""
     built = LidoValidatorFactory.build_with_balance(balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
     built.validator.withdrawable_epoch = FAR_FUTURE_EPOCH
     return LidoValidator(
@@ -78,33 +78,27 @@ def _set_in_flight(ejector: Ejector, withdrawals: list[ExpectedWithdrawal]) -> N
 @pytest.mark.unit
 class TestWithdrawableLidoValidatorsBalanceCorrection:
     def test_get_withdrawable_lido_validators_balance__in_flight_full_withdrawal__added_back(self, ejector):
-        # Arrange: a zero CL balance fails the `balance > 0` arm of is_fully_withdrawable_validator.
+        # A zero CL balance fails the `balance > 0` arm of is_fully_withdrawable_validator.
         on_epoch = EpochNumber(100)
         validator = _validator(1, Gwei(0), withdrawable_epoch=on_epoch - 1)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(ejector, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(32 * 10**9))])
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(on_epoch, _ref_bs())
 
-        # Assert
         assert result == Wei(32 * 10**18)
 
     def test_get_withdrawable_lido_validators_balance__in_flight_partial_sweep__restores_excess(self, ejector):
-        # Arrange
         excess = Gwei(3 * 10**9)
         validator = _validator(1, MIN_ACTIVATION_BALANCE)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(ejector, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=excess)])
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(EpochNumber(100), _ref_bs())
 
-        # Assert
         assert result == Wei(excess * 10**9)
 
     def test_get_withdrawable_lido_validators_balance__duplicate_indices__summed(self, ejector):
-        # Arrange
         validator = _validator(1, MIN_ACTIVATION_BALANCE)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(
@@ -115,14 +109,11 @@ class TestWithdrawableLidoValidatorsBalanceCorrection:
             ],
         )
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(EpochNumber(100), _ref_bs())
 
-        # Assert
         assert result == Wei(3 * 10**18)
 
     def test_get_withdrawable_lido_validators_balance__foreign_and_builder_entries__ignored(self, ejector):
-        # Arrange
         validator = _validator(1, MIN_ACTIVATION_BALANCE)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(
@@ -133,46 +124,38 @@ class TestWithdrawableLidoValidatorsBalanceCorrection:
             ],
         )
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(EpochNumber(100), _ref_bs())
 
-        # Assert
         assert result == Wei(0)
 
     def test_get_withdrawable_lido_validators_balance__consolidation_source__not_corrected(self, ejector):
-        # Arrange: the surrounding sum skips consolidation sources, so the add-back must too.
+        # The surrounding sum skips consolidation sources, so the add-back must too.
         validator = _validator(1, MIN_ACTIVATION_BALANCE, consolidating_as_source=Mock(spec=ConsolidationRequest))
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(ejector, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10**9))])
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(EpochNumber(100), _ref_bs())
 
-        # Assert
         assert result == Wei(0)
 
     def test_get_withdrawable_lido_validators_balance__pre_fork_state__unchanged(self, ejector):
-        # Arrange
         validator = _validator(1, MIN_ACTIVATION_BALANCE)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
         _set_in_flight(ejector, [])
 
-        # Act
         result = ejector._get_withdrawable_lido_validators_balance(EpochNumber(100), _ref_bs())
 
-        # Assert
         assert result == Wei(0)
 
 
 @pytest.mark.unit
 class TestNoDoubleCounting:
-    """`going_to_withdraw` and `future_withdrawals` are complementary halves of one balance, and
-    `_get_withdrawable_lido_validators_balance` spans the whole active Lido set — so correcting
-    the going-to-exit subset a second time counted the same ETH twice."""
+    """`going_to_withdraw` and `future_withdrawals` are complementary halves of one balance, so
+    correcting the going-to-exit subset in both counted the same ETH twice."""
 
     def test_get_predicted_el_balance__validator_going_to_exit__in_flight_added_back_once(self, ejector):
-        # Arrange: a compounding validator with an in-flight EIP-7002 partial withdrawal. It is
-        # both active-Lido and recently-requested-to-exit, so it reaches both terms.
+        # The validator is both active-Lido and recently-requested-to-exit, so its in-flight
+        # withdrawal reaches both terms.
         in_flight = Gwei(1000 * 10**9)
         validator = _compounding_validator(1, Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA - in_flight))
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
@@ -190,8 +173,7 @@ class TestNoDoubleCounting:
         blockstamp = _ref_bs()
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(blockstamp.ref_epoch))
 
-        # Act
         result = ejector._get_predicted_el_balance(Gwei(0), blockstamp)
 
-        # Assert: the two terms reconstruct the pre-deduction balance, not one in-flight batch more.
+        # The two terms reconstruct the pre-deduction balance, not one batch more.
         assert result == gwei_to_wei(Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA))

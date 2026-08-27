@@ -89,40 +89,30 @@ class TestClValidatorsBalanceCorrection:
         accounting.w3.cc.get_state_view = Mock(return_value=_state(withdrawals))
 
     def test_get_cl_validators_balance__in_flight_withdrawal__added_back(self, accounting):
-        # Arrange
         self._setup(accounting, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(50))])
 
-        # Act
         result = accounting._get_cl_validators_balance(_ref_bs())
 
-        # Assert
         assert result == Gwei(100 + 200 + 50)
 
     def test_get_cl_validators_balance__withdrawal_for_foreign_validator__not_added_back(self, accounting):
-        # Arrange
         self._setup(accounting, [ExpectedWithdrawal(validator_index=ValidatorIndex(99), amount=Gwei(50))])
 
-        # Act
         result = accounting._get_cl_validators_balance(_ref_bs())
 
-        # Assert
         assert result == Gwei(300)
 
     def test_get_cl_validators_balance__pre_fork_state__no_correction(self, accounting):
-        # Arrange
         self._setup(accounting, [])
 
-        # Act
         result = accounting._get_cl_validators_balance(_ref_bs())
 
-        # Assert
         assert result == Gwei(300)
 
 
 @pytest.mark.unit
 class TestBalancesByModulesCorrection:
     def test_get_balances_by_modules__correction_attributed_per_module__sum_matches_total(self, accounting):
-        # Arrange
         sm1 = Mock(staking_module_address='addr1', id=StakingModuleId(1))
         sm2 = Mock(staking_module_address='addr2', id=StakingModuleId(2))
         accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
@@ -145,10 +135,8 @@ class TestBalancesByModulesCorrection:
             )
         )
 
-        # Act
         sm_ids, balances = accounting._get_balances_by_modules(_ref_bs())
 
-        # Assert
         assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
         assert balances == [Gwei(110), Gwei(320)]
         assert sum(balances) == Gwei(100 + 300 + 10 + 20)

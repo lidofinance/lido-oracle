@@ -317,14 +317,12 @@ class BeaconStateView(Nested, FromResponse):
     def in_flight_withdrawals(self) -> dict[ValidatorIndex, Gwei]:
         """Per-validator amounts EIP-7732 debited from `balances` before the EL credited them.
 
-        `balances` stays the protocol's own view, so anything modelling what the chain does next
-        — the withdrawal sweep — reads it directly. Anything pairing CL balances with an EL-side
-        balance adds these back instead, and on the CL side only: correcting both sides counts the
-        same ETH twice once the payload lands. Pre-fork the mapping is empty.
+        Add these back when pairing CL balances with an EL-side balance, and on the CL side only:
+        correcting both counts the same ETH twice once the payload lands. Code modelling what the
+        chain does next reads `balances` directly instead.
 
-        Summed per index, because one payload can carry several withdrawals for one validator: the
-        pending-partial queue may hold several EIP-7002 requests for it, and the sweep does not
-        skip a validator already served earlier in the same payload.
+        Summed per index because the sweep does not skip a validator already served earlier in
+        the same payload.
         """
         by_index: defaultdict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
         for withdrawal in self.payload_expected_withdrawals:
@@ -332,11 +330,8 @@ class BeaconStateView(Nested, FromResponse):
         return dict(by_index)
 
     def in_flight_withdrawal_sum(self, indices: set[ValidatorIndex]) -> Gwei:
-        """`in_flight_withdrawals` restricted to `indices`.
-
-        Passing Lido indices also drops EIP-7732 builder entries, whose indices carry the
-        BUILDER_INDEX_FLAG bit.
-        """
+        """`in_flight_withdrawals` restricted to `indices` — Lido indices also drop builder
+        entries, whose indices carry the BUILDER_INDEX_FLAG bit."""
         return Gwei(sum((w.amount for w in self.payload_expected_withdrawals if w.validator_index in indices), Gwei(0)))
 
 

@@ -321,8 +321,7 @@ class Accounting(OracleModule[Web3]):
             for validator in validators:
                 module_stats[module_id] += validator.balance
 
-        # Attributed per module so the breakdown still sums to the corrected total, which the
-        # contract checks.
+        # Attributed per module so the breakdown still sums to the corrected total.
         validator_to_module = {
             validator.index: module_id
             for (module_id, _), validators in validators_by_no.items()

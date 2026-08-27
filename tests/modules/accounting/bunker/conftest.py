@@ -239,7 +239,6 @@ def mock_get_validators(web3):
         return validators[state.slot_number]
 
     def _get_state_view(state):
-        # Pre-Gloas shape, so the EIP-7732 add-back is zero.
         view = Mock(indexed_validators=_get_validators(state), in_flight_withdrawals={})
         view.in_flight_withdrawal_sum.return_value = Gwei(0)
         return view

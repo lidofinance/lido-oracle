@@ -653,8 +653,8 @@ class TestCalculateVaultTotalValue:
 
 @pytest.mark.unit
 class TestGloasInFlightWithdrawalCorrection:
-    """The only path that needs the correction per validator, so the only one where several
-    entries for one validator can collide."""
+    """The only path needing the correction per validator, so the only one where several entries
+    for one validator can collide."""
 
     def test_get_vaults_total_values__in_flight_withdrawal__added_to_vault_total(self, web3, default_vaults_map):
         # Setup
