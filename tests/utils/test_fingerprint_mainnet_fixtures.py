@@ -20,10 +20,6 @@ from src.utils.fingerprint import digest_of
 FIXTURES = pathlib.Path(__file__).parent / 'fixtures'
 
 # Mainnet, slot 14921600, first 100 entries of each list.
-# Repinned when BeaconStateView gained payload_expected_withdrawals and latest_block_hash: the
-# fixture predates Gloas so both take their defaults, but they are fingerprinted like every other
-# field, which moves the digest. Members running across this release boundary therefore cannot
-# compare beacon-state digests with each other.
 BEACON_STATE_DIGEST = '0x234356032e15740d26559d45c05dd1e35e7699e75685075f5d3256598e0b2593'
 USED_KEYS_DIGEST = '0x8734ab5671c2e52f0854acf1cb234996dd75a8543eed82c220dfad051bf2843c'
 

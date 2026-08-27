@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
 # The pair form addresses a state while its BlockStamp is still being built and the execution
-# anchor has yet to be read out of it (see BlockstampBuilder).
+# anchor has yet to be read out of it (see src.utils.blockstamp).
 StateIdentifier = BlockStamp | tuple[StateRoot, SlotNumber]
 
 

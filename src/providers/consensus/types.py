@@ -132,14 +132,10 @@ class ExecutionPayload(Nested, FromResponse):
 @dataclass
 class ExecutionPayloadBid(Nested, FromResponse):
     """
-    EIP-7732 builder bid header (subset we need).
+    EIP-7732 builder bid header (the subset we need).
 
-    `parent_block_hash` is the execution block the builder builds on top of, and so the block's
-    execution-layer anchor: `process_execution_payload_bid` asserts
-    `bid.parent_block_hash == state.latest_block_hash`.
-
-    The `message.parent_block_hash` path is per the consensus-specs container; confirm against the
-    final beacon-APIs serialization before mainnet activation.
+    `parent_block_hash` is the execution block the builder builds on. The nesting under `message` is
+    per the consensus-specs container; confirm it against the final beacon-APIs serialization.
     """
 
     parent_block_hash: BlockHash
@@ -189,8 +185,8 @@ class SyncAggregate(FromResponse):
 class BeaconBlockBody(Nested, FromResponse):
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
-    # Exactly one of these is present: `execution_payload` pre-EIP-7732, and post-fork
-    # `signed_execution_payload_bid`, where the payload itself is revealed separately.
+    # Exactly one of these is present: `execution_payload` before EIP-7732, and
+    # `signed_execution_payload_bid` after it, where the payload is revealed separately.
     execution_payload: ExecutionPayload | None = None
     signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
 
@@ -287,13 +283,11 @@ class PendingConsolidation(Nested):
 @dataclass
 class ExpectedWithdrawal(Nested, FromResponse):
     """
-    A single entry in BeaconState.payload_expected_withdrawals (EIP-7732).
+    One entry of BeaconState.payload_expected_withdrawals (EIP-7732).
 
-    `process_withdrawals` deducts these amounts from CL validator balances before the matching
-    execution payload credits the withdrawal vault, so consumers that need CL/EL balance
-    consistency add them back.
-
-    FromResponse ignores the extra fields (index, address) the API returns alongside these.
+    `process_withdrawals` takes these amounts off the CL validator balances. The withdrawal vault
+    only receives them when the matching execution payload is applied. Consumers that need the CL
+    and EL views to agree add them back.
     """
 
     validator_index: ValidatorIndex
@@ -319,11 +313,10 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
-    # These fields are new in Gloas, so here are default values for backward compatibility.
-    # Withdrawals deducted from CL balances whose payload has not been applied, so the withdrawal
-    # vault has not yet received them at `latest_block_hash`.
+    # New in Gloas, so both carry a default for pre-fork states.
+    # Already taken off the CL balances, but not yet paid out at `latest_block_hash`.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
-    # The state's execution-layer anchor.
+    # The last execution block applied to this state: the state's execution-layer anchor.
     latest_block_hash: BlockHash = BlockHash(HexStr(''))
 
     @cached_property
