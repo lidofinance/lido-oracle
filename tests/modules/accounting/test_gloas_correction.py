@@ -1,5 +1,3 @@
-"""Unit tests for the EIP-7732 (Gloas) in-flight withdrawal TVL correction (Accounting Oracle)."""
-
 from typing import cast
 from unittest.mock import Mock
 
@@ -43,9 +41,6 @@ class TestGloasBalanceCorrection:
         assert gloas_balance_correction([], {ValidatorIndex(1)}) == Gwei(0)
 
     def test_gloas_balance_correction__duplicate_indices__summed(self):
-        # One payload may hold several withdrawals for the same validator: the pending-partial
-        # queue can carry more than one EIP-7002 request for it, and the validator sweep does not
-        # skip a validator already served earlier in the same payload.
         withdrawals = [
             ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(10)),
             ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(25)),
@@ -82,7 +77,7 @@ class TestClValidatorsBalanceCorrection:
         accounting.w3.cc.get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=withdrawals))
 
     def test_get_cl_validators_balance__in_flight_withdrawal__added_back(self, accounting):
-        # Arrange: the report block deducted a withdrawal the execution anchor has not credited.
+        # Arrange
         self._setup(accounting, [ExpectedWithdrawal(validator_index=ValidatorIndex(1), amount=Gwei(50))])
 
         # Act
@@ -92,7 +87,7 @@ class TestClValidatorsBalanceCorrection:
         assert result == Gwei(100 + 200 + 50)
 
     def test_get_cl_validators_balance__withdrawal_for_foreign_validator__not_added_back(self, accounting):
-        # Arrange: the in-flight withdrawal belongs to a validator outside the protocol.
+        # Arrange
         self._setup(accounting, [ExpectedWithdrawal(validator_index=ValidatorIndex(99), amount=Gwei(50))])
 
         # Act
@@ -102,7 +97,7 @@ class TestClValidatorsBalanceCorrection:
         assert result == Gwei(300)
 
     def test_get_cl_validators_balance__pre_fork_state__no_correction(self, accounting):
-        # Arrange: pre-Gloas states carry no payload_expected_withdrawals at all.
+        # Arrange
         self._setup(accounting, [])
 
         # Act
@@ -115,7 +110,7 @@ class TestClValidatorsBalanceCorrection:
 @pytest.mark.unit
 class TestBalancesByModulesCorrection:
     def test_get_balances_by_modules__correction_attributed_per_module__sum_matches_total(self, accounting):
-        # Arrange: two modules, a withdrawal in-flight for a validator in each.
+        # Arrange
         sm1 = Mock(staking_module_address='addr1', id=StakingModuleId(1))
         sm2 = Mock(staking_module_address='addr2', id=StakingModuleId(2))
         accounting.w3.lido_contracts.staking_router.get_staking_modules_by_address = Mock(
@@ -141,7 +136,7 @@ class TestBalancesByModulesCorrection:
         # Act
         sm_ids, balances = accounting._get_balances_by_modules(_ref_bs())
 
-        # Assert: correction is attributed per module and the per-module sum equals the corrected total.
+        # Assert
         assert sm_ids == [StakingModuleId(1), StakingModuleId(2)]
         assert balances == [Gwei(110), Gwei(320)]
         assert sum(balances) == Gwei(100 + 300 + 10 + 20)

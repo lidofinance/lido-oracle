@@ -653,12 +653,8 @@ class TestCalculateVaultTotalValue:
 
 @pytest.mark.unit
 class TestGloasInFlightWithdrawalCorrection:
-    """EIP-7732: in-flight withdrawals are debited from CL balances before the EL credits them.
-
-    The vault path is the only one that needs the correction per validator rather than as a single
-    sum, so it is the only one that carries a `validator_index -> amount` map — and therefore the
-    only one where several entries for one validator can collide.
-    """
+    """The only path that needs the correction per validator, so the only one where several
+    entries for one validator can collide."""
 
     def test_get_vaults_total_values__in_flight_withdrawal__added_to_vault_total(self, web3, default_vaults_map):
         # Setup
@@ -688,8 +684,7 @@ class TestGloasInFlightWithdrawalCorrection:
     def test_get_vaults_total_values__duplicate_entries_for_one_validator__amounts_summed(
         self, web3, default_vaults_map
     ):
-        # Setup: one payload may carry a pending-partial entry and a sweep entry for the same
-        # validator, so the aggregation must add them rather than keep the last one.
+        # Setup
         validator = ValidatorFactory.build(
             index=ValidatorIndex(7),
             balance=Gwei(32_000_000_000),
@@ -720,7 +715,7 @@ class TestGloasInFlightWithdrawalCorrection:
         assert result[VaultAddresses.VAULT_0] == 36_000_000_000_000_000_000
 
     def test_get_vaults_total_values__pre_fork_no_corrections__total_unchanged(self, web3, default_vaults_map):
-        # Setup: pre-Gloas states carry no payload_expected_withdrawals, so the map is empty.
+        # Setup
         validator = ValidatorFactory.build(
             index=ValidatorIndex(7),
             balance=Gwei(32_000_000_000),

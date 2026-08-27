@@ -271,20 +271,7 @@ class Ejector(OracleModule[Web3]):
         )
 
     def _in_flight_withdrawals(self, blockstamp: BlockStamp, lido_indices: set[ValidatorIndex]) -> Gwei:
-        """Lido-owned withdrawals debited from CL balances but not yet credited to the EL vaults.
-
-        Under EIP-7732 `process_withdrawals` deducts these amounts at the report block, while the
-        payload that credits the Withdrawal Vault is revealed only afterwards. At
-        `blockstamp.block_hash` they are therefore missing from both `validator.balance` and
-        `_get_total_el_balance`, so every term that turns CL balances into expected EL liquidity has
-        to add them back — the protocol delivers them within one slot.
-
-        Adding them back on the CL side only is what keeps the amount counted exactly once: the EL
-        terms must stay uncorrected, or the same ETH would be counted twice once the payload lands.
-
-        Empty before the fork — pre-Gloas states carry no `payload_expected_withdrawals` — so the
-        correction is simply zero and no fork gate is needed.
-        """
+        """Applied to the terms that turn CL balances into expected EL liquidity, and to no others."""
         expected = self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
         correction = gloas_balance_correction(expected, lido_indices)
         if correction:
@@ -310,9 +297,7 @@ class Ejector(OracleModule[Web3]):
                 result += get_predictable_inbound_sweep(v)
 
         # An in-flight full withdrawal leaves `v.balance` at zero, which fails the `balance > 0`
-        # arm of `is_fully_withdrawable_validator` and drops the whole payout from this sum; an
-        # in-flight partial sweep removes exactly the excess this term is meant to count. Both are
-        # restored by adding the debited amounts back — see `_in_flight_withdrawals`.
+        # arm of `is_fully_withdrawable_validator` and drops the entire payout from this sum.
         result = Gwei(result + self._in_flight_withdrawals(blockstamp, counted_indices))
 
         return gwei_to_wei(result)

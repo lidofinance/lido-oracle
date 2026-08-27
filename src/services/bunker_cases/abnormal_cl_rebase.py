@@ -247,10 +247,8 @@ class AbnormalClRebase:
         """
         Get Lido validator balance with withdrawals vault balance.
 
-        After EIP-7732 activation every blockstamp has CL balances already reduced by its own block's
-        payload_expected_withdrawals while the withdrawal vault at its execution anchor has not
-        received the credit yet, so the add-back applies to both ends of a rebase interval — not
-        just the reference one. Pre-fork the list is empty and the sum is unchanged.
+        Every blockstamp carries the EIP-7732 asymmetry, so the add-back applies to both ends of a
+        rebase interval — correcting only the reference side would overstate every rebase.
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
 

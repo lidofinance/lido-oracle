@@ -170,7 +170,7 @@ def web3(monkeypatch) -> Generator[Web3]:
         cc_mock = Mock(spec=ConsensusClientModule)
         cc_mock.is_gloas_slot = Mock(return_value=False)
         cc_mock.is_gloas_epoch = Mock(return_value=False)
-        # Pre-Gloas states carry no in-flight withdrawals, so the EIP-7732 add-back is inert.
+        # Default to a pre-Gloas shape, so the EIP-7732 correction is inert unless a test opts in.
         cc_mock.get_state_view.return_value.payload_expected_withdrawals = []
         cc_mock.get_state_view_no_cache.return_value.payload_expected_withdrawals = []
         return cc_mock

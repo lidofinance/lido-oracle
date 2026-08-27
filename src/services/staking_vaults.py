@@ -285,9 +285,6 @@ class StakingVaultsService:
         for validator in vault_validators:
             validator_pubkey = validator.validator.pubkey
             validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
-            # EIP-7732: add back this validator's in-flight withdrawal (deducted from the CL balance
-            # but not yet credited on the EL) so the vault's total value stays consistent. The map
-            # is empty before the fork; builder indices never appear here.
             gloas_correction = corrections.get(validator.index, Gwei(0))
             total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount + gloas_correction))
 

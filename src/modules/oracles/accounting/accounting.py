@@ -243,15 +243,6 @@ class Accounting(OracleModule[Web3]):
         return report_data
 
     def _expected_withdrawals(self, blockstamp: ReferenceBlockStamp) -> list[ExpectedWithdrawal]:
-        """Withdrawals deducted from CL balances that the execution layer has not credited yet.
-
-        Under EIP-7732 the report's block commits to withdrawals whose execution payload is only
-        revealed afterwards, so at `blockstamp.block_hash` the withdrawal vault has not received
-        them. Every place that pairs CL balances with an EL-side balance has to add them back.
-
-        Empty before the fork — the field does not exist in pre-Gloas states — so no fork gate is
-        needed and the correction is simply zero.
-        """
         return self.w3.cc.get_state_view(blockstamp).payload_expected_withdrawals
 
     def _get_cl_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
@@ -335,8 +326,8 @@ class Accounting(OracleModule[Web3]):
             for validator in validators:
                 module_stats[module_id] += validator.balance
 
-        # Attribute each in-flight withdrawal add-back to its validator's module so the per-module
-        # breakdown still sums to the corrected total CL balance (on-chain equality).
+        # Attributed per module so the breakdown still sums to the corrected total, which the
+        # contract checks.
         validator_to_module = {
             validator.index: module_id
             for (module_id, _), validators in validators_by_no.items()
