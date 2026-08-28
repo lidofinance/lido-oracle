@@ -199,7 +199,13 @@ class Ejector(OracleModule[Web3]):
                     break
 
                 if len(validators_to_eject) >= MAX_EXIT_REQUESTS_PER_REPORT:
-                    logger.warning({'msg': 'Reached the max exit requests per report.'})
+                    logger.warning(
+                        {
+                            'msg': 'Reached the max exit requests per report.',
+                            'len': len(validators_to_eject),
+                            'limit': MAX_EXIT_REQUESTS_PER_REPORT,
+                        }
+                    )
                     break
         else:
             logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
@@ -208,11 +214,12 @@ class Ejector(OracleModule[Web3]):
         if forced_validators:
             logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
 
-        if len(validators_to_eject) + len(forced_validators) > MAX_EXIT_REQUESTS_PER_REPORT:
+        total_requests = len(validators_to_eject) + len(forced_validators)
+        if total_requests > MAX_EXIT_REQUESTS_PER_REPORT:
             logger.warning(
                 {
                     'msg': 'Report is over the max exit requests limit. The rest is reported in the next frames.',
-                    'len': len(validators_to_eject) + len(forced_validators),
+                    'len': total_requests,
                     'limit': MAX_EXIT_REQUESTS_PER_REPORT,
                 }
             )

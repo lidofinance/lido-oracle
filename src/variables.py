@@ -51,6 +51,7 @@ TX_GAS_ADDITION: Final = int(os.getenv('TX_GAS_ADDITION', 100_000))
 # The default is slightly below the 60M mainnet block gas limit, so a large report
 # (eg a VEBO exit report near the sanity checker ceiling) still fits in a block.
 TX_GAS_LIMIT: Final = int(os.getenv('TX_GAS_LIMIT', 55_000_000))
+assert TX_GAS_LIMIT > 0, "TX_GAS_LIMIT must be more than 0"
 
 # Maximum length of a range for eth_getLogs method calls.
 EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 7_200))

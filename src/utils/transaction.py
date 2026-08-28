@@ -33,7 +33,7 @@ def build_transaction_params(w3: Web3, transaction: ContractFunction, account: L
         "nonce": w3.eth.get_transaction_count(account.address),
     }
 
-    if gas := estimate_gas(transaction, account):
+    if (gas := estimate_gas(transaction, account)) is not None:
         params['gas'] = gas
 
     return params
@@ -50,10 +50,20 @@ def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | 
         logger.warning({'msg': 'Can not estimate gas. Execution reverted.', 'error': str(error)})
         return None
 
-    return min(
-        variables.TX_GAS_LIMIT,
-        gas + variables.TX_GAS_ADDITION,
-    )
+    gas_with_addition = gas + variables.TX_GAS_ADDITION
+
+    if gas_with_addition > variables.TX_GAS_LIMIT:
+        logger.warning(
+            {
+                'msg': 'Gas is clamped to TX_GAS_LIMIT.',
+                'estimated_gas': gas,
+                'gas_addition': variables.TX_GAS_ADDITION,
+                'limit': variables.TX_GAS_LIMIT,
+            }
+        )
+        return variables.TX_GAS_LIMIT
+
+    return gas_with_addition
 
 
 def sign_and_send_transaction(
