@@ -7,7 +7,6 @@ from web3.types import Wei
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
-    MAX_EXIT_REQUESTS_PER_REPORT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -197,16 +196,6 @@ class Ejector(OracleModule[Web3]):
 
                 if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) >= to_withdraw_amount:
                     break
-
-                if len(validators_to_eject) >= MAX_EXIT_REQUESTS_PER_REPORT:
-                    logger.warning(
-                        {
-                            'msg': 'Reached the max exit requests per report.',
-                            'len': len(validators_to_eject),
-                            'limit': MAX_EXIT_REQUESTS_PER_REPORT,
-                        }
-                    )
-                    break
         else:
             logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
 
@@ -214,19 +203,6 @@ class Ejector(OracleModule[Web3]):
         if forced_validators:
             logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
             validators_to_eject.extend(forced_validators)
-
-        if len(validators_to_eject) > MAX_EXIT_REQUESTS_PER_REPORT:
-            logger.warning(
-                {
-                    'msg': f'Report is over the max exit requests limit. Capping to {MAX_EXIT_REQUESTS_PER_REPORT} '
-                    'exit requests. Dropped requests will be reported in the following frames.',
-                    'len': len(validators_to_eject),
-                    'limit': MAX_EXIT_REQUESTS_PER_REPORT,
-                }
-            )
-            # The list is already in priority order: the demand loop takes forced validators
-            # first, and the remaining forced go after it. A plain tail cut keeps this order.
-            validators_to_eject = validators_to_eject[:MAX_EXIT_REQUESTS_PER_REPORT]
 
         logger.info(
             {
