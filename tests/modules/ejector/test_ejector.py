@@ -457,7 +457,7 @@ class TestGetValidatorsToEject:
         )
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__demand_and_forced_over_cap__forced_kept_demand_trimmed(
+    def test_get_validators_to_eject__demand_and_forced_over_cap__tail_cut_in_priority_order(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -483,13 +483,7 @@ class TestGetValidatorsToEject:
 
         # Assert
         assert len(result) == MAX_EXIT_REQUESTS_PER_REPORT, "The report must be capped by MAX_EXIT_REQUESTS_PER_REPORT"
-        forced_indexes = {v[1].index for v in forced}
-        result_indexes = {v[1].index for v in result}
-        assert forced_indexes <= result_indexes, "Forced validators must not be dropped by the cap"
-        demand_room = MAX_EXIT_REQUESTS_PER_REPORT - len(forced)
-        assert result[:demand_room] == demand[:demand_room], (
-            "Demand-based validators must be trimmed to leave room for forced validators"
-        )
+        assert result == demand, "The cap must cut the tail of the combined list and keep the iterator's priority order"
 
 
 @pytest.mark.unit
