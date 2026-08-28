@@ -44,9 +44,6 @@ GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
-# Safety cap for the number of exit requests in a single ejector report.
-# Keeps the submitReportData transaction gas well below TX_GAS_LIMIT.
-# The rest of the demand is reported in the next frames.
 MAX_EXIT_REQUESTS_PER_REPORT = 500
 
 # Lido contracts constants
