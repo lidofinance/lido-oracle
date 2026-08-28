@@ -207,17 +207,20 @@ class Ejector(OracleModule[Web3]):
         forced_validators = validators_iterator.get_remaining_forced_validators()
         if forced_validators:
             logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
-            validators_to_eject.extend(forced_validators)
 
-        if len(validators_to_eject) > MAX_EXIT_REQUESTS_PER_REPORT:
+        if len(validators_to_eject) + len(forced_validators) > MAX_EXIT_REQUESTS_PER_REPORT:
             logger.warning(
                 {
                     'msg': 'Report is over the max exit requests limit. The rest is reported in the next frames.',
-                    'len': len(validators_to_eject),
+                    'len': len(validators_to_eject) + len(forced_validators),
                     'limit': MAX_EXIT_REQUESTS_PER_REPORT,
                 }
             )
-            validators_to_eject = validators_to_eject[:MAX_EXIT_REQUESTS_PER_REPORT]
+            # Forced exits have priority, so the demand-based part is trimmed first.
+            forced_validators = forced_validators[:MAX_EXIT_REQUESTS_PER_REPORT]
+            validators_to_eject = validators_to_eject[: MAX_EXIT_REQUESTS_PER_REPORT - len(forced_validators)]
+
+        validators_to_eject.extend(forced_validators)
 
         logger.info(
             {

@@ -456,6 +456,41 @@ class TestGetValidatorsToEject:
             "Forced validators must not push the report over MAX_EXIT_REQUESTS_PER_REPORT"
         )
 
+    @pytest.mark.unit
+    def test_get_validators_to_eject__demand_and_forced_over_cap__forced_kept_demand_trimmed(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_predicted_el_balance = Mock(return_value=Wei(0))
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(10**30))
+
+        demand = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator())
+            for _ in range(MAX_EXIT_REQUESTS_PER_REPORT)
+        ]
+        forced = [((StakingModuleId(0), NodeOperatorId(2)), build_extended_validator()) for _ in range(20)]
+        simple_iterator = SimpleIterator(demand)
+        simple_iterator.get_remaining_forced_validators = Mock(return_value=forced)
+
+        val_iter = iter(simple_iterator)
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert len(result) == MAX_EXIT_REQUESTS_PER_REPORT, "The report must be capped by MAX_EXIT_REQUESTS_PER_REPORT"
+        forced_indexes = {v[1].index for v in forced}
+        result_indexes = {v[1].index for v in result}
+        assert forced_indexes <= result_indexes, "Forced validators must not be dropped by the cap"
+        demand_room = MAX_EXIT_REQUESTS_PER_REPORT - len(forced)
+        assert result[:demand_room] == demand[:demand_room], (
+            "Demand-based validators must be trimmed to leave room for forced validators"
+        )
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
