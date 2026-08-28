@@ -218,7 +218,8 @@ class Ejector(OracleModule[Web3]):
         if len(validators_to_eject) > MAX_EXIT_REQUESTS_PER_REPORT:
             logger.warning(
                 {
-                    'msg': 'Report is over the max exit requests limit. The rest is reported in the next frames.',
+                    'msg': f'Report is over the max exit requests limit. Capping to {MAX_EXIT_REQUESTS_PER_REPORT} '
+                    'exit requests. Dropped requests will be reported in the following frames.',
                     'len': len(validators_to_eject),
                     'limit': MAX_EXIT_REQUESTS_PER_REPORT,
                 }
