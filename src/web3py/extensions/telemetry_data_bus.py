@@ -1,16 +1,12 @@
 import json
 import logging
-import time
 from enum import Enum
 from typing import cast
 
-from eth_account.signers.local import LocalAccount
-from hexbytes import HexBytes
 from requests import Session
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from web3 import AsyncWeb3, Web3
-from web3.contract.contract import ContractFunction
 from web3.module import Module
 
 from src import variables
@@ -22,9 +18,6 @@ from src.utils.version import get_oracle_version
 
 logger = logging.getLogger(__name__)
 
-# Interval between transaction status polls while waiting for inclusion or a nonce change.
-_POLL_INTERVAL_SECONDS = 10
-
 
 class TelemetryEventId(Enum):
     ORACLE_REPORT = Web3.keccak(text="OracleReport")
@@ -32,15 +25,10 @@ class TelemetryEventId(Enum):
     DIAGNOSTIC = Web3.keccak(text="Diagnostic")
 
 
-class DataBusContractNotDeployedError(Exception):
-    pass
-
-
-class TelemetrySendTimeoutError(Exception):
-    pass
-
-
 class TelemetryDataBus(Module):
+    class ContractNotDeployedError(Exception):
+        pass
+
     _data_bus_w3: Web3 | None
     _contract: DataBusContract | None
 
@@ -93,7 +81,7 @@ class TelemetryDataBus(Module):
         chain_id = self._data_bus_w3.eth.chain_id
         code = self._data_bus_w3.eth.get_code(Web3.to_checksum_address(address))
         if not code:
-            raise DataBusContractNotDeployedError(
+            raise self.ContractNotDeployedError(
                 f"No contract deployed at DataBus address {address} (chain_id={chain_id})."
             )
 
@@ -104,7 +92,7 @@ class TelemetryDataBus(Module):
         balance = self._data_bus_w3.eth.get_balance(variables.TELEMETRY_ACCOUNT.address)
         TELEMETRY_ACCOUNT_BALANCE.labels(address=variables.TELEMETRY_ACCOUNT.address).set(balance)
 
-    def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> bytes | None:
+    def send_telemetry(self, event_id: TelemetryEventId, data: dict | None = None) -> None:
         if self._contract is None or self._data_bus_w3 is None:
             logger.warning({'msg': 'DataBus telemetry is not configured. Skipping send.'})
             return
@@ -123,52 +111,8 @@ class TelemetryDataBus(Module):
         payload = json.dumps(message, default=str).encode('utf-8')
 
         tx = self._contract.send_message(event_id.value, payload)
-        tx_hash = self._send_telemetry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
-
+        params = build_transaction_params(self._data_bus_w3, tx, variables.TELEMETRY_ACCOUNT)
+        tx_hash = sign_and_send_transaction(self._data_bus_w3, tx, params, variables.TELEMETRY_ACCOUNT)
         logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
-        return tx_hash
-
-    def _send_telemetry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
-        deadline = time.monotonic() + variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS
-        tx_hash: bytes | None = None
-        nonce: int | None = None
-
-        while time.monotonic() < deadline:
-            try:
-                params = build_transaction_params(w3, tx, account)
-
-                # no new transactions yet
-                if tx_hash and params.get('nonce') == nonce:
-                    time.sleep(_POLL_INTERVAL_SECONDS)
-                    continue
-
-                # Check if this is telemetry transaction
-                if tx_hash:
-                    sent_tx = w3.eth.get_transaction(HexBytes(tx_hash))
-                    if sent_tx.get('blockNumber') is not None:
-                        return tx_hash
-
-                logger.info({'msg': 'Sending DataBus telemetry transaction...', 'nonce': params.get('nonce')})
-                tx_hash = sign_and_send_transaction(w3, tx, params, account)
-                nonce = params.get('nonce')
-                logger.info({'msg': 'Transaction sent.', 'tx_hash': tx_hash})
-            except Exception as error:  # pylint: disable=broad-exception-caught
-                remaining = deadline - time.monotonic()
-                logger.warning(
-                    {
-                        'msg': 'Failed to send DataBus telemetry transaction. Will retry.',
-                        'remaining_seconds': max(remaining, 0),
-                        'error': str(error),
-                    }
-                )
-
-            time.sleep(_POLL_INTERVAL_SECONDS)
-
-        if tx_hash:
-            return tx_hash
-
-        raise TelemetrySendTimeoutError(
-            f"Timed out sending DataBus telemetry transaction after {variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s."
-        )

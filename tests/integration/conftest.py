@@ -72,7 +72,7 @@ def lido_contract(web3_provider_integration, lido_locator_contract) -> LidoContr
     return get_contract(
         web3_provider_integration,
         LidoContract,
-        lido_locator_contract.lido('latest'),
+        lido_locator_contract.lido(),
     )
 
 
@@ -81,7 +81,7 @@ def accounting_oracle_contract(web3_provider_integration, lido_locator_contract)
     return get_contract(
         web3_provider_integration,
         AccountingOracleContract,
-        lido_locator_contract.accounting_oracle('latest'),
+        lido_locator_contract.accounting_oracle(),
     )
 
 
@@ -90,7 +90,7 @@ def accounting_contract(web3_provider_integration, lido_locator_contract) -> Acc
     return get_contract(
         web3_provider_integration,
         AccountingContract,
-        lido_locator_contract.accounting('latest'),
+        lido_locator_contract.accounting(),
     )
 
 
@@ -99,7 +99,7 @@ def staking_router_contract(web3_provider_integration, lido_locator_contract) ->
     return get_contract(
         web3_provider_integration,
         StakingRouterContract,
-        lido_locator_contract.staking_router('latest'),
+        lido_locator_contract.staking_router(),
     )
 
 
@@ -108,7 +108,7 @@ def validators_exit_bus_oracle_contract(web3_provider_integration, lido_locator_
     return get_contract(
         web3_provider_integration,
         ExitBusOracleContract,
-        lido_locator_contract.validator_exit_bus_oracle('latest'),
+        lido_locator_contract.validator_exit_bus_oracle(),
     )
 
 
@@ -117,7 +117,7 @@ def withdrawal_queue_nft_contract(web3_provider_integration, lido_locator_contra
     return get_contract(
         web3_provider_integration,
         WithdrawalQueueNftContract,
-        lido_locator_contract.withdrawal_queue('latest'),
+        lido_locator_contract.withdrawal_queue(),
     )
 
 
@@ -126,7 +126,7 @@ def oracle_report_sanity_checker_contract(web3_provider_integration, lido_locato
     return get_contract(
         web3_provider_integration,
         OracleReportSanityCheckerContract,
-        lido_locator_contract.oracle_report_sanity_checker('latest'),
+        lido_locator_contract.oracle_report_sanity_checker(),
     )
 
 
@@ -135,7 +135,7 @@ def oracle_daemon_config_contract(web3_provider_integration, lido_locator_contra
     return get_contract(
         web3_provider_integration,
         OracleDaemonConfigContract,
-        lido_locator_contract.oracle_daemon_config('latest'),
+        lido_locator_contract.oracle_daemon_config(),
     )
 
 
@@ -144,7 +144,7 @@ def burner_contract(web3_provider_integration, lido_locator_contract):
     return get_contract(
         web3_provider_integration,
         BurnerContract,
-        lido_locator_contract.burner('latest'),
+        lido_locator_contract.burner(),
     )
 
 
@@ -153,7 +153,7 @@ def vault_hub_contract(web3_provider_integration, lido_locator_contract):
     return get_contract(
         web3_provider_integration,
         VaultHubContract,
-        lido_locator_contract.vault_hub('latest'),
+        lido_locator_contract.vault_hub(),
     )
 
 
@@ -162,7 +162,7 @@ def lazy_oracle_contract(web3_provider_integration, lido_locator_contract):
     return get_contract(
         web3_provider_integration,
         LazyOracleContract,
-        lido_locator_contract.lazy_oracle('latest'),
+        lido_locator_contract.lazy_oracle(),
     )
 
 
@@ -185,7 +185,7 @@ def cs_accounting_contract(web3_provider_integration, cs_module_contract):
     return get_contract(
         web3_provider_integration,
         CSAccountingContract,
-        cs_module_contract.accounting('latest'),
+        cs_module_contract.accounting(),
     )
 
 
@@ -194,7 +194,7 @@ def cs_params_contract(web3_provider_integration, cs_module_contract):
     return get_contract(
         web3_provider_integration,
         CSParametersRegistryContract,
-        cs_module_contract.parameters_registry('latest'),
+        cs_module_contract.parameters_registry(),
     )
 
 
@@ -203,7 +203,7 @@ def cs_fee_distributor_contract(web3_provider_integration, cs_accounting_contrac
     return get_contract(
         web3_provider_integration,
         CSFeeDistributorContract,
-        cs_accounting_contract.fee_distributor('latest'),
+        cs_accounting_contract.fee_distributor(),
     )
 
 
@@ -212,7 +212,7 @@ def cs_fee_oracle_contract(web3_provider_integration, cs_fee_distributor_contrac
     return get_contract(
         web3_provider_integration,
         CSFeeOracleContract,
-        cs_fee_distributor_contract.oracle('latest'),
+        cs_fee_distributor_contract.oracle(),
     )
 
 
@@ -221,7 +221,7 @@ def cs_strikes_contract(web3_provider_integration, cs_fee_oracle_contract):
     return get_contract(
         web3_provider_integration,
         CSStrikesContract,
-        cs_fee_oracle_contract.strikes('latest'),
+        cs_fee_oracle_contract.strikes(),
     )
 
 
@@ -230,8 +230,7 @@ def delegation_contract(web3_provider_integration):
     return get_contract(
         web3_provider_integration,
         DelegationContract,
-        # Hoodi delegation contract address
-        '0xaa9784e761332347b5b96feb5978ebb9259ef7b6',
+        variables.DELEGATION_CONTRACT_ADDRESS,
     )
 
 
@@ -240,7 +239,7 @@ def hash_consensus_contract(web3_provider_integration, accounting_oracle_contrac
     return get_contract(
         web3_provider_integration,
         HashConsensusContract,
-        accounting_oracle_contract.get_consensus_contract('latest'),
+        accounting_oracle_contract.get_consensus_contract(),
     )
 
 

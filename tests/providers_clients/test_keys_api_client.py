@@ -14,14 +14,13 @@ from src import constants, variables
 from src.providers.keys.client import KAPIClientError, KAPIInconsistentData, KeysAPIClient, KeysOutdatedException
 from src.providers.keys.types import LidoKey
 from src.types import StakingModuleAddress
-from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
 
 @pytest.mark.integration
 @pytest.mark.mainnet
 class TestIntegrationKeysAPIClient:
-    # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#bls-signatures
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures
     BLS_PUBLIC_KEY_SIZE = 48
     BLS_SIGNATURE_SIZE = 96
     BLS_PUBLIC_KEY_PATTERN = re.compile(r'^0x[0-9a-fA-F]{96}$')
@@ -69,14 +68,12 @@ class TestIntegrationKeysAPIClient:
         keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
 
         assert len(keys) > 0
-        # A set, not a list: mainnet returns over half a million used keys, and a linear membership
-        # scan per key made this single test ~30 minutes, about 70% of the whole CI job.
-        keys_seen: set[str] = set()
+        keys_seen: list[str] = []
         for lido_key in keys:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.add(lido_key.key)
+            keys_seen.append(lido_key.key)
 
     def test_get_used_module_operators_keys__csm_module__response_data_is_valid(
         self,
@@ -92,12 +89,12 @@ class TestIntegrationKeysAPIClient:
         assert csm_module_operators_keys['module']['id'] >= 0
         assert len(csm_module_operators_keys['keys']) > 0
         assert len(csm_module_operators_keys['operators']) > 0
-        keys_seen: set[str] = set()
+        keys_seen: list[str] = []
         for lido_key in csm_module_operators_keys['keys']:
             assert lido_key.used
             self._assert_lido_key(lido_key)
             assert lido_key.key not in keys_seen
-            keys_seen.add(lido_key.key)
+            keys_seen.append(lido_key.key)
         for operator in csm_module_operators_keys['operators']:
             assert operator['index'] >= 0
             assert Web3.is_address(operator['rewardAddress'])
@@ -498,73 +495,3 @@ class TestUnitKeysAPIClient:
         assert line['el_block_snapshot'] == snapshot
         assert line['response_bytes'] == len(responses.calls[0].response.content)
         assert line['requested_block_number'] == empty_blockstamp.block_number
-
-    @responses.activate
-    def test_get_used_lido_keys__response__logs_fingerprint_of_returned_keys(
-        self,
-        keys_api_client: KeysAPIClient,
-        empty_blockstamp,
-        caplog,
-    ):
-        """Without this the call site can be dropped in a refactor and CI stays green."""
-        caplog.set_level(logging.INFO)
-        responses.get(
-            self.KEYS_API_MOCK_URL + keys_api_client.USED_KEYS,
-            json={
-                'data': [
-                    {
-                        'index': 0,
-                        'key': '0x' + '11' * 48,
-                        'used': True,
-                        'operatorIndex': 3,
-                        'moduleAddress': '0x' + '22' * 20,
-                        'depositSignature': '0x' + '33' * 96,
-                    }
-                ],
-                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
-            },
-        )
-
-        keys = keys_api_client.get_used_lido_keys(empty_blockstamp)
-
-        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API used keys fingerprint.')
-        assert line['digest'] == digest_of(keys)
-        assert line['endpoint'] == keys_api_client.USED_KEYS
-
-    @responses.activate
-    def test_get_used_module_operators_keys__response__logs_fingerprint_of_returned_data(
-        self,
-        keys_api_client: KeysAPIClient,
-        empty_blockstamp,
-        caplog,
-    ):
-        """Covers the whole response — keys, module and operator records — not just the keys."""
-        caplog.set_level(logging.INFO)
-        module_address = cast(StakingModuleAddress, '0xdtestest')
-        endpoint = keys_api_client.USED_MODULE_OPERATORS_KEYS.format(module_address)
-        responses.get(
-            self.KEYS_API_MOCK_URL + endpoint,
-            json={
-                'data': {
-                    'keys': [
-                        {
-                            'index': 0,
-                            'key': '0x' + '11' * 48,
-                            'used': True,
-                            'operatorIndex': 3,
-                            'moduleAddress': '0x' + '22' * 20,
-                            'depositSignature': '0x' + '33' * 96,
-                        }
-                    ],
-                    'module': {'stakingModuleAddress': str(module_address), 'id': 1},
-                    'operators': [{'index': 3, 'name': 'operator'}],
-                },
-                'meta': {'elBlockSnapshot': {'blockNumber': 0}},
-            },
-        )
-
-        result = keys_api_client.get_used_module_operators_keys(module_address, empty_blockstamp)
-
-        line = next(r.msg for r in caplog.records if r.msg.get('msg') == 'Keys API module operators keys fingerprint.')
-        assert line['digest'] == digest_of(result)
-        assert line['endpoint'] == endpoint

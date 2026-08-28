@@ -7,7 +7,6 @@ from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dic
 from src.providers.keys.types import KeysApiStatus, LidoKey
 from src.types import BlockStamp, StakingModuleAddress
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.fingerprint import log_fingerprint
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +87,6 @@ class KeysAPIClient(HTTPProvider):
         """Docs: https://keys-api.lido.fi/api/static/index.html#/keys/KeysController_get"""
         data = [LidoKey.from_response(**x) for x in self._get_with_blockstamp(self.USED_KEYS, blockstamp)]
         self._check_used_keys(data)
-        log_fingerprint(logger, 'Keys API used keys', data, endpoint=self.USED_KEYS)
         return data
 
     @lru_cache(maxsize=1)
@@ -104,12 +102,6 @@ class KeysAPIClient(HTTPProvider):
 
         data['keys'] = [LidoKey.from_response(**k) for k in data['keys']]
         self._check_used_keys(data['keys'])
-        log_fingerprint(
-            logger,
-            'Keys API module operators keys',
-            data,
-            endpoint=self.USED_MODULE_OPERATORS_KEYS.format(module_address),
-        )
 
         return cast(ModuleOperatorsKeys, data)
 

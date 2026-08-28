@@ -80,7 +80,7 @@ class LidoContracts(Module):
         self.lido: LidoContract = cast(
             LidoContract,
             self.w3.eth.contract(
-                address=self.lido_locator.lido('latest'),
+                address=self.lido_locator.lido(),
                 ContractFactoryClass=LidoContract,
                 decode_tuples=True,
             ),
@@ -89,7 +89,7 @@ class LidoContracts(Module):
         self.accounting_oracle: AccountingOracleContract = cast(
             AccountingOracleContract,
             self.w3.eth.contract(
-                address=self.lido_locator.accounting_oracle('latest'),
+                address=self.lido_locator.accounting_oracle(),
                 ContractFactoryClass=AccountingOracleContract,
                 decode_tuples=True,
             ),
@@ -98,7 +98,7 @@ class LidoContracts(Module):
         self.validators_exit_bus_oracle: ExitBusOracleContract = cast(
             ExitBusOracleContract,
             self.w3.eth.contract(
-                address=self.lido_locator.validator_exit_bus_oracle('latest'),
+                address=self.lido_locator.validator_exit_bus_oracle(),
                 ContractFactoryClass=ExitBusOracleContract,
                 decode_tuples=True,
             ),
@@ -107,7 +107,7 @@ class LidoContracts(Module):
         self.withdrawal_queue_nft: WithdrawalQueueNftContract = cast(
             WithdrawalQueueNftContract,
             self.w3.eth.contract(
-                address=self.lido_locator.withdrawal_queue('latest'),
+                address=self.lido_locator.withdrawal_queue(),
                 ContractFactoryClass=WithdrawalQueueNftContract,
                 decode_tuples=True,
             ),
@@ -116,7 +116,7 @@ class LidoContracts(Module):
         self.oracle_report_sanity_checker: OracleReportSanityCheckerContract = cast(
             OracleReportSanityCheckerContract,
             self.w3.eth.contract(
-                address=self.lido_locator.oracle_report_sanity_checker('latest'),
+                address=self.lido_locator.oracle_report_sanity_checker(),
                 ContractFactoryClass=OracleReportSanityCheckerContract,
                 decode_tuples=True,
             ),
@@ -125,7 +125,7 @@ class LidoContracts(Module):
         self.oracle_daemon_config: OracleDaemonConfigContract = cast(
             OracleDaemonConfigContract,
             self.w3.eth.contract(
-                address=self.lido_locator.oracle_daemon_config('latest'),
+                address=self.lido_locator.oracle_daemon_config(),
                 ContractFactoryClass=OracleDaemonConfigContract,
                 decode_tuples=True,
             ),
@@ -134,7 +134,7 @@ class LidoContracts(Module):
         self.burner: BurnerContract = cast(
             BurnerContract,
             self.w3.eth.contract(
-                address=self.lido_locator.burner('latest'),
+                address=self.lido_locator.burner(),
                 ContractFactoryClass=BurnerContract,
                 decode_tuples=True,
             ),
@@ -143,7 +143,7 @@ class LidoContracts(Module):
         self.staking_router = cast(
             StakingRouterContract,
             self.w3.eth.contract(
-                address=self.lido_locator.staking_router('latest'),
+                address=self.lido_locator.staking_router(),
                 ContractFactoryClass=StakingRouterContract,
                 decode_tuples=True,
             ),
@@ -152,7 +152,7 @@ class LidoContracts(Module):
         self.accounting = cast(
             AccountingContract,
             self.w3.eth.contract(
-                address=self.lido_locator.accounting('latest'),
+                address=self.lido_locator.accounting(),
                 ContractFactoryClass=AccountingContract,
                 decode_tuples=True,
             ),
@@ -161,7 +161,7 @@ class LidoContracts(Module):
         self.lazy_oracle = cast(
             LazyOracleContract,
             self.w3.eth.contract(
-                address=self.lido_locator.lazy_oracle('latest'),
+                address=self.lido_locator.lazy_oracle(),
                 ContractFactoryClass=LazyOracleContract,
                 decode_tuples=True,
             ),
@@ -170,7 +170,7 @@ class LidoContracts(Module):
         self.vault_hub = cast(
             VaultHubContract,
             self.w3.eth.contract(
-                address=self.lido_locator.vault_hub('latest'),
+                address=self.lido_locator.vault_hub(),
                 ContractFactoryClass=VaultHubContract,
                 decode_tuples=True,
             ),

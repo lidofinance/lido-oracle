@@ -83,7 +83,7 @@ services:
       - "${PERFORMANCE_COLLECTOR_HEALTH_PORT:-9010}:9010"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
   performance-web:
     build: .
@@ -108,7 +108,7 @@ services:
       - "${PERFORMANCE_WEB_PORT:-9020}:9020"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9020/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9020/health"]
 
   # ---------------------------------------------------------------------------
   # Oracle Services
@@ -121,8 +121,6 @@ services:
     environment:
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
-      MEMBER_PRIV_KEY_2: ${MEMBER_PRIV_KEY_2:-}
-      MEMBER_PRIV_KEY_2_FILE: ${MEMBER_PRIV_KEY_2_FILE:-}
       LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
@@ -145,7 +143,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
   ejector-oracle:
     build: .
@@ -154,8 +152,6 @@ services:
     environment:
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
-      MEMBER_PRIV_KEY_2: ${MEMBER_PRIV_KEY_2:-}
-      MEMBER_PRIV_KEY_2_FILE: ${MEMBER_PRIV_KEY_2_FILE:-}
       LIDO_LOCATOR_ADDRESS: ${LIDO_LOCATOR_ADDRESS:-}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
@@ -178,7 +174,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
   csm-oracle:
     build: .
@@ -193,8 +189,6 @@ services:
       STAKING_MODULE_ADDRESS: ${CS_MODULE_ADDRESS:-}
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
-      MEMBER_PRIV_KEY_2: ${MEMBER_PRIV_KEY_2:-}
-      MEMBER_PRIV_KEY_2_FILE: ${MEMBER_PRIV_KEY_2_FILE:-}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
       TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
@@ -220,7 +214,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
   cm-oracle:
     build: .
@@ -235,8 +229,6 @@ services:
       STAKING_MODULE_ADDRESS: ${CURATED_MODULE_ADDRESS:-}
       MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
       MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
-      MEMBER_PRIV_KEY_2: ${MEMBER_PRIV_KEY_2:-}
-      MEMBER_PRIV_KEY_2_FILE: ${MEMBER_PRIV_KEY_2_FILE:-}
       CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
       EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
       TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
@@ -262,7 +254,7 @@ services:
     restart: unless-stopped
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:9010/healthcheck"]
 
 volumes:
   postgres-data:
