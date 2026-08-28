@@ -6,6 +6,7 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 from web3.types import Wei
 
+from src import variables
 from src.constants import SHARE_RATE_PRECISION_E27
 from src.metrics.prometheus.accounting import (
     ACCOUNTING_BALANCE_GWEI,
@@ -130,11 +131,11 @@ class Accounting(OracleModule[Web3]):
 
         if extra_data.format == FormatList.EXTRA_DATA_FORMAT_LIST_EMPTY.value:
             tx = self.report_contract.submit_report_extra_data_empty()
-            self.w3.transaction.check_and_send_transaction(tx)
+            self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
         else:
             for tx_data in extra_data.extra_data_list:
                 tx = self.report_contract.submit_report_extra_data_list(tx_data)
-                self.w3.transaction.check_and_send_transaction(tx)
+                self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     @lru_cache(maxsize=1)
     @duration_meter()
@@ -253,12 +254,13 @@ class Accounting(OracleModule[Web3]):
         """Calculate the total pending balance on the Consensus Layer.
 
         Includes both new validators awaiting activation and pending top-up deposits for
-        existing active validators. Top-ups must be included because they are not yet reflected
+        existing active validators. Top-ups must be included  because they are not yet reflected
         in validator.balance on the CL; if they remain unprocessed across a frame boundary,
         they would otherwise be invisible to the contract's accounting (absent from both
         clPendingBalanceAtLastReport and depositedForCurrentReport).
         """
         lido_pending_balance_by_keys = self.w3.lido_validators.get_pending_lido_validators(blockstamp)
+        logger.info({'msg': 'Get pending lido validators.', 'value': len(lido_pending_balance_by_keys)})
 
         new_validators_pending = Gwei(
             sum(pending.amount for _, pendings in lido_pending_balance_by_keys.values() for pending in pendings)

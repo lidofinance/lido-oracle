@@ -7,6 +7,7 @@ ARG SOURCE_DATE_EPOCH
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     libffi-dev=3.4.8-2 \
     g++=4:14.2.0-1 \
+    curl=8.14.1-2+deb13u4 \
     swig=4.3.0-1 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
@@ -55,10 +56,6 @@ RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
     git=1:2.47.3-0+deb13u1 \
     htop=3.4.1-5 \
-    # curl is only used here in development. The Debian repo updates it
-    # often, so a pinned version can disappear and break the build. The
-    # development stage does not run in pipelines, so this is safe here.
-    curl=8.14.1-2+deb13u4 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -85,7 +82,7 @@ EXPOSE $PROMETHEUS_PORT
 USER www-data
 
 HEALTHCHECK --interval=10s --timeout=3s \
-    CMD /opt/venv/bin/python3 -m src.scripts.healthcheck "http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck" || exit 1
+    CMD curl -f http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck || exit 1
 
 WORKDIR /app/
 

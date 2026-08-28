@@ -16,11 +16,11 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
+    DelegationModule,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
-    SignerModule,
     TelemetryDataBus,
     TransactionUtils,
 )
@@ -124,7 +124,7 @@ def configure_testnet_tests(request, monkeypatch):
 
         monkeypatch.setattr(variables, 'LIDO_LOCATOR_ADDRESS', '0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8')
         monkeypatch.setattr(variables, 'STAKING_MODULE_ADDRESS', '0x79cef36d84743222f37765204bec41e92a93e59d')
-        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0xaa9784e761332347b5b96feb5978ebb9259ef7b6')
+        monkeypatch.setattr(variables, 'DELEGATION_CONTRACT_ADDRESS', '0x25561dee2f25d728c3da3d1fcc915d6a77f6ac0c')
 
         # Telemetry DataBus is always on testnet regardless of mainnet/testnet marker
         monkeypatch.setattr(variables, 'TELEMETRY_DATA_BUS_RPC', TESTNET_EXECUTION_CLIENT_URI[0])
@@ -164,15 +164,6 @@ def web3(monkeypatch) -> Generator[Web3]:
 
     w3.eth.contract = create_contract_mock
 
-    def create_signer_mock():
-        # `spec=SignerModule` only recognizes methods, not the plain `is_delegated`/
-        # `delegation_contract` instance attributes set in __init__ - default them here
-        # to a no-delegation state so tests don't have to stub them individually.
-        signer_mock = Mock(spec=SignerModule)
-        signer_mock.is_delegated = False
-        signer_mock.delegation_contract = None
-        return signer_mock
-
     w3.attach_modules(
         {
             # Mocked on the contract level, see create_contract_mock
@@ -184,7 +175,7 @@ def web3(monkeypatch) -> Generator[Web3]:
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
             'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
-            'signer': create_signer_mock,
+            'delegation': lambda: Mock(spec=DelegationModule),
         }
     )
 
@@ -210,11 +201,7 @@ def web3_integration() -> Generator[Web3]:
             'cc': lambda: ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, w3),
             'kac': lambda: KeysAPIClientModule(variables.KEYS_API_URI, w3),
             'ipfs': lambda: IPFS(w3, ipfs_providers(), retries=variables.HTTP_REQUEST_RETRY_COUNT_IPFS),
-            'signer': lambda: SignerModule(
-                w3,
-                [account for account in (variables.ACCOUNT, variables.ACCOUNT_2) if account],
-                variables.DELEGATION_CONTRACT_ADDRESS,
-            ),
+            'delegation': lambda: DelegationModule(w3, variables.DELEGATION_CONTRACT_ADDRESS),
         }
     )
 

@@ -18,7 +18,7 @@ class HashConsensusContract(ContractInterface):
     abi_path = './assets/HashConsensus.json'
 
     @lru_cache(maxsize=1)
-    def get_members(self, block_identifier: BlockIdentifier) -> tuple[list[ChecksumAddress], list[int]]:
+    def get_members(self, block_identifier: BlockIdentifier = 'latest') -> tuple[list[ChecksumAddress], list[int]]:
         """
         Returns all current members, together with the last reference slot each member
         submitted a report for.
@@ -37,7 +37,7 @@ class HashConsensusContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_chain_config(self, block_identifier: BlockIdentifier) -> ChainConfig:
+    def get_chain_config(self, block_identifier: BlockIdentifier = 'latest') -> ChainConfig:
         """
         Returns the immutable chain parameters required to calculate epoch and slot
         given a timestamp.
@@ -57,7 +57,7 @@ class HashConsensusContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_current_frame(self, block_identifier: BlockIdentifier) -> CurrentFrame:
+    def get_current_frame(self, block_identifier: BlockIdentifier = 'latest') -> CurrentFrame:
         """
         Returns the current reporting frame.
 
@@ -84,7 +84,7 @@ class HashConsensusContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_initial_ref_slot(self, block_identifier: BlockIdentifier) -> SlotNumber:
+    def get_initial_ref_slot(self, block_identifier: BlockIdentifier = 'latest') -> SlotNumber:
         """
         Returns the earliest possible reference slot,
         i.e. the reference slot of the reporting frame with zero index.
@@ -103,7 +103,7 @@ class HashConsensusContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_frame_config(self, block_identifier: BlockIdentifier) -> FrameConfig:
+    def get_frame_config(self, block_identifier: BlockIdentifier = 'latest') -> FrameConfig:
         """
         Returns the time-related configuration.
 
@@ -126,7 +126,9 @@ class HashConsensusContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_consensus_state_for_member(self, address: ChecksumAddress, block_identifier: BlockIdentifier) -> tuple:
+    def get_consensus_state_for_member(
+        self, address: ChecksumAddress, block_identifier: BlockIdentifier = 'latest'
+    ) -> tuple:
         """
         Returns the extended information related to an oracle committee member with the
         given address and the current consensus state. Provides all the information needed for

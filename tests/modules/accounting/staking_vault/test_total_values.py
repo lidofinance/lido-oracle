@@ -111,9 +111,6 @@ class TestGetVaultsTotalValues:
             VaultAddresses.VAULT_3: 61_000_000_000_000_000_000,  # 60 ETH + 1 EL
         }
         assert result == expected
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_pending_deposit_with_wrong_wc_ignored(self, web3, default_vaults_map):
         # Setup
@@ -156,9 +153,6 @@ class TestGetVaultsTotalValues:
             VaultAddresses.VAULT_3: 1_000_000_000_000_000_000,
         }
         assert result == expected
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_multiple_pending_deposits_for_same_validator(self, web3, default_vaults_map):
         # Setup
@@ -213,9 +207,6 @@ class TestGetVaultsTotalValues:
             VaultAddresses.VAULT_3: 1_000_000_000_000_000_000,
         }
         assert result == expected
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_pending_deposit_without_validator_counts_predeposit(self, web3, default_vaults_map):
         # Setup
@@ -239,9 +230,7 @@ class TestGetVaultsTotalValues:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(
-            default_vaults_map, validators, pending_deposits, block_identifier="latest"
-        )
+        result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
         # Assert
         expected = {
@@ -251,9 +240,6 @@ class TestGetVaultsTotalValues:
             VaultAddresses.VAULT_3: 1_000_000_000_000_000_000,
         }
         assert result == expected
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
 
 @pytest.mark.unit
@@ -279,16 +265,13 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, validators, [], block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
         # Assert
         expected_vault_0 = default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance + gwei_to_wei(
             Gwei(1_000_000_000)
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_activated_validator_counts_full_balance_plus_pending(self, web3, default_vaults_map):
         # Setup
@@ -319,9 +302,7 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(
-            default_vaults_map, validators, pending_deposits, block_identifier="latest"
-        )
+        result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
         # Assert
         expected_vault_0 = (
@@ -330,9 +311,6 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
             + gwei_to_wei(Gwei(31_000_000_000))
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_proven_validator_not_counted(self, web3, default_vaults_map):
         # Setup
@@ -355,13 +333,10 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, validators, [], block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
         # Assert
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_predeposited_validator_with_pending_deposit_no_double_count(self, web3, default_vaults_map):
         # Setup
@@ -392,18 +367,13 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(
-            default_vaults_map, validators, pending_deposits, block_identifier="latest"
-        )
+        result = service.get_vaults_total_values(default_vaults_map, validators, pending_deposits)
 
         # Assert
         expected_vault_0 = default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance + gwei_to_wei(
             Gwei(1_000_000_000)
         )
         assert result[VaultAddresses.VAULT_0] == expected_vault_0
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_doppelganger_pubkey_not_counted(self, web3, default_vaults_map):
         # Setup
@@ -426,14 +396,11 @@ class TestGetVaultsTotalValuesWithValidatorStatuses:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, validators, [], block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
         # Assert
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
         assert result[VaultAddresses.VAULT_1] == default_vaults_map[VaultAddresses.VAULT_1].aggregated_balance
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
 
 @pytest.mark.unit
@@ -460,14 +427,11 @@ class TestGetVaultsTotalValuesEdgeCases:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, [], pending_deposits, block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, [], pending_deposits)
 
         # Assert
         # No extra 1 ETH should be counted because stage is not PREDEPOSITED.
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
     def test_far_future_validator_without_status_skipped(self, web3, default_vaults_map):
         # Setup
@@ -489,14 +453,11 @@ class TestGetVaultsTotalValuesEdgeCases:
         service = StakingVaultsService(web3)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, validators, [], block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, validators, [])
 
         # Assert
         # Validator should be ignored entirely.
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[VaultAddresses.VAULT_0].aggregated_balance
-        service.w3.lido_contracts.lazy_oracle.get_validator_statuses.assert_called_with(
-            pubkeys=ANY, block_identifier="latest", batch_size=ANY
-        )
 
 
 @pytest.mark.unit
@@ -516,7 +477,7 @@ class TestGetVaultsTotalValuesDefaults:
         service._calculate_vault_total_value = MagicMock(return_value=123)
 
         # Act
-        result = service.get_vaults_total_values(default_vaults_map, [], [], block_identifier="latest")
+        result = service.get_vaults_total_values(default_vaults_map, [], [])
 
         # Assert
         service._get_pubkey_statuses_by_vault.assert_has_calls(
@@ -533,7 +494,6 @@ class TestGetVaultsTotalValuesDefaults:
             ],
             any_order=False,
         )
-        service._get_pubkey_statuses_by_vault.assert_called_with(pubkeys=ANY, block_identifier="latest")
 
 
 @pytest.mark.unit

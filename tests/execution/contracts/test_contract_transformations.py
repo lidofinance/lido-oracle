@@ -307,7 +307,6 @@ class TestLazyOracleGetVaults:
         assert v.max_liability_shares == 200
         assert v.reserve_ratio_bp == 1000
         assert v.pending_disconnect is False
-        contract.functions.batchVaultsInfo.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_withdrawal_credentials_converted_to_hex(self):
         contract = _mock_contract()
@@ -318,7 +317,6 @@ class TestLazyOracleGetVaults:
 
         assert result[0].withdrawal_credentials.startswith("0x")
         assert "ab" in result[0].withdrawal_credentials.lower()
-        contract.functions.batchVaultsInfo.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_empty_response(self):
         contract = _mock_contract()
@@ -327,7 +325,6 @@ class TestLazyOracleGetVaults:
         result = LazyOracleContract.get_vaults(contract, offset=0, limit=10, block_identifier="latest")
 
         assert result == []
-        contract.functions.batchVaultsInfo.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_passes_offset_and_limit(self):
         contract = _mock_contract()
@@ -336,7 +333,6 @@ class TestLazyOracleGetVaults:
         LazyOracleContract.get_vaults(contract, offset=50, limit=25, block_identifier="latest")
 
         contract.functions.batchVaultsInfo.assert_called_once_with(50, 25)
-        contract.functions.batchVaultsInfo.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -356,7 +352,6 @@ class TestLazyOracleGetAllVaults:
         result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
 
         assert result == []
-        contract.get_vaults_count.assert_called_once_with("latest")
         contract.get_vaults.assert_not_called()
 
     def test_single_page(self, monkeypatch):
@@ -369,7 +364,6 @@ class TestLazyOracleGetAllVaults:
         result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
 
         assert len(result) == 2
-        contract.get_vaults_count.assert_called_once_with("latest")
         contract.get_vaults.assert_called_once_with(block_identifier="latest", offset=0, limit=100)
 
     def test_multiple_pages(self, monkeypatch):
@@ -385,7 +379,6 @@ class TestLazyOracleGetAllVaults:
 
         assert len(result) == 3
         assert contract.get_vaults.call_count == 2
-        contract.get_vaults_count.assert_called_once_with("latest")
         contract.get_vaults.assert_any_call(block_identifier="latest", offset=0, limit=2)
         contract.get_vaults.assert_any_call(block_identifier="latest", offset=2, limit=2)
 
@@ -398,8 +391,6 @@ class TestLazyOracleGetAllVaults:
         result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
 
         assert result == []
-        contract.get_vaults_count.assert_called_once_with("latest")
-        contract.get_vaults.assert_called_once_with(block_identifier="latest", offset=0, limit=100)
 
 
 # ---------------------------------------------------------------------------
@@ -438,7 +429,6 @@ class TestLazyOracleGetValidatorStatuses:
 
         assert pk in result
         assert result[pk].stage == ValidatorStage.ACTIVATED
-        contract.functions.batchValidatorStatuses.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_multiple_batches(self):
         contract = _mock_contract()
@@ -453,7 +443,6 @@ class TestLazyOracleGetValidatorStatuses:
 
         assert len(result) == 3
         assert contract.functions.batchValidatorStatuses.call_count == 2
-        contract.functions.batchValidatorStatuses.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_result_keyed_by_0x_pubkey(self):
         contract = _mock_contract()
@@ -466,7 +455,6 @@ class TestLazyOracleGetValidatorStatuses:
 
         key = next(iter(result))
         assert key.startswith("0x")
-        contract.functions.batchValidatorStatuses.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -495,7 +483,6 @@ class TestStakingRouterGetAllNodeOperatorDigests:
 
         assert len(result) == 2
         assert contract.functions.getNodeOperatorDigests.call_count == 1
-        contract.functions.getNodeOperatorDigests.return_value.call.assert_called_with(block_identifier="latest")
 
     @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_multiple_pages(self, mock_from_response, monkeypatch):
@@ -515,7 +502,6 @@ class TestStakingRouterGetAllNodeOperatorDigests:
 
         assert len(result) == 3
         assert contract.functions.getNodeOperatorDigests.call_count == 2
-        contract.functions.getNodeOperatorDigests.return_value.call.assert_called_with(block_identifier="latest")
 
     @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_empty_first_response(self, mock_from_response, monkeypatch):
@@ -528,7 +514,6 @@ class TestStakingRouterGetAllNodeOperatorDigests:
         )
 
         assert result == []
-        contract.functions.getNodeOperatorDigests.return_value.call.assert_called_with(block_identifier="latest")
 
     @patch("src.providers.execution.contracts.staking_router.NodeOperator.from_response")
     def test_uses_correct_offsets(self, mock_from_response, monkeypatch):
@@ -543,7 +528,6 @@ class TestStakingRouterGetAllNodeOperatorDigests:
 
         contract.functions.getNodeOperatorDigests.assert_any_call(3, 0, 2)
         contract.functions.getNodeOperatorDigests.assert_any_call(3, 2, 2)
-        contract.functions.getNodeOperatorDigests.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -641,22 +625,35 @@ class TestCuratedStakingModuleGetOperatorWeights:
 
 
 # ---------------------------------------------------------------------------
-# DelegationContract.execute — execute(address target, bytes data)
+# DelegationContract.execute — eth_abi encoding before calling execute()
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 class TestDelegationContractExecute:
-    def test_calls_execute_with_separate_target_and_data(self):
+    def test_encodes_address_and_calldata(self):
+        from eth_abi.abi import decode
+
         contract = _mock_contract()
         tx = MagicMock()
         contract.functions.execute.return_value = tx
         target = "0x" + "cc" * 20
         calldata = b"\xab\xcd\xef"
 
-        result = DelegationContract.execute(contract, target=target, data=calldata)
+        DelegationContract.execute(contract, target_address=target, calldata=calldata)
 
-        contract.functions.execute.assert_called_once_with(target, calldata)
+        encoded = contract.functions.execute.call_args[0][0]
+        decoded_target, decoded_calldata = decode(["address", "bytes"], encoded)
+        assert decoded_target.lower() == target.lower()
+        assert decoded_calldata == calldata
+
+    def test_returns_contract_function(self):
+        contract = _mock_contract()
+        tx = MagicMock()
+        contract.functions.execute.return_value = tx
+
+        result = DelegationContract.execute(contract, target_address=DUMMY_ADDRESS, calldata=b"")
+
         assert result == tx
 
     def test_logs_target_and_calldata_length(self, caplog):
@@ -667,7 +664,7 @@ class TestDelegationContractExecute:
         calldata = b"\x01" * 10
 
         with caplog.at_level(logging.INFO, logger="src.providers.execution.contracts.delegation_contract"):
-            DelegationContract.execute(contract, target=DUMMY_ADDRESS, data=calldata)
+            DelegationContract.execute(contract, target_address=DUMMY_ADDRESS, calldata=calldata)
 
         assert any("10" in m for m in caplog.messages)
 
@@ -953,7 +950,6 @@ class TestAccountingSimulateOracleReport:
         AccountingContract.simulate_oracle_report(contract, payload, block_identifier="latest")
 
         contract.functions.simulateOracleReport.assert_called_once_with(payload.as_tuple())
-        contract.functions.simulateOracleReport.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_returns_report_simulation_results(self):
         contract = _mock_contract()
@@ -966,7 +962,6 @@ class TestAccountingSimulateOracleReport:
         assert result.withdrawals_vault_transfer == 1
         assert result.el_rewards_vault_transfer == 2
         assert result.post_total_pooled_ether == 14
-        contract.functions.simulateOracleReport.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -989,7 +984,6 @@ class TestWithdrawalQueueCalculateFinalizationBatches:
             timestamp=1000,
             max_batch_request_count=100,
             batch_state=(5000, False, [], 0),
-            block_identifier="latest",
         )
 
         assert isinstance(result, BatchState)
@@ -997,7 +991,6 @@ class TestWithdrawalQueueCalculateFinalizationBatches:
         assert result.finished is False
         assert result.batches == [10, 20]
         assert result.batches_length == 2
-        contract.functions.calculateFinalizationBatches.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_passes_all_args_to_contract(self):
         contract = _mock_contract()
@@ -1014,7 +1007,6 @@ class TestWithdrawalQueueCalculateFinalizationBatches:
         )
 
         contract.functions.calculateFinalizationBatches.assert_called_once_with(123, 456, 50, (0, True, [], 0))
-        contract.functions.calculateFinalizationBatches.return_value.call.assert_called_with(block_identifier=999)
 
 
 # ===========================================================================
@@ -1109,7 +1101,6 @@ def test_lido_locator_pass_throughs(method, fn_attr):
     getattr(contract.functions, fn_attr).return_value.call.return_value = _ADDR
     result = getattr(LidoLocatorContract, method)(contract, block_identifier="latest")
     assert result == _ADDR
-    getattr(contract.functions, fn_attr).return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1125,7 +1116,6 @@ class TestHashConsensusContract:
         contract.functions.getMembers.return_value.call.return_value = expected
         result = HashConsensusContract.get_members(contract, block_identifier="latest")
         assert result == expected
-        contract.functions.getMembers.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_chain_config(self):
         contract = _mock_contract()
@@ -1135,7 +1125,6 @@ class TestHashConsensusContract:
         assert result.slots_per_epoch == 32
         assert result.seconds_per_slot == 12
         assert result.genesis_time == 1000
-        contract.functions.getChainConfig.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_current_frame(self):
         contract = _mock_contract()
@@ -1144,14 +1133,12 @@ class TestHashConsensusContract:
         assert isinstance(result, CurrentFrame)
         assert result.ref_slot == 500
         assert result.report_processing_deadline_slot == 600
-        contract.functions.getCurrentFrame.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_initial_ref_slot(self):
         contract = _mock_contract()
         contract.functions.getInitialRefSlot.return_value.call.return_value = 42
         result = HashConsensusContract.get_initial_ref_slot(contract, block_identifier="latest")
         assert result == 42
-        contract.functions.getInitialRefSlot.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_frame_config(self):
         contract = _mock_contract()
@@ -1160,7 +1147,6 @@ class TestHashConsensusContract:
         assert isinstance(result, FrameConfig)
         assert result.initial_epoch == 1
         assert result.epochs_per_frame == 45
-        contract.functions.getFrameConfig.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_consensus_state_for_member(self):
         contract = _mock_contract()
@@ -1170,7 +1156,6 @@ class TestHashConsensusContract:
             contract, address=ChecksumAddress(_ADDR), block_identifier="latest"
         )
         assert result == expected
-        contract.functions.getConsensusStateForMember.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_submit_report(self):
         contract = _mock_contract()
@@ -1192,14 +1177,12 @@ class TestLidoContract:
         contract.functions.getWithdrawalsReserve.return_value.call.return_value = 1000
         result = LidoContract.get_withdrawals_reserve(contract, block_identifier="latest")
         assert result == 1000
-        contract.functions.getWithdrawalsReserve.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_total_supply(self):
         contract = _mock_contract()
         contract.functions.totalSupply.return_value.call.return_value = 5000
         result = LidoContract.total_supply(contract, block_identifier="latest")
         assert result == 5000
-        contract.functions.totalSupply.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_beacon_stat(self):
         contract = _mock_contract()
@@ -1208,7 +1191,6 @@ class TestLidoContract:
         assert isinstance(result, BeaconStat)
         assert result.deposited_validators == 100
         assert result.beacon_validators == 90
-        contract.functions.getBeaconStat.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_deposits_reserve_target(self):
         contract = _mock_contract()
@@ -1243,7 +1225,6 @@ class TestBurnerContract:
         assert isinstance(result, SharesRequestedToBurn)
         assert result.cover_shares == 100
         assert result.non_cover_shares == 200
-        contract.functions.getSharesRequestedToBurn.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1261,7 +1242,6 @@ class TestOracleReportSanityCheckerContract:
         assert isinstance(result, OracleReportLimits)
         assert result.exited_eth_amount_per_day_limit == 1
         assert result.exited_validator_eth_amount_limit == 15
-        contract.functions.getOracleReportLimits.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1276,21 +1256,18 @@ class TestWithdrawalQueueNftContractPassThroughs:
         contract.functions.unfinalizedStETH.return_value.call.return_value = 500
         result = WithdrawalQueueNftContract.unfinalized_steth(contract, block_identifier="latest")
         assert result == 500
-        contract.functions.unfinalizedStETH.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_bunker_mode_since_timestamp(self):
         contract = _mock_contract()
         contract.functions.bunkerModeSinceTimestamp.return_value.call.return_value = 9999
         result = WithdrawalQueueNftContract.bunker_mode_since_timestamp(contract, block_identifier="latest")
         assert result == 9999
-        contract.functions.bunkerModeSinceTimestamp.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_last_finalized_request_id(self):
         contract = _mock_contract()
         contract.functions.getLastFinalizedRequestId.return_value.call.return_value = 7
         result = WithdrawalQueueNftContract.get_last_finalized_request_id(contract, block_identifier="latest")
         assert result == 7
-        contract.functions.getLastFinalizedRequestId.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_withdrawal_status(self):
         contract = _mock_contract()
@@ -1300,28 +1277,24 @@ class TestWithdrawalQueueNftContractPassThroughs:
         assert isinstance(result, WithdrawalRequestStatus)
         assert result.amount_of_st_eth == 100
         assert result.amount_of_shares == 50
-        contract.functions.getWithdrawalStatus.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_last_request_id(self):
         contract = _mock_contract()
         contract.functions.getLastRequestId.return_value.call.return_value = 42
         result = WithdrawalQueueNftContract.get_last_request_id(contract, block_identifier="latest")
         assert result == 42
-        contract.functions.getLastRequestId.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_is_paused(self):
         contract = _mock_contract()
         contract.functions.isPaused.return_value.call.return_value = True
         result = WithdrawalQueueNftContract.is_paused(contract, block_identifier="latest")
         assert result is True
-        contract.functions.isPaused.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_max_batches_length(self):
         contract = _mock_contract()
         contract.functions.MAX_BATCHES_LENGTH.return_value.call.return_value = 36
         result = WithdrawalQueueNftContract.max_batches_length(contract, block_identifier="latest")
         assert result == 36
-        contract.functions.MAX_BATCHES_LENGTH.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1336,35 +1309,30 @@ class TestBaseOracleContract:
         contract.functions.getConsensusContract.return_value.call.return_value = _ADDR
         result = BaseOracleContract.get_consensus_contract(contract, block_identifier="latest")
         assert result == _ADDR
-        contract.functions.getConsensusContract.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_submit_data_role(self):
         contract = _mock_contract()
         contract.functions.SUBMIT_DATA_ROLE.return_value.call.return_value = _ROLE
         result = BaseOracleContract.submit_data_role(contract, block_identifier="latest")
         assert result == _ROLE
-        contract.functions.SUBMIT_DATA_ROLE.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_has_role(self):
         contract = _mock_contract()
         contract.functions.hasRole.return_value.call.return_value = True
         result = BaseOracleContract.has_role(contract, _ROLE, _ADDR, block_identifier="latest")
         assert result is True
-        contract.functions.hasRole.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_contract_version(self):
         contract = _mock_contract()
         contract.functions.getContractVersion.return_value.call.return_value = 3
         result = BaseOracleContract.get_contract_version(contract, block_identifier="latest")
         assert result == 3
-        contract.functions.getContractVersion.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_consensus_version(self):
         contract = _mock_contract()
         contract.functions.getConsensusVersion.return_value.call.return_value = 2
         result = BaseOracleContract.get_consensus_version(contract, block_identifier="latest")
         assert result == 2
-        contract.functions.getConsensusVersion.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_submit_report_data(self):
         contract = _mock_contract()
@@ -1378,7 +1346,6 @@ class TestBaseOracleContract:
         contract.functions.getLastProcessingRefSlot.return_value.call.return_value = 999
         result = BaseOracleContract.get_last_processing_ref_slot(contract, block_identifier="latest")
         assert result == 999
-        contract.functions.getLastProcessingRefSlot.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1395,7 +1362,6 @@ class TestAccountingOracleContract:
         result = AccountingOracleContract.get_processing_state(contract, block_identifier="latest")
         assert isinstance(result, AccountingProcessingState)
         assert result.current_frame_ref_slot == 1
-        contract.functions.getProcessingState.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_submit_report_extra_data_empty(self):
         contract = _mock_contract()
@@ -1494,21 +1460,18 @@ class TestCSFeeDistributorContract:
         contract.functions.pendingSharesToDistribute.return_value.call.return_value = 999
         result = CSFeeDistributorContract.shares_to_distribute(contract, block_identifier="latest")
         assert result == 999
-        contract.functions.pendingSharesToDistribute.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_tree_root(self):
         contract = _mock_contract()
         contract.functions.treeRoot.return_value.call.return_value = b"\xaa" * 32
         result = CSFeeDistributorContract.tree_root(contract, block_identifier="latest")
         assert result == HexBytes(b"\xaa" * 32)
-        contract.functions.treeRoot.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_tree_cid(self):
         contract = _mock_contract()
         contract.functions.treeCid.return_value.call.return_value = "QmTest"
         result = CSFeeDistributorContract.tree_cid(contract, block_identifier="latest")
         assert result == "QmTest"
-        contract.functions.treeCid.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_oracle_returns_checksum_address(self):
         contract = _mock_contract()
@@ -1516,7 +1479,6 @@ class TestCSFeeDistributorContract:
         result = CSFeeDistributorContract.oracle(contract, block_identifier="latest")
         assert result.startswith("0x")
         assert len(result) == 42
-        contract.functions.ORACLE.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1531,14 +1493,12 @@ class TestCSAccountingContract:
         contract.functions.FEE_DISTRIBUTOR.return_value.call.return_value = "0x" + "cd" * 20
         result = CSAccountingContract.fee_distributor(contract, block_identifier="latest")
         assert result.startswith("0x")
-        contract.functions.FEE_DISTRIBUTOR.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_get_bond_curve_id(self):
         contract = _mock_contract()
         contract.functions.getBondCurveId.return_value.call.return_value = 5
         result = CSAccountingContract.get_bond_curve_id(contract, NodeOperatorId(1), block_identifier="latest")
         assert result == 5
-        contract.functions.getBondCurveId.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1553,14 +1513,12 @@ class TestCSFeeOracleContract:
         contract.functions.isPaused.return_value.call.return_value = False
         result = CSFeeOracleContract.is_paused(contract, block_identifier="latest")
         assert result is False
-        contract.functions.isPaused.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_strikes(self):
         contract = _mock_contract()
         contract.functions.STRIKES.return_value.call.return_value = "0x" + "ef" * 20
         result = CSFeeOracleContract.strikes(contract, block_identifier="latest")
         assert result.startswith("0x")
-        contract.functions.STRIKES.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1575,21 +1533,18 @@ class TestCSModuleContract:
         contract.functions.ACCOUNTING.return_value.call.return_value = "0x" + "11" * 20
         result = CSModuleContract.accounting(contract, block_identifier="latest")
         assert result.startswith("0x")
-        contract.functions.ACCOUNTING.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_parameters_registry(self):
         contract = _mock_contract()
         contract.functions.PARAMETERS_REGISTRY.return_value.call.return_value = "0x" + "22" * 20
         result = CSModuleContract.parameters_registry(contract, block_identifier="latest")
         assert result.startswith("0x")
-        contract.functions.PARAMETERS_REGISTRY.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_is_paused(self):
         contract = _mock_contract()
         contract.functions.isPaused.return_value.call.return_value = True
         result = CSModuleContract.is_paused(contract, block="latest")
         assert result is True
-        contract.functions.isPaused.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -1604,14 +1559,12 @@ class TestCSStrikesContract:
         contract.functions.treeRoot.return_value.call.return_value = b"\xbb" * 32
         result = CSStrikesContract.tree_root(contract, block_identifier="latest")
         assert result == HexBytes(b"\xbb" * 32)
-        contract.functions.treeRoot.return_value.call.assert_called_with(block_identifier="latest")
 
     def test_tree_cid(self):
         contract = _mock_contract()
         contract.functions.treeCid.return_value.call.return_value = "QmStrikes"
         result = CSStrikesContract.tree_cid(contract, block_identifier="latest")
         assert result == "QmStrikes"
-        contract.functions.treeCid.return_value.call.assert_called_with(block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
