@@ -33,7 +33,7 @@ def build_transaction_params(w3: Web3, transaction: ContractFunction, account: L
         "nonce": w3.eth.get_transaction_count(account.address),
     }
 
-    if (gas := estimate_gas(transaction, account)) is not None:
+    if gas := estimate_gas(transaction, account):
         params['gas'] = gas
 
     return params
