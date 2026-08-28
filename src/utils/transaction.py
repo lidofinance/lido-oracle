@@ -6,7 +6,7 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 from web3.types import BlockData, TxParams, Wei
 
-from src import constants, variables
+from src import variables
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | 
         return None
 
     return min(
-        constants.MAX_BLOCK_GAS_LIMIT,
+        variables.TX_GAS_LIMIT,
         gas + variables.TX_GAS_ADDITION,
     )
 

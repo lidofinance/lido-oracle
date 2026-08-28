@@ -47,6 +47,11 @@ EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 # In this case the second report will force report finalization and will consume more gas
 TX_GAS_ADDITION: Final = int(os.getenv('TX_GAS_ADDITION', 100_000))
 
+# Upper bound for the gas of a single oracle transaction.
+# The default is slightly below the 60M mainnet block gas limit, so a large report
+# (eg a VEBO exit report near the sanity checker ceiling) still fits in a block.
+TX_GAS_LIMIT: Final = int(os.getenv('TX_GAS_LIMIT', 55_000_000))
+
 # Maximum length of a range for eth_getLogs method calls.
 EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 7_200))
 assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
@@ -224,6 +229,7 @@ PUBLIC_ENV_VARS = {
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
         'EL_REQUESTS_BATCH_SIZE': EL_REQUESTS_BATCH_SIZE,
         'TX_GAS_ADDITION': TX_GAS_ADDITION,
+        'TX_GAS_LIMIT': TX_GAS_LIMIT,
         'EVENTS_SEARCH_STEP': EVENTS_SEARCH_STEP,
         'MIN_PRIORITY_FEE': MIN_PRIORITY_FEE,
         'MAX_PRIORITY_FEE': MAX_PRIORITY_FEE,

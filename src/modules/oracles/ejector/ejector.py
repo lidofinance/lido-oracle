@@ -7,6 +7,7 @@ from web3.types import Wei
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
+    MAX_EXIT_REQUESTS_PER_REPORT,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
 from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
@@ -196,6 +197,10 @@ class Ejector(OracleModule[Web3]):
 
                 if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) >= to_withdraw_amount:
                     break
+
+                if len(validators_to_eject) >= MAX_EXIT_REQUESTS_PER_REPORT:
+                    logger.warning({'msg': 'Reached the max exit requests per report.'})
+                    break
         else:
             logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
 
@@ -203,6 +208,16 @@ class Ejector(OracleModule[Web3]):
         if forced_validators:
             logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
             validators_to_eject.extend(forced_validators)
+
+        if len(validators_to_eject) > MAX_EXIT_REQUESTS_PER_REPORT:
+            logger.warning(
+                {
+                    'msg': 'Report is over the max exit requests limit. The rest is reported in the next frames.',
+                    'len': len(validators_to_eject),
+                    'limit': MAX_EXIT_REQUESTS_PER_REPORT,
+                }
+            )
+            validators_to_eject = validators_to_eject[:MAX_EXIT_REQUESTS_PER_REPORT]
 
         logger.info(
             {

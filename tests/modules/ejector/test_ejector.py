@@ -9,6 +9,7 @@ from src.constants import (
     GWEI_TO_WEI,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MAX_EXIT_REQUESTS_PER_REPORT,
     MAX_SEED_LOOKAHEAD,
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
@@ -399,6 +400,60 @@ class TestGetValidatorsToEject:
         # Assert
         assert [v[1].index for v in result] == [validators[0][1].index], (
             "Exact coverage with a dusty balance must not eject an extra validator"
+        )
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__demand_over_cap__truncated_to_max_exit_requests(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_predicted_el_balance = Mock(return_value=Wei(0))
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(10**30))
+
+        validators = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator())
+            for _ in range(MAX_EXIT_REQUESTS_PER_REPORT + 50)
+        ]
+
+        val_iter = iter(SimpleIterator(validators))
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert len(result) == MAX_EXIT_REQUESTS_PER_REPORT, "The report must be capped by MAX_EXIT_REQUESTS_PER_REPORT"
+
+    @pytest.mark.unit
+    def test_get_validators_to_eject__forced_over_cap__truncated_to_max_exit_requests(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_predicted_el_balance = Mock(return_value=Wei(100))
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(0))
+
+        forced = [
+            ((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator())
+            for _ in range(MAX_EXIT_REQUESTS_PER_REPORT + 20)
+        ]
+        simple_iterator = SimpleIterator([])
+        simple_iterator.get_remaining_forced_validators = Mock(return_value=forced)
+
+        val_iter = iter(simple_iterator)
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert len(result) == MAX_EXIT_REQUESTS_PER_REPORT, (
+            "Forced validators must not push the report over MAX_EXIT_REQUESTS_PER_REPORT"
         )
 
 
