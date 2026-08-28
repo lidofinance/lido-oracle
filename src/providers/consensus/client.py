@@ -35,7 +35,6 @@ from src.providers.http_provider import (
 from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
-from src.utils.fingerprint import log_fingerprint
 
 
 logger = logging.getLogger(__name__)
@@ -274,9 +273,7 @@ class ConsensusClient(HTTPProvider):
             else:
                 raise
 
-        state = BeaconStateView.from_response(**data)
-        log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
-        return state
+        return BeaconStateView.from_response(**data)
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits

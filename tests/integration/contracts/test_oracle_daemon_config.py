@@ -12,27 +12,27 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
         [
             (
                 'normalized_cl_reward_mistake_rate_bp',
-                ('latest',),
+                None,
                 lambda response: check_value_type(response, int) and response < TOTAL_BASIS_POINTS,
             ),
             (
                 'rebase_check_nearest_epoch_distance',
-                ('latest',),
+                None,
                 lambda response: check_value_type(response, int),
             ),
             (
                 'rebase_check_distant_epoch_distance',
-                ('latest',),
+                None,
                 lambda response: check_value_type(response, int),
             ),
             (
                 'prediction_duration_in_slots',
-                ('latest',),
+                None,
                 lambda response: check_value_type(response, int),
             ),
             (
                 'finalization_max_negative_rebase_epoch_shift',
-                ('latest',),
+                None,
                 lambda response: check_value_type(response, int),
             ),
             # (

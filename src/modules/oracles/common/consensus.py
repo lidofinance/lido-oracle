@@ -8,7 +8,11 @@ from hexbytes import HexBytes
 from web3.exceptions import ContractCustomError
 
 from src import variables
-from src.metrics.prometheus.basic import ACCOUNT_BALANCE
+from src.metrics.prometheus.basic import (
+    ACCOUNT_BALANCE,
+    ORACLE_BLOCK_NUMBER,
+    ORACLE_SLOT_NUMBER,
+)
 from src.metrics.prometheus.business import (
     FRAME_CURRENT_REF_SLOT,
     FRAME_DEADLINE_SLOT,
@@ -25,11 +29,12 @@ from src.modules.common.types import (
 from src.modules.oracles.common.exceptions import (
     ContractVersionMismatch,
     IncompatibleOracleVersion,
+    IsNotMemberException,
 )
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import get_blockstamp_by_state
+from src.utils.blockstamp import build_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.slot import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
@@ -161,11 +166,10 @@ class ConsensusModule[W3: Web3Base](ABC):
         last_member_report_ref_slot = SlotNumber(0)
         current_frame_consensus_report = current_frame_member_report = ZERO_HASH
 
-        hash_consensus_member_address = self.w3.signer.hash_consensus_member_address
-        active_signer = self.w3.signer.active_signer
-
-        if hash_consensus_member_address and active_signer:
-            ACCOUNT_BALANCE.labels(str(active_signer.address)).set(self.w3.eth.get_balance(active_signer.address))
+        if variables.ACCOUNT:
+            ACCOUNT_BALANCE.labels(str(variables.ACCOUNT.address)).set(
+                self.w3.eth.get_balance(variables.ACCOUNT.address)
+            )
 
             try:
                 (
@@ -185,7 +189,8 @@ class ConsensusModule[W3: Web3Base](ABC):
                     # The hash reported by the member for the current frame, if any.
                     current_frame_member_report,
                 ) = consensus_contract.get_consensus_state_for_member(
-                    hash_consensus_member_address, blockstamp.block_hash
+                    variables.ACCOUNT.address,
+                    blockstamp.block_hash,
                 )
             except ContractCustomError as revert:
                 if revert.data != InitialEpochIsYetToArriveRevert:
@@ -193,17 +198,14 @@ class ConsensusModule[W3: Web3Base](ABC):
 
             is_submit_member = self.report_contract.has_role(
                 self.report_contract.submit_data_role(blockstamp.block_hash),
-                hash_consensus_member_address,
+                variables.ACCOUNT.address,
                 blockstamp.block_hash,
             )
 
             if not is_member and not is_submit_member:
-                logger.warning(
-                    {
-                        'msg': 'Provided Account is not part of Oracle\'s members and has no submit role. '
-                        'This is expected while a key rotation is pending; the oracle will keep '
-                        'polling and pick it up automatically once enacted on-chain.',
-                    }
+                raise IsNotMemberException(
+                    'Provided Account is not part of Oracle\'s members and has no submit role. '
+                    'For dry mode remove MEMBER_PRIV_KEY from variables.'
                 )
 
         mi = MemberInfo(
@@ -424,10 +426,6 @@ class ConsensusModule[W3: Web3Base](ABC):
         latest_blockstamp = self._get_latest_blockstamp()
         logger.debug({'msg': 'Get latest blockstamp.', 'value': latest_blockstamp})
 
-        members, _ = self._get_consensus_contract_members(latest_blockstamp)
-        # Set up active signer based on consensus latest members
-        self.w3.signer.process_members(members)
-
         member_info = self.get_member_info(latest_blockstamp)
         logger.debug({'msg': 'Get current member info.', 'value': member_info})
 
@@ -470,15 +468,21 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         tx = consensus_contract.submit_report(blockstamp.ref_slot, report_hash, consensus_version)
 
-        self.w3.transaction.check_and_send_transaction(tx)
+        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _submit_report(self, report: tuple, contract_version: int):
         tx = self.report_contract.submit_report_data(report, contract_version)
 
-        self.w3.transaction.check_and_send_transaction(tx)
+        self.w3.transaction.check_and_send_transaction(tx, variables.ACCOUNT)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        return get_blockstamp_by_state(self.w3.cc, 'head')
+        root = self.w3.cc.get_block_root('head').root
+        block_details = self.w3.cc.get_block_details(root)
+        bs = build_blockstamp(block_details)
+        logger.debug({'msg': 'Fetch latest blockstamp.', 'value': bs})
+        ORACLE_SLOT_NUMBER.labels('head').set(bs.slot_number)
+        ORACLE_BLOCK_NUMBER.labels('head').set(bs.block_number)
+        return bs
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:
@@ -493,14 +497,12 @@ class ConsensusModule[W3: Web3Base](ABC):
         Returns in slots time to sleep before a data report.
         """
         member = self.get_member_info(blockstamp)
-        report_address = self.w3.signer.hash_consensus_member_address
-
-        if member.is_submit_member or report_address is None:
+        if member.is_submit_member or variables.ACCOUNT is None:
             return 0
 
         members, _ = self._get_consensus_contract_members(blockstamp)
 
-        mem_position = members.index(report_address)
+        mem_position = members.index(variables.ACCOUNT.address)
 
         converter = self._get_web3_converter(blockstamp)
 

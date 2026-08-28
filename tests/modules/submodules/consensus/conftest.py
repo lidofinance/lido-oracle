@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 import pytest
 
 from src.modules.oracles.common.consensus import ConsensusModule
@@ -29,9 +27,4 @@ class SimpleConsensusModule(ConsensusModule):
 
 @pytest.fixture()
 def consensus(web3):
-    module = SimpleConsensusModule(web3)
-    # _get_latest_data() fetches the current member list to feed the signer resolution
-    # (w3.signer.process_members) on every call; give it a harmless default here so
-    # tests that don't care about member resolution don't need to stub it individually.
-    module._get_consensus_contract_members = Mock(return_value=([], []))
-    return module
+    return SimpleConsensusModule(web3)

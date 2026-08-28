@@ -24,7 +24,7 @@ class TestLidoSmoke:
         return cast(
             LidoContract,
             web3_integration.eth.contract(
-                address=lido_locator.lido('latest'),
+                address=lido_locator.lido(),
                 ContractFactoryClass=LidoContract,
                 decode_tuples=True,
             ),
