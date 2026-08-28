@@ -14,7 +14,7 @@ authors = [
     "Vladimir Smelov",
     "Vladimir Gorkavenko",
     "Yuri Tkachenko",
-    "Matsvei Talstalutski",
+    "Matsvei Talstalutski"
 ]
 license = "GPL 3.0"
 package-mode = false
