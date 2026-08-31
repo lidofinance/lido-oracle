@@ -448,13 +448,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 class TestGetPredictedElBalance:
-    """
-    Covers the going-to-exit balance leg of `_get_predicted_el_balance`: validators recently
-    requested to exit but not yet exiting must contribute only their capped (sweep-excluded)
-    balance, both to the returned EL balance and to the churn/withdrawal-epoch prediction —
-    otherwise the excess above the effective balance cap (which is separately swept) gets
-    double-counted.
-    """
+    """Going-to-exit validators count only their capped balance — the excess is swept separately."""
 
     @pytest.fixture(autouse=True)
     def mock_common(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
@@ -511,13 +505,7 @@ class TestGetPredictedElBalance:
 
 @pytest.mark.unit
 class TestPredictedElBalanceChargesHalfDepositLock:
-    """
-    Only half the deposit reserve is charged against the withdrawal queue: the reserve is refilled by
-    new stake, which this formula does not model as an inflow, so charging all of it counts the same
-    ETH twice. Charging none of it would bet the whole term on deposits always covering the reserve.
-
-    Charging more than half over-ejects; charging less under-ejects. Both directions are pinned here.
-    """
+    """Exactly half the deposit reserve is charged: more over-ejects, less under-ejects."""
 
     @pytest.fixture(autouse=True)
     def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
@@ -773,10 +761,7 @@ def test_get_predicted_el_balance__unswept_balance_above_cap__not_added_on_top(
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
 ) -> None:
-    # Projecting the rewards rate over the horizon already covers the balance waiting above the cap
-    # for the next sweep: the sweep reaches H/cycle of the set and each validator it reaches hands
-    # over a full cycle of accrual, which comes to rate * H. Counting that balance again would
-    # inflate the predicted EL balance and under-eject. This is issue #993.
+    # rate * H already covers the balance waiting above the cap; counting it again under-ejects (#993).
     # Arrange
     _mock_predicted_el_balance_terms(ejector, chain_config)
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(3))
@@ -800,10 +785,7 @@ def test_get_predicted_el_balance__rate_prediction_degenerate__no_floor_from_uns
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
 ) -> None:
-    # A zero rate means the predictor had nothing to go on (no events in the window, or losses large
-    # enough to trip the clamp), NOT that the unswept balance may stand in for it: a pile is a stock
-    # and this term is a flow. The estimate reads low, so the ejector requests more exits — the
-    # recoverable direction. Fixing a degenerate rate belongs in RewardsPredictionService.
+    # A zero rate means the predictor had no data, not that the unswept pile may stand in for it.
     # Arrange
     _mock_predicted_el_balance_terms(ejector, chain_config)
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))

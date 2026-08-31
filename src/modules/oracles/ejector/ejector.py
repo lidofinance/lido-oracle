@@ -253,57 +253,18 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        # The balance validators hold above their effective-balance cap — rewards earned but not yet
-        # swept — is deliberately NOT a term here, neither added nor used as a floor.
-        #
-        # `future_rewards` already covers it exactly. Over a horizon H, the sweep reaches a fraction
-        # H/cycle of the set, and each validator it reaches hands over a whole cycle's worth of
-        # accrual (what it was holding, plus what it accrues while waiting its turn). Those cancel to
-        # rate * H regardless of where each validator sits in the sweep order — so in steady state
-        # rate * H is the exact inflow, not an approximation. Adding the unswept pile on top counts
-        # the same ETH twice, which is what issue #993 was about.
-        #
-        # It is not kept as a lower bound either: a pile of ETH is a stock and this term is a flow,
-        # so `max()` between them compares different units. It also would not have helped where it
-        # looks like it should. A negative rebase only zeroes the rate when losses outrun the rewards
-        # of the whole prediction window; a milder one leaves `rate * H` the larger of the two, so
-        # `max()` would keep picking the stale event-based average and discard the fresh measurement.
-        #
-        # Consequence: when the rate prediction does degenerate — no `ETHDistributed` in the window,
-        # or losses large enough to trip the clamp in `RewardsPredictionService` — the estimated
-        # inflow is 0 instead of the pile's size. The estimate then reads low and the ejector requests
-        # more exits than needed. Those exits are irreversible, unlike the delay in the opposite
-        # direction, so the degenerate cases belong in the rate prediction, not behind a floor here.
+        # The balance above the cap is already inside `future_rewards`: the sweep pays H/cycle of the
+        # set a full cycle of accrual each, i.e. rate * H. Adding it double counts (#993); a floor
+        # would compare a stock to a flow. So a degenerate rate over-ejects — fix that in prediction.
         withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
-        # Only half of the deposit reserve is charged against the withdrawal queue.
-        #
-        # Why less than all of it: the reserve is refilled by new stake, and fresh deposits are not a
-        # term in this formula at all. While deposits keep up with `getDepositsReserveTarget()` — the
-        # normal case — the reserve is funded out of that inflow, not out of ETH the queue was
-        # counting on. Subtracting the whole lock while omitting the inflow that pays for it charges
-        # the queue twice for the same ETH and biases the estimate low, which over-ejects.
-        #
-        # Why not none of it: "deposits cover the reserve" is an empirical expectation about demand,
-        # not an invariant, and it fails exactly when it matters — stETH demand collapsing, or the
-        # staking router paused. Then the reserve really does come out of the buffer. Halving keeps a
-        # margin for that case instead of betting the whole term on the assumption holding.
-        #
-        # The 1/2 is a deliberate judgment call, not a derived figure: it splits the difference
-        # between modelling both flows and modelling neither. Deposit-inflow telemetry is what would
-        # justify moving it — toward 0 if inflow reliably covers the reserve, back toward the full
-        # lock if it does not.
-        #
-        # Consequence versus charging the full lock: the estimate reads higher by `deposit_lock // 2`,
-        # so the loop in `get_validators_to_eject` stops earlier and requests fewer exits. That is the
-        # under-ejection direction — withdrawal requests stay unfinalized longer. It is a delay, not a
-        # loss: no funds are at risk, and the next frame (~5h) re-estimates from fresh state and ejects
-        # the shortfall once the buffer actually drains. The error is bounded by half of what the lock
-        # contributes, i.e. it grows with the withdrawal horizon and is capped per accounting frame.
+        # Half: new stake refills the reserve, and that inflow is not a term here, so the full lock
+        # bills the queue twice. Charging none would bet on stETH demand, which fails when it matters.
+        # The 1/2 is a judgment call. Costs at most `lock // 2` of under-ejection, corrected next frame.
         charged_deposit_lock = deposit_lock // 2
         logger.info({'msg': 'Charge half of the deposit lock.', 'value': charged_deposit_lock})
 
@@ -317,10 +278,7 @@ class Ejector(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _sweepable_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        """Active Lido validators the sweep will actually pay out.
-
-        A consolidation source is excluded: its balance goes to the target validator, not to the vault.
-        """
+        """Active Lido validators the sweep pays out. A consolidation source pays its target, not the vault."""
         return [
             v
             for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
@@ -329,12 +287,8 @@ class Ejector(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        """Principal — the staked 32 (or 2048) ETH — coming back from validators exiting by `on_epoch`.
-
-        Principal is not income, it is Lido's own ETH moving back from the CL, so the rewards rate
-        does not contain it: on exit the same amount leaves `postCLBalance` and enters
-        `withdrawalsWithdrawn`, cancelling out. That is why it is added on top instead of merged in.
-        """
+        """Staked ETH returning from validators exiting by `on_epoch`. Added on top of the rate, not
+        merged in: principal is not income, so it cancels out of the rate."""
         result = Gwei(0)
 
         for v in self._sweepable_validators(blockstamp):
