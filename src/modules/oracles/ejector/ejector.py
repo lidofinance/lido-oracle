@@ -66,7 +66,7 @@ class Ejector(OracleModule[Web3]):
             - Rewards expected to reach the EL until the last validator is withdrawn
             - Staked ETH coming back from validators that finish exiting in the meantime
             - Current balance on EL
-            - Minus the ETH reserved for new deposits over the same period
+            - Minus half the ETH reserved for new deposits over the same period
         4. If the sum is already enough to cover WR, exit the loop.
         5. Get the next validator to eject.
 
@@ -271,12 +271,39 @@ class Ejector(OracleModule[Web3]):
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
+        # Only half of the deposit reserve is charged against the withdrawal queue.
+        #
+        # Why less than all of it: the reserve is refilled by new stake, and fresh deposits are not a
+        # term in this formula at all. While deposits keep up with `getDepositsReserveTarget()` — the
+        # normal case — the reserve is funded out of that inflow, not out of ETH the queue was
+        # counting on. Subtracting the whole lock while omitting the inflow that pays for it charges
+        # the queue twice for the same ETH and biases the estimate low, which over-ejects.
+        #
+        # Why not none of it: "deposits cover the reserve" is an empirical expectation about demand,
+        # not an invariant, and it fails exactly when it matters — stETH demand collapsing, or the
+        # staking router paused. Then the reserve really does come out of the buffer. Halving keeps a
+        # margin for that case instead of betting the whole term on the assumption holding.
+        #
+        # The 1/2 is a deliberate judgment call, not a derived figure: it splits the difference
+        # between modelling both flows and modelling neither. Deposit-inflow telemetry is what would
+        # justify moving it — toward 0 if inflow reliably covers the reserve, back toward the full
+        # lock if it does not.
+        #
+        # Consequence versus charging the full lock: the estimate reads higher by `deposit_lock // 2`,
+        # so the loop in `get_validators_to_eject` stops earlier and requests fewer exits. That is the
+        # under-ejection direction — withdrawal requests stay unfinalized longer. It is a delay, not a
+        # loss: no funds are at risk, and the next frame (~5h) re-estimates from fresh state and ejects
+        # the shortfall once the buffer actually drains. The error is bounded by half of what the lock
+        # contributes, i.e. it grows with the withdrawal horizon and is capped per accounting frame.
+        charged_deposit_lock = deposit_lock // 2
+        logger.info({'msg': 'Charge half of the deposit lock.', 'value': charged_deposit_lock})
+
         return Wei(
             future_inflow
             + withdrawable_principal
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
-            - deposit_lock,
+            - charged_deposit_lock,
         )
 
     @lru_cache(maxsize=1)

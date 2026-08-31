@@ -512,6 +512,75 @@ class TestGetPredictedElBalance:
         ejector._get_predicted_withdrawable_epoch.assert_called_once_with(capped_balance + to_exit_gwei, ref_blockstamp)
 
 
+@pytest.mark.unit
+class TestPredictedElBalanceChargesHalfDepositLock:
+    """
+    Only half the deposit reserve is charged against the withdrawal queue: the reserve is refilled by
+    new stake, which this formula does not model as an inflow, so charging all of it counts the same
+    ETH twice. Charging none of it would bet the whole term on deposits always covering the reserve.
+
+    Charging more than half over-ejects; charging less under-ejects. Both directions are pinned here.
+    """
+
+    @pytest.fixture(autouse=True)
+    def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        # Distinct powers of ten, so a missing or duplicated term shows up in the total.
+        ejector._get_total_el_balance = Mock(return_value=Wei(10_000))
+        ejector._get_unswept_rewards = Mock(return_value=Wei(1_000))
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+        ejector._get_withdrawable_principal = Mock(return_value=Wei(100))
+
+    def test_get_predicted_el_balance__deposit_lock_set__only_half_subtracted(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Arrange
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(400))
+
+        # Act
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        # Assert
+        assert result == Wei(10_000 + 1_000 + 100 - 200), (
+            "Exactly half the deposit lock must be subtracted: charging all of it double-charges the "
+            "queue for ETH that new deposits refill, charging none of it keeps no margin"
+        )
+
+    def test_get_predicted_el_balance__odd_deposit_lock__rounds_the_charge_down(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Arrange: an odd wei amount must not produce a fractional Wei.
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(401))
+
+        # Act
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        # Assert
+        assert result == Wei(10_000 + 1_000 + 100 - 200), "The charge must floor to an integer number of wei"
+        assert isinstance(result, int)
+
+    def test_get_predicted_el_balance__deposit_lock_zero__nothing_subtracted(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Arrange
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+        # Act
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        # Assert
+        assert result == Wei(10_000 + 1_000 + 100)
+
+
 class TestPredictedWithdrawableEpoch:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
