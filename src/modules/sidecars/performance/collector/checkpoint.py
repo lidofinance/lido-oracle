@@ -9,6 +9,7 @@ from threading import Lock
 from typing import cast
 
 from hexbytes import HexBytes
+from web3.eth import Eth
 
 from src import variables
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
@@ -117,6 +118,7 @@ SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 class FrameCheckpointProcessor:
     cc: ConsensusClient
+    el: Eth
     converter: ChainConverter
 
     db: DutiesDB
@@ -125,11 +127,13 @@ class FrameCheckpointProcessor:
     def __init__(
         self,
         cc: ConsensusClient,
+        el: Eth,
         db: DutiesDB,
         converter: ChainConverter,
         finalized_blockstamp: BlockStamp,
     ):
         self.cc = cc
+        self.el = el
         self.converter = converter
         self.db = db
         self.finalized_blockstamp = finalized_blockstamp
@@ -372,11 +376,11 @@ class FrameCheckpointProcessor:
         from_epoch = EpochNumber(epoch - epoch % EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
         to_epoch = EpochNumber(from_epoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1)
         logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
-        # CL-only consumer: no execution client, so the EL fields stay placeholders.
         state_blockstamp = build_blockstamp(
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            )
+            ),
+            self.el,
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee

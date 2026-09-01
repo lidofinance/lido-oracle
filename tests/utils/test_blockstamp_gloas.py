@@ -78,18 +78,6 @@ class TestExecutionAnchorResolution:
         assert bs.block_timestamp == 424242
         el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
 
-    def test_build_blockstamp__no_execution_client__placeholder_fields(self):
-        # Arrange: CL-only consumer (performance collector) has no execution client.
-        details = _post_fork_details(slot=100)
-
-        # Act
-        bs = build_blockstamp(details, None)
-
-        # Assert: EL fields are inert placeholders; CL fields are correct.
-        assert bs.slot_number == SlotNumber(100)
-        assert bs.state_root == details.message.state_root
-        assert bs.block_number == 0
-
     def test_build_blockstamp__block_without_bid__raises(self, el):
         # Arrange: a post-fork block with no resolvable execution anchor at all.
         details = _post_fork_details(slot=100, parent_block_hash=None)

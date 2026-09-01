@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict
 
-from eth_typing import BlockNumber, HexStr
+from eth_typing import BlockNumber
 from eth_utils.hexadecimal import add_0x_prefix
 from web3.eth import Eth
 from web3.types import Timestamp
@@ -20,20 +20,11 @@ class MissingExecutionAnchor(Exception):
     """Raised when a post-EIP-7732 block's execution-layer anchor cannot be read."""
 
 
-# CL-only consumers (the performance collector) read only slot_number and state_root. They have no
-# execution client, and post-EIP-7732 an anchor cannot be resolved into a block without one.
-_PLACEHOLDER_EL_FIELDS: dict = {
-    "block_number": BlockNumber(0),
-    "block_hash": BlockHash(add_0x_prefix(HexStr('00' * 32))),
-    "block_timestamp": Timestamp(0),
-}
-
-
 def get_blockstamp(
     cc: ConsensusClient,
     slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
-    el: Eth | None = None,
+    el: Eth,
 ) -> BlockStamp:
     """Build a BlockStamp for `slot` from its anchor block."""
     logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
@@ -47,7 +38,7 @@ def get_reference_blockstamp(
     ref_slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
     ref_epoch: EpochNumber,
-    el: Eth | None = None,
+    el: Eth,
 ) -> ReferenceBlockStamp:
     """Build a ReferenceBlockStamp for `ref_slot` from its anchor block."""
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
@@ -56,7 +47,7 @@ def get_reference_blockstamp(
     return build_reference_blockstamp(anchor, ref_slot, ref_epoch, el)
 
 
-def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth | None = None) -> BlockStamp:
+def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth) -> BlockStamp:
     """Fetch the block for the given chain state (head/finalized/...) and build a BlockStamp.
 
     The chain tip has no child yet, so the stamp is built from the block itself.
@@ -70,7 +61,7 @@ def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth | 
     return bs
 
 
-def build_blockstamp(slot_details: BlockDetailsResponse, el: Eth | None = None) -> BlockStamp:
+def build_blockstamp(slot_details: BlockDetailsResponse, el: Eth) -> BlockStamp:
     return BlockStamp(**_get_base_fields(slot_details, el))
 
 
@@ -78,7 +69,7 @@ def build_reference_blockstamp(
     slot_details: BlockDetailsResponse,
     ref_slot: SlotNumber,
     ref_epoch: EpochNumber,
-    el: Eth | None = None,
+    el: Eth,
 ) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
         **_get_base_fields(slot_details, el),
@@ -102,7 +93,7 @@ def _resolve_anchor_block(
     return get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
 
 
-def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth | None) -> dict:
+def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:
     return {
         "slot_number": slot_details.message.slot,
         "state_root": slot_details.message.state_root,
@@ -110,14 +101,11 @@ def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth | None) -> dict
     }
 
 
-def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth | None) -> dict:
+def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:
     payload = slot_details.message.body.execution_payload
     if payload is not None:
         # Pre-EIP-7732: the block embeds the execution payload it was built with.
         return _get_el_fields_from_payload(payload)
-
-    if el is None:
-        return dict(_PLACEHOLDER_EL_FIELDS)
 
     return _get_el_fields_from_hash(el, _get_anchor_hash(slot_details))
 

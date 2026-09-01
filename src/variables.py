@@ -196,6 +196,8 @@ def check_perf_collector_required_variables():
     errors = check_performance_db_required_variables()
     required_uris = {
         'CONSENSUS_CLIENT_URI': CONSENSUS_CLIENT_URI,
+        # Needed post-EIP-7732 to resolve a blockstamp's execution anchor into a block.
+        'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,
     }
     errors.extend([name for name, uri in required_uris.items() if '' in uri])
     return errors
