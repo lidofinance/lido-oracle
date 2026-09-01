@@ -9,6 +9,7 @@ from web3.types import Timestamp
 from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, ExecutionPayload
+from src.providers.execution.exceptions import InconsistentData
 from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_next_non_missed_slot, get_prev_non_missed_slot
 
@@ -84,13 +85,28 @@ def _resolve_anchor_block(
     """The beacon block a blockstamp for `slot` is built from: `slot` itself pre-EIP-7732, its child
     post-fork.
 
-    The fork is read off the block shape — an embedded execution payload means pre-fork — because a
-    beacon-config fork epoch would silently pick the wrong branch if its key were missing or renamed.
+    Which side of the fork `slot` falls on comes from the beacon config, so a missed slot at the
+    fork boundary cannot send the resolution down the wrong branch — reading it off the block shape
+    could, because the block before a missed post-fork slot may still be a pre-fork one. The shape
+    is kept as a cross-check: pre-fork blocks embed their payload and post-fork ones do not, so a
+    disagreement means the config does not describe the chain we are reading.
     """
+    if cc.is_gloas_slot(slot):
+        child = get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
+        if child.message.body.execution_payload is not None:
+            raise InconsistentData(
+                f'Block at slot [{child.message.slot}] embeds an execution payload, but the beacon '
+                f'config puts it after the Gloas fork.'
+            )
+        return child
+
     block = get_prev_non_missed_slot(cc, slot, last_finalized_slot_number)
-    if block.message.body.execution_payload is not None:
-        return block
-    return get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
+    if block.message.body.execution_payload is None:
+        raise InconsistentData(
+            f'Block at slot [{block.message.slot}] has no execution payload, but the beacon config '
+            f'puts it before the Gloas fork.'
+        )
+    return block
 
 
 def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:

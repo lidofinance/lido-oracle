@@ -12,6 +12,7 @@ import pytest
 from eth_utils import add_0x_prefix
 
 from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
 from src.types import BlockHash, EpochNumber, SlotNumber
 from src.utils.blockstamp import (
@@ -39,6 +40,11 @@ def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
         else SignedExecutionPayloadBid(message=ExecutionPayloadBid(parent_block_hash=BlockHash(parent_block_hash)))
     )
     return details
+
+
+def _cc(*, gloas: bool, **kwargs) -> Mock:
+    """A consensus client whose fork gate answers `gloas` for every slot."""
+    return Mock(is_gloas_slot=Mock(return_value=gloas), is_gloas=Mock(return_value=gloas), **kwargs)
 
 
 @pytest.fixture
@@ -105,7 +111,11 @@ class TestAnchorBlockSelection:
 
         # Act
         bs = get_reference_blockstamp(
-            Mock(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
+            _cc(gloas=True),
+            ref_slot=SlotNumber(99),
+            last_finalized_slot_number=SlotNumber(200),
+            ref_epoch=EpochNumber(3),
+            el=el,
         )
 
         # Assert: the report's own block sits after the ref slot.
@@ -122,7 +132,11 @@ class TestAnchorBlockSelection:
 
         # Act
         bs = get_reference_blockstamp(
-            Mock(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
+            _cc(gloas=False),
+            ref_slot=SlotNumber(99),
+            last_finalized_slot_number=SlotNumber(200),
+            ref_epoch=EpochNumber(3),
+            el=el,
         )
 
         # Assert: no child lookup happens pre-fork.
@@ -138,12 +152,52 @@ class TestAnchorBlockSelection:
         nxt.return_value = _post_fork_details(slot=101)
 
         # Act
-        bs = get_blockstamp(Mock(), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
+        bs = get_blockstamp(_cc(gloas=True), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
 
         # Assert
         assert bs.slot_number == SlotNumber(101)
         assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
-        nxt.assert_called_once_with(prev.call_args.args[0], SlotNumber(99), SlotNumber(200))
+        prev.assert_not_called()
+
+    def test_get_reference_blockstamp__missed_ref_slot_at_fork_boundary__still_uses_the_child(self, el, resolvers):
+        # Arrange: ref_slot 99 is the first post-fork slot and is missed, so the block the pre-fork
+        # resolver would hand back is its pre-fork parent at slot 98. Detecting the fork from that
+        # block's shape would wrongly build the report on it.
+        prev, nxt = resolvers
+        prev.return_value = BlockDetailsResponseFactory.build(message={"slot": 98})
+        nxt.return_value = _post_fork_details(slot=101)
+
+        # Act
+        bs = get_reference_blockstamp(
+            _cc(gloas=True),
+            ref_slot=SlotNumber(99),
+            last_finalized_slot_number=SlotNumber(200),
+            ref_epoch=EpochNumber(3),
+            el=el,
+        )
+
+        # Assert: the fork comes from the config, so the child wins and the pre-fork block is never
+        # even fetched.
+        assert bs.slot_number == SlotNumber(101)
+        prev.assert_not_called()
+
+    def test_get_blockstamp__config_says_post_fork_but_block_embeds_a_payload__raises(self, el, resolvers):
+        # Arrange: the only way this happens is a beacon config that does not describe this chain.
+        prev, nxt = resolvers
+        nxt.return_value = BlockDetailsResponseFactory.build(message={"slot": 101})
+
+        # Act / Assert
+        with pytest.raises(InconsistentData, match='after the Gloas fork'):
+            get_blockstamp(_cc(gloas=True), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
+
+    def test_get_blockstamp__config_says_pre_fork_but_block_has_no_payload__raises(self, el, resolvers):
+        # Arrange: the mirror case - a chain already past the fork the config does not know about.
+        prev, nxt = resolvers
+        prev.return_value = _post_fork_details(slot=99)
+
+        # Act / Assert
+        with pytest.raises(InconsistentData, match='before the Gloas fork'):
+            get_blockstamp(_cc(gloas=False), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
 
     def test_get_blockstamp_by_state__post_fork_head__anchors_on_own_bid(self, el):
         # Arrange: the chain tip has no child, so it is its own anchor block.

@@ -6,6 +6,7 @@ from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
+from src.constants import FAR_FUTURE_EPOCH
 from src.types import (
     BlockHash,
     BlockRoot,
@@ -29,6 +30,8 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    # Absent on nodes that do not know Gloas yet, which then reads as "never forks".
+    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass

@@ -418,6 +418,8 @@ class TestGetBlockstampForReportWaitsForChild:
             return_value=ReferenceBlockStampFactory.build(slot_number=self.REF_SLOT)
         )
         consensus.get_chain_config = Mock(return_value=cast(ChainConfig, ChainConfigFactory.build()))
+        # These build on ref_slot's child, i.e. the post-fork branch of the anchor resolver.
+        consensus.w3.cc.is_gloas_slot = Mock(return_value=True)
         return consensus
 
     @staticmethod
@@ -463,6 +465,7 @@ class TestGetBlockstampForReportWaitsForChild:
 
     def test_pre_fork_ref_slot_finalized__does_not_wait(self, prepared):
         # Arrange: pre-fork blocks embed their payload, so ref_slot alone is still enough.
+        prepared.w3.cc.is_gloas_slot = Mock(return_value=False)
         prepared.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build(
             message={"slot": self.REF_SLOT}
         )
