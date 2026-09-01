@@ -30,6 +30,12 @@ scrape_configs:
       - targets:
           - csm-oracle:9000
 
+  - job_name: csm-0x02-oracle
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - csm-0x02-oracle:9000
+
   - job_name: cm-oracle
     metrics_path: /metrics
     static_configs:
