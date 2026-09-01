@@ -100,7 +100,7 @@ class StakingModuleContracts(Module):
                 self.params = cast(
                     CSParametersRegistryContract,
                     self.w3.eth.contract(
-                        address=self.module.parameters_registry(),
+                        address=self.module.parameters_registry('latest'),
                         ContractFactoryClass=CSParametersRegistryContract,
                         decode_tuples=True,
                     ),
@@ -109,7 +109,7 @@ class StakingModuleContracts(Module):
                 self.accounting = cast(
                     CSAccountingContract,
                     self.w3.eth.contract(
-                        address=self.module.accounting(),
+                        address=self.module.accounting('latest'),
                         ContractFactoryClass=CSAccountingContract,
                         decode_tuples=True,
                     ),
@@ -118,7 +118,7 @@ class StakingModuleContracts(Module):
                 self.fee_distributor = cast(
                     CSFeeDistributorContract,
                     self.w3.eth.contract(
-                        address=self.accounting.fee_distributor(),
+                        address=self.accounting.fee_distributor('latest'),
                         ContractFactoryClass=CSFeeDistributorContract,
                         decode_tuples=True,
                     ),
@@ -127,7 +127,7 @@ class StakingModuleContracts(Module):
                 self.oracle = cast(
                     CSFeeOracleContract,
                     self.w3.eth.contract(
-                        address=self.fee_distributor.oracle(),
+                        address=self.fee_distributor.oracle('latest'),
                         ContractFactoryClass=CSFeeOracleContract,
                         decode_tuples=True,
                     ),
@@ -136,7 +136,7 @@ class StakingModuleContracts(Module):
                 self.strikes = cast(
                     CSStrikesContract,
                     self.w3.eth.contract(
-                        address=self.oracle.strikes(),
+                        address=self.oracle.strikes('latest'),
                         ContractFactoryClass=CSStrikesContract,
                         decode_tuples=True,
                     ),
@@ -160,11 +160,11 @@ class StakingModuleContracts(Module):
     def _get_contract_addresses(self) -> tuple[str, ...]:
         return (
             self.module.address,
-            self.module.accounting(),
-            self.module.parameters_registry(),
-            self.accounting.fee_distributor(),
-            self.fee_distributor.oracle(),
-            self.oracle.strikes(),
+            self.module.accounting('latest'),
+            self.module.parameters_registry('latest'),
+            self.accounting.fee_distributor('latest'),
+            self.fee_distributor.oracle('latest'),
+            self.oracle.strikes('latest'),
         )
 
     def has_contract_address_changed(self) -> bool:

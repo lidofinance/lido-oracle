@@ -104,6 +104,19 @@ Where `<module>` is one of:
 - `cm`
 - `check`
 
+### Run oracle module for a specific slot
+
+`scripts/run_oracle_at_slot.py` runs a single Accounting or Ejector cycle (`DAEMON=False`) against a chosen
+reference slot, on free Prometheus/healthcheck ports so it can run alongside other instances:
+
+```bash
+poetry run python scripts/run_oracle_at_slot.py accounting              # latest finalized slot
+poetry run python scripts/run_oracle_at_slot.py ejector --slot 8500000  # forced slot
+```
+
+Requires the same env vars as above (e.g. `set -a && source .env && set +a` first). At the end of the run it prints the built
+report and the `Build `submitReport(...)`` log line in green for a quick manual check.
+
 ## Code quality
 
 Used the following tools:

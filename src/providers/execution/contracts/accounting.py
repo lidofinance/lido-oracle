@@ -18,7 +18,7 @@ class AccountingContract(ContractInterface):
     def simulate_oracle_report(
         self,
         payload: ReportSimulationPayload,
-        block_identifier: BlockIdentifier = 'latest',
+        block_identifier: BlockIdentifier,
     ) -> ReportSimulationResults:
         """
         Simulates the effects of the `handleOracleReport` function without actually updating the contract state.

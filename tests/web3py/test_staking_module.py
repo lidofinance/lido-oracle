@@ -98,6 +98,7 @@ def test_get_rewards_tree_cid_returns_none_for_empty(w3: Web3StakingModule, bloc
     result = w3.staking_module.get_rewards_tree_cid(blockstamp)
 
     assert result is None
+    w3.staking_module.fee_distributor.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
@@ -108,6 +109,7 @@ def test_get_rewards_tree_cid_returns_cidv0(w3: Web3StakingModule, blockstamp):
 
     assert isinstance(result, CIDv0)
     assert str(result) == CIDV0_EXAMPLE
+    w3.staking_module.fee_distributor.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
@@ -118,6 +120,7 @@ def test_get_rewards_tree_cid_returns_cidv1(w3: Web3StakingModule, blockstamp):
 
     assert isinstance(result, CIDv1)
     assert str(result) == CIDV1_EXAMPLE
+    w3.staking_module.fee_distributor.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
@@ -138,6 +141,7 @@ def test_get_strikes_tree_cid_returns_none_for_empty(w3: Web3StakingModule, bloc
     result = w3.staking_module.get_strikes_tree_cid(blockstamp)
 
     assert result is None
+    w3.staking_module.strikes.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
@@ -148,6 +152,7 @@ def test_get_strikes_tree_cid_returns_cidv0(w3: Web3StakingModule, blockstamp):
 
     assert isinstance(result, CIDv0)
     assert str(result) == CIDV0_EXAMPLE
+    w3.staking_module.strikes.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
@@ -158,6 +163,7 @@ def test_get_strikes_tree_cid_returns_cidv1(w3: Web3StakingModule, blockstamp):
 
     assert isinstance(result, CIDv1)
     assert str(result) == CIDV1_EXAMPLE
+    w3.staking_module.strikes.tree_cid.assert_called_once_with(BLOCK_HASH)
 
 
 @pytest.mark.unit
