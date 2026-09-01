@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class MissingExecutionAnchor(Exception):
-    """Raised when a post-EIP-7732 block's execution-layer anchor cannot be read."""
+    pass
 
 
 def get_blockstamp(
@@ -27,7 +27,6 @@ def get_blockstamp(
     last_finalized_slot_number: SlotNumber,
     el: Eth,
 ) -> BlockStamp:
-    """Build a BlockStamp for `slot` from its anchor block."""
     logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
     anchor = _resolve_anchor_block(cc, slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
@@ -41,7 +40,6 @@ def get_reference_blockstamp(
     ref_epoch: EpochNumber,
     el: Eth,
 ) -> ReferenceBlockStamp:
-    """Build a ReferenceBlockStamp for `ref_slot` from its anchor block."""
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
     anchor = _resolve_anchor_block(cc, ref_slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
@@ -49,10 +47,7 @@ def get_reference_blockstamp(
 
 
 def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth) -> BlockStamp:
-    """Fetch the block for the given chain state (head/finalized/...) and build a BlockStamp.
-
-    The chain tip has no child yet, so the stamp is built from the block itself.
-    """
+    """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"""
     block_root = cc.get_block_root(state).root
     block_details = cc.get_block_details(block_root)
     bs = build_blockstamp(block_details, el)
@@ -82,24 +77,27 @@ def build_reference_blockstamp(
 def _resolve_anchor_block(
     cc: ConsensusClient, slot: SlotNumber, last_finalized_slot_number: SlotNumber
 ) -> BlockDetailsResponse:
-    """The beacon block a blockstamp for `slot` is built from: `slot` itself pre-EIP-7732, its child
-    post-fork.
-
-    Which side of the fork `slot` falls on comes from the beacon config, so a missed slot at the
-    fork boundary cannot send the resolution down the wrong branch — reading it off the block shape
-    could, because the block before a missed post-fork slot may still be a pre-fork one. The shape
-    is kept as a cross-check: pre-fork blocks embed their payload and post-fork ones do not, so a
-    disagreement means the config does not describe the chain we are reading.
-    """
+    """See `ReferenceBlockStamp` for which block a blockstamp is built from."""
     if cc.is_gloas_slot(slot):
-        child = get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
-        if child.message.body.execution_payload is not None:
-            raise InconsistentData(
-                f'Block at slot [{child.message.slot}] embeds an execution payload, but the beacon '
-                f'config puts it after the Gloas fork.'
-            )
-        return child
+        return _get_child_block(cc, slot, last_finalized_slot_number)
+    return _get_block_at_or_before(cc, slot, last_finalized_slot_number)
 
+
+def _get_child_block(
+    cc: ConsensusClient, slot: SlotNumber, last_finalized_slot_number: SlotNumber
+) -> BlockDetailsResponse:
+    child = get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
+    if child.message.body.execution_payload is not None:
+        raise InconsistentData(
+            f'Block at slot [{child.message.slot}] embeds an execution payload, but the beacon '
+            f'config puts it after the Gloas fork.'
+        )
+    return child
+
+
+def _get_block_at_or_before(
+    cc: ConsensusClient, slot: SlotNumber, last_finalized_slot_number: SlotNumber
+) -> BlockDetailsResponse:
     block = get_prev_non_missed_slot(cc, slot, last_finalized_slot_number)
     if block.message.body.execution_payload is None:
         raise InconsistentData(
@@ -120,9 +118,7 @@ def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:
 def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:
     payload = slot_details.message.body.execution_payload
     if payload is not None:
-        # Pre-EIP-7732: the block embeds the execution payload it was built with.
         return _get_el_fields_from_payload(payload)
-
     return _get_el_fields_from_hash(el, _get_anchor_hash(slot_details))
 
 
@@ -144,14 +140,6 @@ def _get_el_fields_from_hash(el: Eth, el_block_hash: BlockHash) -> dict:
 
 
 def _get_anchor_hash(slot_details: BlockDetailsResponse) -> BlockHash:
-    """The post-EIP-7732 execution-layer anchor: the last execution block applied to this block's
-    state, read out of the block's own payload bid.
-
-    `process_execution_payload_bid` asserts `bid.parent_block_hash == state.latest_block_hash`, and
-    `process_parent_execution_payload` preserves that in both branches, so the bid carries the value
-    the state would report. Reading it from the block body keeps every blockstamp off
-    `debug/beacon/states`, which returns the whole state and is not affordable per daemon cycle.
-    """
     bid = slot_details.message.body.signed_execution_payload_bid
     if bid is None:
         raise MissingExecutionAnchor(

@@ -30,7 +30,6 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
-    # Absent on nodes that do not know Gloas yet, which then reads as "never forks".
     GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
     class NeitherSlotDurationFieldPresent(Exception):
@@ -134,20 +133,11 @@ class ExecutionPayload(Nested, FromResponse):
 
 @dataclass
 class ExecutionPayloadBid(Nested, FromResponse):
-    """
-    EIP-7732 builder bid header (the subset we need).
-
-    `parent_block_hash` is the execution block the builder builds on. The nesting under `message` is
-    per the consensus-specs container; confirm it against the final beacon-APIs serialization.
-    """
-
     parent_block_hash: BlockHash
 
 
 @dataclass
 class SignedExecutionPayloadBid(Nested, FromResponse):
-    """EIP-7732: builder's signed commitment to the execution block for a slot."""
-
     message: ExecutionPayloadBid
 
 
@@ -188,14 +178,12 @@ class SyncAggregate(FromResponse):
 class BeaconBlockBody(Nested, FromResponse):
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
-    # Exactly one of these is present: `execution_payload` before EIP-7732, and
-    # `signed_execution_payload_bid` after it, where the payload is revealed separately.
     execution_payload: ExecutionPayload | None = None
     signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
 
     def __post_init__(self):
         super().__post_init__()
-        # Nested.__post_init__ cannot resolve `X | None` union fields, so convert them here.
+        # Nested cannot resolve `X | None` fields.
         if isinstance(self.execution_payload, dict):
             self.execution_payload = ExecutionPayload.from_response(**self.execution_payload)
         if isinstance(self.signed_execution_payload_bid, dict):
@@ -285,13 +273,7 @@ class PendingConsolidation(Nested):
 
 @dataclass
 class ExpectedWithdrawal(Nested, FromResponse):
-    """
-    One entry of BeaconState.payload_expected_withdrawals (EIP-7732).
-
-    `process_withdrawals` takes these amounts off the CL validator balances. The withdrawal vault
-    only receives them when the matching execution payload is applied. Consumers that need the CL
-    and EL views to agree add them back.
-    """
+    """Taken off the CL validator balance, not yet paid out by the matching execution payload."""
 
     validator_index: ValidatorIndex
     amount: Gwei
@@ -316,8 +298,6 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
-    # New in Gloas, so it carries a default for pre-fork states. Already taken off the CL
-    # balances, but not yet paid out by the matching execution payload.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property

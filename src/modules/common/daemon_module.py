@@ -37,8 +37,6 @@ class DaemonModule(ABC):
     def __init__(self, cc: ConsensusClient, el: Eth, **kwargs) -> None:
         super().__init__(**kwargs)
         self._cc = cc
-        # Post-EIP-7732 a blockstamp's execution anchor can only be resolved through an EL client,
-        # so every daemon needs one, CL-only ones included.
         self._el = el
         self._slot_threshold = SlotNumber(0)
 

@@ -19,8 +19,6 @@ def _build_consensus_client() -> ConsensusClient:
 
 
 def _build_execution_client() -> Eth:
-    # Post-EIP-7732 a blockstamp's execution anchor is an EL block hash, and turning it into a block
-    # number and timestamp needs an execution client. Only `eth` is used, no contracts.
     return Web3(
         FallbackProviderModule(
             variables.EXECUTION_CLIENT_URI,

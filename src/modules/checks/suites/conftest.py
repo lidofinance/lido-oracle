@@ -126,7 +126,6 @@ def finalized_blockstamp(web3):
     block_root = BlockRoot(web3.cc.get_block_root('finalized').root)
     block_details = web3.cc.get_block_details(block_root)
     cc_config = web3.cc.get_config_spec()
-    # The finalized block is the tip here and has no child, so build from the block itself.
     return build_reference_blockstamp(
         block_details,
         ref_slot=block_details.message.slot,

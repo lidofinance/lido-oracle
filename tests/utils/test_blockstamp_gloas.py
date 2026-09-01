@@ -1,9 +1,4 @@
-"""Unit tests for EIP-7732 (Gloas) blockstamp construction.
-
-Post-fork a blockstamp for slot N is built from N's child (the first non-missed block after N), and
-its execution anchor comes from that child's payload bid. These cover the anchor, the CL-only
-placeholder path, the pre-fork regression path and the forward resolver.
-"""
+"""Blockstamp construction on both sides of the Gloas fork."""
 
 from http import HTTPStatus
 from unittest.mock import Mock

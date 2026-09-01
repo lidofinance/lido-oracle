@@ -20,8 +20,7 @@ class SlotNotFinalized(Exception):
 
 
 class ChildSlotNotFinalized(Exception):
-    """The child block a post-EIP-7732 blockstamp is built from is not finalized yet. Callers
-    building a report treat this like an unfinalized ref slot: wait and retry."""
+    """A caller building a report treats this like an unfinalized ref slot: wait and retry."""
 
 
 def get_non_missed_slot_header(
@@ -125,8 +124,6 @@ def get_next_non_missed_slot(
     last_finalized_slot_number: SlotNumber,
 ) -> BlockDetailsResponse:
     """Get the first non-missed block after `slot`."""
-    # Same bound as get_non_missed_slot_header, raised as ChildSlotNotFinalized: a caller building a
-    # report waits and retries instead of failing.
     if slot >= last_finalized_slot_number:
         raise ChildSlotNotFinalized(
             f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'

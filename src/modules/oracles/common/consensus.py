@@ -237,8 +237,6 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Post-EIP-7732 this is necessary but not sufficient: the report is built on ref_slot's
-        # child, and the resolver below raises ChildSlotNotFinalized if that child is not finalized.
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
@@ -259,7 +257,6 @@ class ConsensusModule[W3: Web3Base](ABC):
                 el=self.w3.eth,
             )
         except ChildSlotNotFinalized:
-            # Same treatment as an unfinalized ref slot above: wait and retry next cycle.
             logger.info({'msg': "Reference slot's child is not yet finalized."})
             return None
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})

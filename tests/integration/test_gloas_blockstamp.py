@@ -1,13 +1,6 @@
-"""Critical integration checks for the EIP-7732 (Gloas) blockstamp resolution.
-
-These require a Lido devnet with Gloas active and stay SKIPPED because CI has no Gloas node. They
-encode the assumption every blockstamp rests on: that a report is built from ref_slot's child, and
-that the child block's payload bid carries the same execution anchor the beacon state reports as
-`latest_block_hash`.
-
-Verified by hand on glamsterdam-devnet-8 (Lighthouse v8.2.2) at slots 137051, 137086 and 137088 —
-including a self-build bid (builder_index 2**64-1) and two blocks whose parent payload was withheld,
-where the anchor correctly stays two slots back.
+"""Blockstamp invariants that only a Gloas-active devnet can check, so CI skips them: a report is
+built from ref_slot's child, and the child's payload bid carries the execution anchor the beacon
+state reports as `latest_block_hash`.
 """
 
 import pytest
