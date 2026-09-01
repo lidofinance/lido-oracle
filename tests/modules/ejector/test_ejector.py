@@ -201,7 +201,7 @@ class TestGetValidatorsToEject:
         ejector._get_total_el_balance = Mock(return_value=Wei(50))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
-        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(10))
+        ejector._get_withdrawable_principal = Mock(return_value=Wei(10))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
         with monkeypatch.context() as m:
@@ -230,7 +230,7 @@ class TestGetValidatorsToEject:
         ejector._get_total_el_balance = Mock(return_value=Wei(100))
         ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
 
-        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+        ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
         ejector._get_predicted_withdrawable_balance = Mock(return_value=Wei(50))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -448,13 +448,7 @@ def test_is_contract_reportable(ejector: Ejector, blockstamp: BlockStamp) -> Non
 
 
 class TestGetPredictedElBalance:
-    """
-    Covers the going-to-exit balance leg of `_get_predicted_el_balance`: validators recently
-    requested to exit but not yet exiting must contribute only their capped (sweep-excluded)
-    balance, both to the returned EL balance and to the churn/withdrawal-epoch prediction —
-    otherwise the excess above the effective balance cap (which is separately swept) gets
-    double-counted.
-    """
+    """Going-to-exit validators count only their capped balance — the excess is swept separately."""
 
     @pytest.fixture(autouse=True)
     def mock_common(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
@@ -463,7 +457,7 @@ class TestGetPredictedElBalance:
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
-        ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+        ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
     @pytest.mark.unit
@@ -507,6 +501,54 @@ class TestGetPredictedElBalance:
         ejector._get_predicted_el_balance(to_exit_gwei, ref_blockstamp)
 
         ejector._get_predicted_withdrawable_epoch.assert_called_once_with(capped_balance + to_exit_gwei, ref_blockstamp)
+
+
+@pytest.mark.unit
+class TestPredictedElBalanceSubtractsDepositLock:
+    """The deposit lock is subtracted from the estimate exactly once. How large that charge is gets
+    decided in `_get_deposit_lock_amount` and pinned by `test_get_deposit_lock_amount__*`."""
+
+    @pytest.fixture(autouse=True)
+    def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+        ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
+        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        # Distinct powers of ten, so a missing or duplicated term shows up in the total.
+        ejector._get_total_el_balance = Mock(return_value=Wei(10_000))
+        # horizon is 10 epochs (sweep delay 0), so this projects to 1_000 of future_rewards
+        ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(100))
+        ejector._get_withdrawable_principal = Mock(return_value=Wei(100))
+
+    def test_get_predicted_el_balance__deposit_lock_set__subtracted_once(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Arrange
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(200))
+
+        # Act
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        # Assert
+        assert result == Wei(10_000 + 1_000 + 100 - 200), (
+            "The charged deposit lock must be subtracted from the estimate exactly once"
+        )
+
+    def test_get_predicted_el_balance__deposit_lock_zero__nothing_subtracted(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+    ) -> None:
+        # Arrange
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+        # Act
+        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+        # Assert
+        assert result == Wei(10_000 + 1_000 + 100)
 
 
 class TestPredictedWithdrawableEpoch:
@@ -662,32 +704,87 @@ def test_get_total_active_balance(ejector: Ejector) -> None:
 
 
 @pytest.mark.unit
-def test_get_withdrawable_lido_validators_balance(
+def test_get_withdrawable_principal__only_fully_withdrawable_validators_count(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    ejector.w3.lido_validators.get_active_lido_validators = Mock(
-        return_value=[
-            build_extended_validator(balance="0"),
-            build_extended_validator(balance="0"),
-            build_extended_validator(balance="31"),
-            build_extended_validator(balance="42"),
-        ]
-    )
+    # Principal comes back only from validators that are fully withdrawable by the horizon, and only
+    # up to the cap — the excess above it is delivered by the sweep, which the rate already covers.
+    # Arrange
+    withdrawable = build_extended_validator_with_balance(Gwei(33_000_000_000))
+    staying = build_extended_validator_with_balance(Gwei(32_300_000_000))
+
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[withdrawable, staying])
 
     with monkeypatch.context() as m:
         m.setattr(
             ejector_module,
             "is_fully_withdrawable_validator",
-            Mock(side_effect=lambda _1, b, _2: b > 32),
+            Mock(side_effect=lambda _1, balance, _2: balance == withdrawable.balance),
         )
 
-        result = ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
-        assert result == 42 * GWEI_TO_WEI, "Unexpected withdrawable amount"
+        # Act
+        result = ejector._get_withdrawable_principal(EpochNumber(ref_blockstamp.ref_epoch + 2), ref_blockstamp)
 
-        ejector._get_withdrawable_lido_validators_balance(42, ref_blockstamp)
-        ejector.w3.lido_validators.get_active_lido_validators.assert_called_once()
+    # Assert
+    assert result == Gwei(MIN_ACTIVATION_BALANCE) * GWEI_TO_WEI
+
+
+def _mock_predicted_el_balance_terms(ejector: Ejector, chain_config: ChainConfig) -> None:
+    """Neutralise every term of `_get_predicted_el_balance` except the ones under test."""
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector._get_total_el_balance = Mock(return_value=Wei(0))
+    ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+    ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+
+
+@pytest.mark.unit
+def test_get_predicted_el_balance__unswept_balance_above_cap__not_added_on_top(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+) -> None:
+    # rate * H already covers the balance waiting above the cap; counting it again under-ejects (#993).
+    # Arrange
+    _mock_predicted_el_balance_terms(ejector, chain_config)
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(3))
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(5))
+    # Validators sitting well above the cap: whatever the sweep is holding must not reach the total.
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
+        return_value=[build_extended_validator_with_balance(Gwei(40_000_000_000))]
+    )
+
+    # Act
+    result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+    # Assert
+    assert result == Wei(10 * 3 + 5), "Only the projected rate and the principal may count, never the unswept pile"
+
+
+@pytest.mark.unit
+def test_get_predicted_el_balance__rate_prediction_degenerate__no_floor_from_unswept(
+    ejector: Ejector,
+    ref_blockstamp: ReferenceBlockStamp,
+    chain_config: ChainConfig,
+) -> None:
+    # A zero rate means the predictor had no data, not that the unswept pile may stand in for it.
+    # Arrange
+    _mock_predicted_el_balance_terms(ejector, chain_config)
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(5))
+    ejector.w3.lido_validators.get_active_lido_validators = Mock(
+        return_value=[build_extended_validator_with_balance(Gwei(40_000_000_000))]
+    )
+
+    # Act
+    result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
+
+    # Assert
+    assert result == Wei(5), "With a zero rate the inflow estimate must be zero, not the unswept balance"
 
 
 @pytest.mark.unit
@@ -820,14 +917,17 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
     ejector.w3.eth.contract = Mock(return_value=mock_consensus)
 
+    # Half of the frame reserve is charged, see `test_get_deposit_lock_amount__reserve_locked__charges_half`
+    charge_per_frame = reserve_per_frame // 2
+
     # 0 epochs → 0 // 10 = 0 frames → 0 locked
     assert ejector._get_deposit_lock_amount(0, ref_blockstamp) == Wei(0)
     # Exactly one frame (10 epochs) → 10 // 10 = 1 frame
-    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(charge_per_frame)
     # One epoch over one frame → 11 // 10 = 1 frame
-    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * charge_per_frame)
     # 2.5 frames → 25 // 10 = 2 frames
-    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * charge_per_frame)
 
     # All on-chain reads must be pinned to the report block, not the chain head
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
@@ -849,12 +949,41 @@ def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
     ejector.w3.eth.contract = Mock(return_value=mock_consensus)
 
     # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
-    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
-    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei // 2)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei // 2)
 
     # All on-chain reads must be pinned to the report block, not the chain head
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
     mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("reserve_per_frame", "expected"),
+    [
+        # Half of the reserve is what we expect deposits to consume in the average case.
+        (Wei(400), Wei(200)),
+        # An odd reserve must floor to a whole number of wei.
+        (Wei(401), Wei(200)),
+    ],
+)
+def test_get_deposit_lock_amount__reserve_locked__charges_half(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp, reserve_per_frame: Wei, expected: Wei
+) -> None:
+    epochs_per_frame = 10
+    ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(
+        return_value=Wei(1000 * GWEI_TO_WEI)
+    )
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
+    mock_consensus = Mock()
+    mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
+    ejector.w3.eth.contract = Mock(return_value=mock_consensus)
+
+    result = ejector._get_deposit_lock_amount(epochs_per_frame, ref_blockstamp)
+
+    assert result == expected
+    assert isinstance(result, int)
 
 
 class ForcedIterator:
@@ -886,7 +1015,7 @@ def test_get_validators_to_eject__forced_validators_present__included_in_result(
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
@@ -921,7 +1050,7 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
 
@@ -956,7 +1085,7 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
-    ejector._get_withdrawable_lido_validators_balance = Mock(return_value=Wei(0))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(1000 * 10**18))
 
@@ -977,29 +1106,22 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
 
 
 @pytest.mark.unit
-def test_get_withdrawable_lido_validators_balance__consolidating_as_source__excluded(
+def test_sweepable_validators__consolidating_as_source__excluded(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # A consolidation source sends its balance to the target validator, not to the Withdrawal Vault,
+    # so the sweep never sees it.
+    # Arrange
     normal_validator = build_extended_validator_with_balance(Gwei(42))
-    # Mark as consolidation source — this validator should be excluded from withdrawable balance
     consolidating_validator = build_extended_validator_with_balance(Gwei(42), consolidating_as_source=Mock())
 
     ejector.w3.lido_validators.get_active_lido_validators = Mock(
         return_value=[normal_validator, consolidating_validator]
     )
 
-    with monkeypatch.context() as m:
-        m.setattr(
-            ejector_module,
-            "is_fully_withdrawable_validator",
-            Mock(return_value=True),
-        )
-        # Use a different epoch to avoid LRU cache collision with other tests
-        result = ejector._get_withdrawable_lido_validators_balance(
-            EpochNumber(ref_blockstamp.ref_epoch + 1), ref_blockstamp
-        )
+    # Act — a distinct epoch keeps this out of the LRU cache used by other tests
+    result = ejector._sweepable_validators(ref_blockstamp)
 
-    # Only the normal validator contributes; consolidating_as_source is skipped
-    assert result == normal_validator.balance * GWEI_TO_WEI
+    # Assert
+    assert [v.index for v in result] == [normal_validator.index]

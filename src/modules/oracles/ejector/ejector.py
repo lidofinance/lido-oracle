@@ -32,9 +32,7 @@ from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, Re
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
-    get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
-    get_predictable_inbound_sweep,
 )
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
@@ -64,9 +62,10 @@ class Ejector(OracleModule[Web3]):
         3. Check whether the sum of the following components will be enough to cover all WR:
             - Exiting validators’ balances
             - Validators’ balances in the "to eject" list
-            - Predicted rewards
-            - Predicted validator top-ups
+            - Rewards expected to reach the EL until the last validator is withdrawn
+            - Staked ETH coming back from validators that finish exiting in the meantime
             - Current balance on EL
+            - Minus the ETH we expect new deposits to consume over the same period
         4. If the sum is already enough to cover WR, exit the loop.
         5. Get the next validator to eject.
 
@@ -254,34 +253,41 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        future_withdrawals = self._get_withdrawable_lido_validators_balance(withdrawal_epoch, blockstamp)
-        logger.info({'msg': 'Calculate future withdrawals sum.', 'value': future_withdrawals})
+        withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
+        logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
         return Wei(
             future_rewards
-            + future_withdrawals
+            + withdrawable_principal
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
             - deposit_lock,
         )
 
     @lru_cache(maxsize=1)
-    def _get_withdrawable_lido_validators_balance(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        lido_validators = self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
+    def _sweepable_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
+        return [
+            v
+            for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
+            if not v.consolidating_as_source
+        ]
 
+    @lru_cache(maxsize=1)
+    def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
+        """
+        Staked ETH coming back from validators that become fully withdrawable by `on_epoch`.
+
+        Principal only. The balance above the effective-balance cap is not counted here: the
+        projected rewards already include it, so adding it again would double count it (#993).
+        """
         result = Gwei(0)
 
-        for v in lido_validators:
-            if v.consolidating_as_source:
-                continue
-
+        for v in self._sweepable_validators(blockstamp):
             if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
-                result += get_predictable_full_inbound_balance(v)
-            else:
-                result += get_predictable_inbound_sweep(v)
+                result += get_predictable_inbound_balance(v)
 
         return gwei_to_wei(result)
 
@@ -351,7 +357,11 @@ class Ejector(OracleModule[Web3]):
 
     def _get_deposit_lock_amount(self, epoches_number: int, blockstamp: ReferenceBlockStamp) -> Wei:
         """
-        Calculates the amount of ETH locked for depositing for a given epoches_number.
+        ETH we expect new deposits to consume over `epoches_number`.
+
+        Every accounting frame reserves `reserve_per_frame` for deposits, but new stake refills most
+        of that reserve. `// 2` is the average case we expect deposits to actually take away from the
+        ETH the withdrawal queue could otherwise use.
         """
         deposit_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
         max_wr_wei = self.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount(blockstamp.block_hash)
@@ -378,4 +388,4 @@ class Ejector(OracleModule[Web3]):
         # would over-count by adding a reserve for a partial / already-accounted frame.
         ao_frames = epoches_number // ao_frame_size
 
-        return Wei(ao_frames * reserve_per_frame)
+        return Wei(ao_frames * reserve_per_frame // 2)
