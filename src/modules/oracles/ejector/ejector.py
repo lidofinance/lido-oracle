@@ -253,32 +253,22 @@ class Ejector(OracleModule[Web3]):
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
 
-        # The balance above the cap is already inside `future_rewards`: the sweep pays H/cycle of the
-        # set a full cycle of accrual each, i.e. rate * H. Adding it double counts (#993); a floor
-        # would compare a stock to a flow. So a degenerate rate over-ejects — fix that in prediction.
         withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
-        # Half: new stake refills the reserve, and that inflow is not a term here, so the full lock
-        # bills the queue twice. Charging none would bet on stETH demand, which fails when it matters.
-        # The 1/2 is a judgment call. Costs at most `lock // 2` of under-ejection, corrected next frame.
-        charged_deposit_lock = deposit_lock // 2
-        logger.info({'msg': 'Charge half of the deposit lock.', 'value': charged_deposit_lock})
-
         return Wei(
             future_rewards
             + withdrawable_principal
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
-            - charged_deposit_lock,
+            - deposit_lock,
         )
 
     @lru_cache(maxsize=1)
     def _sweepable_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        """Active Lido validators the sweep pays out. A consolidation source pays its target, not the vault."""
         return [
             v
             for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
@@ -287,8 +277,17 @@ class Ejector(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        """Staked ETH returning from validators exiting by `on_epoch`. Added on top of the rate, not
-        merged in: principal is not income, so it cancels out of the rate."""
+        """
+        Staked ETH returning from validators exiting by `on_epoch`. Added on top of the rewards rate
+        rather than merged into it: principal is not income, so it cancels out of the rate.
+
+        Principal only. The balance validators hold above their effective-balance cap is deliberately
+        left out, because the projected rewards already cover it: over a horizon H the sweep reaches
+        H/cycle of the set and hands each one a full cycle of accrual, summing to rate * H. Counting
+        it here as well double counts (#993), and keeping it as a lower bound would compare a stock to
+        a flow. A degenerate rate therefore under-counts this term; that belongs in the rewards
+        prediction, not here.
+        """
         result = Gwei(0)
 
         for v in self._sweepable_validators(blockstamp):
@@ -363,7 +362,14 @@ class Ejector(OracleModule[Web3]):
 
     def _get_deposit_lock_amount(self, epoches_number: int, blockstamp: ReferenceBlockStamp) -> Wei:
         """
-        Calculates the amount of ETH locked for depositing for a given epoches_number.
+        ETH the balance estimate charges as locked for depositing over `epoches_number` — half of the
+        reserve actually locked.
+
+        Only half is charged because the reserve is refilled by new stake, and that inflow is not a
+        term in the estimate at all, so charging the full lock bills the withdrawal queue twice for
+        the same ETH. Charging nothing instead bets on stETH demand, which fails exactly when it
+        matters. The 1/2 is a judgment call: it costs at most half a lock of under-ejection, corrected
+        on the next frame.
         """
         deposit_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
         max_wr_wei = self.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount(blockstamp.block_hash)
@@ -390,4 +396,4 @@ class Ejector(OracleModule[Web3]):
         # would over-count by adding a reserve for a partial / already-accounted frame.
         ao_frames = epoches_number // ao_frame_size
 
-        return Wei(ao_frames * reserve_per_frame)
+        return Wei(ao_frames * reserve_per_frame // 2)

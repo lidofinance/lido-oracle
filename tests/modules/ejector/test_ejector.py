@@ -504,8 +504,9 @@ class TestGetPredictedElBalance:
 
 
 @pytest.mark.unit
-class TestPredictedElBalanceChargesHalfDepositLock:
-    """Exactly half the deposit reserve is charged: more over-ejects, less under-ejects."""
+class TestPredictedElBalanceSubtractsDepositLock:
+    """The charged deposit lock is subtracted from the estimate exactly once. The size of the charge
+    is decided in `_get_deposit_lock_amount` and pinned by `test_get_deposit_lock_amount__*`."""
 
     @pytest.fixture(autouse=True)
     def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
@@ -519,37 +520,21 @@ class TestPredictedElBalanceChargesHalfDepositLock:
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(100))
         ejector._get_withdrawable_principal = Mock(return_value=Wei(100))
 
-    def test_get_predicted_el_balance__deposit_lock_set__only_half_subtracted(
+    def test_get_predicted_el_balance__deposit_lock_set__subtracted_once(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
     ) -> None:
         # Arrange
-        ejector._get_deposit_lock_amount = Mock(return_value=Wei(400))
+        ejector._get_deposit_lock_amount = Mock(return_value=Wei(200))
 
         # Act
         result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
 
         # Assert
         assert result == Wei(10_000 + 1_000 + 100 - 200), (
-            "Exactly half the deposit lock must be subtracted: charging all of it double-charges the "
-            "queue for ETH that new deposits refill, charging none of it keeps no margin"
+            "The charged deposit lock must be subtracted from the estimate exactly once"
         )
-
-    def test_get_predicted_el_balance__odd_deposit_lock__rounds_the_charge_down(
-        self,
-        ejector: Ejector,
-        ref_blockstamp: ReferenceBlockStamp,
-    ) -> None:
-        # Arrange: an odd wei amount must not produce a fractional Wei.
-        ejector._get_deposit_lock_amount = Mock(return_value=Wei(401))
-
-        # Act
-        result = ejector._get_predicted_el_balance(Gwei(0), ref_blockstamp)
-
-        # Assert
-        assert result == Wei(10_000 + 1_000 + 100 - 200), "The charge must floor to an integer number of wei"
-        assert isinstance(result, int)
 
     def test_get_predicted_el_balance__deposit_lock_zero__nothing_subtracted(
         self,
@@ -932,14 +917,17 @@ def test_get_deposit_lock_amount__calculates_frames_ceiling__scales_by_reserve(
     mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
     ejector.w3.eth.contract = Mock(return_value=mock_consensus)
 
+    # Half of the frame reserve is charged, see `test_get_deposit_lock_amount__reserve_locked__charges_half`
+    charge_per_frame = reserve_per_frame // 2
+
     # 0 epochs → 0 // 10 = 0 frames → 0 locked
     assert ejector._get_deposit_lock_amount(0, ref_blockstamp) == Wei(0)
     # Exactly one frame (10 epochs) → 10 // 10 = 1 frame
-    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(charge_per_frame)
     # One epoch over one frame → 11 // 10 = 1 frame
-    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(11, ref_blockstamp) == Wei(1 * charge_per_frame)
     # 2.5 frames → 25 // 10 = 2 frames
-    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * reserve_per_frame)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * charge_per_frame)
 
     # All on-chain reads must be pinned to the report block, not the chain head
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
@@ -961,12 +949,42 @@ def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
     ejector.w3.eth.contract = Mock(return_value=mock_consensus)
 
     # reserve_per_frame = min(100, 30) = 30 → max_wr_wei is the binding constraint
-    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei)
-    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei)
+    assert ejector._get_deposit_lock_amount(10, ref_blockstamp) == Wei(max_wr_wei // 2)
+    assert ejector._get_deposit_lock_amount(25, ref_blockstamp) == Wei(2 * max_wr_wei // 2)
 
     # All on-chain reads must be pinned to the report block, not the chain head
     ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract.assert_called_with(ref_blockstamp.block_hash)
     mock_consensus.get_frame_config.assert_called_with(ref_blockstamp.block_hash)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("reserve_per_frame", "expected"),
+    [
+        # Exactly half of the locked reserve is charged: charging all of it bills the queue twice for
+        # ETH that new deposits refill, charging none of it keeps no margin against a stake drought.
+        (Wei(400), Wei(200)),
+        # An odd reserve must floor to a whole number of wei.
+        (Wei(401), Wei(200)),
+    ],
+)
+def test_get_deposit_lock_amount__reserve_locked__charges_half(
+    ejector: Ejector, ref_blockstamp: ReferenceBlockStamp, reserve_per_frame: Wei, expected: Wei
+) -> None:
+    epochs_per_frame = 10
+    ejector.w3.lido_contracts.lido.get_deposits_reserve_target = Mock(return_value=reserve_per_frame)
+    ejector.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount = Mock(
+        return_value=Wei(1000 * GWEI_TO_WEI)
+    )
+    ejector.w3.lido_contracts.accounting_oracle.get_consensus_contract = Mock(return_value="0x" + "0" * 40)
+    mock_consensus = Mock()
+    mock_consensus.get_frame_config.return_value = Mock(epochs_per_frame=epochs_per_frame)
+    ejector.w3.eth.contract = Mock(return_value=mock_consensus)
+
+    result = ejector._get_deposit_lock_amount(epochs_per_frame, ref_blockstamp)
+
+    assert result == expected
+    assert isinstance(result, int)
 
 
 class ForcedIterator:
