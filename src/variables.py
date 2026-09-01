@@ -47,6 +47,12 @@ EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 # In this case the second report will force report finalization and will consume more gas
 TX_GAS_ADDITION: Final = int(os.getenv('TX_GAS_ADDITION', 100_000))
 
+# Upper bound for the gas of a single oracle transaction.
+# The default is the EIP-7825 transaction gas cap: 2**24 = 16,777,216.
+# https://eips.ethereum.org/EIPS/eip-7825
+TX_GAS_LIMIT: Final = int(os.getenv('TX_GAS_LIMIT', 2**24))
+assert TX_GAS_LIMIT > 0, "TX_GAS_LIMIT must be more than 0"
+
 # Maximum length of a range for eth_getLogs method calls.
 EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 7_200))
 assert EVENTS_SEARCH_STEP, "EVENTS_SEARCH_STEP must be more than 0"
@@ -225,6 +231,7 @@ PUBLIC_ENV_VARS = {
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
         'EL_REQUESTS_BATCH_SIZE': EL_REQUESTS_BATCH_SIZE,
         'TX_GAS_ADDITION': TX_GAS_ADDITION,
+        'TX_GAS_LIMIT': TX_GAS_LIMIT,
         'EVENTS_SEARCH_STEP': EVENTS_SEARCH_STEP,
         'MIN_PRIORITY_FEE': MIN_PRIORITY_FEE,
         'MAX_PRIORITY_FEE': MAX_PRIORITY_FEE,

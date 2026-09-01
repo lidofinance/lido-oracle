@@ -404,6 +404,32 @@ class TestGetValidatorsToEject:
             "Exact coverage with a dusty balance must not eject an extra validator"
         )
 
+    @pytest.mark.unit
+    def test_get_validators_to_eject__demand_and_forced__concatenated_in_iterator_order(
+        self,
+        ejector: Ejector,
+        ref_blockstamp: ReferenceBlockStamp,
+        chain_config: ChainConfig,
+    ):
+        """The request limit lives in the iterator; the ejector only concatenates its output."""
+        # Arrange
+        ejector.get_chain_config = Mock(return_value=chain_config)
+        ejector._get_predicted_el_balance = Mock(return_value=Wei(0))
+        ejector.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth = Mock(return_value=Wei(10**30))
+
+        demand = [((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator()) for _ in range(3)]
+        forced = [((StakingModuleId(0), NodeOperatorId(2)), build_extended_validator()) for _ in range(2)]
+        simple_iterator = SimpleIterator(demand)
+        simple_iterator.get_remaining_forced_validators = Mock(return_value=forced)
+
+        val_iter = iter(simple_iterator)
+        with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
+            # Act
+            result = ejector.get_validators_to_eject(ref_blockstamp)
+
+        # Assert
+        assert result == demand + forced, "The ejector must report the iterator output as is"
+
 
 @pytest.mark.unit
 @pytest.mark.parametrize(

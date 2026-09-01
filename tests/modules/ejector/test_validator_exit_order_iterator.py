@@ -48,6 +48,7 @@ def iterator(web3):
     )
     it.w3.eth.contract = Mock()
     it._reset_iterator_data()
+    it.max_exit_requests_per_report = 500
     return it
 
 
@@ -206,6 +207,78 @@ def test_lowest_validators_index_predicate(iterator):
     assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no1, ms)) == 5
     assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no2, ms)) == 10
     assert iterator._lowest_validator_index_predicate(NodeOperatorStats(no3, ms)) == 0
+
+
+@pytest.mark.unit
+def test_next__request_limit_reached__stops_iteration(iterator):
+    """__next__ stops the iteration once max_exit_requests_per_report is reached."""
+    sm1 = make_staking_module(1)
+    no1 = make_node_operator(1, sm1, total_dep=3)
+    gid11 = (sm1.id, no1.id)
+
+    iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
+    iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={
+            gid11: [
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+            ]
+        }
+    )
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
+    iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
+    iterator._calculate_sm_weights = Mock()
+    iterator._prepare_data_structure()
+    iterator._calculate_lido_stats()
+    # These attributes are normally set by __iter__; set them manually for the test
+    iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+    iterator.max_current_exit_balance = Gwei(0)
+    iterator.ejected_validators_count = 0
+    iterator.max_exit_requests_per_report = 2
+
+    ejected = [next(iterator), next(iterator)]
+
+    assert len(ejected) == 2
+    assert iterator.ejected_validators_count == 2
+    with pytest.raises(StopIteration):
+        next(iterator)
+
+
+@pytest.mark.unit
+def test_get_remaining_forced_validators__request_limit_reached__stops_early(iterator):
+    """get_remaining_forced_validators returns only the room left under max_exit_requests_per_report."""
+    sm1 = make_staking_module(1)
+    # force_exit_to=1, predictable_validators=4 → 3 forced candidates
+    no1 = make_node_operator(1, sm1, total_dep=4, target=1, limit_mode=NodeOperatorLimitMode.FORCE)
+    gid11 = (sm1.id, no1.id)
+
+    iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
+    iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
+    iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={
+            gid11: [
+                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(4)
+            ]
+        }
+    )
+    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
+    iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
+    iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
+    iterator._calculate_sm_weights = Mock()
+    iterator._prepare_data_structure()
+    iterator._calculate_lido_stats()
+    # These attributes are normally set by __iter__; set them manually for the test
+    iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+    iterator.max_current_exit_balance = Gwei(0)
+    # Simulate a demand loop that already ejected 1 validator with a total limit of 2
+    iterator.ejected_validators_count = 1
+    iterator.max_exit_requests_per_report = 2
+
+    forced = iterator.get_remaining_forced_validators()
+
+    assert len(forced) == 1, "Only 1 slot is left under the request limit"
+    assert iterator.ejected_validators_count == 2
 
 
 @pytest.mark.unit

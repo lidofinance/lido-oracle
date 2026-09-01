@@ -48,8 +48,6 @@ GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawals-processing
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
-MAX_BLOCK_GAS_LIMIT = 16_000_000
-
 # Lido contracts constants
 # We assume that the Lido deposit amount is currently 32 ETH (MIN_ACTIVATION_BALANCE).
 # If Lido decides to support 0x2 withdrawal credentials in the future, this variable
