@@ -11,6 +11,7 @@ Four oracle modules, each with its own reporting frame:
 | `accounting` | `make run-module ORACLE_MODULE=accounting` | ~24h / 225 epochs       | TVL updates, validator status, withdrawals, bunker mode |
 | `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs         | Validator exit requests to fund withdrawals             |
 | `csm`        | `make run-module ORACLE_MODULE=csm`        | ~28 days / 6300 epoches | Community Staking Module oracle                         |
+| `csm_0x02`   | `make run-module ORACLE_MODULE=csm_0x02`   | ~28 days / 6300 epoches | Community Staking Module 0x02 oracle                    |
 | `cm`         | `make run-module ORACLE_MODULE=cm`         | ~28 days / 6300 epoches | Curated Module V2 oracle                                |
 
 Sidecars: `performance_collector`, `performance_web_server`
@@ -36,6 +37,7 @@ src/
 │   │   └── staking_modules/ # CSM + CM oracles
 │   │       ├── common/      # Shared state, distribution, tree, log helpers
 │   │       ├── community_staking/  # CSM oracle (csm.py, entrypoint.py)
+│   │       ├── community_staking_0x02/  # CSM 0x02 oracle (csm_0x02.py, entrypoint.py)
 │   │       └── curated/     # Curated Module V2 oracle (cm.py, entrypoint.py)
 │   ├── checks/              # Environment/connectivity checks (suites/)
 │   └── sidecars/
@@ -170,7 +172,7 @@ All parsed in `src/variables.py`. Key vars:
 | `CONSENSUS_CLIENT_URI`   | All oracle modules                           |
 | `KEYS_API_URI`           | All oracle modules                           |
 | `LIDO_LOCATOR_ADDRESS`   | Accounting, Ejector, Check                   |
-| `STAKING_MODULE_ADDRESS` | CSM, CM                                      |
+| `STAKING_MODULE_ADDRESS` | CSM, CSM 0x02, CM                            |
 | `MEMBER_PRIV_KEY`        | Submitting reports (live mode)               |
 | `DAEMON`                 | `True` by default — set `False` for one-shot |
 

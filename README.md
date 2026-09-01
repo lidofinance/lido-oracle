@@ -18,7 +18,7 @@ cp .env.example .env
 docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 
 # 4. Run the Oracle (dry mode by default)
-docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
+docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | csm_0x02 | cm
 
 # 5. Run an oracle via docker compose
 #    (`accounting` and `ejector` can run standalone;
@@ -49,7 +49,7 @@ Core oracle modules:
 - Accounting (`accounting`)
 - Validators Exit Bus (`ejector`)
 - Community Staking Module (`csm`)
-- Community Staking Module 0x02 (`csm`, separate instance)
+- Community Staking Module 0x02 (`csm_0x02`)
 - Curated Module (`cm`)
 
 Sidecars:
@@ -210,10 +210,10 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    docker run --env-file .env lidofinance/oracle:{tag} {type}
    ```
 
-   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `cm`.
+   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `csm_0x02`, `cm`.
 
    For `accounting` and `ejector`, set `LIDO_LOCATOR_ADDRESS`.
-   For `csm` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
+   For `csm`, `csm_0x02` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
    If you use the reference compose stack, prefer:
 
    ```bash

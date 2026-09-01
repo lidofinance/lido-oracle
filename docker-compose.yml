@@ -225,7 +225,7 @@ services:
   csm-0x02-oracle:
     build: .
     container_name: csm-0x02-oracle
-    command: ["-m", "src.main", "csm"]
+    command: ["-m", "src.main", "csm_0x02"]
     depends_on:
       performance-collector:
         condition: service_healthy
