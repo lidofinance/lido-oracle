@@ -65,7 +65,7 @@ class Ejector(OracleModule[Web3]):
             - Rewards expected to reach the EL until the last validator is withdrawn
             - Staked ETH coming back from validators that finish exiting in the meantime
             - Current balance on EL
-            - Minus half the ETH reserved for new deposits over the same period
+            - Minus the ETH we expect new deposits to consume over the same period
         4. If the sum is already enough to cover WR, exit the loop.
         5. Get the next validator to eject.
 
@@ -278,15 +278,10 @@ class Ejector(OracleModule[Web3]):
     @lru_cache(maxsize=1)
     def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
         """
-        Staked ETH returning from validators exiting by `on_epoch`. Added on top of the rewards rate
-        rather than merged into it: principal is not income, so it cancels out of the rate.
+        Staked ETH coming back from validators that become fully withdrawable by `on_epoch`.
 
-        Principal only. The balance validators hold above their effective-balance cap is deliberately
-        left out, because the projected rewards already cover it: over a horizon H the sweep reaches
-        H/cycle of the set and hands each one a full cycle of accrual, summing to rate * H. Counting
-        it here as well double counts (#993), and keeping it as a lower bound would compare a stock to
-        a flow. A degenerate rate therefore under-counts this term; that belongs in the rewards
-        prediction, not here.
+        Principal only. The balance above the effective-balance cap is not counted here: the
+        projected rewards already include it, so adding it again would double count it (#993).
         """
         result = Gwei(0)
 
@@ -362,14 +357,11 @@ class Ejector(OracleModule[Web3]):
 
     def _get_deposit_lock_amount(self, epoches_number: int, blockstamp: ReferenceBlockStamp) -> Wei:
         """
-        ETH the balance estimate charges as locked for depositing over `epoches_number` — half of the
-        reserve actually locked.
+        ETH we expect new deposits to consume over `epoches_number`.
 
-        Only half is charged because the reserve is refilled by new stake, and that inflow is not a
-        term in the estimate at all, so charging the full lock bills the withdrawal queue twice for
-        the same ETH. Charging nothing instead bets on stETH demand, which fails exactly when it
-        matters. The 1/2 is a judgment call: it costs at most half a lock of under-ejection, corrected
-        on the next frame.
+        Every accounting frame reserves `reserve_per_frame` for deposits, but new stake refills most
+        of that reserve. `// 2` is the average case we expect deposits to actually take away from the
+        ETH the withdrawal queue could otherwise use.
         """
         deposit_per_frame = self.w3.lido_contracts.lido.get_deposits_reserve_target(blockstamp.block_hash)
         max_wr_wei = self.w3.lido_contracts.withdrawal_queue_nft.max_steth_withdrawal_amount(blockstamp.block_hash)

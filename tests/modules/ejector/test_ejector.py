@@ -505,8 +505,8 @@ class TestGetPredictedElBalance:
 
 @pytest.mark.unit
 class TestPredictedElBalanceSubtractsDepositLock:
-    """The charged deposit lock is subtracted from the estimate exactly once. The size of the charge
-    is decided in `_get_deposit_lock_amount` and pinned by `test_get_deposit_lock_amount__*`."""
+    """The deposit lock is subtracted from the estimate exactly once. How large that charge is gets
+    decided in `_get_deposit_lock_amount` and pinned by `test_get_deposit_lock_amount__*`."""
 
     @pytest.fixture(autouse=True)
     def mock_terms(self, ejector: Ejector, chain_config: ChainConfig, ref_blockstamp: ReferenceBlockStamp) -> None:
@@ -961,8 +961,7 @@ def test_get_deposit_lock_amount__capped_by_max_wr_when_smaller(
 @pytest.mark.parametrize(
     ("reserve_per_frame", "expected"),
     [
-        # Exactly half of the locked reserve is charged: charging all of it bills the queue twice for
-        # ETH that new deposits refill, charging none of it keeps no margin against a stake drought.
+        # Half of the reserve is what we expect deposits to consume in the average case.
         (Wei(400), Wei(200)),
         # An odd reserve must floor to a whole number of wei.
         (Wei(401), Wei(200)),
