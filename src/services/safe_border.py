@@ -243,9 +243,10 @@ class SafeBorder(Web3Converter):
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
     def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        # The report's own block: at or after ref_slot pre-EIP-7732, ref_slot's child after it.
-        last_finalized_slot = max(self.blockstamp.ref_slot, self.blockstamp.slot_number)
-        return get_blockstamp(self.w3.cc, last_slot_in_frame, last_finalized_slot, self.w3.eth)
+        # ref_slot bounds the search on purpose: a frame's last slot is always well below it, so
+        # there is room to resolve that slot's child post-EIP-7732, and a state past ref_slot is
+        # never read into the report.
+        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot, self.w3.eth)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(
