@@ -1,7 +1,5 @@
 import logging
-from collections.abc import Callable
 from dataclasses import asdict
-from functools import partial
 
 from eth_typing import BlockNumber, HexStr
 from eth_utils.hexadecimal import add_0x_prefix
@@ -16,8 +14,6 @@ from src.utils.slot import get_next_non_missed_slot, get_prev_non_missed_slot
 
 
 logger = logging.getLogger(__name__)
-
-AnchorHashResolver = Callable[[BlockDetailsResponse], BlockHash]
 
 
 class MissingExecutionAnchor(Exception):
@@ -43,7 +39,7 @@ def get_blockstamp(
     logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
     anchor = _resolve_anchor_block(cc, slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
-    return build_blockstamp(cc, anchor, el)
+    return build_blockstamp(anchor, el)
 
 
 def get_reference_blockstamp(
@@ -57,37 +53,35 @@ def get_reference_blockstamp(
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
     anchor = _resolve_anchor_block(cc, ref_slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
-    return build_reference_blockstamp(cc, anchor, ref_slot, ref_epoch, el)
+    return build_reference_blockstamp(anchor, ref_slot, ref_epoch, el)
 
 
 def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth | None = None) -> BlockStamp:
     """Fetch the block for the given chain state (head/finalized/...) and build a BlockStamp.
 
-    The chain tip has no child yet, so the stamp is built from the block itself and takes its
-    execution anchor from the block's own bid rather than from beacon state.
+    The chain tip has no child yet, so the stamp is built from the block itself.
     """
     block_root = cc.get_block_root(state).root
     block_details = cc.get_block_details(block_root)
-    bs = BlockStamp(**_get_base_fields(block_details, el, _get_anchor_hash_from_bid))
+    bs = build_blockstamp(block_details, el)
     logger.info({'msg': f'Fetch {state} blockstamp.', 'value': asdict(bs)})
     ORACLE_SLOT_NUMBER.labels(state).set(bs.slot_number)
     ORACLE_BLOCK_NUMBER.labels(state).set(bs.block_number)
     return bs
 
 
-def build_blockstamp(cc: ConsensusClient, slot_details: BlockDetailsResponse, el: Eth | None = None) -> BlockStamp:
-    return BlockStamp(**_get_base_fields(slot_details, el, partial(_get_anchor_hash_from_state, cc)))
+def build_blockstamp(slot_details: BlockDetailsResponse, el: Eth | None = None) -> BlockStamp:
+    return BlockStamp(**_get_base_fields(slot_details, el))
 
 
 def build_reference_blockstamp(
-    cc: ConsensusClient,
     slot_details: BlockDetailsResponse,
     ref_slot: SlotNumber,
     ref_epoch: EpochNumber,
     el: Eth | None = None,
 ) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
-        **_get_base_fields(slot_details, el, partial(_get_anchor_hash_from_state, cc)),
+        **_get_base_fields(slot_details, el),
         ref_slot=ref_slot,
         ref_epoch=ref_epoch,
     )
@@ -108,15 +102,15 @@ def _resolve_anchor_block(
     return get_next_non_missed_slot(cc, slot, last_finalized_slot_number)
 
 
-def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth | None, get_anchor_hash: AnchorHashResolver) -> dict:
+def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth | None) -> dict:
     return {
         "slot_number": slot_details.message.slot,
         "state_root": slot_details.message.state_root,
-        **_get_el_fields(slot_details, el, get_anchor_hash),
+        **_get_el_fields(slot_details, el),
     }
 
 
-def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth | None, get_anchor_hash: AnchorHashResolver) -> dict:
+def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth | None) -> dict:
     payload = slot_details.message.body.execution_payload
     if payload is not None:
         # Pre-EIP-7732: the block embeds the execution payload it was built with.
@@ -125,7 +119,7 @@ def _get_el_fields(slot_details: BlockDetailsResponse, el: Eth | None, get_ancho
     if el is None:
         return dict(_PLACEHOLDER_EL_FIELDS)
 
-    return _get_el_fields_from_hash(el, get_anchor_hash(slot_details))
+    return _get_el_fields_from_hash(el, _get_anchor_hash(slot_details))
 
 
 def _get_el_fields_from_payload(execution_payload: ExecutionPayload) -> dict:
@@ -145,25 +139,14 @@ def _get_el_fields_from_hash(el: Eth, el_block_hash: BlockHash) -> dict:
     }
 
 
-def _get_anchor_hash_from_state(cc: ConsensusClient, slot_details: BlockDetailsResponse) -> BlockHash:
-    """The authoritative anchor: the latest execution block applied to the block's own state.
+def _get_anchor_hash(slot_details: BlockDetailsResponse) -> BlockHash:
+    """The post-EIP-7732 execution-layer anchor: the last execution block applied to this block's
+    state, read out of the block's own payload bid.
 
-    Reports pay nothing extra for it. They read that same state for validators and pending_deposits,
-    and `get_state_view` keys its cache on `(state_root, slot)`, so both reads hit one entry.
-    """
-    slot = slot_details.message.slot
-    anchor = cc.get_state_view((slot_details.message.state_root, slot)).latest_block_hash
-    if not anchor:
-        raise MissingExecutionAnchor(f'State at slot [{slot}] has no latest_block_hash.')
-    return anchor
-
-
-def _get_anchor_hash_from_bid(slot_details: BlockDetailsResponse) -> BlockHash:
-    """The same anchor read out of the block body, for stamps that must not download a state.
-
-    Head and finalized stamps are rebuilt every daemon cycle and need only a block hash for
-    `eth_call`s, so a multi-gigabyte state download per cycle is not an option.
-    `process_execution_payload_bid` asserts `bid.parent_block_hash == state.latest_block_hash`.
+    `process_execution_payload_bid` asserts `bid.parent_block_hash == state.latest_block_hash`, and
+    `process_parent_execution_payload` preserves that in both branches, so the bid carries the value
+    the state would report. Reading it from the block body keeps every blockstamp off
+    `debug/beacon/states`, which returns the whole state and is not affordable per daemon cycle.
     """
     bid = slot_details.message.body.signed_execution_payload_bid
     if bid is None:

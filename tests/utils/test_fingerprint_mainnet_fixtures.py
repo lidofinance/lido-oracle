@@ -20,7 +20,7 @@ from src.utils.fingerprint import digest_of
 FIXTURES = pathlib.Path(__file__).parent / 'fixtures'
 
 # Mainnet, slot 14921600, first 100 entries of each list.
-BEACON_STATE_DIGEST = '0x234356032e15740d26559d45c05dd1e35e7699e75685075f5d3256598e0b2593'
+BEACON_STATE_DIGEST = '0x96af15ffc823a4ffdc5056e867c0c5c5d71f3ca09076e0ab5b0fe9b95040c862'
 USED_KEYS_DIGEST = '0x8734ab5671c2e52f0854acf1cb234996dd75a8543eed82c220dfad051bf2843c'
 
 

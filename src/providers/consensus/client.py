@@ -42,10 +42,6 @@ logger = logging.getLogger(__name__)
 
 LiteralState = Literal['head', 'genesis', 'finalized', 'justified']
 
-# The pair form addresses a state while its BlockStamp is still being built and the execution
-# anchor has yet to be read out of it (see src.utils.blockstamp).
-StateIdentifier = BlockStamp | tuple[StateRoot, SlotNumber]
-
 
 class ConsensusClientError(NotOkResponse):
     pass
@@ -254,44 +250,32 @@ class ConsensusClient(HTTPProvider):
 
     PRYSM_STATE_NOT_FOUND_ERROR = 'State not found'
 
-    @staticmethod
-    def _state_root_and_slot(state_identifier: StateIdentifier) -> tuple[StateRoot, SlotNumber]:
-        if isinstance(state_identifier, BlockStamp):
-            return state_identifier.state_root, state_identifier.slot_number
-        return state_identifier
-
-    def get_state_view(self, state_identifier: StateIdentifier) -> BeaconStateView:
-        # Canonical cache key, so a state reached through either identifier form hits one entry and
-        # is downloaded once.
-        return self._get_state_view_cached(*self._state_root_and_slot(state_identifier))
-
     @lru_cache(maxsize=1)
-    def _get_state_view_cached(self, state_root: StateRoot, slot_number: SlotNumber) -> BeaconStateView:
-        return self.get_state_view_no_cache((state_root, slot_number))
+    def get_state_view(self, blockstamp: BlockStamp) -> BeaconStateView:
+        return self.get_state_view_no_cache(blockstamp)
 
-    def get_state_view_no_cache(self, state_identifier: StateIdentifier) -> BeaconStateView:
+    def get_state_view_no_cache(self, blockstamp: BlockStamp) -> BeaconStateView:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2"""
-        state_root, slot_number = self._state_root_and_slot(state_identifier)
 
         logger.info(
             {
                 'msg': 'Getting state...',
                 'url': self.API_GET_STATE,
-                'slot_number': slot_number,
-                'state_root': state_root,
+                'slot_number': blockstamp.slot_number,
+                'state_root': blockstamp.state_root,
             }
         )
         try:
-            data = self._get_state_by_state_id(state_root)
+            data = self._get_state_by_state_id(blockstamp.state_root)
         except NotOkResponse as error:
             # Avoid Prysm issue with state root - https://github.com/prysmaticlabs/prysm/issues/12053
             if self.PRYSM_STATE_NOT_FOUND_ERROR in error.text:
-                data = self._get_state_by_state_id(slot_number)
+                data = self._get_state_by_state_id(blockstamp.slot_number)
             else:
                 raise
 
         state = BeaconStateView.from_response(**data)
-        log_fingerprint(logger, 'Beacon state', state, state_root=state_root, slot=state.slot)
+        log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
         return state
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:

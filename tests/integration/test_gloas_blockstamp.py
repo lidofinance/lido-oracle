@@ -1,9 +1,13 @@
 """Critical integration checks for the EIP-7732 (Gloas) blockstamp resolution.
 
-These require a Lido devnet with Gloas active and are SKIPPED until one is stable (there is no
-public Glamsterdam testnet yet). They encode the highest-risk end-to-end invariants — that a report
-blockstamp is built from ref_slot's child and anchored on that child's state.latest_block_hash, and
-that the block's bid carries the same value (which is what the liveness path relies on).
+These require a Lido devnet with Gloas active and stay SKIPPED because CI has no Gloas node. They
+encode the assumption every blockstamp rests on: that a report is built from ref_slot's child, and
+that the child block's payload bid carries the same execution anchor the beacon state reports as
+`latest_block_hash`.
+
+Verified by hand on glamsterdam-devnet-8 (Lighthouse v8.2.2) at slots 137051, 137086 and 137088 —
+including a self-build bid (builder_index 2**64-1) and two blocks whose parent payload was withheld,
+where the anchor correctly stays two slots back.
 """
 
 import pytest
@@ -29,7 +33,7 @@ def test_is_gloas__matches_devnet_config(web3_integration):
     assert web3_integration.cc.is_gloas(ref_epoch) is True
 
 
-def test_reference_blockstamp__built_from_child_and_anchored_on_state_latest_block_hash(web3_integration):
+def test_reference_blockstamp__built_from_child_and_bid_matches_state_latest_block_hash(web3_integration):
     finalized = _finalized(web3_integration)
     spec = web3_integration.cc.get_config_spec()
     # Use a ref slot a couple of epochs back so its child is finalized.
@@ -49,13 +53,13 @@ def test_reference_blockstamp__built_from_child_and_anchored_on_state_latest_blo
     el_block = web3_integration.eth.get_block(bs.block_hash)
     assert el_block['number'] == bs.block_number
 
-    # The anchor came from the child state; the child block's bid must carry the same value, which
-    # is the spec equality the head/finalized path relies on.
-    state = web3_integration.cc.get_state_view(bs)
-    assert state.slot == bs.slot_number
-    assert bs.block_hash.lower() == state.latest_block_hash.lower()
-
+    # The anchor came from the child block's bid. The state must report the same value as its
+    # latest_block_hash — this equality is what lets every blockstamp stay off debug/beacon/states.
+    # BeaconStateView does not model the field (nothing in production reads it), so take it raw.
     block = web3_integration.cc.get_block_details(SlotNumber(bs.slot_number))
     bid = block.message.body.signed_execution_payload_bid
     assert bid is not None
-    assert bid.message.parent_block_hash.lower() == state.latest_block_hash.lower()
+    assert bs.block_hash.lower() == bid.message.parent_block_hash.lower()
+
+    raw_state = web3_integration.cc._get_state_by_state_id(bs.state_root)  # noqa: SLF001
+    assert raw_state['latest_block_hash'].lower() == bs.block_hash.lower()

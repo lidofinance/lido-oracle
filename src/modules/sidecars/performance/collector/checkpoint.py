@@ -374,10 +374,9 @@ class FrameCheckpointProcessor:
         logger.info({"msg": f"Preparing cached Sync Committee for [{from_epoch};{to_epoch}] chain epochs"})
         # CL-only consumer: no execution client, so the EL fields stay placeholders.
         state_blockstamp = build_blockstamp(
-            self.cc,
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            ),
+            )
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee

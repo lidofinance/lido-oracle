@@ -11,8 +11,8 @@ from src.modules.common.types import ChainConfig
 from src.modules.oracles.common import consensus as consensus_module
 from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
-from src.providers.consensus.types import BeaconSpecResponse
-from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
+from src.providers.consensus.types import BeaconSpecResponse, ExecutionPayloadBid, SignedExecutionPayloadBid
+from src.types import BlockHash, BlockStamp, ReferenceBlockStamp, SlotNumber
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -422,9 +422,13 @@ class TestGetBlockstampForReportWaitsForChild:
 
     @staticmethod
     def _post_fork_block(slot: int):
-        """A post-EIP-7732 block: no embedded execution payload, so the child must be resolved."""
+        """A post-EIP-7732 block: no embedded execution payload, so the child must be resolved and
+        the execution anchor comes from the payload bid."""
         details = BlockDetailsResponseFactory.build(message={"slot": slot})
         details.message.body.execution_payload = None
+        details.message.body.signed_execution_payload_bid = SignedExecutionPayloadBid(
+            message=ExecutionPayloadBid(parent_block_hash=BlockHash("0xaaaa"))
+        )
         return details
 
     def test_ref_slot_finalized_but_child_is_not__waits(self, prepared, caplog):
@@ -446,7 +450,6 @@ class TestGetBlockstampForReportWaitsForChild:
             data={"header": {"message": {"slot": child_slot}}}
         )
         prepared.w3.cc.get_block_details.return_value = self._post_fork_block(child_slot)
-        prepared.w3.cc.get_state_view.return_value.latest_block_hash = "0xaaaa"
         prepared.w3.eth = Mock(get_block=Mock(return_value={"number": 7, "timestamp": 42}))
         last_finalized = BlockStampFactory.build(slot_number=child_slot)
 

@@ -313,11 +313,9 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
-    # New in Gloas, so both carry a default for pre-fork states.
-    # Already taken off the CL balances, but not yet paid out at `latest_block_hash`.
+    # New in Gloas, so it carries a default for pre-fork states. Already taken off the CL
+    # balances, but not yet paid out by the matching execution payload.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
-    # The last execution block applied to this state: the state's execution-layer anchor.
-    latest_block_hash: BlockHash = BlockHash(HexStr(''))
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:

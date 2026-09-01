@@ -1,9 +1,8 @@
 """Unit tests for EIP-7732 (Gloas) blockstamp construction.
 
-Post-fork a blockstamp for slot N is built from N's child (the first non-missed block after N).
-Report blockstamps take the execution anchor from that child's beacon state; liveness blockstamps,
-which never read CL state, take the equal value from the child's execution payload bid. These cover
-both sources, the CL-only placeholder path, the pre-fork regression path and the forward resolver.
+Post-fork a blockstamp for slot N is built from N's child (the first non-missed block after N), and
+its execution anchor comes from that child's payload bid. These cover the anchor, the CL-only
+placeholder path, the pre-fork regression path and the forward resolver.
 """
 
 from http import HTTPStatus
@@ -28,11 +27,6 @@ from tests.factory.consensus import BlockHeaderFullResponseFactory
 
 
 ANCHOR_HASH = "0xaaaa"
-
-
-def _cc(**kwargs) -> Mock:
-    """Consensus client whose state reports ANCHOR_HASH as its latest_block_hash."""
-    return Mock(get_state_view=Mock(return_value=Mock(latest_block_hash=BlockHash(ANCHOR_HASH))), **kwargs)
 
 
 def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
@@ -60,7 +54,7 @@ class TestExecutionAnchorResolution:
         payload = details.message.body.execution_payload
 
         # Act
-        bs = build_blockstamp(Mock(), details, el)
+        bs = build_blockstamp(details, el)
 
         # Assert: identical to the legacy behavior, the execution client is never consulted.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
@@ -68,16 +62,15 @@ class TestExecutionAnchorResolution:
         assert bs.block_timestamp == payload.timestamp
         el.get_block.assert_not_called()
 
-    def test_build_blockstamp__post_fork_report__anchors_on_state_latest_block_hash(self, el):
-        # Arrange: report blockstamps read the anchor from the beacon state.
-        details = _post_fork_details(slot=100, parent_block_hash="0xdead")
-        cc = _cc()
+    def test_build_blockstamp__post_fork__anchors_on_bid_parent_block_hash(self, el):
+        # Arrange: post-fork the anchor is the last payload applied to this block's state, which the
+        # block's own bid carries - no beacon state is downloaded for it.
+        details = _post_fork_details(slot=100)
 
         # Act
-        bs = build_blockstamp(cc, details, el)
+        bs = build_blockstamp(details, el)
 
-        # Assert: the state wins, addressed by (state_root, slot) so it shares the report's cache entry.
-        cc.get_state_view.assert_called_once_with((details.message.state_root, SlotNumber(100)))
+        # Assert
         assert bs.slot_number == SlotNumber(100)
         assert bs.state_root == details.message.state_root
         assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
@@ -85,34 +78,25 @@ class TestExecutionAnchorResolution:
         assert bs.block_timestamp == 424242
         el.get_block.assert_called_once_with(BlockHash(ANCHOR_HASH))
 
-    def test_build_blockstamp__report_anchor_missing_from_state__raises(self, el):
-        # Arrange: a state with no latest_block_hash (pre-fork default) is not a usable anchor.
-        details = _post_fork_details(slot=100)
-        cc = Mock(get_state_view=Mock(return_value=Mock(latest_block_hash="")))
-
-        # Act / Assert
-        with pytest.raises(MissingExecutionAnchor):
-            build_blockstamp(cc, details, el)
-
     def test_build_blockstamp__no_execution_client__placeholder_fields(self):
         # Arrange: CL-only consumer (performance collector) has no execution client.
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = build_blockstamp(_cc(), details, None)
+        bs = build_blockstamp(details, None)
 
         # Assert: EL fields are inert placeholders; CL fields are correct.
         assert bs.slot_number == SlotNumber(100)
         assert bs.state_root == details.message.state_root
         assert bs.block_number == 0
 
-    def test_get_blockstamp_by_state__block_without_bid__raises(self, el):
+    def test_build_blockstamp__block_without_bid__raises(self, el):
         # Arrange: a post-fork block with no resolvable execution anchor at all.
         details = _post_fork_details(slot=100, parent_block_hash=None)
 
         # Act / Assert
         with pytest.raises(MissingExecutionAnchor):
-            get_blockstamp_by_state(_cc(get_block_details=Mock(return_value=details)), 'head', el)
+            build_blockstamp(details, el)
 
 
 @pytest.mark.unit
@@ -133,7 +117,7 @@ class TestAnchorBlockSelection:
 
         # Act
         bs = get_reference_blockstamp(
-            _cc(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
+            Mock(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
         )
 
         # Assert: the report's own block sits after the ref slot.
@@ -150,7 +134,7 @@ class TestAnchorBlockSelection:
 
         # Act
         bs = get_reference_blockstamp(
-            _cc(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
+            Mock(), ref_slot=SlotNumber(99), last_finalized_slot_number=SlotNumber(200), ref_epoch=EpochNumber(3), el=el
         )
 
         # Assert: no child lookup happens pre-fork.
@@ -166,7 +150,7 @@ class TestAnchorBlockSelection:
         nxt.return_value = _post_fork_details(slot=101)
 
         # Act
-        bs = get_blockstamp(_cc(), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
+        bs = get_blockstamp(Mock(), SlotNumber(99), last_finalized_slot_number=SlotNumber(200), el=el)
 
         # Assert
         assert bs.slot_number == SlotNumber(101)
@@ -176,7 +160,7 @@ class TestAnchorBlockSelection:
     def test_get_blockstamp_by_state__post_fork_head__anchors_on_own_bid(self, el):
         # Arrange: the chain tip has no child, so it is its own anchor block.
         details = _post_fork_details(slot=100)
-        cc = _cc(get_block_details=Mock(return_value=details))
+        cc = Mock(get_block_details=Mock(return_value=details))
 
         # Act
         bs = get_blockstamp_by_state(cc, 'head', el)

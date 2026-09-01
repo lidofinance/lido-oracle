@@ -73,7 +73,6 @@ def _state(validators: int = 4, deposits: int = 3) -> BeaconStateView:
             ExpectedWithdrawal(validator_index=0, amount=10**9),
             ExpectedWithdrawal(validator_index=1, amount=2 * 10**9),
         ],
-        latest_block_hash='0x' + 'ab' * 32,
     )
 
 

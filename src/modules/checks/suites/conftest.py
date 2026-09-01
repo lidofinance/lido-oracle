@@ -128,7 +128,6 @@ def finalized_blockstamp(web3):
     cc_config = web3.cc.get_config_spec()
     # The finalized block is the tip here and has no child, so build from the block itself.
     return build_reference_blockstamp(
-        web3.cc,
         block_details,
         ref_slot=block_details.message.slot,
         ref_epoch=EpochNumber(block_details.message.slot // cc_config.SLOTS_PER_EPOCH),
