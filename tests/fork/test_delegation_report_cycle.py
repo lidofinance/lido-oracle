@@ -1,5 +1,4 @@
 import logging
-from contextlib import contextmanager
 
 import pytest
 from eth_account import Account
@@ -8,7 +7,6 @@ from web3 import Web3
 from src.modules.common.types import FrameConfig
 from src.modules.oracles.ejector.ejector import Ejector
 from src.utils.range import sequence
-from src.web3py.extensions.signer import SignerModule
 from tests.fork.conftest import first_slot_of_epoch
 
 
@@ -121,17 +119,6 @@ def granted_submit_role(report_contract, six_members_with_delegation, fresh_dele
     report_contract.functions.grantRole(submit_role, fresh_delegation_contract).transact({'from': oracle_admin})
 
 
-@pytest.fixture()
-def signer_from(web3):
-    @contextmanager
-    def _use(account, account_2, delegation_contract_address):
-        accounts = [candidate for candidate in (account, account_2) if candidate is not None]
-        web3.signer = SignerModule(web3, accounts, delegation_contract_address)
-        yield
-
-    return _use
-
-
 @pytest.mark.testnet
 @pytest.mark.fork
 @pytest.mark.integration
@@ -172,7 +159,7 @@ class TestDelegatedMemberReportCycle:
         report_frame = frame
         while switch_finalized():
             for _, private_key in driven_plain_members:
-                with signer_from(Account.from_key(private_key), None, None):
+                with signer_from(Account.from_key(private_key)):
                     module.cycle_handler()
             with signer_from(None, delegate_account_obj, fresh_delegation_contract):
                 module.cycle_handler()

@@ -56,7 +56,7 @@ def missed_initial_frame(frame_config: FrameConfig):
     [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
     indirect=True,
 )
-def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from):
+def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from, signer_from):
     # Skip if consensus version is different
     current_consensus_version = module.report_contract.get_consensus_version('latest')
     if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
@@ -73,7 +73,7 @@ def test_lido_module_report(module, set_oracle_members, running_finalized_slots,
     switch_finalized, _ = running_finalized_slots
     while switch_finalized():
         for _, private_key in members:
-            with account_from(private_key):
+            with account_from(private_key) as account, signer_from(account):
                 module.cycle_handler()
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access
