@@ -15,7 +15,7 @@ class WithdrawalQueueNftContract(ContractInterface):
     abi_path = './assets/WithdrawalQueueERC721.json'
 
     @lru_cache(maxsize=1)
-    def unfinalized_steth(self, block_identifier: BlockIdentifier = 'latest') -> Wei:
+    def unfinalized_steth(self, block_identifier: BlockIdentifier) -> Wei:
         """
         Returns the amount of stETH in the queue yet to be finalized
         """
@@ -31,7 +31,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def bunker_mode_since_timestamp(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def bunker_mode_since_timestamp(self, block_identifier: BlockIdentifier) -> int:
         """
         Get bunker mode activation timestamp.
 
@@ -50,7 +50,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_last_finalized_request_id(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_last_finalized_request_id(self, block_identifier: BlockIdentifier) -> int:
         """
         id of the last finalized request
         NB! requests are indexed from 1, so it returns 0 if there is no finalized requests in the queue
@@ -68,9 +68,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_withdrawal_status(
-        self, request_id: int, block_identifier: BlockIdentifier = 'latest'
-    ) -> WithdrawalRequestStatus:
+    def get_withdrawal_status(self, request_id: int, block_identifier: BlockIdentifier) -> WithdrawalRequestStatus:
         """
         Returns status for requests with provided ids
         request_id: id of request to check status
@@ -89,7 +87,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def get_last_request_id(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def get_last_request_id(self, block_identifier: BlockIdentifier) -> int:
         """
         returns id of the last request
         NB! requests are indexed from 1, so it returns 0 if there is no requests in the queue
@@ -107,7 +105,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return response
 
     @lru_cache(maxsize=1)
-    def is_paused(self, block_identifier: BlockIdentifier = 'latest') -> bool:
+    def is_paused(self, block_identifier: BlockIdentifier) -> bool:
         """
         Returns whether the withdrawal queue is paused
         """
@@ -139,7 +137,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         return Wei(response)
 
     @lru_cache(maxsize=1)
-    def max_batches_length(self, block_identifier: BlockIdentifier = 'latest') -> int:
+    def max_batches_length(self, block_identifier: BlockIdentifier) -> int:
         """
         maximal length of the batch array provided for prefinalization.
         """
@@ -161,7 +159,7 @@ class WithdrawalQueueNftContract(ContractInterface):
         timestamp: int,
         max_batch_request_count: int,
         batch_state: tuple,
-        block_identifier: BlockIdentifier = 'latest',
+        block_identifier: BlockIdentifier,
     ) -> BatchState:
         """
         Offchain view for the oracle daemon that calculates how many requests can be finalized within
