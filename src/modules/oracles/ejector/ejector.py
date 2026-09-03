@@ -39,9 +39,11 @@ from src.utils.validator_balance import (
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
+    get_exit_churn_limit,
     is_active_validator,
     is_fully_withdrawable_validator,
 )
+from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -316,7 +318,13 @@ class Ejector(OracleModule[Web3]):
         https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
-        per_epoch_churn = get_activation_exit_churn_limit(self._get_total_active_balance(blockstamp))
+        total_active_balance = self._get_total_active_balance(blockstamp)
+        if self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)):
+            # Post-EIP-8061 the capped limit overestimates withdrawal_epoch, which would make the
+            # ejector under-request exits.
+            per_epoch_churn = get_exit_churn_limit(total_active_balance)
+        else:
+            per_epoch_churn = get_activation_exit_churn_limit(total_active_balance)
         # New epoch for exits.
         if state.earliest_exit_epoch < earliest_exit_epoch:
             exit_balance_to_consume = per_epoch_churn
@@ -336,7 +344,11 @@ class Ejector(OracleModule[Web3]):
         """Returns the number of epochs that will take to sweep all validators in the chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config)
+        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)))
+
+    def _state_epoch(self, blockstamp: ReferenceBlockStamp) -> EpochNumber:
+        """Epoch of the block the state is read from, which under EIP-7732 is not ref_epoch."""
+        return epoch_from_slot(blockstamp.slot_number, self.get_chain_config(blockstamp).slots_per_epoch)
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:

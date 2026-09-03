@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from src.constants import (
     CHURN_LIMIT_QUOTIENT,
+    CHURN_LIMIT_QUOTIENT_GLOAS,
     COMPOUNDING_WITHDRAWAL_PREFIX,
     EFFECTIVE_BALANCE_INCREMENT,
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
@@ -129,6 +130,12 @@ def get_activation_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
 # @see https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-get_balance_churn_limit
 def get_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
     churn = max(MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, total_active_balance // CHURN_LIMIT_QUOTIENT)
+    return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
+
+
+# @see https://eips.ethereum.org/EIPS/eip-8061
+def get_exit_churn_limit(total_active_balance: Gwei) -> Gwei:
+    churn = max(MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA, total_active_balance // CHURN_LIMIT_QUOTIENT_GLOAS)
     return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
 
 

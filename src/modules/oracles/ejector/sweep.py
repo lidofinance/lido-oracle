@@ -25,13 +25,15 @@ class Withdrawal:
     amount: int
 
 
-def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
+def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig, is_gloas_active: bool = False) -> int:
     """
     This method predicts the average withdrawal delay in epochs.
     It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
     """
 
-    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(state, spec.slots_per_epoch)
+    withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(
+        state, spec.slots_per_epoch, is_gloas_active
+    )
     full_sweep_cycle_in_epochs = math.ceil(
         withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch
     )
@@ -39,7 +41,9 @@ def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig) -> int:
     return full_sweep_cycle_in_epochs // 2
 
 
-def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_epoch: int) -> int:
+def predict_withdrawals_number_in_sweep_cycle(
+    state: BeaconStateView, slots_per_epoch: int, is_gloas_active: bool = False
+) -> int:
     """
     This method predicts the number of withdrawals that can be performed in a single sweep cycle.
     https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-get_expected_withdrawals
@@ -56,6 +60,12 @@ def predict_withdrawals_number_in_sweep_cycle(state: BeaconStateView, slots_per_
     in any group of 16,384 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP consecutive validators is less than 1%.
     This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
     """
+    if is_gloas_active:
+        # The partials queue is externally triggerable, so its post-EIP-7732 size is not derivable
+        # from current state. Dropping it keeps the estimate below the real delay, and a too-short
+        # delay only makes the ejector request more exits than needed.
+        return len(get_validators_withdrawals(state, [], slots_per_epoch))
+
     pending_partial_withdrawals = get_pending_partial_withdrawals(state)
     validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
 
