@@ -39,7 +39,7 @@ def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
 
 def _cc(*, gloas: bool, **kwargs) -> Mock:
     """A consensus client whose fork gate answers `gloas` for every slot."""
-    return Mock(is_gloas_slot=Mock(return_value=gloas), is_gloas=Mock(return_value=gloas), **kwargs)
+    return Mock(is_gloas_slot=Mock(return_value=gloas), is_gloas_epoch=Mock(return_value=gloas), **kwargs)
 
 
 @pytest.fixture

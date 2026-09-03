@@ -9,6 +9,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
+from src.runtime import build_execution_provider
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -34,14 +35,7 @@ W3 = TypeVar("W3", bound=Web3Base)
 
 
 def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
-    logger.info({'msg': 'Initialize multi web3 provider.'})
-    web3 = web3_cls(
-        FallbackProviderModule(
-            variables.EXECUTION_CLIENT_URI,
-            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-            cache_allowed_requests=True,
-        )
-    )
+    web3 = web3_cls(build_execution_provider())
 
     logger.info({'msg': 'Modify web3 with custom contract function call.'})
     tweak_w3_contracts(web3)

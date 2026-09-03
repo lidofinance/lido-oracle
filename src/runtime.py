@@ -5,9 +5,19 @@ from src.metrics.healthcheck_server import start_pulse_server
 from src.metrics.logging import logging
 from src.metrics.prometheus.basic import BUILD_INFO, ENV_VARIABLES_INFO
 from src.utils.build import get_build_info
+from src.web3py.extensions import FallbackProviderModule
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_execution_provider() -> FallbackProviderModule:
+    logger.info({'msg': 'Initialize multi web3 provider.'})
+    return FallbackProviderModule(
+        variables.EXECUTION_CLIENT_URI,
+        request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
+        cache_allowed_requests=True,
+    )
 
 
 def log_startup(module_name: str) -> None:

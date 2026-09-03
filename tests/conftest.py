@@ -169,7 +169,7 @@ def web3(monkeypatch) -> Generator[Web3]:
         # expects. Post-fork tests set `is_gloas_slot` / `is_gloas` themselves.
         cc_mock = Mock(spec=ConsensusClientModule)
         cc_mock.is_gloas_slot = Mock(return_value=False)
-        cc_mock.is_gloas = Mock(return_value=False)
+        cc_mock.is_gloas_epoch = Mock(return_value=False)
         return cc_mock
 
     def create_signer_mock():

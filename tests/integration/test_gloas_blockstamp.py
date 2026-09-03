@@ -19,11 +19,11 @@ def _finalized(web3_integration):
     return get_blockstamp_by_state(web3_integration.cc, 'finalized', web3_integration.eth)
 
 
-def test_is_gloas__matches_devnet_config(web3_integration):
+def test_is_gloas_epoch__matches_devnet_config(web3_integration):
     finalized = _finalized(web3_integration)
     ref_epoch = finalized.slot_number // web3_integration.cc.get_config_spec().SLOTS_PER_EPOCH
     # On a Gloas-active devnet this must be True for a recent epoch.
-    assert web3_integration.cc.is_gloas(ref_epoch) is True
+    assert web3_integration.cc.is_gloas_epoch(ref_epoch) is True
 
 
 def test_reference_blockstamp__built_from_child_and_bid_matches_state_latest_block_hash(web3_integration):

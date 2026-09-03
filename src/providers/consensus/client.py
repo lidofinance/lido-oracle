@@ -89,19 +89,17 @@ class ConsensusClient(HTTPProvider):
         session_manager = self._session_managers.get(host) or next(iter(self._session_managers.values()))
         return session_manager._timed_call(self.session.get, self._urljoin(host, endpoint), **kwargs)
 
-    @lru_cache(maxsize=1)
     def get_config_spec(self) -> BeaconSpecResponse:
         """Spec: https://ethereum.github.io/beacon-APIs/#/Config/getSpec"""
         data, _ = self._get(self.API_GET_SPEC, validate_response=data_is_dict)
         return BeaconSpecResponse.from_response(**data)
 
-    def is_gloas(self, epoch: EpochNumber) -> bool:
-        """Whether `epoch` is at or after the Glamsterdam (Gloas) fork."""
+    def is_gloas_epoch(self, epoch: EpochNumber) -> bool:
         return epoch >= self.get_config_spec().GLOAS_FORK_EPOCH
 
     def is_gloas_slot(self, slot: SlotNumber) -> bool:
         spec = self.get_config_spec()
-        return self.is_gloas(EpochNumber(slot // spec.SLOTS_PER_EPOCH))
+        return self.is_gloas_epoch(EpochNumber(slot // spec.SLOTS_PER_EPOCH))
 
     @lru_cache(maxsize=1)
     def get_genesis(self) -> GenesisResponse:

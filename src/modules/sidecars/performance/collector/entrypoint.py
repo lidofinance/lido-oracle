@@ -3,9 +3,8 @@ from web3.eth import Eth
 from src import variables
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
 from src.providers.consensus.client import ConsensusClient
-from src.runtime import log_startup, start_observability
+from src.runtime import build_execution_provider, log_startup, start_observability
 from src.types import OracleModuleName
-from src.web3py.extensions import FallbackProviderModule
 from src.web3py.types import Web3
 
 
@@ -19,13 +18,7 @@ def _build_consensus_client() -> ConsensusClient:
 
 
 def _build_execution_client() -> Eth:
-    return Web3(
-        FallbackProviderModule(
-            variables.EXECUTION_CLIENT_URI,
-            request_kwargs={'timeout': variables.HTTP_REQUEST_TIMEOUT_EXECUTION},
-            cache_allowed_requests=True,
-        )
-    ).eth
+    return Web3(build_execution_provider()).eth
 
 
 def run() -> None:
