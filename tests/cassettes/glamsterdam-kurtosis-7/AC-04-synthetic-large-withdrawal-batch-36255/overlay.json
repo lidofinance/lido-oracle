@@ -1,0 +1,50 @@
+{
+  "base_cassette": "../AC-02-synthetic-withheld-payload-36255",
+  "base_manifest_sha256": "88cc2baf3c6fc8860f2207271588e84b5db17242ceca341df013b5e43d30caa2",
+  "description": "Replace AC-02 with a 16-validator, 16 ETH Lido withdrawal batch and matching balance reductions.",
+  "patches": [
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c",
+        "slot_number": 36255
+      },
+      "path": "/data/payload_expected_withdrawals",
+      "value": [
+        {"index": "437331", "validator_index": "384", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437332", "validator_index": "385", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437333", "validator_index": "386", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437334", "validator_index": "387", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437335", "validator_index": "388", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437336", "validator_index": "389", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437337", "validator_index": "390", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437338", "validator_index": "391", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437339", "validator_index": "392", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437340", "validator_index": "393", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437341", "validator_index": "394", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437342", "validator_index": "395", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437343", "validator_index": "396", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437344", "validator_index": "397", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437345", "validator_index": "398", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"},
+        {"index": "437346", "validator_index": "399", "address": "0x57e5d642648f54973e504f10d21ea06360151caf", "amount": "1000000000"}
+      ]
+    },
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/384", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/385", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/386", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/387", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/388", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/389", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/390", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/391", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/392", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/393", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/394", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/395", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/396", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/397", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/398", "value": "31000000000"},
+    {"provider": "consensus", "method": "get_state_view", "params": {"state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c", "slot_number": 36255}, "path": "/data/balances/399", "value": "31044601085"}
+  ]
+}

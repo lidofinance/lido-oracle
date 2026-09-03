@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "scenario_id": "AC-03-synthetic-builder-withdrawal-36255",
+  "network": "glamsterdam-kurtosis-7",
+  "module": "accounting",
+  "ref_slot": 36255,
+  "recorded_at": "2026-07-22T00:00:00Z",
+  "origin": "synthetic",
+  "base_scenario_id": "AC-02-synthetic-withheld-payload-36255",
+  "consensus_spec": {
+    "GLOAS_FORK_EPOCH": "3",
+    "SLOTS_PER_EPOCH": "32",
+    "SECONDS_PER_SLOT": "12"
+  },
+  "execution_anchor_hash": "0x7971c05e1851dbaa46101c3497367637ecf64a3c546321a163f143b2b0ef3880",
+  "execution_anchor_block": 27373,
+  "execution_anchor_timestamp": 1784735057
+}

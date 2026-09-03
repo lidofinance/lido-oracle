@@ -1,0 +1,18 @@
+{
+  "network": "glamsterdam-devnet-8",
+  "chain_id": 7091047534,
+  "endpoints": {
+    "execution": "${ORACLE_SCENARIO_DEVNET_8_EXECUTION_URI}",
+    "consensus": "${ORACLE_SCENARIO_DEVNET_8_CONSENSUS_URI}",
+    "keys_api": "${ORACLE_SCENARIO_DEVNET_8_KEYS_API_URI}"
+  },
+  "contracts": {
+    "lido_locator": "0xD15EA25abADa7F429f30C7a76084C8a34d5189a7",
+    "accounting_oracle": "0x50b44648663d6AC4C32f60AC113cEC8E2AFAA911",
+    "validators_exit_bus_oracle": "0xfADd58995997a5A4B4103F63232e00a2e3EB6b62",
+    "hash_consensus_accounting": "0x2B92E11c29eD691911f9ac85b0E2b03972A4a88A",
+    "hash_consensus_ejector": "0xb6f88dAAB44b02836394a8Be081b3374f0BF375E",
+    "lido": "0x11f863d0907e6EB9425bF02a3D207cFAa86df530",
+    "oracle_report_sanity_checker": "0xc396E2CCC6F4Ff202cd5e4CE750EAaE0E580CAb1"
+  }
+}

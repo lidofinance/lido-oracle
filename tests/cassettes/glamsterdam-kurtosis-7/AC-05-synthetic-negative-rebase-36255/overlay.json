@@ -1,0 +1,17 @@
+{
+  "base_cassette": "../AC-04-synthetic-large-withdrawal-batch-36255",
+  "base_manifest_sha256": "b7b52782586a5a3bf50edda58ccf721983a2c05c8321e3d525a405892fe9111a",
+  "description": "Remove AC-04's withdrawal evidence while preserving its 16 ETH CL balance loss.",
+  "patches": [
+    {
+      "provider": "consensus",
+      "method": "get_state_view",
+      "params": {
+        "state_root": "0x72b3208c35f1970ac2a68b1fce06323f38690ca0eea9079354ff6232bc6a9b5c",
+        "slot_number": 36255
+      },
+      "path": "/data/payload_expected_withdrawals",
+      "value": []
+    }
+  ]
+}
