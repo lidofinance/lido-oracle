@@ -26,7 +26,7 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.services.safe_border import SafeBorder
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import LidoContracts, LidoValidatorsProvider, TransactionUtils
 from src.web3py.types import Web3
@@ -376,7 +376,7 @@ def _assert_withheld_payload_correction(
 
 
 @pytest.mark.skip(
-    reason='Golden report tuples were pinned before the BlockstampBuilder ePBS rework. A reference '
+    reason='Golden report tuples were pinned before the ePBS blockstamp rework. A reference '
     'blockstamp now anchors on ref_slot\'s child, so balances are read one slot later and every '
     'pinned cl_balance / per-module balance is stale by the rewards accrued in that slot. The '
     'expected tuples must be re-derived independently against the child state -- never regenerated '
@@ -405,10 +405,12 @@ class TestGlamsterdamAccountingLayer2:
         genesis_time = int(genesis_time_value)
         blockstamp = cast(
             ReferenceBlockStamp,
-            BlockstampBuilder(consensus, glamsterdam_web3.eth).get_reference_blockstamp(
+            get_reference_blockstamp(
+                consensus,
                 ref_slot=SlotNumber(glamsterdam_cassette.manifest.ref_slot),
                 last_finalized_slot_number=SlotNumber(glamsterdam_cassette.manifest.ref_slot + slots_per_epoch),
                 ref_epoch=EpochNumber(glamsterdam_cassette.manifest.ref_slot // slots_per_epoch),
+                el=glamsterdam_web3.eth,
             ),
         )
         subject = Accounting(glamsterdam_web3)
@@ -541,10 +543,12 @@ class TestGlamsterdamEjectorLayer2:
             raise ValueError('recorded consensus genesis_time must be an integer string')
         blockstamp = cast(
             ReferenceBlockStamp,
-            BlockstampBuilder(consensus, glamsterdam_web3.eth).get_reference_blockstamp(
+            get_reference_blockstamp(
+                consensus,
                 ref_slot=SlotNumber(glamsterdam_cassette.manifest.ref_slot),
                 last_finalized_slot_number=SlotNumber(glamsterdam_cassette.manifest.ref_slot + slots_per_epoch),
                 ref_epoch=EpochNumber(glamsterdam_cassette.manifest.ref_slot // slots_per_epoch),
+                el=glamsterdam_web3.eth,
             ),
         )
         subject = Ejector(glamsterdam_web3)

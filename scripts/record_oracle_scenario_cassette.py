@@ -53,7 +53,7 @@ def find_header(session: requests.Session, cl_url: str, start_slot: int, stop_sl
 def resolve_execution_anchor(parent_block: dict[str, Any], child_state: dict[str, Any]) -> tuple[str, str]:
     """Resolve the EL anchor hash the oracle would use, and name the branch it came from.
 
-    Mirrors `BlockstampBuilder._resolve_anchor_block`, which selects on block *shape* rather than
+    Mirrors `blockstamp._resolve_anchor_block`, which selects on block *shape* rather than
     on the spec's fork epoch: a pre-fork body embeds its own `execution_payload`, a Gloas body does
     not and the anchor moves to the child state's `latest_block_hash`. Recording the wrong branch
     would bake a post-fork assumption into a pre-fork cassette, so keep the two in step.

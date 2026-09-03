@@ -4,10 +4,13 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from eth_typing import BlockNumber
+from web3.eth import Eth
+from web3.types import Timestamp
 
 from src.providers.consensus.client import ConsensusClient
 from src.types import BlockStamp, EpochNumber, SlotNumber, StateRoot
-from src.utils.blockstamp import BlockstampBuilder
+from src.utils.blockstamp import get_reference_blockstamp
 from tests.scenarios.cassette import Cassette
 from tests.scenarios.replay import CassetteConsensusClient, CassetteKeysAPIClient
 
@@ -28,6 +31,18 @@ NEGATIVE_REBASE_CASSETTE_PATH = (
 BUILDER_INDEX_FLAG = 2**40
 
 
+class _UnrecordedEth:
+    """Stands in for the execution client the cassettes do not record.
+
+    A post-EIP-7732 anchor resolves its execution fields through the EL, but these cases assert
+    only which beacon block was picked, so the values are never read back.
+    """
+
+    @staticmethod
+    def get_block(_block_identifier: object) -> dict[str, object]:
+        return {'number': BlockNumber(0), 'timestamp': Timestamp(0)}
+
+
 @pytest.fixture()
 def cassette() -> Cassette:
     return Cassette.load(CASSETTE_PATH)
@@ -41,18 +56,19 @@ class TestGlamsterdamCassette:
     ) -> None:
         # Arrange
         client = CassetteConsensusClient(cassette)
-        builder = BlockstampBuilder(cast(ConsensusClient, client))
 
         # Act
-        blockstamp = builder.get_reference_blockstamp(
+        blockstamp = get_reference_blockstamp(
+            cast(ConsensusClient, client),
             ref_slot=SlotNumber(36255),
             last_finalized_slot_number=SlotNumber(36256),
             ref_epoch=EpochNumber(36255 // 32),
+            el=cast(Eth, _UnrecordedEth()),
         )
 
         # Assert -- under EIP-7732 the anchor is ref_slot's child, whose state is the first one
         # where ref_slot's payload, deposits and withdrawals are all settled.
-        assert client.is_gloas(blockstamp.ref_epoch)
+        assert client.is_gloas_epoch(blockstamp.ref_epoch)
         assert blockstamp.ref_slot == 36255
         assert blockstamp.slot_number == 36256
 
@@ -68,7 +84,6 @@ class TestGlamsterdamCassette:
         assert state.slot == 36255
         assert len(state.validators) > 0
         assert len(state.payload_expected_withdrawals) == 16
-        assert state.latest_block_hash
 
     def test_get_used_lido_keys__recorded_keys_response__parses_all_keys(self, cassette: Cassette) -> None:
         # Arrange
@@ -82,7 +97,7 @@ class TestGlamsterdamCassette:
         assert all(key.used for key in keys)
 
     @pytest.mark.skip(
-        reason='Predates the BlockstampBuilder ePBS rework: the AC-02 overlay patches the state '
+        reason='Predates the ePBS blockstamp rework: the AC-02 overlay patches the state '
         'at ref_slot, but a reference blockstamp now anchors on ref_slot\'s child and reads that '
         'state instead. The overlay has to be re-authored against the child state, and '
         'withdrawal_correction_needed no longer exists as a concept.'
@@ -91,13 +106,14 @@ class TestGlamsterdamCassette:
         # Arrange
         cassette = Cassette.load(SYNTHETIC_CASSETTE_PATH)
         client = CassetteConsensusClient(cassette)
-        builder = BlockstampBuilder(cast(ConsensusClient, client))
 
         # Act
-        blockstamp = builder.get_reference_blockstamp(
+        blockstamp = get_reference_blockstamp(
+            cast(ConsensusClient, client),
             ref_slot=SlotNumber(36255),
             last_finalized_slot_number=SlotNumber(36256),
             ref_epoch=EpochNumber(36255 // 32),
+            el=cast(Eth, _UnrecordedEth()),
         )
         state = client.get_state_view(blockstamp)
 

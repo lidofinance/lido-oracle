@@ -500,7 +500,7 @@ def gate_wire_shape(cl: str, el: str, prof: dict, state: dict, rep: Report) -> N
                 "PASS",
                 "block shape matches the fork phase",
                 f"version={version}: pre-fork block embeds execution_payload, and the chain IS pre-fork.\n"
-                "BlockstampBuilder takes the pre-fork branch -- correct. Gloas field checks below are N/A.",
+                "Blockstamp building takes the pre-fork branch -- correct. Gloas field checks below are N/A.",
             )
         else:
             rep.add(

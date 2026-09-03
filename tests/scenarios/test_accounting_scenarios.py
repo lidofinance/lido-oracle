@@ -45,7 +45,7 @@ def _configure_report_inputs(accounting: Accounting, *, is_gloas: bool, withdraw
     }
 
     get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=withdrawals))
-    accounting.w3.cc.is_gloas = Mock(return_value=is_gloas)
+    accounting.w3.cc.is_gloas_epoch = Mock(return_value=is_gloas)
     accounting.w3.cc.get_state_view = get_state_view
     accounting.w3.lido_validators.get_active_lido_validators = Mock(return_value=validators)
     accounting.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
@@ -117,7 +117,7 @@ def accounting(web3: Web3) -> Accounting:
 
 @pytest.mark.unit
 @pytest.mark.skip(
-    reason='Predates the BlockstampBuilder ePBS rework. These scenarios drive the report through '
+    reason='Predates the ePBS blockstamp rework. These scenarios drive the report through '
     'ReferenceBlockStamp.withdrawal_correction_needed, a flag that no longer exists: a reference '
     'blockstamp now anchors on ref_slot\'s child, whose state already has ref_slot\'s withdrawals '
     'settled, so there is nothing to correct. Rewrite against the child-state model.'

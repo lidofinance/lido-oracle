@@ -26,8 +26,12 @@ class CassetteConsensusClient:
     def get_config_spec(self) -> BeaconSpecResponse:
         return BeaconSpecResponse.from_response(**_response_data(self.cassette.replay('consensus', 'get_config_spec')))
 
-    def is_gloas(self, epoch: EpochNumber) -> bool:
+    def is_gloas_epoch(self, epoch: EpochNumber) -> bool:
         return epoch >= self.get_config_spec().GLOAS_FORK_EPOCH
+
+    def is_gloas_slot(self, slot: SlotNumber) -> bool:
+        spec = self.get_config_spec()
+        return self.is_gloas_epoch(EpochNumber(slot // spec.SLOTS_PER_EPOCH))
 
     def get_genesis(self) -> GenesisResponse:
         return GenesisResponse.from_response(**_response_data(self.cassette.replay('consensus', 'get_genesis')))
@@ -83,9 +87,6 @@ class CassetteConsensusClient:
 
     def get_pending_consolidations(self, blockstamp: BlockStamp) -> list[PendingConsolidation]:
         return self.get_state_view(blockstamp).pending_consolidations
-
-    def get_state_latest_block_hash(self, state_identifier: BlockStamp | tuple[StateRoot, SlotNumber]) -> str:
-        return self.get_state_view(state_identifier).latest_block_hash
 
 
 class CassetteKeysAPIClient:
