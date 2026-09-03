@@ -9,6 +9,7 @@ from threading import Lock
 from typing import cast
 
 from hexbytes import HexBytes
+from web3.eth import Eth
 
 from src import variables
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
@@ -117,6 +118,7 @@ SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 class FrameCheckpointProcessor:
     cc: ConsensusClient
+    el: Eth
     converter: ChainConverter
 
     db: DutiesDB
@@ -125,11 +127,13 @@ class FrameCheckpointProcessor:
     def __init__(
         self,
         cc: ConsensusClient,
+        el: Eth,
         db: DutiesDB,
         converter: ChainConverter,
         finalized_blockstamp: BlockStamp,
     ):
         self.cc = cc
+        self.el = el
         self.converter = converter
         self.db = db
         self.finalized_blockstamp = finalized_blockstamp
@@ -375,7 +379,8 @@ class FrameCheckpointProcessor:
         state_blockstamp = build_blockstamp(
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            )
+            ),
+            self.el,
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee

@@ -107,7 +107,7 @@ def main() -> None:
     from src import variables
     from src.modules.oracles.common.consensus import ConsensusModule, logger as consensus_logger
     from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
-    from src.utils.slot import get_reference_blockstamp
+    from src.utils.blockstamp import get_reference_blockstamp
 
     forced_ref_slot = SlotNumber(int(args.slot)) if args.slot else None
 
@@ -122,6 +122,7 @@ def main() -> None:
             ref_slot=ref_slot,
             ref_epoch=converter.get_epoch_by_slot(ref_slot),
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+            el=self.w3.eth,
         )
         consensus_logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
 

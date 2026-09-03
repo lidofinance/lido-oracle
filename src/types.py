@@ -76,7 +76,31 @@ class BlockStamp:
 
 @dataclass(frozen=True)
 class ReferenceBlockStamp(BlockStamp):
-    # Ref slot could differ from slot_number if ref_slot was missed slot_number will be previous first non-missed slot
+    """The three points a report is built on.
+
+    `ref_slot` labels the report on-chain, `slot_number` and `state_root` address the beacon state
+    it reads, and the `block_*` fields address the execution block it reads.
+
+    A slot's payload, deposits and withdrawals reach the beacon state when its *child* block is
+    processed, so the report is built from `ref_slot`'s child, anchored on the last execution block
+    that child's state has applied:
+
+                            ref_slot
+        slot      1      2      3      4      5
+        cl       [x]    [ ]    [x]    [ ]    [x]
+        el       [1]    [ ]    [ ]    [ ]    [2]
+
+    `ref_slot` 3, `slot_number` 5, `block_number` 1: slot 3 withheld its payload, so EL block 1 is
+    still the last one applied. Revealed, it would have been slot 3's own execution block.
+
+    `slot_number` therefore exceeds `ref_slot` and addresses a different block than `block_number`.
+    Ref slots are the last slot of an epoch, so `epoch_of(slot_number)` is normally `ref_epoch + 1`:
+    read `ref_epoch` for the report's epoch, never `slot_number`.
+
+    Before EIP-7732 all three are one block, falling back to the last non-missed slot at or before
+    `ref_slot`.
+    """
+
     ref_slot: SlotNumber
     ref_epoch: EpochNumber
 

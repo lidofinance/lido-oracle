@@ -35,7 +35,7 @@ def frame_config():
 
 @pytest.fixture
 def past_blockstamp(web3_integration):
-    return get_blockstamp_by_state(web3_integration, 'finalized')
+    return get_blockstamp_by_state(web3_integration.cc, 'finalized', web3_integration.eth)
 
 
 @pytest.fixture

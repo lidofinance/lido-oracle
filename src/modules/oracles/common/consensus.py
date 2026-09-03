@@ -29,9 +29,9 @@ from src.modules.oracles.common.exceptions import (
 from src.providers.execution.contracts.base_oracle import BaseOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.types import BlockStamp, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.blockstamp import get_blockstamp_by_state
+from src.utils.blockstamp import get_blockstamp_by_state, get_reference_blockstamp
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.slot import get_reference_blockstamp
+from src.utils.slot import ChildSlotNotFinalized
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
 from src.web3py.types import Web3, Web3Base
@@ -237,7 +237,6 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         logger.info({'msg': 'Fetch member info.', 'value': member_info})
 
-        # Check if the current slot is higher than the member slot
         if last_finalized_blockstamp.slot_number < member_info.current_frame_ref_slot:
             logger.info({'msg': 'Reference slot is not yet finalized.'})
             return None
@@ -249,12 +248,17 @@ class ConsensusModule[W3: Web3Base](ABC):
 
         converter = self._get_web3_converter(last_finalized_blockstamp)
 
-        bs = get_reference_blockstamp(
-            cc=self.w3.cc,
-            ref_slot=member_info.current_frame_ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
-            last_finalized_slot_number=last_finalized_blockstamp.slot_number,
-        )
+        try:
+            bs = get_reference_blockstamp(
+                cc=self.w3.cc,
+                ref_slot=member_info.current_frame_ref_slot,
+                ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+                last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+                el=self.w3.eth,
+            )
+        except ChildSlotNotFinalized:
+            logger.info({'msg': "Reference slot's child is not yet finalized."})
+            return None
         logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
 
         return bs
@@ -478,7 +482,7 @@ class ConsensusModule[W3: Web3Base](ABC):
         self.w3.transaction.check_and_send_transaction(tx)
 
     def _get_latest_blockstamp(self) -> BlockStamp:
-        return get_blockstamp_by_state(self.w3.cc, 'head')
+        return get_blockstamp_by_state(self.w3.cc, 'head', self.w3.eth)
 
     @lru_cache(maxsize=1)
     def _get_slot_delay_before_data_submit(self, blockstamp: BlockStamp) -> int:

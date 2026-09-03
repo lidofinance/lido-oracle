@@ -28,7 +28,7 @@ from src.types import (
     StakingModuleAddress,
     ValidatorIndex,
 )
-from src.utils.slot import get_reference_blockstamp
+from src.utils.blockstamp import get_reference_blockstamp
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3StakingModule
@@ -128,6 +128,7 @@ class Distribution:
             ref_slot=self.converter.get_epoch_last_slot(frame_ref_epoch),
             ref_epoch=frame_ref_epoch,
             last_finalized_slot_number=blockstamp.slot_number,
+            el=self.w3.eth,
         )
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:

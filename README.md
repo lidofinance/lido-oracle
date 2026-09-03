@@ -97,7 +97,7 @@ Services and responsibilities:
 
 - `postgres` - persistent storage for performance and attestation data.
 - `init-db` - optional one-shot bootstrap for a local Postgres instance; creates the DB and user (`scripts/init_performance_db.sh`).
-- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres.
+- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres. Also needs an Execution client (`EXECUTION_CLIENT_URI`): after EIP-7732 a blockstamp's execution anchor is an EL block hash that only the Execution client can resolve into a block.
 - `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
 - `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
 - `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
@@ -108,7 +108,7 @@ Services and responsibilities:
 
 Data flow (simplified):
 
-`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `cm-oracle` → `IPFS / chain`
+`Consensus node` (+ `Execution node`) → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `cm-oracle` → `IPFS / chain`
 
 `Execution node` + `Consensus node` + `Keys API` → `accounting-oracle` / `ejector-oracle` → `chain`
 
