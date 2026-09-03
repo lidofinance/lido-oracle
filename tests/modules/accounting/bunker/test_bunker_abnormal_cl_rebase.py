@@ -880,6 +880,12 @@ class TestClSampleIdentityUnderEip7732:
         )
         abnormal_case.lido_keys = Mock()
         abnormal_case.w3.cc = Mock()
+        # Both ends of the rebase interval read the state view for the EIP-7732 add-back.
+        for state_view in (
+            abnormal_case.w3.cc.get_state_view.return_value,
+            abnormal_case.w3.cc.get_state_view_no_cache.return_value,
+        ):
+            state_view.in_flight_withdrawal_sum.return_value = Gwei(0)
         abnormal_case.w3.lido_contracts = Mock()
         abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(return_value=Wei(0))
         abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
