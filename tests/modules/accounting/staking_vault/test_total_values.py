@@ -4,9 +4,11 @@ import pytest
 
 from src.constants import MIN_DEPOSIT_AMOUNT
 from src.modules.oracles.accounting.types import ValidatorStage
+from src.providers.consensus.types import ExpectedWithdrawal
 from src.services.staking_vaults import StakingVaultsService
-from src.types import Gwei, SlotNumber
+from src.types import Gwei, SlotNumber, ValidatorIndex
 from src.utils.units import gwei_to_wei
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
     TestPubkeys,
@@ -647,3 +649,92 @@ class TestCalculateVaultTotalValue:
 
         # Assert
         assert result == int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+
+
+@pytest.mark.unit
+class TestGloasInFlightWithdrawalCorrection:
+    """The only path needing the correction per validator, so the only one where several entries
+    for one validator can collide."""
+
+    def test_get_vaults_total_values__in_flight_withdrawal__added_to_vault_total(self, web3, default_vaults_map):
+        # Setup
+        validator = ValidatorFactory.build(
+            index=ValidatorIndex(7),
+            balance=Gwei(32_000_000_000),
+            validator=ValidatorStateFactory.build(
+                pubkey=TestPubkeys.PUBKEY_0,
+                withdrawal_credentials=WithdrawalCredentials.WC_0,
+            ),
+        )
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=[validator],
+            pending_deposits=[],
+            block_identifier="latest",
+            in_flight_withdrawals={ValidatorIndex(7): Gwei(1_000_000_000)},
+        )
+
+        # Assert: 32 ETH balance + 1 ETH vault EL balance + 1 ETH in flight
+        assert result[VaultAddresses.VAULT_0] == 34_000_000_000_000_000_000
+
+    def test_get_vaults_total_values__duplicate_entries_for_one_validator__amounts_summed(
+        self, web3, default_vaults_map
+    ):
+        # Setup
+        validator = ValidatorFactory.build(
+            index=ValidatorIndex(7),
+            balance=Gwei(32_000_000_000),
+            validator=ValidatorStateFactory.build(
+                pubkey=TestPubkeys.PUBKEY_0,
+                withdrawal_credentials=WithdrawalCredentials.WC_0,
+            ),
+        )
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+        corrections = BeaconStateViewFactory.build_without_validators(
+            payload_expected_withdrawals=[
+                ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(1_000_000_000)),
+                ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(2_000_000_000)),
+            ]
+        ).in_flight_withdrawals
+
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=[validator],
+            pending_deposits=[],
+            block_identifier="latest",
+            in_flight_withdrawals=corrections,
+        )
+
+        # Assert: 32 ETH balance + 1 ETH vault EL balance + 3 ETH in flight, not 2
+        assert result[VaultAddresses.VAULT_0] == 36_000_000_000_000_000_000
+
+    def test_get_vaults_total_values__pre_fork_no_corrections__total_unchanged(self, web3, default_vaults_map):
+        # Setup
+        validator = ValidatorFactory.build(
+            index=ValidatorIndex(7),
+            balance=Gwei(32_000_000_000),
+            validator=ValidatorStateFactory.build(
+                pubkey=TestPubkeys.PUBKEY_0,
+                withdrawal_credentials=WithdrawalCredentials.WC_0,
+            ),
+        )
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map,
+            validators=[validator],
+            pending_deposits=[],
+            block_identifier="latest",
+            in_flight_withdrawals={},
+        )
+
+        # Assert
+        assert result[VaultAddresses.VAULT_0] == 33_000_000_000_000_000_000
