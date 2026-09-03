@@ -37,7 +37,7 @@ def performance_collector(mock_w3: Mock, mock_db: Mock) -> PerformanceCollector:
     with patch.object(collector_module, 'DutiesDB', return_value=mock_db):
         mock_db.get_epochs_demands_max_updated_at.return_value = T0
         mock_db.demands_count.return_value = 0
-        collector = PerformanceCollector(mock_w3)
+        collector = PerformanceCollector(mock_w3, Mock())
         return collector
 
 
@@ -358,6 +358,7 @@ class TestExecuteModule:
         iterator_mock.assert_called_once_with(converter, start_epoch, end_epoch, EpochNumber(99))
         processor_mock.assert_called_once_with(
             performance_collector.cc,
+            performance_collector._el,
             performance_collector.db,
             converter,
             blockstamp,

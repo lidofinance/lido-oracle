@@ -69,7 +69,7 @@ def consensus_client():
 def processor(consensus_client: ConsensusClient, converter: Web3Converter):
     db = Mock()
     finalized_blockstamp = Mock(slot_number=SlotNumber(0))
-    return FrameCheckpointProcessor(consensus_client, db, converter, finalized_blockstamp)
+    return FrameCheckpointProcessor(consensus_client, Mock(), db, converter, finalized_blockstamp)
 
 
 @pytest.fixture

@@ -233,7 +233,11 @@ def get_next_non_missed_slot(
 
 @pytest.fixture(params=[-4], ids=["fork 4 epochs before initial epoch"])
 def blockstamp_for_forking(
-    request, frame_config: FrameConfig, real_cl_client: ConsensusClient, real_finalized_slot: SlotNumber
+    request,
+    frame_config: FrameConfig,
+    real_cl_client: ConsensusClient,
+    real_el_client: FallbackProviderModule,
+    real_finalized_slot: SlotNumber,
 ) -> BlockStamp:
     slot_to_fork = first_slot_of_epoch(frame_config.initial_epoch + request.param)
     existing = get_next_non_missed_slot(
@@ -241,7 +245,7 @@ def blockstamp_for_forking(
         slot_to_fork,
         real_finalized_slot,
     )
-    blockstamp = build_blockstamp(existing)
+    blockstamp = build_blockstamp(existing, Web3(real_el_client).eth)
     logger.info(f"TESTRUN Blockstamp to fork: {blockstamp}")
     return blockstamp
 

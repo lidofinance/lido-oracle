@@ -20,7 +20,7 @@ class TestGetBlockstampByState:
 
     def test_get_blockstamp_by_state__finalized__returns_blockstamp(self, cc, block_details):
         # Act
-        bs = get_blockstamp_by_state(cc, 'finalized')
+        bs = get_blockstamp_by_state(cc, 'finalized', Mock())
 
         # Assert
         cc.get_block_root.assert_called_once_with('finalized')
@@ -36,7 +36,7 @@ class TestGetBlockstampByState:
 
     def test_get_blockstamp_by_state__head__requests_head_block(self, cc):
         # Act
-        get_blockstamp_by_state(cc, 'head')
+        get_blockstamp_by_state(cc, 'head', Mock())
 
         # Assert
         cc.get_block_root.assert_called_once_with('head')

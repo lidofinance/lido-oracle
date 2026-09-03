@@ -50,7 +50,7 @@ from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
-from src.utils.slot import get_blockstamp
+from src.utils.blockstamp import get_blockstamp
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
@@ -829,6 +829,7 @@ class StakingVaultsService:
             cc=self.w3.cc,
             slot=from_ref_slot,
             last_finalized_slot_number=blockstamp.slot_number,
+            el=self.w3.eth,
         ).block_number
 
         # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.

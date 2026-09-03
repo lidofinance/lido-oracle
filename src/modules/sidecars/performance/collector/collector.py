@@ -6,6 +6,7 @@ from datetime import datetime
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
+from web3.eth import Eth
 
 from src import variables
 from src.metrics.prometheus.performance_collector import (
@@ -38,8 +39,8 @@ class PerformanceCollector(DaemonModule):
     last_epochs_demand_update: datetime | None = None
     last_demands_count: int = 0
 
-    def __init__(self, cc: ConsensusClient):
-        super().__init__(cc=cc)
+    def __init__(self, cc: ConsensusClient, el: Eth):
+        super().__init__(cc=cc, el=el)
         self.db = DutiesDB(
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
@@ -105,6 +106,7 @@ class PerformanceCollector(DaemonModule):
         )
         processor = FrameCheckpointProcessor(
             self.cc,
+            self._el,
             self.db,
             converter,
             last_finalized_blockstamp,

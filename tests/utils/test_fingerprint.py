@@ -6,6 +6,7 @@ import pytest
 
 from src.providers.consensus.types import (
     BeaconStateView,
+    ExpectedWithdrawal,
     PendingConsolidation,
     PendingDeposit,
     PendingPartialWithdrawal,
@@ -67,6 +68,10 @@ def _state(validators: int = 4, deposits: int = 3) -> BeaconStateView:
         pending_consolidations=[
             PendingConsolidation(source_index=0, target_index=1),
             PendingConsolidation(source_index=2, target_index=3),
+        ],
+        payload_expected_withdrawals=[
+            ExpectedWithdrawal(validator_index=0, amount=10**9),
+            ExpectedWithdrawal(validator_index=1, amount=2 * 10**9),
         ],
     )
 
