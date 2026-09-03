@@ -31,6 +31,10 @@ CHURN_LIMIT_QUOTIENT = 2**16
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = Gwei(2**7 * 10**9)
 MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
+# EIP-8061 (Glamsterdam) halves the churn quotient and uncaps the exit churn limit. Its parameters
+# are deliberately NOT mirrored here: they are network configuration, differ between presets, and may
+# still be retuned before mainnet activation. They are read from /eth/v1/config/spec instead —
+# see BeaconSpecResponse.gloas_exit_churn_params.
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#sync-committee

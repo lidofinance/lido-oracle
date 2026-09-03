@@ -132,6 +132,20 @@ def get_balance_churn_limit(total_active_balance: Gwei) -> Gwei:
     return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
 
 
+# EIP-8061 (Glamsterdam): uncapped exit churn limit with a halved quotient. Unlike
+# get_activation_exit_churn_limit there is no MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT cap, so on
+# mainnet parameters at ~40M ETH total active stake this yields ~1220 ETH/epoch (~5x the pre-fork
+# capped value). Both parameters are network configuration and come from the CL config snapshot —
+# see BeaconSpecResponse.gloas_exit_churn_params.
+def get_exit_churn_limit(
+    total_active_balance: Gwei,
+    min_per_epoch_churn_limit: Gwei,
+    churn_limit_quotient: int,
+) -> Gwei:
+    churn = max(min_per_epoch_churn_limit, total_active_balance // churn_limit_quotient)
+    return Gwei(churn - churn % EFFECTIVE_BALANCE_INCREMENT)
+
+
 def get_max_effective_balance(validator: ValidatorState) -> Gwei:
     """
     Get max effective balance for ``validator``.
