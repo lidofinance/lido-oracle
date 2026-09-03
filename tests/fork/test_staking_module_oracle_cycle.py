@@ -167,6 +167,7 @@ def test_staking_module_module_report(
     running_finalized_slots,
     frame_index_as_processed,
     account_from,
+    signer_from,
 ):
     current_contract_version = module.report_contract.get_contract_version('latest')
     if current_contract_version != module.COMPATIBLE_CONTRACT_VERSION:
@@ -196,7 +197,7 @@ def test_staking_module_module_report(
         performance_collector.cycle_handler()
         for _, private_key in members:
             # NOTE: reporters using the same cache
-            with account_from(private_key):
+            with account_from(private_key) as account, signer_from(account):
                 module.cycle_handler()
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access

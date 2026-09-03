@@ -13,6 +13,8 @@ on:
       - develop
     paths:
       - "src/**"
+      - "tests/fork/**"
+      - ".github/workflows/mainnet_fork_tests.yml"
 
 permissions:
   contents: read
