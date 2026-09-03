@@ -247,7 +247,12 @@ class Accounting(OracleModule[Web3]):
         validator_balance_sum = Gwei(sum(validator.balance for validator in lido_validators))
         logger.info({'msg': 'Calculate active balance.', 'value': validator_balance_sum})
 
-        return validator_balance_sum
+        lido_indices = {validator.index for validator in lido_validators}
+        correction = self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(lido_indices)
+        if correction:
+            logger.info({'msg': 'In-flight withdrawals added back.', 'value': correction})
+
+        return Gwei(validator_balance_sum + correction)
 
     def _get_cl_pending_validators_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:
         """Calculate the total pending balance on the Consensus Layer.
@@ -315,6 +320,17 @@ class Accounting(OracleModule[Web3]):
         for (module_id, _), validators in validators_by_no.items():
             for validator in validators:
                 module_stats[module_id] += validator.balance
+
+        # Attributed per module so the breakdown still sums to the corrected total.
+        validator_to_module = {
+            validator.index: module_id
+            for (module_id, _), validators in validators_by_no.items()
+            for validator in validators
+        }
+        for validator_index, amount in self.w3.cc.get_state_view(blockstamp).in_flight_withdrawals.items():
+            module_id = validator_to_module.get(validator_index)
+            if module_id is not None:
+                module_stats[module_id] = Gwei(module_stats[module_id] + amount)
 
         items = sorted(module_stats.items(), key=lambda item: item[0])
         return (
@@ -484,6 +500,7 @@ class Accounting(OracleModule[Web3]):
             validators=validators,
             pending_deposits=pending_deposits,
             block_identifier=blockstamp.block_hash,
+            in_flight_withdrawals=self.w3.cc.get_state_view(blockstamp).in_flight_withdrawals,
         )
 
         slots_elapsed = self._get_slots_elapsed_from_last_report(blockstamp)

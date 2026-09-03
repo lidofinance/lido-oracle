@@ -9,7 +9,7 @@ from web3.types import EventData, Wei
 
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig, FrameConfig
-from src.providers.consensus.types import Validator
+from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -193,14 +193,23 @@ class AbnormalClRebase:
             # Can't calculate rebase between the same block
             return Gwei(0)
 
+        prev_state = self.w3.cc.get_state_view_no_cache(prev_blockstamp)
         (prev_lido_validators, _) = LidoValidatorsProvider.compute_lido_validators(
             self.lido_keys,
-            self.w3.cc.get_validators_no_cache(prev_blockstamp),
+            prev_state.indexed_validators,
         )
 
-        ref_balance_with_vault = self._get_lido_validators_balance_with_vault(ref_blockstamp, self.lido_validators)
+        ref_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            ref_blockstamp,
+            self.lido_validators,
+            self.w3.cc.get_state_view(ref_blockstamp),
+        )
 
-        prev_balance_with_vault = self._get_lido_validators_balance_with_vault(prev_blockstamp, prev_lido_validators)
+        prev_balance_with_vault = self._get_lido_validators_balance_with_vault(
+            prev_blockstamp,
+            prev_lido_validators,
+            prev_state,
+        )
 
         # Raw CL rebase is calculated as the difference between reference and previous Lido validators' balances
         # Without accounting for withdrawals from WithdrawalVault
@@ -232,11 +241,19 @@ class AbnormalClRebase:
         self,
         blockstamp: BlockStamp,
         lido_validators: Sequence[LidoValidator],
+        state: BeaconStateView,
     ) -> Gwei:
         """
         Get Lido validator balance with withdrawals vault balance
+
+        Both ends of a rebase interval carry the EIP-7732 asymmetry, so correcting only the
+        reference side would overstate every rebase.
         """
         real_cl_balance = AbnormalClRebase.calculate_validators_balance_sum(lido_validators)
+
+        lido_indices = {validator.index for validator in lido_validators}
+        real_cl_balance = Gwei(real_cl_balance + state.in_flight_withdrawal_sum(lido_indices))
+
         withdrawals_vault_balance = wei_to_gwei(self.w3.lido_contracts.get_withdrawal_balance_no_cache(blockstamp))
         total_balance = real_cl_balance + withdrawals_vault_balance
         return Gwei(total_balance)

@@ -12,6 +12,7 @@ from web3 import EthereumTesterProvider
 from src import variables
 from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
+from src.types import Gwei
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
@@ -170,6 +171,11 @@ def web3(monkeypatch) -> Generator[Web3]:
         cc_mock = Mock(spec=ConsensusClientModule)
         cc_mock.is_gloas_slot = Mock(return_value=False)
         cc_mock.is_gloas_epoch = Mock(return_value=False)
+        # Default to a pre-Gloas shape, so the EIP-7732 add-back is inert unless a test opts in.
+        for state_view in (cc_mock.get_state_view.return_value, cc_mock.get_state_view_no_cache.return_value):
+            state_view.payload_expected_withdrawals = []
+            state_view.in_flight_withdrawals = {}
+            state_view.in_flight_withdrawal_sum.return_value = Gwei(0)
         return cc_mock
 
     def create_signer_mock():
