@@ -5,7 +5,6 @@ This folder contains example configs to scrape and alert on:
 - Performance Web-server (`performance-web:9020/metrics`)
 - Performance Collector (`performance-collector:9000/metrics`)
 - CSM oracle (`csm-oracle:9000/metrics`)
-- CSM 0x02 oracle (`csm-0x02-oracle:9000/metrics`)
 - CM oracle (`cm-oracle:9000/metrics`)
 
 ## Files
