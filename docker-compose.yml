@@ -222,48 +222,6 @@ services:
       <<: *healthcheck-defaults
       test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
 
-  csm-0x02-oracle:
-    build: .
-    container_name: csm-0x02-oracle
-    command: ["-m", "src.main", "csm_0x02"]
-    depends_on:
-      performance-collector:
-        condition: service_healthy
-      performance-web:
-        condition: service_healthy
-    environment:
-      STAKING_MODULE_ADDRESS: ${CS_MODULE_0X02_ADDRESS:-}
-      MEMBER_PRIV_KEY: ${MEMBER_PRIV_KEY:-}
-      MEMBER_PRIV_KEY_FILE: ${MEMBER_PRIV_KEY_FILE:-}
-      MEMBER_PRIV_KEY_2: ${MEMBER_PRIV_KEY_2:-}
-      MEMBER_PRIV_KEY_2_FILE: ${MEMBER_PRIV_KEY_2_FILE:-}
-      CONSENSUS_CLIENT_URI: ${CONSENSUS_CLIENT_URI:-}
-      EXECUTION_CLIENT_URI: ${EXECUTION_CLIENT_URI:-}
-      TELEMETRY_DATA_BUS_RPC: ${TELEMETRY_DATA_BUS_RPC:-}
-      KEYS_API_URI: ${KEYS_API_URI:-}
-      PERFORMANCE_COLLECTOR_URI: http://performance-web:9020/
-      LIDO_IPFS_HOST: ${LIDO_IPFS_HOST:-}
-      LIDO_IPFS_TOKEN: ${LIDO_IPFS_TOKEN:-}
-      PINATA_JWT: ${PINATA_JWT:-}
-      PINATA_DEDICATED_GATEWAY_URL: ${PINATA_DEDICATED_GATEWAY_URL:-}
-      PINATA_DEDICATED_GATEWAY_TOKEN: ${PINATA_DEDICATED_GATEWAY_TOKEN:-}
-      FILEBASE_IPFS_HOST: ${FILEBASE_IPFS_HOST:-}
-      FILEBASE_IPFS_TOKEN: ${FILEBASE_IPFS_TOKEN:-}
-      KUBO_HOST: ${KUBO_HOST:-}
-      KUBO_RPC_PORT: ${KUBO_RPC_PORT:-5001}
-      HTTP_REQUEST_TIMEOUT_IPFS: ${HTTP_REQUEST_TIMEOUT_IPFS:-15}
-      HTTP_REQUEST_RETRY_COUNT_IPFS: ${HTTP_REQUEST_RETRY_COUNT_IPFS:-3}
-      IPFS_VALIDATE_CID: ${IPFS_VALIDATE_CID:-True}
-      PROMETHEUS_PORT: 9000
-      HEALTHCHECK_SERVER_PORT: 9010
-    ports:
-      - "${CSM_0X02_ORACLE_PROMETHEUS_PORT:-9005}:9000"
-      - "${CSM_0X02_ORACLE_HEALTH_PORT:-9015}:9010"
-    restart: unless-stopped
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "/opt/venv/bin/python3", "-m", "src.scripts.healthcheck", "http://localhost:9010/healthcheck"]
-
   cm-oracle:
     build: .
     container_name: cm-oracle
