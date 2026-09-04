@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import NewType
+from typing import Final, NewType
 
 from eth_typing import BlockNumber, ChecksumAddress, HexStr
 from web3.types import Timestamp, Wei
@@ -11,9 +11,13 @@ class OracleModuleName(StrEnum):
     EJECTOR = 'ejector'
     CHECK = 'check'
     CSM = 'csm'
+    CSM_0X02 = 'csm_0x02'
     CM = 'cm'
     PERFORMANCE_WEB_SERVER = 'performance_web_server'
     PERFORMANCE_COLLECTOR = 'performance_collector'
+
+
+STAKING_MODULE_ORACLES: Final = frozenset({OracleModuleName.CSM, OracleModuleName.CSM_0X02, OracleModuleName.CM})
 
 
 EpochNumber = NewType('EpochNumber', int)
