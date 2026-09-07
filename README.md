@@ -18,7 +18,7 @@ cp .env.example .env
 docker run -ti --env-file .env --rm lidofinance/oracle:{tag} check
 
 # 4. Run the Oracle (dry mode by default)
-docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | csm_0x02 | cm
+docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | csm | cm
 
 # 5. Run an oracle via docker compose
 #    (`accounting` and `ejector` can run standalone;
@@ -33,9 +33,6 @@ docker compose up -d --build ejector-oracle
 # CSM oracle stack
 docker compose up -d --build csm-oracle
 
-# CSM 0x02 oracle stack
-docker compose up -d --build csm-0x02-oracle
-
 # CM oracle stack
 docker compose up -d --build cm-oracle
 ```
@@ -49,7 +46,6 @@ Core oracle modules:
 - Accounting (`accounting`)
 - Validators Exit Bus (`ejector`)
 - Community Staking Module (`csm`)
-- Community Staking Module 0x02 (`csm_0x02`)
 - Curated Module (`cm`)
 
 Sidecars:
@@ -105,14 +101,14 @@ Services and responsibilities:
 - `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
 - `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
 - `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
-- `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` - staking-module reporters:
+- `csm-oracle` / `cm-oracle` - staking-module reporters:
   - read EL/CL/Keys API data (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
   - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
   - publish report artifacts to IPFS (`LIDO_IPFS_*`, Pinata, Filebase or Kubo)
 
 Data flow (simplified):
 
-`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` → `IPFS / chain`
+`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `cm-oracle` → `IPFS / chain`
 
 `Execution node` + `Consensus node` + `Keys API` → `accounting-oracle` / `ejector-oracle` → `chain`
 
@@ -210,10 +206,10 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    docker run --env-file .env lidofinance/oracle:{tag} {type}
    ```
 
-   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `csm_0x02`, `cm`.
+   Replace `{tag}` with the image version and `{type}` with one of: `accounting`, `ejector`, `csm`, `cm`.
 
    For `accounting` and `ejector`, set `LIDO_LOCATOR_ADDRESS`.
-   For `csm`, `csm_0x02` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
+   For `csm` and `cm`, make sure `STAKING_MODULE_ADDRESS` and `PERFORMANCE_COLLECTOR_URI` are set.
    If you use the reference compose stack, prefer:
 
    ```bash
@@ -222,8 +218,6 @@ Full variables list could be found [here](https://github.com/lidofinance/lido-or
    docker compose up -d ejector-oracle
    # or
    docker compose up -d csm-oracle
-   # or
-   docker compose up -d csm-0x02-oracle
    # or
    docker compose up -d cm-oracle
    ```
@@ -338,7 +332,7 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 > ALLOW_REPORTING_IN_BUNKER_MODE=False
 
 For direct `docker run`, use `STAKING_MODULE_ADDRESS`.
-For `docker compose`, `csm-oracle` reads `CS_MODULE_ADDRESS`, `csm-0x02-oracle` reads `CS_MODULE_0X02_ADDRESS`, and `cm-oracle` reads `CURATED_MODULE_ADDRESS`.
+For `docker compose`, `csm-oracle` reads `CS_MODULE_ADDRESS`, and `cm-oracle` reads `CURATED_MODULE_ADDRESS`.
 
 ### Delegation
 
