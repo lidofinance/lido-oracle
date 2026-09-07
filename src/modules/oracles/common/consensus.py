@@ -200,9 +200,11 @@ class ConsensusModule[W3: Web3Base](ABC):
             if not is_member and not is_submit_member:
                 logger.warning(
                     {
-                        'msg': 'Provided Account is not part of Oracle\'s members and has no submit role. '
-                        'This is expected while a key rotation is pending; the oracle will keep '
-                        'polling and pick it up automatically once enacted on-chain.',
+                        'msg': 'Reporting address is not a HashConsensus member and has no submit role '
+                        'at this block. The member list probably changed since the signer was resolved; '
+                        'it will be re-resolved on the next cycle.',
+                        'reporting_address': hash_consensus_member_address,
+                        'block_hash': blockstamp.block_hash,
                     }
                 )
 
