@@ -55,11 +55,6 @@ def main(module: OracleModuleName):
 
         return csm_entrypoint.run()
 
-    if module is OracleModuleName.CSM_0X02:
-        from src.modules.oracles.staking_modules.community_staking_0x02 import entrypoint as csm_0x02_entrypoint
-
-        return csm_0x02_entrypoint.run()
-
     if module is OracleModuleName.CM:
         from src.modules.oracles.staking_modules.curated import entrypoint as cm_entrypoint
 

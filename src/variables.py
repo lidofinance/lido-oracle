@@ -3,7 +3,7 @@ from typing import Final
 
 from eth_account import Account
 
-from src.types import STAKING_MODULE_ORACLES, OracleModuleName
+from src.types import OracleModuleName
 from src.utils.env import from_file_or_env
 
 
@@ -165,10 +165,10 @@ TELEMETRY_TX_SEND_TIMEOUT_SECONDS: Final = int(os.getenv('TELEMETRY_TX_SEND_TIME
 
 def check_all_required_variables(module: OracleModuleName):
     errors = check_uri_required_variables()
-    if module not in STAKING_MODULE_ORACLES and not LIDO_LOCATOR_ADDRESS:
+    if module is not OracleModuleName.CSM and module is not OracleModuleName.CM and not LIDO_LOCATOR_ADDRESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
 
-    if module in STAKING_MODULE_ORACLES and not STAKING_MODULE_ADDRESS:
+    if (module is OracleModuleName.CSM or module is OracleModuleName.CM) and not STAKING_MODULE_ADDRESS:
         errors.append('STAKING_MODULE_ADDRESS')
 
     return errors
