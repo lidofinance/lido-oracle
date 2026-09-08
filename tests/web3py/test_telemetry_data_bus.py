@@ -128,6 +128,30 @@ class TestTelemetryDataBus:
         assert 'DataBus telemetry sent.' in caplog.text
         mock_data_bus_w3.eth.get_balance.assert_called_once_with(variables.TELEMETRY_ACCOUNT.address)
 
+    @patch.object(TelemetryDataBus, '_send_telemetry')
+    @patch.object(TelemetryDataBus, '_validate')
+    @patch.object(TelemetryDataBus, '_create_web3')
+    def test_send_telemetry__tx_not_confirmed__returns_none_without_sent_log(
+        self, mock_create_web3, mock_validate, mock_send_telemetry, web3, caplog, monkeypatch
+    ):
+        # Arrange
+        monkeypatch.setattr(variables, 'TELEMETRY_ACCOUNT', Mock())
+        mock_data_bus_w3 = Mock()
+        mock_data_bus_w3.eth.get_balance.return_value = 10**18
+        mock_create_web3.return_value = mock_data_bus_w3
+        mock_data_bus_w3.eth.contract.return_value = Mock()
+        mock_send_telemetry.return_value = None
+
+        module = self._create_module(web3, data_bus_rpc=DUMMY_RPC, data_bus_address=DUMMY_ADDRESS)
+
+        # Act
+        result = module.send_telemetry(TelemetryEventId.ORACLE_REPORT, {'report_hash': '0x00'})
+
+        # Assert
+        assert result is None
+        assert 'DataBus telemetry sent.' not in caplog.text
+        mock_data_bus_w3.eth.get_balance.assert_called_once_with(variables.TELEMETRY_ACCOUNT.address)
+
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
@@ -157,8 +181,8 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__pending_with_unchanged_nonce__never_checks_inclusion_and_returns_stale_hash_at_deadline(
-        self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, monkeypatch
+    def test__send_with_retry__pending_with_unchanged_nonce__never_checks_inclusion_and_returns_none_at_deadline(
+        self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
         # The "no new tx yet" shortcut (`tx_hash and params['nonce'] == nonce`)
         # fires BEFORE the inclusion check, so as long as the account's pending nonce doesn't advance,
@@ -178,11 +202,13 @@ class TestTelemetryDataBus:
         module = self._create_module(web3)
         result = module._send_telemetry(tx, w3_mock, account)
 
-        assert result == tx_hash
+        assert result is None
         assert mock_build_params.call_count == 3
         mock_sign_and_send.assert_called_once()
         w3_mock.eth.get_transaction.assert_not_called()
         assert mock_sleep.call_count == 3
+        assert 'DataBus telemetry transaction was not confirmed within' in caplog.text
+        assert HexBytes(tx_hash).hex() in caplog.text
 
     @patch('src.web3py.extensions.telemetry_data_bus.time.monotonic')
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
@@ -206,7 +232,7 @@ class TestTelemetryDataBus:
         module = self._create_module(web3)
         result = module._send_telemetry(tx, w3_mock, account)
 
-        assert result == second_hash
+        assert result is None
         assert mock_build_params.call_count == 3
         assert mock_sign_and_send.call_count == 2
         w3_mock.eth.get_transaction.assert_called_once_with(HexBytes(first_hash))
@@ -243,7 +269,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__sign_and_send_fails_then_succeeds__retries_and_returns_tx_hash(
+    def test__send_with_retry__sign_and_send_fails_then_succeeds__retries_and_returns_none_at_deadline(
         self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
         # attempt1: build succeeds but sign_and_send_transaction raises, so tx_hash stays None. attempt2:
@@ -260,7 +286,7 @@ class TestTelemetryDataBus:
         module = self._create_module(web3)
         result = module._send_telemetry(tx, w3_mock, account)
 
-        assert result == tx_hash
+        assert result is None
         assert mock_build_params.call_count == 2
         assert mock_sign_and_send.call_count == 2
         w3_mock.eth.get_transaction.assert_not_called()
@@ -271,7 +297,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__get_transaction_raises_after_send__returns_stale_tx_hash_without_resending(
+    def test__send_with_retry__get_transaction_raises_after_send__returns_none_without_resending(
         self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
         # Once a tx is sent and the nonce has advanced, an exception from get_transaction is caught by the
@@ -288,7 +314,7 @@ class TestTelemetryDataBus:
         module = self._create_module(web3)
         result = module._send_telemetry(tx, w3_mock, account)
 
-        assert result == tx_hash
+        assert result is None
         assert mock_build_params.call_count == 2
         mock_sign_and_send.assert_called_once()
         w3_mock.eth.get_transaction.assert_called_once_with(HexBytes(tx_hash))
@@ -298,7 +324,7 @@ class TestTelemetryDataBus:
     @patch('src.web3py.extensions.telemetry_data_bus.time.sleep')
     @patch('src.web3py.extensions.telemetry_data_bus.sign_and_send_transaction')
     @patch('src.web3py.extensions.telemetry_data_bus.build_transaction_params')
-    def test__send_with_retry__build_params_raises_while_tx_hash_already_set__returns_stale_tx_hash_without_resending(
+    def test__send_with_retry__build_params_raises_while_tx_hash_already_set__returns_none_without_resending(
         self, mock_build_params, mock_sign_and_send, mock_sleep, mock_monotonic, web3, caplog, monkeypatch
     ):
         # Same class of defect as the get_transaction case above, but the transient failure happens in
@@ -314,7 +340,7 @@ class TestTelemetryDataBus:
         module = self._create_module(web3)
         result = module._send_telemetry(tx, w3_mock, account)
 
-        assert result == tx_hash
+        assert result is None
         assert mock_build_params.call_count == 2
         mock_sign_and_send.assert_called_once()
         w3_mock.eth.get_transaction.assert_not_called()
