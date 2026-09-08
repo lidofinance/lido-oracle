@@ -28,20 +28,25 @@ jobs:
           persist-credentials: false
       - name: Get tag value
         id: tag
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG="$(grep -oP '^chore\(release\).*\K(\d+\.\d+\.\d+)' <<< "$MESSAGE")"
           fi
           echo "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-        env:
-          MESSAGE: ${{ github.event.head_commit.message }}
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - name: Create and push tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git tag ${{ steps.tag.outputs.tag }}
-          git push https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY --tags
+          git tag "$TAG"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" --tags
       - name: Create release
         uses: lidofinance/action-gh-release@v1
         with:
