@@ -84,7 +84,7 @@ ENV HEALTHCHECK_SERVER_PORT=9010
 EXPOSE $PROMETHEUS_PORT
 USER www-data
 
-HEALTHCHECK --interval=10s --timeout=3s \
+HEALTHCHECK --interval=30s --timeout=15s --retries=5 --start-period=120s \
     CMD /opt/venv/bin/python3 -m src.scripts.healthcheck "http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck" || exit 1
 
 WORKDIR /app/

@@ -5,9 +5,9 @@
 
 x-healthcheck-defaults: &healthcheck-defaults
   interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 40s
+  timeout: 15s
+  retries: 5
+  start_period: 120s
 
 x-performance-db-env: &performance-db-env
   PERFORMANCE_DB_HOST: ${PERFORMANCE_DB_HOST:-postgres}
