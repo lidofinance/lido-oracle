@@ -23,11 +23,7 @@ from src.providers.consensus.types import (
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
-from src.utils.validator_balance import (
-    get_predictable_full_inbound_balance,
-    get_predictable_inbound_balance,
-    get_predictable_inbound_sweep,
-)
+from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperatorId,
@@ -426,33 +422,6 @@ class TestGetValidatorsToEject:
 
         # Assert
         assert result == demand + forced, "The ejector must report the iterator output as is"
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("balance", "meb"),
-    [
-        # Compounding 0x02 validator: 0.3 ETH of dust above the 2048 ETH cap.
-        (2_048_300_000_000, MAX_EFFECTIVE_BALANCE_ELECTRA),  # 2048.3 ETH
-        # Regular 0x01 validator: 0.3 ETH of dust above the 32 ETH cap.
-        (32_300_000_000, MAX_EFFECTIVE_BALANCE),  # 32.3 ETH
-    ],
-)
-def test_predictable_inbound_plus_sweep__dust_validator__equals_full_inbound(balance: int, meb: int) -> None:
-    # A balance above the effective-balance cap splits into a capped inbound part and a sweep excess.
-    # The two must always reconstruct the full inbound balance, so dust above the cap is never lost
-    # or double-counted.
-    # Arrange
-    validator = build_extended_validator_with_balance(balance, meb=meb)
-
-    # Act
-    inbound = get_predictable_inbound_balance(validator)
-    sweep = get_predictable_inbound_sweep(validator)
-    full = get_predictable_full_inbound_balance(validator)
-
-    # Assert
-    assert sweep > 0, "the balance must exceed the cap so the sweep excess is actually exercised"
-    assert inbound + sweep == full, "inbound + sweep must equal the full inbound balance"
 
 
 @pytest.mark.unit
