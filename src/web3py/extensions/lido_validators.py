@@ -15,7 +15,6 @@ from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId,
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
-from src.utils.validator_state import get_max_effective_balance
 
 
 class _Uninitialized:
@@ -231,7 +230,7 @@ class LidoValidatorsProvider(Module):
                 source_index=consolidation.source_index,
                 target_index=consolidation.target_index,
                 # only 0x01 validators will be consolidated, so all incoming excess balances will be swept
-                amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
+                amount=Gwei(min(source_validator.balance, source_validator.validator.effective_balance)),
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
