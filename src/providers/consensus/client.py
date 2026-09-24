@@ -220,62 +220,40 @@ class ConsensusClient(HTTPProvider):
         """
         Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDutiesV2
 
-        Prefers the v2 endpoint (EIP-7917), whose dependent_root formula is fork-invariant across
-        the Fulu boundary (https://github.com/ethereum/beacon-APIs/pull/563). Falls back to the
-        deprecated v1 endpoint on CL nodes that have not shipped v2 yet (e.g. Nimbus): v1's
-        dependent_root is not computed consistently across clients post-Fulu, so on that path a
-        mismatch is only logged, not treated as fatal.
+        Falls back to the deprecated v1 endpoint on 404, e.g. on CL nodes that have not shipped v2 yet.
+        Both endpoints return the same duties and differ only in the reported dependent_root.
         """
         try:
-            return self._get_proposer_duties_v2(epoch, expected_dependent_root_v2)
+            return self._get_proposer_duties(self.API_GET_PROPOSER_DUTIES_V2, epoch, expected_dependent_root_v2)
         except ConsensusClientError as error:
             if error.status != HTTPStatus.NOT_FOUND:
                 raise
             logger.info(
                 {
-                    'msg': f'{self.API_GET_PROPOSER_DUTIES_V2} not available on CL node(s), '
+                    'msg': f'{self.API_GET_PROPOSER_DUTIES_V2} returned 404, '
                     f'falling back to {self.API_GET_PROPOSER_DUTIES} for epoch {epoch}.'
                 }
             )
-            return self._get_proposer_duties_v1(epoch, expected_dependent_root_v1)
+            return self._get_proposer_duties(self.API_GET_PROPOSER_DUTIES, epoch, expected_dependent_root_v1)
 
     @list_of_dataclasses(ProposerDuties.from_response)
-    def _get_proposer_duties_v2(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
+    def _get_proposer_duties(
+        self, endpoint: str, epoch: EpochNumber, expected_dependent_root: BlockRoot
+    ) -> list[ProposerDuties]:
         def data_is_list_and_dependent_root_matches(data: Any, meta: dict, endpoint: str):
             data_is_list(data, meta, endpoint=endpoint)
-            # v2's dependent_root is trustworthy, so a mismatch is a fatal reorg-safety signal.
+            # It is recommended by spec to use the dependent root to ensure the epoch is correct
             if meta["dependent_root"] != expected_dependent_root:
                 raise ValueError(
-                    "Dependent root for proposer duties (v2) request mismatch: "
+                    "Dependent root for proposer duties request mismatch: "
                     f"{meta['dependent_root']=} is not {expected_dependent_root=}. "
                     "Probably, CL node is not fully synced."
                 )
 
         data, _ = self._get(
-            self.API_GET_PROPOSER_DUTIES_V2,
+            endpoint,
             path_params=(epoch,),
             validate_response=data_is_list_and_dependent_root_matches,
-        )
-        return data
-
-    @list_of_dataclasses(ProposerDuties.from_response)
-    def _get_proposer_duties_v1(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
-        def data_is_list_and_dependent_root_relaxed(data: Any, meta: dict, endpoint: str):
-            data_is_list(data, meta, endpoint=endpoint)
-            # v1 is deprecated and its dependent_root is not computed consistently across clients
-            # post-Fulu (observed on Hoodi), so a mismatch here is logged rather than raised.
-            if meta["dependent_root"] != expected_dependent_root:
-                logger.warning(
-                    {
-                        'msg': 'Dependent root for proposer duties (v1, deprecated) mismatch: '
-                        f'{meta["dependent_root"]=} is not {expected_dependent_root=}.'
-                    }
-                )
-
-        data, _ = self._get(
-            self.API_GET_PROPOSER_DUTIES,
-            path_params=(epoch,),
-            validate_response=data_is_list_and_dependent_root_relaxed,
         )
         return data
 

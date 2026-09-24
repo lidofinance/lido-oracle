@@ -390,9 +390,8 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> dict[SlotNumber, ProposalDuty]:
         duties = {}
-        # v1's dependent_root is the last slot of epoch-1; v2's (EIP-7917) is one epoch earlier,
-        # the last slot of epoch-2 (fork-invariant, https://github.com/ethereum/beacon-APIs/pull/563).
-        # Both are computed up front because we don't know which endpoint the CL node will answer with.
+        # Post-Fulu, v1 reports the last block of epoch-1 and v2 the last block of epoch-2 as dependent_root.
+        # Both are resolved because the CL node may not serve v2.
         dependent_root_v1 = self._get_dependent_root_for_proposer_duties(
             epoch, checkpoint_block_roots, checkpoint_slot, epochs_back=1
         )
