@@ -267,7 +267,7 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
         consensus_client.get_sync_committee(bs, EpochNumber(0))
 
     with raises:
-        consensus_client.get_proposer_duties(EpochNumber(0), Mock())
+        consensus_client.get_proposer_duties(EpochNumber(0), Mock(), Mock())
 
     with raises:
         consensus_client.get_state_block_roots(SlotNumber(0))
@@ -305,12 +305,93 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
 
 
 @pytest.mark.unit
-def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClient):
-    resp = requests.Response()
-    resp.status_code = 200
-    resp._content = b'{"data": [], "dependent_root": "0x01"}'
+class TestGetProposerDuties:
+    V1 = 'eth/v1/validator/duties/proposer/'
+    V2 = 'eth/v2/validator/duties/proposer/'
+    DUTY = {"pubkey": "0xaa", "validator_index": "7", "slot": "3200"}
 
-    consensus_client.session.get = Mock(return_value=resp)
+    @staticmethod
+    def _response(status: int, dependent_root: str = "", data: list | None = None) -> requests.Response:
+        resp = requests.Response()
+        resp.status_code = status
+        resp._content = json.dumps({"data": data or [], "dependent_root": dependent_root}).encode()
+        return resp
 
-    with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
-        consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+    @staticmethod
+    def _route(responses: dict[tuple[str, str], requests.Response]):
+        def get(url, **_):
+            return next(resp for (host, path), resp in responses.items() if url.startswith(host + path))
+
+        return get
+
+    @pytest.fixture
+    def client(self):
+        return ConsensusClient(['http://a/'], 30)
+
+    def test_get_proposer_duties__v2_root_matches__returns_v2_duties(self, client):
+        client.session.get = Mock(
+            side_effect=self._route({('http://a/', self.V2): self._response(200, "0xv2", [self.DUTY])})
+        )
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 7)]
+        client.session.get.assert_called_once()
+
+    def test_get_proposer_duties__v2_root_mismatch__raises(self, client):
+        client.session.get = Mock(side_effect=self._route({('http://a/', self.V2): self._response(200, "0xv1")}))
+
+        with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
+            client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+
+    def test_get_proposer_duties__v2_not_found__returns_v1_duties(self, client):
+        client.session.get = Mock(
+            side_effect=self._route(
+                {
+                    ('http://a/', self.V2): self._response(404),
+                    ('http://a/', self.V1): self._response(200, "0xv1", [self.DUTY]),
+                }
+            )
+        )
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 7)]
+
+    def test_get_proposer_duties__v2_not_found_and_v1_root_mismatch__raises(self, client):
+        client.session.get = Mock(
+            side_effect=self._route(
+                {
+                    ('http://a/', self.V2): self._response(404),
+                    ('http://a/', self.V1): self._response(200, "0xv2", [self.DUTY]),
+                }
+            )
+        )
+
+        with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
+            client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+
+    def test_get_proposer_duties__v2_server_error__raises_without_v1_fallback(self, client):
+        client.session.get = Mock(side_effect=self._route({('http://a/', self.V2): self._response(500)}))
+
+        with pytest.raises(NotOkResponse):
+            client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+        client.session.get.assert_called_once()
+
+    def test_get_proposer_duties__forked_host_and_v2_less_host__returns_duties_of_synced_host(self):
+        client = ConsensusClient(['http://forked/', 'http://synced/'], 30)
+        synced_duty = {**self.DUTY, "validator_index": "8"}
+        client.session.get = Mock(
+            side_effect=self._route(
+                {
+                    ('http://forked/', self.V2): self._response(200, "0xfork", [self.DUTY]),
+                    ('http://forked/', self.V1): self._response(200, "0xfork", [self.DUTY]),
+                    ('http://synced/', self.V2): self._response(404),
+                    ('http://synced/', self.V1): self._response(200, "0xv1", [synced_duty]),
+                }
+            )
+        )
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0xv1", "0xv2")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 8)]

@@ -390,17 +390,28 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> dict[SlotNumber, ProposalDuty]:
         duties = {}
-        dependent_root = self._get_dependent_root_for_proposer_duties(epoch, checkpoint_block_roots, checkpoint_slot)
-        proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root)
+        # Post-Fulu, v1 reports the last block of epoch-1 and v2 the last block of epoch-2 as dependent_root.
+        # Both are resolved because the CL node may not serve v2.
+        dependent_root_v1 = self._get_dependent_root_for_proposer_duties(
+            epoch, checkpoint_block_roots, checkpoint_slot, epochs_back=1
+        )
+        dependent_root_v2 = self._get_dependent_root_for_proposer_duties(
+            epoch, checkpoint_block_roots, checkpoint_slot, epochs_back=2
+        )
+        proposer_duties = self.cc.get_proposer_duties(epoch, dependent_root_v1, dependent_root_v2)
         for duty in proposer_duties:
             duties[duty.slot] = ProposalDuty(validator_index=duty.validator_index, is_proposed=False)
         return duties
 
     def _get_dependent_root_for_proposer_duties(
-        self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
+        self,
+        epoch: EpochNumber,
+        checkpoint_block_roots: list[BlockRoot | None],
+        checkpoint_slot: SlotNumber,
+        epochs_back: int,
     ) -> BlockRoot:
         dependent_root = None
-        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - epochs_back))
         try:
             while not dependent_root:
                 dependent_root = self._select_block_root_by_slot(

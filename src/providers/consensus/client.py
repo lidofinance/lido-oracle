@@ -67,6 +67,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
     API_GET_SYNC_COMMITTEE = 'eth/v1/beacon/states/{}/sync_committees'
     API_GET_PROPOSER_DUTIES = 'eth/v1/validator/duties/proposer/{}'
+    API_GET_PROPOSER_DUTIES_V2 = 'eth/v2/validator/duties/proposer/{}'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
@@ -210,10 +211,35 @@ class ConsensusClient(HTTPProvider):
                 raise error
         return SyncCommittee.from_response(**data)  # type: ignore[arg-type]
 
-    @list_of_dataclasses(ProposerDuties.from_response)
-    def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties"""
+    def get_proposer_duties(
+        self,
+        epoch: EpochNumber,
+        expected_dependent_root_v1: BlockRoot,
+        expected_dependent_root_v2: BlockRoot,
+    ) -> list[ProposerDuties]:
+        """
+        Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDutiesV2
 
+        Falls back to the deprecated v1 endpoint on 404, e.g. on CL nodes that have not shipped v2 yet.
+        Both endpoints return the same duties and differ only in the reported dependent_root.
+        """
+        try:
+            return self._get_proposer_duties(self.API_GET_PROPOSER_DUTIES_V2, epoch, expected_dependent_root_v2)
+        except ConsensusClientError as error:
+            if error.status != HTTPStatus.NOT_FOUND:
+                raise
+            logger.info(
+                {
+                    'msg': f'{self.API_GET_PROPOSER_DUTIES_V2} returned 404, '
+                    f'falling back to {self.API_GET_PROPOSER_DUTIES} for epoch {epoch}.'
+                }
+            )
+            return self._get_proposer_duties(self.API_GET_PROPOSER_DUTIES, epoch, expected_dependent_root_v1)
+
+    @list_of_dataclasses(ProposerDuties.from_response)
+    def _get_proposer_duties(
+        self, endpoint: str, epoch: EpochNumber, expected_dependent_root: BlockRoot
+    ) -> list[ProposerDuties]:
         def data_is_list_and_dependent_root_matches(data: Any, meta: dict, endpoint: str):
             data_is_list(data, meta, endpoint=endpoint)
             # It is recommended by spec to use the dependent root to ensure the epoch is correct
@@ -225,7 +251,7 @@ class ConsensusClient(HTTPProvider):
                 )
 
         data, _ = self._get(
-            self.API_GET_PROPOSER_DUTIES,
+            endpoint,
             path_params=(epoch,),
             validate_response=data_is_list_and_dependent_root_matches,
         )
