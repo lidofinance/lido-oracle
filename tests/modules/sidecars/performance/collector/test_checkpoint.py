@@ -618,8 +618,7 @@ class TestProposeDuties:
         epoch = EpochNumber(10)
         checkpoint_slot = processor.converter.get_epoch_first_slot(EpochNumber(epoch + 2))
         checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
-        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
-        assert dependent_slot == SlotNumber(int(processor.converter.get_epoch_first_slot(epoch) - 1))
+        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 2))
         fallback_root = cast(BlockRoot, "0x" + "11" * 32)
 
         prev_slot_response = mock_prev_slot_response(dependent_slot)
@@ -650,7 +649,7 @@ class TestProposeDuties:
         epoch = EpochNumber(10)
         checkpoint_slot = processor.converter.get_epoch_first_slot(EpochNumber(epoch + 2))
         checkpoint_block_roots = [None] * SLOTS_PER_HISTORICAL_ROOT
-        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        dependent_slot = processor.converter.get_epoch_last_slot(EpochNumber(epoch - 2))
         expected_root = cast(BlockRoot, "0x" + "22" * 32)
         checkpoint_block_roots[dependent_slot % SLOTS_PER_HISTORICAL_ROOT] = expected_root
 
