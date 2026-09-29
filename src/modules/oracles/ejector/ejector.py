@@ -319,7 +319,7 @@ class Ejector(OracleModule[Web3]):
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.ref_epoch))
         total_active_balance = self._get_total_active_balance(blockstamp)
-        if self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)):
+        if self._is_gloas(blockstamp):
             # Post-EIP-8061 the capped limit overestimates withdrawal_epoch, which would make the
             # ejector under-request exits.
             per_epoch_churn = get_exit_churn_limit(total_active_balance)
@@ -344,7 +344,12 @@ class Ejector(OracleModule[Web3]):
         """Returns the number of epochs that will take to sweep all validators in the chain."""
         chain_config = self.get_chain_config(blockstamp)
         state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config, self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp)))
+        return get_sweep_delay_in_epochs(state, chain_config.slots_per_epoch, self._is_gloas(blockstamp))
+
+    @lru_cache(maxsize=1)
+    def _is_gloas(self, blockstamp: ReferenceBlockStamp) -> bool:
+        """Resolved once per report: the fork gate is read for every exit candidate."""
+        return self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp))
 
     def _state_epoch(self, blockstamp: ReferenceBlockStamp) -> EpochNumber:
         """Epoch of the block the state is read from, which under EIP-7732 is not ref_epoch."""

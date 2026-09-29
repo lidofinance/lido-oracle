@@ -8,7 +8,6 @@ from src.constants import (
     MAX_WITHDRAWALS_PER_PAYLOAD,
     MIN_ACTIVATION_BALANCE,
 )
-from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import BeaconStateView
 from src.types import Gwei
 from src.utils.validator_state import (
@@ -25,24 +24,30 @@ class Withdrawal:
     amount: int
 
 
-def get_sweep_delay_in_epochs(state: BeaconStateView, spec: ChainConfig, is_gloas_active: bool = False) -> int:
+def get_sweep_delay_in_epochs(
+    state: BeaconStateView,
+    slots_per_epoch: int,
+    is_gloas_active: bool,
+) -> int:
     """
     This method predicts the average withdrawal delay in epochs.
     It is assumed that on average, a validator sweep is achieved in half the time of a full sweep cycle.
     """
 
     withdrawals_number_in_sweep_cycle = predict_withdrawals_number_in_sweep_cycle(
-        state, spec.slots_per_epoch, is_gloas_active
+        state, slots_per_epoch, is_gloas_active
     )
     full_sweep_cycle_in_epochs = math.ceil(
-        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch
+        withdrawals_number_in_sweep_cycle / MAX_WITHDRAWALS_PER_PAYLOAD / slots_per_epoch
     )
 
     return full_sweep_cycle_in_epochs // 2
 
 
 def predict_withdrawals_number_in_sweep_cycle(
-    state: BeaconStateView, slots_per_epoch: int, is_gloas_active: bool = False
+    state: BeaconStateView,
+    slots_per_epoch: int,
+    is_gloas_active: bool,
 ) -> int:
     """
     This method predicts the number of withdrawals that can be performed in a single sweep cycle.
@@ -61,9 +66,9 @@ def predict_withdrawals_number_in_sweep_cycle(
     This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
     """
     if is_gloas_active:
-        # The partials queue is externally triggerable, so its post-EIP-7732 size is not derivable
-        # from current state. Dropping it keeps the estimate below the real delay, and a too-short
-        # delay only makes the ejector request more exits than needed.
+        # Simplification: pending partial withdrawals are left out of the projection. This can only
+        # shorten the estimated delay, so in some cases the ejector requests a few more exits than
+        # the pre-Gloas projection did.
         return len(get_validators_withdrawals(state, [], slots_per_epoch))
 
     pending_partial_withdrawals = get_pending_partial_withdrawals(state)
