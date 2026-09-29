@@ -67,6 +67,7 @@ class TestGetVaultsFees:
             block_timestamp=MagicMock(),
             ref_slot=SlotNumber(slot),
             ref_epoch=MagicMock(),
+            epoch_number=MagicMock(),
         )
 
     def test_zero_time_elapsed_allowed(self, service):

@@ -252,7 +252,7 @@ class ConsensusModule[W3: Web3Base](ABC):
             bs = get_reference_blockstamp(
                 cc=self.w3.cc,
                 ref_slot=member_info.current_frame_ref_slot,
-                ref_epoch=converter.get_epoch_by_slot(member_info.current_frame_ref_slot),
+                slots_per_epoch=converter.chain_config.slots_per_epoch,
                 last_finalized_slot_number=last_finalized_blockstamp.slot_number,
                 el=self.w3.eth,
             )

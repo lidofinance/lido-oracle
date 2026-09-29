@@ -1,4 +1,5 @@
 from eth_typing import BlockNumber, HexStr
+from polyfactory import PostGenerated
 from web3.types import Timestamp
 
 from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
@@ -22,3 +23,4 @@ class ReferenceBlockStampFactory(Web3DataclassFactory[ReferenceBlockStamp]):
 
     ref_slot: SlotNumber = SlotNumber(294271)
     ref_epoch: EpochNumber = EpochNumber(9195)
+    epoch_number: EpochNumber = PostGenerated(lambda _, values: EpochNumber(values['slot_number'] // 32))

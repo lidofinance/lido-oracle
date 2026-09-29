@@ -109,7 +109,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=True),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 
@@ -119,6 +119,25 @@ class TestAnchorBlockSelection:
         assert bs.slot_number == SlotNumber(101)
         assert bs.state_root == nxt.return_value.message.state_root
         assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
+
+    def test_get_reference_blockstamp__post_fork_child_in_next_epoch__epoch_number_follows_child(self, el, resolvers):
+        # Arrange: ref_slot 95 is the last slot of epoch 2, its child is the first slot of epoch 3.
+        prev, nxt = resolvers
+        prev.return_value = _post_fork_details(slot=95)
+        nxt.return_value = _post_fork_details(slot=96)
+
+        # Act
+        bs = get_reference_blockstamp(
+            _cc(gloas=True),
+            ref_slot=SlotNumber(95),
+            last_finalized_slot_number=SlotNumber(200),
+            slots_per_epoch=32,
+            el=el,
+        )
+
+        # Assert
+        assert bs.ref_epoch == EpochNumber(2)
+        assert bs.epoch_number == EpochNumber(3)
 
     def test_get_reference_blockstamp__pre_fork__built_from_last_block_at_or_before_ref_slot(self, el, resolvers):
         # Arrange: the block at (or before) ref_slot embeds its execution payload.
@@ -130,7 +149,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=False),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 
@@ -167,7 +186,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=True),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 

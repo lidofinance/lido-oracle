@@ -101,15 +101,9 @@ class TestForkGateEpoch:
                 ref_slot=SlotNumber(63),
                 ref_epoch=EpochNumber(1),
                 slot_number=SlotNumber(64),
+                epoch_number=EpochNumber(2),
             ),
         )
-
-    def test_state_epoch__anchor_in_next_epoch__follows_slot_number(self, ejector: Ejector):
-        # Act
-        result = ejector._state_epoch(self._blockstamp_with_child_anchor())
-
-        # Assert
-        assert result == EpochNumber(2)
 
     def test_compute_exit_epoch_and_update_churn__fork_active_at_anchor__uses_uncapped_churn(self, ejector: Ejector):
         # Arrange: the fork starts at epoch 2 — active at the anchor block, not yet at ref_epoch.

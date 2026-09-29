@@ -43,7 +43,6 @@ from src.utils.validator_state import (
     is_active_validator,
     is_fully_withdrawable_validator,
 )
-from src.utils.web3converter import epoch_from_slot
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -349,11 +348,7 @@ class Ejector(OracleModule[Web3]):
     @lru_cache(maxsize=1)
     def _is_gloas(self, blockstamp: ReferenceBlockStamp) -> bool:
         """Resolved once per report: the fork gate is read for every exit candidate."""
-        return self.w3.cc.is_gloas_epoch(self._state_epoch(blockstamp))
-
-    def _state_epoch(self, blockstamp: ReferenceBlockStamp) -> EpochNumber:
-        """Epoch of the block the state is read from, which under EIP-7732 is not ref_epoch."""
-        return epoch_from_slot(blockstamp.slot_number, self.get_chain_config(blockstamp).slots_per_epoch)
+        return self.w3.cc.is_gloas_epoch(blockstamp.epoch_number)
 
     # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#get_total_active_balance
     def _get_total_active_balance(self, blockstamp: ReferenceBlockStamp) -> Gwei:

@@ -8,7 +8,7 @@ from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
 from src.modules.oracles.common.runtime import build_staking_module_web3
-from src.types import BlockRoot, EpochNumber, OracleModuleName, SlotNumber
+from src.types import BlockRoot, OracleModuleName, SlotNumber
 from src.utils.api import opsgenie_api
 from src.utils.blockstamp import build_reference_blockstamp, get_reference_blockstamp
 from src.web3py.contract_tweak import tweak_w3_contracts
@@ -115,7 +115,7 @@ def blockstamp(web3, finalized_blockstamp, request):
     return get_reference_blockstamp(
         web3.cc,
         last_report_ref_slot,
-        ref_epoch=EpochNumber(last_report_ref_slot // cc_config.SLOTS_PER_EPOCH),
+        slots_per_epoch=cc_config.SLOTS_PER_EPOCH,
         last_finalized_slot_number=finalized_blockstamp.slot_number,
         el=web3.eth,
     )
@@ -129,7 +129,7 @@ def finalized_blockstamp(web3):
     return build_reference_blockstamp(
         block_details,
         ref_slot=block_details.message.slot,
-        ref_epoch=EpochNumber(block_details.message.slot // cc_config.SLOTS_PER_EPOCH),
+        slots_per_epoch=cc_config.SLOTS_PER_EPOCH,
         el=web3.eth,
     )
 

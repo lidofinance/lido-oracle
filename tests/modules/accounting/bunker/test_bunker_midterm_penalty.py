@@ -20,7 +20,9 @@ DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
 def simple_blockstamp(
     block_number: int,
 ) -> ReferenceBlockStamp:
-    return ReferenceBlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number // 32)
+    return ReferenceBlockStamp(
+        f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number // 32, block_number // 32
+    )
 
 
 def simple_validators(

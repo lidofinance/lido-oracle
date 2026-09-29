@@ -37,11 +37,12 @@ def test_reference_blockstamp__built_from_child_and_bid_matches_state_latest_blo
         web3_integration.cc,
         ref_slot=ref_slot,
         last_finalized_slot_number=finalized.slot_number,
-        ref_epoch=ref_epoch,
+        slots_per_epoch=spec.SLOTS_PER_EPOCH,
         el=web3_integration.eth,
     )
 
     # The report's block is ref_slot's child, and its EL anchor is a real, resolvable EL block.
+    assert bs.ref_epoch == ref_epoch
     assert bs.slot_number > ref_slot
     el_block = web3_integration.eth.get_block(bs.block_hash)
     assert el_block['number'] == bs.block_number

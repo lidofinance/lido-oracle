@@ -10,8 +10,9 @@ from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, ExecutionPayload
 from src.providers.execution.exceptions import InconsistentData
-from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.types import BlockHash, BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_next_non_missed_slot, get_prev_non_missed_slot
+from src.utils.web3converter import epoch_from_slot
 
 
 logger = logging.getLogger(__name__)
@@ -37,13 +38,13 @@ def get_reference_blockstamp(
     cc: ConsensusClient,
     ref_slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
-    ref_epoch: EpochNumber,
+    slots_per_epoch: int,
     el: Eth,
 ) -> ReferenceBlockStamp:
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
     anchor = _resolve_anchor_block(cc, ref_slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
-    return build_reference_blockstamp(anchor, ref_slot, ref_epoch, el)
+    return build_reference_blockstamp(anchor, ref_slot, slots_per_epoch, el)
 
 
 def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth) -> BlockStamp:
@@ -64,13 +65,14 @@ def build_blockstamp(slot_details: BlockDetailsResponse, el: Eth) -> BlockStamp:
 def build_reference_blockstamp(
     slot_details: BlockDetailsResponse,
     ref_slot: SlotNumber,
-    ref_epoch: EpochNumber,
+    slots_per_epoch: int,
     el: Eth,
 ) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
         **_get_base_fields(slot_details, el),
         ref_slot=ref_slot,
-        ref_epoch=ref_epoch,
+        ref_epoch=epoch_from_slot(ref_slot, slots_per_epoch),
+        epoch_number=epoch_from_slot(slot_details.message.slot, slots_per_epoch),
     )
 
 
