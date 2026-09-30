@@ -3,7 +3,7 @@ from typing import Final
 
 from eth_account import Account
 
-from src.types import OracleModuleName
+from src.types import STAKING_MODULE_ORACLES, OracleModuleName
 from src.utils.env import from_file_or_env
 
 
@@ -46,6 +46,12 @@ EL_REQUESTS_BATCH_SIZE: Final = int(os.getenv('EL_REQUESTS_BATCH_SIZE', 500))
 # eg when we tried to submit a few reports in a single block
 # In this case the second report will force report finalization and will consume more gas
 TX_GAS_ADDITION: Final = int(os.getenv('TX_GAS_ADDITION', 100_000))
+
+# Upper bound for the gas of a single oracle transaction.
+# The default is the EIP-7825 transaction gas cap: 2**24 = 16,777,216.
+# https://eips.ethereum.org/EIPS/eip-7825
+TX_GAS_LIMIT: Final = int(os.getenv('TX_GAS_LIMIT', 2**24))
+assert TX_GAS_LIMIT > 0, "TX_GAS_LIMIT must be more than 0"
 
 # Maximum length of a range for eth_getLogs method calls.
 EVENTS_SEARCH_STEP: Final = int(os.getenv('EVENTS_SEARCH_STEP', 7_200))
@@ -159,10 +165,10 @@ TELEMETRY_TX_SEND_TIMEOUT_SECONDS: Final = int(os.getenv('TELEMETRY_TX_SEND_TIME
 
 def check_all_required_variables(module: OracleModuleName):
     errors = check_uri_required_variables()
-    if module is not OracleModuleName.CSM and module is not OracleModuleName.CM and not LIDO_LOCATOR_ADDRESS:
+    if module not in STAKING_MODULE_ORACLES and not LIDO_LOCATOR_ADDRESS:
         errors.append('LIDO_LOCATOR_ADDRESS')
 
-    if (module is OracleModuleName.CSM or module is OracleModuleName.CM) and not STAKING_MODULE_ADDRESS:
+    if module in STAKING_MODULE_ORACLES and not STAKING_MODULE_ADDRESS:
         errors.append('STAKING_MODULE_ADDRESS')
 
     return errors
@@ -224,6 +230,7 @@ PUBLIC_ENV_VARS = {
         'FINALIZATION_BATCH_MAX_REQUEST_COUNT': FINALIZATION_BATCH_MAX_REQUEST_COUNT,
         'EL_REQUESTS_BATCH_SIZE': EL_REQUESTS_BATCH_SIZE,
         'TX_GAS_ADDITION': TX_GAS_ADDITION,
+        'TX_GAS_LIMIT': TX_GAS_LIMIT,
         'EVENTS_SEARCH_STEP': EVENTS_SEARCH_STEP,
         'MIN_PRIORITY_FEE': MIN_PRIORITY_FEE,
         'MAX_PRIORITY_FEE': MAX_PRIORITY_FEE,
