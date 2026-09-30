@@ -261,7 +261,6 @@ class AbnormalClRebase:
         )
 
         if prev_blockstamp.block_number > ref_blockstamp.block_number:
-            # EL block numbers never decrease along the canonical chain, so this is a sampling bug.
             raise InconsistentData(
                 f"Previous sample execution block [{prev_blockstamp.block_number}] is after "
                 f"the reference execution block [{ref_blockstamp.block_number}]."
