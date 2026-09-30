@@ -2,7 +2,7 @@ groups:
   - name: instance-availability
     rules:
       - alert: InstanceDown
-        expr: up{job=~"performance-web|performance-collector|csm-oracle|cm-oracle"} == 0
+        expr: up{job=~"performance-web|performance-collector|csm-oracle|csm-0x02-oracle|cm-oracle"} == 0
         for: 5m
         labels:
           severity: critical
