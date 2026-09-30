@@ -332,7 +332,7 @@ class BeaconStateView(Nested, FromResponse):
     def in_flight_withdrawal_sum(self, indices: set[ValidatorIndex]) -> Gwei:
         """`in_flight_withdrawals` restricted to `indices` — Lido indices also drop builder
         entries, whose indices carry the BUILDER_INDEX_FLAG bit."""
-        return Gwei(sum((w.amount for w in self.payload_expected_withdrawals if w.validator_index in indices), Gwei(0)))
+        return Gwei(sum((amount for index, amount in self.in_flight_withdrawals.items() if index in indices), Gwei(0)))
 
 
 @dataclass
