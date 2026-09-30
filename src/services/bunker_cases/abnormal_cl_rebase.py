@@ -10,6 +10,7 @@ from web3.types import EventData, Wei
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
@@ -259,7 +260,14 @@ class AbnormalClRebase:
             }
         )
 
-        if prev_blockstamp.block_number >= ref_blockstamp.block_number:
+        if prev_blockstamp.block_number > ref_blockstamp.block_number:
+            # EL block numbers never decrease along the canonical chain, so this is a sampling bug.
+            raise InconsistentData(
+                f"Previous sample execution block [{prev_blockstamp.block_number}] is after "
+                f"the reference execution block [{ref_blockstamp.block_number}]."
+            )
+
+        if prev_blockstamp.block_number == ref_blockstamp.block_number:
             logger.info({"msg": "No execution blocks between samples. Vault withdrawals: 0 Gwei."})
             return Gwei(0)
 

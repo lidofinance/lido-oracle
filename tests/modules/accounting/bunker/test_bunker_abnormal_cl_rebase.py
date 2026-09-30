@@ -7,6 +7,7 @@ from web3.types import Wei
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.execution.exceptions import InconsistentData
 from src.services.bunker_cases.abnormal_cl_rebase import AbnormalClRebase
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import EpochNumber, Gwei, SlotNumber, StateRoot, ValidatorIndex
@@ -928,6 +929,20 @@ class TestClSampleIdentityUnderEip7732:
 
         # Assert
         assert result == 0
+        abnormal_case._get_eth_distributed_events.assert_not_called()
+
+    def test_get_withdrawn_from_vault_between_blocks__prev_after_ref__raises(self, web3):
+        # Arrange
+        prev_blockstamp = ReferenceBlockStampFactory.build(block_number=43, state_root=StateRoot(HexStr('0xaa')))
+        ref_blockstamp = ReferenceBlockStampFactory.build(block_number=42, state_root=StateRoot(HexStr('0xbb')))
+        abnormal_case = AbnormalClRebase(
+            web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+        )
+        abnormal_case._get_eth_distributed_events = Mock()
+
+        # Act / Assert
+        with pytest.raises(InconsistentData, match=r"\[43\] is after the reference execution block \[42\]"):
+            abnormal_case._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
         abnormal_case._get_eth_distributed_events.assert_not_called()
 
     def test_is_negative_specific_cl_rebase__samples_share_el_anchor__both_are_checked(self, web3):
