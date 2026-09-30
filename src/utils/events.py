@@ -6,6 +6,7 @@ from web3.contract.contract import ContractEvent
 from web3.types import EventData
 
 from src import variables
+from src.modules.common.types import ChainConfig
 from src.providers.execution.exceptions import InconsistentEvents
 from src.types import ReferenceBlockStamp
 
@@ -17,44 +18,32 @@ def get_events_in_past(
     contract_event: ContractEvent,
     to_blockstamp: ReferenceBlockStamp,
     for_slots: int,
-    seconds_per_slot: int,
+    chain_config: ChainConfig,
     timestamp_field_name: str = 'timestamp',
 ):
     """
-    This is protection against missed slots when between 10 and 11 block number could be 5 missed slots.
-    Events should contain Timestamp field.
-    """
-    #   [ ] - slot
-    #   [x] - slot with existed block
-    #   [o] - slot with missed block
-    #    e  - event
-    #
-    #   for_slots = 10 (for example)
-    #   ref_slot = 22
-    #   block_number = 13
-    #
-    # ref_slot_shift = 22 - 18
-    # for_slots_without_missed_blocks = 10 - 4
-    #
-    #                              [-------- Event search block period --------]
-    #                                                  (---- Needed events --------------------]
-    #                           from_block        timeout_border            to_block       ref_slot
-    #                              |                   |                       |               |
-    #      e           e   e       e           e       e       e           e   e               v   e   e
-    #   --[x]-[o]-[x]-[x]-[x]-[x]-[x]-[o]-[o]-[x]-[x]-[x]-[o]-[x]-[x]-[o]-[x]-[x]-[o]-[o]-[o]-[o]-[x]-[x]----> time
-    #      1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24       slot
-    #      1   -   2   3   4   5   6   -   -   7   8   9   -  10  11   -  12  13   -   -   -   -  14  15       block
-    #
-    #   So we should consider events from blocks [10, 12, 13]
-    ref_slot_shift = to_blockstamp.ref_slot - to_blockstamp.slot_number
-    for_slots_without_missed_blocks = for_slots - ref_slot_shift
+    Events emitted in the `for_slots` slots preceding the report's reference slot.
 
-    if for_slots_without_missed_blocks <= 0:
-        # No non-missed slots in current search period
+    The cutoff is the reference slot's own time, so it does not depend on which block the blockstamp
+    physically stands on: pre-EIP-7732 that is the last non-missed slot at or before `ref_slot`,
+    after it the reference slot's child. Events carry timestamps on the same grid — the accounting
+    report timestamp is `GENESIS_TIME + refSlot * SECONDS_PER_SLOT` on the contract side, and an
+    execution block's timestamp is its own slot's.
+
+    The block range is only a coarse pre-filter for the node query. Execution blocks advance at most
+    once per slot, so stepping back as many blocks as there are slots in the window always reaches
+    past the cutoff; the timestamp comparison below is what actually bounds the result.
+
+    Events should contain a timestamp field.
+    """
+    from_timestamp = chain_config.genesis_time + (to_blockstamp.ref_slot - for_slots) * chain_config.seconds_per_slot
+
+    if to_blockstamp.block_timestamp <= from_timestamp:
+        # The execution anchor is already at or before the cutoff, so no event can qualify
         return []
 
-    from_block = max(0, to_blockstamp.block_number - for_slots_without_missed_blocks)
-    from_timestamp = to_blockstamp.block_timestamp - for_slots_without_missed_blocks * seconds_per_slot
+    slots_to_cover = (to_blockstamp.block_timestamp - from_timestamp) // chain_config.seconds_per_slot
+    from_block = max(0, to_blockstamp.block_number - slots_to_cover)
 
     events = get_events_in_range(
         contract_event,
