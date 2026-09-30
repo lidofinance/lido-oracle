@@ -116,6 +116,25 @@ class TestTransactionUtils:
         gas_amount = estimate_gas(tx, account)
         assert gas_amount is None
 
+    def test_estimate_gas__estimate_above_limit__clamped_to_tx_gas_limit(self, fake_transaction_utils):
+        _, account = fake_transaction_utils
+        tx = MagicMock()
+        tx.estimate_gas = MagicMock(return_value=variables.TX_GAS_LIMIT + 1)
+
+        gas_amount = estimate_gas(tx, account)
+
+        assert gas_amount == variables.TX_GAS_LIMIT
+
+    def test_estimate_gas__custom_tx_gas_limit__clamped_to_override(self, fake_transaction_utils):
+        _, account = fake_transaction_utils
+        tx = MagicMock()
+        tx.estimate_gas = MagicMock(return_value=20_000_000)
+
+        with patch.object(variables, 'TX_GAS_LIMIT', 16_000_000):
+            gas_amount = estimate_gas(tx, account)
+
+        assert gas_amount == 16_000_000
+
     def test_manual_tx_processing(self, fake_transaction_utils):
         utils, account = fake_transaction_utils
         tx = MagicMock()

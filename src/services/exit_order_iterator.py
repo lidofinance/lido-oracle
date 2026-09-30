@@ -111,6 +111,8 @@ class ValidatorExitIterator:
 
     max_current_exit_balance: Gwei
     exit_limit_in_gwei: Gwei
+    ejected_validators_count: int
+    max_exit_requests_per_report: int
     total_lido_predictable_balance: Gwei
     module_stats: dict[StakingModuleId, StakingModuleStats]
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
@@ -143,6 +145,7 @@ class ValidatorExitIterator:
         return self
 
     def _reset_iterator_data(self):
+        self.ejected_validators_count = 0
         self.total_lido_predictable_balance = Gwei(0)
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
@@ -391,10 +394,22 @@ class ValidatorExitIterator:
             ).max_balance_exit_requested_per_report_in_eth
             * 10**9
         )
+        # TODO: Hardcoded limit. Should be replaced with Gloas.
+        self.max_exit_requests_per_report = 500
 
     # --- Iterator ---
     @duration_meter()
     def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
+        if self.ejected_validators_count >= self.max_exit_requests_per_report:
+            logger.info(
+                {
+                    'msg': 'Reached the max exit requests per report. '
+                    'Dropped requests will be reported in the following frames.',
+                    'limit': self.max_exit_requests_per_report,
+                }
+            )
+            raise StopIteration
+
         for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
             gid = (
                 node_operator.module_stats.staking_module.id,
@@ -411,6 +426,7 @@ class ValidatorExitIterator:
             if self.max_current_exit_balance > self.exit_limit_in_gwei:
                 raise StopIteration
 
+            self.ejected_validators_count += 1
             return gid, v
 
         raise StopIteration
@@ -573,6 +589,16 @@ class ValidatorExitIterator:
         result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
 
         while True:
+            if self.ejected_validators_count >= self.max_exit_requests_per_report:
+                logger.info(
+                    {
+                        'msg': 'Reached the max exit requests per report. '
+                        'Dropped requests will be reported in the following frames.',
+                        'limit': self.max_exit_requests_per_report,
+                    }
+                )
+                return result
+
             for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
                 if self._no_force_predicate(no_stats) == 0:
                     # The current and all further NOs in the list have no forced validators to exit. Cycle done
@@ -590,6 +616,7 @@ class ValidatorExitIterator:
                     if self.max_current_exit_balance > self.exit_limit_in_gwei:
                         return result
 
+                    self.ejected_validators_count += 1
                     result.append((gid, v))
                     break
             else:
