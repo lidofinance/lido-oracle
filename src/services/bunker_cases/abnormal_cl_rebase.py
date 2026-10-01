@@ -13,8 +13,8 @@ from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
 from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
-from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
@@ -155,10 +155,10 @@ class AbnormalClRebase:
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
         nearest_blockstamp = get_blockstamp(
-            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
         distant_blockstamp = get_blockstamp(
-            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -385,6 +385,7 @@ class AbnormalClRebase:
             last_report_ref_slot,
             ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            el=self.w3.eth,
         )
 
     @staticmethod

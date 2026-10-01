@@ -78,7 +78,7 @@ def performance_local_db(testrun_path):
 
 @pytest.fixture()
 def performance_collector(performance_local_db, web3: Web3Base, frame_config: FrameConfig):
-    yield PerformanceCollector(web3.cc)
+    yield PerformanceCollector(web3.cc, web3.eth)
 
 
 @pytest.fixture()

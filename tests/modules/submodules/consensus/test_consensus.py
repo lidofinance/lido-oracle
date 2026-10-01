@@ -11,8 +11,8 @@ from src.modules.common.types import ChainConfig
 from src.modules.oracles.common import consensus as consensus_module
 from src.modules.oracles.common.consensus import ZERO_HASH, ConsensusModule, MemberInfo
 from src.modules.oracles.common.exceptions import ContractVersionMismatch, IncompatibleOracleVersion
-from src.providers.consensus.types import BeaconSpecResponse
-from src.types import BlockStamp, ReferenceBlockStamp
+from src.providers.consensus.types import BeaconSpecResponse, ExecutionPayloadBid, SignedExecutionPayloadBid
+from src.types import BlockHash, BlockStamp, ReferenceBlockStamp, SlotNumber
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import (
     BeaconSpecResponseFactory,
@@ -20,6 +20,7 @@ from tests.factory.configs import (
     ChainConfigFactory,
     FrameConfigFactory,
 )
+from tests.factory.consensus import BlockHeaderFullResponseFactory
 from tests.factory.member_info import MemberInfoFactory
 
 
@@ -393,6 +394,89 @@ def test_get_blockstamp_for_report_slot_member_is_not_in_fast_line_ready(web3, c
 
     blockstamp = consensus.get_blockstamp_for_report(blockstamp)
     assert isinstance(blockstamp, BlockStamp)
+
+
+@pytest.mark.unit
+class TestGetBlockstampForReportWaitsForChild:
+    """Post-EIP-7732 the report is built from ref_slot's child, so a finalized ref_slot is no
+    longer enough — the oracle must wait for a finalized block strictly after it."""
+
+    REF_SLOT = 100
+
+    @pytest.fixture
+    def prepared(self, consensus, set_no_account):
+        member_info = MemberInfoFactory.build(
+            is_report_member=True,
+            is_fast_lane=True,
+            current_frame_ref_slot=self.REF_SLOT,
+            # Pinned: a Faker-generated deadline at or below REF_SLOT sends every test in this class
+            # down the "Deadline missed." branch before it reaches the child-finalization gate.
+            deadline_slot=SlotNumber(self.REF_SLOT + 1000),
+        )
+        consensus.get_member_info = Mock(return_value=member_info)
+        consensus._get_latest_blockstamp = Mock(
+            return_value=ReferenceBlockStampFactory.build(slot_number=self.REF_SLOT)
+        )
+        consensus.get_chain_config = Mock(return_value=cast(ChainConfig, ChainConfigFactory.build()))
+        # These build on ref_slot's child, i.e. the post-fork branch of the anchor resolver.
+        consensus.w3.cc.is_gloas_slot = Mock(return_value=True)
+        return consensus
+
+    @staticmethod
+    def _post_fork_block(slot: int):
+        """A post-EIP-7732 block: no embedded execution payload, so the child must be resolved and
+        the execution anchor comes from the payload bid."""
+        details = BlockDetailsResponseFactory.build(message={"slot": slot})
+        details.message.body.execution_payload = None
+        details.message.body.signed_execution_payload_bid = SignedExecutionPayloadBid(
+            message=ExecutionPayloadBid(parent_block_hash=BlockHash("0xaaaa"))
+        )
+        return details
+
+    def test_ref_slot_finalized_but_child_is_not__waits(self, prepared, caplog):
+        # Arrange: finalization has reached ref_slot itself and no further.
+        prepared.w3.cc.get_block_details.return_value = self._post_fork_block(self.REF_SLOT)
+        last_finalized = BlockStampFactory.build(slot_number=self.REF_SLOT)
+
+        # Act
+        result = prepared.get_blockstamp_for_report(last_finalized)
+
+        # Assert: no report is built on a ref slot whose child is not finalized yet.
+        assert result is None
+        assert "Reference slot's child is not yet finalized." in caplog.messages[-1]
+
+    def test_child_finalized__builds_report_on_the_child(self, prepared):
+        # Arrange: finalization has moved one slot past ref_slot, and that slot has a block.
+        child_slot = self.REF_SLOT + 1
+        prepared.w3.cc.get_block_header.return_value = BlockHeaderFullResponseFactory.build(
+            data={"header": {"message": {"slot": child_slot}}}
+        )
+        prepared.w3.cc.get_block_details.return_value = self._post_fork_block(child_slot)
+        prepared.w3.eth = Mock(get_block=Mock(return_value={"number": 7, "timestamp": 42}))
+        last_finalized = BlockStampFactory.build(slot_number=child_slot)
+
+        # Act
+        result = prepared.get_blockstamp_for_report(last_finalized)
+
+        # Assert: the report is anchored on the child, not on ref_slot.
+        assert result is not None
+        assert result.ref_slot == self.REF_SLOT
+        assert result.slot_number == child_slot
+
+    def test_pre_fork_ref_slot_finalized__does_not_wait(self, prepared):
+        # Arrange: pre-fork blocks embed their payload, so ref_slot alone is still enough.
+        prepared.w3.cc.is_gloas_slot = Mock(return_value=False)
+        prepared.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build(
+            message={"slot": self.REF_SLOT}
+        )
+        last_finalized = BlockStampFactory.build(slot_number=self.REF_SLOT)
+
+        # Act
+        result = prepared.get_blockstamp_for_report(last_finalized)
+
+        # Assert
+        assert result is not None
+        assert result.slot_number == self.REF_SLOT
 
 
 class ConsensusImpl(ConsensusModule):

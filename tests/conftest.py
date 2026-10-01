@@ -164,6 +164,14 @@ def web3(monkeypatch) -> Generator[Web3]:
 
     w3.eth.contract = create_contract_mock
 
+    def create_consensus_client_mock():
+        # Default to pre-Gloas: fork-gated paths stay on the branch a test written before the fork
+        # expects. Post-fork tests set `is_gloas_slot` / `is_gloas` themselves.
+        cc_mock = Mock(spec=ConsensusClientModule)
+        cc_mock.is_gloas_slot = Mock(return_value=False)
+        cc_mock.is_gloas_epoch = Mock(return_value=False)
+        return cc_mock
+
     def create_signer_mock():
         # `spec=SignerModule` only recognizes methods, not the plain `is_delegated`/
         # `delegation_contract` instance attributes set in __init__ - default them here
@@ -180,7 +188,7 @@ def web3(monkeypatch) -> Generator[Web3]:
             'transaction': TransactionUtils,
             'lido_validators': LidoValidatorsProvider,
             # Modules relying on network level highly - mocked fully
-            'cc': lambda: Mock(spec=ConsensusClientModule),
+            'cc': create_consensus_client_mock,
             'kac': lambda: Mock(spec=KeysAPIClientModule),
             'ipfs': lambda: Mock(spec=IPFS),
             'telemetry_data_bus': lambda: Mock(spec=TelemetryDataBus),
