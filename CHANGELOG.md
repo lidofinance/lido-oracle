@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [8.1.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.1.0) - 2026-09
+
+### Execution Delegation Framework
+
+### Added
+- Execution Delegation Framework (LIP-37) support: the oracle can report through a delegation contract set by `DELEGATION_CONTRACT_ADDRESS`. The signer is resolved on every cycle from the current HashConsensus member list, so a delegate rotation is picked up without a restart. See `docs/delegation.md`.
+- `MEMBER_PRIV_KEY_2` / `MEMBER_PRIV_KEY_2_FILE`: a second candidate key for soft key rotation (a plain member or a candidate delegate).
+- `TELEMETRY_TX_SEND_TIMEOUT_SECONDS`: time budget for broadcasting the DataBus telemetry transaction. The send loop refreshes nonce and fee on each attempt.
+- Input fingerprints: hashes of Keys API responses are logged, so members can compare inputs when report hashes diverge. See `docs/report-divergence.md`.
+- Docker `HEALTHCHECK` uses a small Python probe (`src/scripts/healthcheck.py`) instead of `curl`.
+- `docker-compose.yml` passes `DELEGATION_CONTRACT_ADDRESS` to all oracle services.
+- `docs/oracle-eval-guide.md`.
+
+### Fixed
+- Ejector: unswept CL rewards are no longer counted twice, and only half of the deposit reserve is charged against the withdrawal queue when predicting the ETH available for finalization.
+- Accounting: the active signer is re-resolved after the submit delay and before the extra data transaction is sent, so a member or delegate change during the delay is picked up (Composable Security review, L01).
+- Telemetry: a DataBus transaction that is not confirmed within the timeout is no longer reported as sent. The oracle logs a warning with the tx hash and continues (L02).
+- The warning for a reporting address that is not a HashConsensus member now describes the observed condition and includes the address and block hash (R02).
+
 ## [8.0.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.0.0) - 2026-05
 
 ### MaxEB, Delegation, and On-chain Telemetry

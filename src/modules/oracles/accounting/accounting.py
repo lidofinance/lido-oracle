@@ -117,7 +117,9 @@ class Accounting(OracleModule[Web3]):
         logger.info({'msg': f'Sleep for {seconds_to_sleep} seconds before sending extra data.'})
         sleep(seconds_to_sleep)
 
-        latest_blockstamp = self._get_latest_blockstamp()
+        # Re-resolve the signer together with the blockstamp: a member or delegate change
+        # can be enacted on-chain while we sleep.
+        latest_blockstamp, _ = self._get_latest_data()
         if not self.can_submit_extra_data(latest_blockstamp):
             logger.info({'msg': 'Extra data can not be submitted.'})
             return

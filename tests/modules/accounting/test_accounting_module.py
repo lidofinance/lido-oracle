@@ -384,6 +384,7 @@ class TestAccountingProcessExtraData:
         bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
+        accounting._get_latest_data = Mock(return_value=(bs, Mock()))
         accounting.can_submit_extra_data = Mock(return_value=True)
 
         accounting.process_extra_data(ref_bs)
@@ -402,6 +403,7 @@ class TestAccountingProcessExtraData:
         bs: BlockStamp,
     ):
         accounting._get_latest_blockstamp = Mock(return_value=bs)
+        accounting._get_latest_data = Mock(return_value=(bs, Mock()))
         # First check passes, second check (after sleep) fails
         accounting.can_submit_extra_data = Mock(side_effect=[True, False])
 
@@ -409,6 +411,33 @@ class TestAccountingProcessExtraData:
 
         assert accounting.can_submit_extra_data.call_count == 2
         submit_extra_data_mock.assert_not_called()
+
+    @pytest.mark.unit
+    @pytest.mark.usefixtures('_no_sleep_before_report')
+    def test_process_extra_data__after_sleep__refreshes_signer_and_uses_fresh_blockstamp(
+        self,
+        accounting: Accounting,
+        submit_extra_data_mock: Mock,
+        ref_bs: ReferenceBlockStamp,
+        bs: BlockStamp,
+    ):
+        # Arrange
+        # A member or delegate change may be enacted on-chain during the sleep.
+        # The signer must be re-resolved after the sleep, not only the blockstamp.
+        fresh_bs = BlockStampFactory.build()
+        accounting._get_latest_blockstamp = Mock(return_value=bs)
+        accounting._get_latest_data = Mock(return_value=(fresh_bs, Mock()))
+        accounting.can_submit_extra_data = Mock(return_value=True)
+
+        # Act
+        accounting.process_extra_data(ref_bs)
+
+        # Assert
+        accounting._get_latest_blockstamp.assert_called_once()
+        accounting._get_latest_data.assert_called_once()
+        assert accounting.can_submit_extra_data.call_args_list[0][0][0] is bs
+        assert accounting.can_submit_extra_data.call_args_list[1][0][0] is fresh_bs
+        submit_extra_data_mock.assert_called_once_with(ref_bs)
 
 
 @pytest.mark.unit
