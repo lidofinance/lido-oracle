@@ -14,6 +14,7 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
     ConsensusClientModule,
+    CuratedModuleContracts,
     FallbackProviderModule,
     KeysAPIClientModule,
     LidoContracts,
@@ -105,7 +106,15 @@ def build_oracle_web3(module_name: str) -> Web3:
     return web3
 
 
-def build_staking_module_web3(module_name: str) -> Web3StakingModule:
+def build_community_module_web3(module_name: str) -> Web3StakingModule:
+    return _build_staking_module_web3(module_name, StakingModuleContracts)
+
+
+def build_curated_module_web3(module_name: str) -> Web3StakingModule:
+    return _build_staking_module_web3(module_name, CuratedModuleContracts)
+
+
+def _build_staking_module_web3(module_name: str, staking_module_cls: type[StakingModuleContracts]) -> Web3StakingModule:
     web3 = _build_web3_base(Web3StakingModule, module_name)
 
     if not variables.PERFORMANCE_COLLECTOR_URI or '' in variables.PERFORMANCE_COLLECTOR_URI:
@@ -117,7 +126,7 @@ def build_staking_module_web3(module_name: str) -> Web3StakingModule:
     logger.info({'msg': 'Initialize DataBus telemetry module.'})
 
     modules: dict[str, Any] = {
-        'staking_module': StakingModuleContracts,
+        'staking_module': staking_module_cls,
         'performance': lambda: performance,
         'ipfs': lambda: ipfs,
     }

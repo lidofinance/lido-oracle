@@ -1,5 +1,6 @@
 from src.web3py.extensions.consensus import ConsensusClientModule
 from src.web3py.extensions.contracts import LidoContracts
+from src.web3py.extensions.curated_staking_module import CuratedModuleContracts
 from src.web3py.extensions.fallback import FallbackProviderModule
 from src.web3py.extensions.ipfs import IPFS
 from src.web3py.extensions.keys_api import KeysAPIClientModule
@@ -21,6 +22,7 @@ __all__ = [
     "IPFS",
     "PerformanceClientModule",
     "StakingModuleContracts",
+    "CuratedModuleContracts",
     "TelemetryDataBus",
     "TelemetryEventId",
     "SignerModule",

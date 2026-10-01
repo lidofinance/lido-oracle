@@ -83,6 +83,9 @@ class StakingModuleContracts(Module):
         strikes_params = self.params.get_strikes_params(curve_id, blockstamp.block_hash)
         return CurveParams(perf_coeffs, perf_leeway_data, reward_share_data, strikes_params)
 
+    def get_fee_share_discount(self, no_id: NodeOperatorId, blockstamp: BlockStamp) -> int:
+        return 0
+
     def _load_contracts(self) -> None:
         last_error = None
 
