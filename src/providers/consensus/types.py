@@ -299,40 +299,28 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
-    # Raw feed for `in_flight_withdrawals`; read that instead.
+    # Gloas: withdrawals debited from `balances` but not yet paid out by the execution payload.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
+        """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor.
+
+        `balances` stays raw: code modelling the spec's next transition reads it directly.
+        Builder entries carry BUILDER_INDEX_FLAG and match no validator.
+        """
+        in_flight: defaultdict[int, Gwei] = defaultdict(lambda: Gwei(0))
+        for withdrawal in self.payload_expected_withdrawals:
+            in_flight[withdrawal.validator_index] = Gwei(in_flight[withdrawal.validator_index] + withdrawal.amount)
+
         return [
             Validator(
                 index=ValidatorIndex(i),
-                balance=self.balances[i],
+                balance=Gwei(self.balances[i] + in_flight.get(i, Gwei(0))),
                 validator=v,
             )
             for (i, v) in enumerate(self.validators)
         ]
-
-    @cached_property
-    def in_flight_withdrawals(self) -> dict[ValidatorIndex, Gwei]:
-        """Per-validator amounts EIP-7732 debited from `balances` before the EL credited them.
-
-        Add these back when pairing CL balances with an EL-side balance, and on the CL side only:
-        correcting both counts the same ETH twice once the payload lands. Code modelling what the
-        chain does next reads `balances` directly instead.
-
-        Summed per index because the sweep does not skip a validator already served earlier in
-        the same payload.
-        """
-        by_index: defaultdict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
-        for withdrawal in self.payload_expected_withdrawals:
-            by_index[withdrawal.validator_index] = Gwei(by_index[withdrawal.validator_index] + withdrawal.amount)
-        return dict(by_index)
-
-    def in_flight_withdrawal_sum(self, indices: set[ValidatorIndex]) -> Gwei:
-        """`in_flight_withdrawals` restricted to `indices` — Lido indices also drop builder
-        entries, whose indices carry the BUILDER_INDEX_FLAG bit."""
-        return Gwei(sum((amount for index, amount in self.in_flight_withdrawals.items() if index in indices), Gwei(0)))
 
 
 @dataclass

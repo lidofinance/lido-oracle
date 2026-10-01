@@ -653,87 +653,47 @@ class TestCalculateVaultTotalValue:
 
 @pytest.mark.unit
 class TestGloasInFlightWithdrawalCorrection:
-    """The only path needing the correction per validator, so the only one where several entries
-    for one validator can collide."""
+    @staticmethod
+    def _validators(withdrawals: list[ExpectedWithdrawal]):
+        state = BeaconStateViewFactory.build(
+            validators=[
+                ValidatorStateFactory.build(
+                    pubkey=TestPubkeys.PUBKEY_0, withdrawal_credentials=WithdrawalCredentials.WC_0
+                )
+            ],
+            balances=[Gwei(32_000_000_000)],
+            slashings=[],
+            payload_expected_withdrawals=withdrawals,
+        )
+        return state.indexed_validators
 
-    def test_get_vaults_total_values__in_flight_withdrawal__added_to_vault_total(self, web3, default_vaults_map):
+    def test_get_vaults_total_values__in_flight_withdrawal__included_via_validator_balance(
+        self, web3, default_vaults_map
+    ):
         # Setup
-        validator = ValidatorFactory.build(
-            index=ValidatorIndex(7),
-            balance=Gwei(32_000_000_000),
-            validator=ValidatorStateFactory.build(
-                pubkey=TestPubkeys.PUBKEY_0,
-                withdrawal_credentials=WithdrawalCredentials.WC_0,
-            ),
+        validators = self._validators(
+            [ExpectedWithdrawal(validator_index=ValidatorIndex(0), amount=Gwei(1_000_000_000))]
         )
         configure_validator_statuses(web3, {})
         service = StakingVaultsService(web3)
 
         # Act
         result = service.get_vaults_total_values(
-            vaults=default_vaults_map,
-            validators=[validator],
-            pending_deposits=[],
-            block_identifier="latest",
-            in_flight_withdrawals={ValidatorIndex(7): Gwei(1_000_000_000)},
+            vaults=default_vaults_map, validators=validators, pending_deposits=[], block_identifier="latest"
         )
 
         # Assert: 32 ETH balance + 1 ETH vault EL balance + 1 ETH in flight
         assert result[VaultAddresses.VAULT_0] == 34_000_000_000_000_000_000
 
-    def test_get_vaults_total_values__duplicate_entries_for_one_validator__amounts_summed(
-        self, web3, default_vaults_map
-    ):
+    def test_get_vaults_total_values__pre_fork__total_unchanged(self, web3, default_vaults_map):
         # Setup
-        validator = ValidatorFactory.build(
-            index=ValidatorIndex(7),
-            balance=Gwei(32_000_000_000),
-            validator=ValidatorStateFactory.build(
-                pubkey=TestPubkeys.PUBKEY_0,
-                withdrawal_credentials=WithdrawalCredentials.WC_0,
-            ),
-        )
-        configure_validator_statuses(web3, {})
-        service = StakingVaultsService(web3)
-        corrections = BeaconStateViewFactory.build_without_validators(
-            payload_expected_withdrawals=[
-                ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(1_000_000_000)),
-                ExpectedWithdrawal(validator_index=ValidatorIndex(7), amount=Gwei(2_000_000_000)),
-            ]
-        ).in_flight_withdrawals
-
-        # Act
-        result = service.get_vaults_total_values(
-            vaults=default_vaults_map,
-            validators=[validator],
-            pending_deposits=[],
-            block_identifier="latest",
-            in_flight_withdrawals=corrections,
-        )
-
-        # Assert: 32 ETH balance + 1 ETH vault EL balance + 3 ETH in flight, not 2
-        assert result[VaultAddresses.VAULT_0] == 36_000_000_000_000_000_000
-
-    def test_get_vaults_total_values__pre_fork_no_corrections__total_unchanged(self, web3, default_vaults_map):
-        # Setup
-        validator = ValidatorFactory.build(
-            index=ValidatorIndex(7),
-            balance=Gwei(32_000_000_000),
-            validator=ValidatorStateFactory.build(
-                pubkey=TestPubkeys.PUBKEY_0,
-                withdrawal_credentials=WithdrawalCredentials.WC_0,
-            ),
-        )
+        validators = self._validators([])
         configure_validator_statuses(web3, {})
         service = StakingVaultsService(web3)
 
         # Act
         result = service.get_vaults_total_values(
-            vaults=default_vaults_map,
-            validators=[validator],
-            pending_deposits=[],
-            block_identifier="latest",
-            in_flight_withdrawals={},
+            vaults=default_vaults_map, validators=validators, pending_deposits=[], block_identifier="latest"
         )
 
         # Assert

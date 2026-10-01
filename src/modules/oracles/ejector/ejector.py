@@ -256,16 +256,12 @@ class Ejector(OracleModule[Web3]):
         withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
         logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
 
-        in_flight_withdrawals = self._get_in_flight_withdrawals(blockstamp)
-        logger.info({'msg': 'Calculate in-flight withdrawals.', 'value': in_flight_withdrawals})
-
         deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
         logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
 
         return Wei(
             future_rewards
             + withdrawable_principal
-            + in_flight_withdrawals
             + total_available_balance
             + gwei_to_wei(going_to_withdraw_balance_gwei)
             - deposit_lock,
@@ -294,18 +290,6 @@ class Ejector(OracleModule[Web3]):
                 result += get_predictable_inbound_balance(v)
 
         return gwei_to_wei(result)
-
-    @lru_cache(maxsize=1)
-    def _get_in_flight_withdrawals(self, blockstamp: BlockStamp) -> Wei:
-        """Lido balance EIP-7732 has already debited on the CL but not yet credited to the vaults.
-
-        A separate term because it spans every payable validator: the other balance terms read
-        post-deduction balances and must not add it back themselves. An in-flight full withdrawal
-        also leaves `balance` at zero, which is why this cannot be folded into the loop above --
-        such a validator fails the `balance > 0` arm of `is_fully_withdrawable_validator`.
-        """
-        indices = {v.index for v in self._sweepable_validators(blockstamp)}
-        return gwei_to_wei(self.w3.cc.get_state_view(blockstamp).in_flight_withdrawal_sum(indices))
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
