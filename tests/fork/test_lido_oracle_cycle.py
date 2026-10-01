@@ -7,6 +7,12 @@ from src.utils.range import sequence
 from tests.fork.conftest import first_slot_of_epoch
 
 
+# The first frame's ref slot is the last slot before the initial epoch. `simulateOracleReport` reads
+# `Lido.getBalanceStats()`, which calls `AccountingOracle.getCurrentFrame()`, and HashConsensus reverts
+# with `InitialEpochIsYetToArrive()` at any block before the initial epoch.
+FIRST_FRAME_SIMULATION_REVERTS = pytest.mark.skip(reason="accounting cannot simulate a report for the first frame")
+
+
 @pytest.fixture()
 def hash_consensus_bin():
     with open('tests/fork/contracts/lido/HashConsensus_bin') as f:
@@ -47,13 +53,15 @@ def missed_initial_frame(frame_config: FrameConfig):
 @pytest.mark.fork
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    'module',
-    [accounting_module, ejector_module],
-    indirect=True,
-)
-@pytest.mark.parametrize(
-    'running_finalized_slots',
-    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
+    ('module', 'running_finalized_slots'),
+    [
+        pytest.param(accounting_module, start_before_initial_epoch, marks=FIRST_FRAME_SIMULATION_REVERTS),
+        pytest.param(accounting_module, start_after_initial_epoch, marks=FIRST_FRAME_SIMULATION_REVERTS),
+        (accounting_module, missed_initial_frame),
+        (ejector_module, start_before_initial_epoch),
+        (ejector_module, start_after_initial_epoch),
+        (ejector_module, missed_initial_frame),
+    ],
     indirect=True,
 )
 def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from, signer_from):

@@ -171,8 +171,15 @@ def signer_from(web3):
     @contextmanager
     def _use(account=None, account_2=None, delegation_contract_address=None):
         accounts = [candidate for candidate in (account, account_2) if candidate is not None]
+        previous = getattr(web3, 'signer', None)
         web3.signer = SignerModule(web3, accounts, delegation_contract_address)
-        yield
+        try:
+            yield
+        finally:
+            if previous is None:
+                del web3.signer
+            else:
+                web3.signer = previous
 
     return _use
 
