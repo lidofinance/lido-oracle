@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
@@ -298,14 +299,21 @@ class BeaconStateView(Nested, FromResponse):
     pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
     pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
 
+    # Gloas: withdrawals debited from `balances` but not yet paid out by the execution payload.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
+        """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor.
+        """
+        in_flight: defaultdict[int, Gwei] = defaultdict(lambda: Gwei(0))
+        for withdrawal in self.payload_expected_withdrawals:
+            in_flight[withdrawal.validator_index] = Gwei(in_flight[withdrawal.validator_index] + withdrawal.amount)
+
         return [
             Validator(
                 index=ValidatorIndex(i),
-                balance=self.balances[i],
+                balance=Gwei(self.balances[i] + in_flight.get(i, Gwei(0))),
                 validator=v,
             )
             for (i, v) in enumerate(self.validators)
