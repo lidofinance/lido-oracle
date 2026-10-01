@@ -7,7 +7,7 @@ from xdist import is_xdist_controller  # type: ignore[import]
 from xdist.dsession import TerminalDistReporter  # type: ignore[import]
 
 from src import variables
-from src.modules.oracles.common.runtime import build_staking_module_web3
+from src.modules.oracles.common.runtime import build_community_module_web3, build_curated_module_web3
 from src.types import BlockRoot, EpochNumber, OracleModuleName, SlotNumber
 from src.utils.api import opsgenie_api
 from src.utils.blockstamp import build_blockstamp
@@ -78,7 +78,7 @@ def web3_cs_module():
     if not module_address:
         pytest.skip("CS_MODULE_ADDRESS is not set")
     with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
-        web3 = build_staking_module_web3(OracleModuleName.CHECK)
+        web3 = build_community_module_web3(OracleModuleName.CHECK)
         return web3
 
 
@@ -89,7 +89,7 @@ def web3_curated_module():
     if not module_address:
         pytest.skip("CURATED_MODULE_ADDRESS is not set")
     with patch.object(variables, "STAKING_MODULE_ADDRESS", module_address):
-        web3 = build_staking_module_web3(OracleModuleName.CHECK)
+        web3 = build_curated_module_web3(OracleModuleName.CHECK)
         return web3
 
 
