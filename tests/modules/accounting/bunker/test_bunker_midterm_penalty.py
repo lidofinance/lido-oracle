@@ -21,7 +21,7 @@ def simple_blockstamp(
     block_number: int,
 ) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
-        f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number // 32, block_number // 32
+        f"0x{block_number}", block_number, '', block_number, 0, block_number // 32, block_number, block_number // 32
     )
 
 

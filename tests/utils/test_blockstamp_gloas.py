@@ -39,7 +39,12 @@ def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
 
 def _cc(*, gloas: bool, **kwargs) -> Mock:
     """A consensus client whose fork gate answers `gloas` for every slot."""
-    return Mock(is_gloas_slot=Mock(return_value=gloas), is_gloas_epoch=Mock(return_value=gloas), **kwargs)
+    return Mock(
+        is_gloas_slot=Mock(return_value=gloas),
+        is_gloas_epoch=Mock(return_value=gloas),
+        get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=32)),
+        **kwargs,
+    )
 
 
 @pytest.fixture
@@ -55,7 +60,7 @@ class TestExecutionAnchorResolution:
         payload = details.message.body.execution_payload
 
         # Act
-        bs = build_blockstamp(details, el)
+        bs = build_blockstamp(details, 32, el)
 
         # Assert: identical to the legacy behavior, the execution client is never consulted.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
@@ -69,7 +74,7 @@ class TestExecutionAnchorResolution:
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = build_blockstamp(details, el)
+        bs = build_blockstamp(details, 32, el)
 
         # Assert
         assert bs.slot_number == SlotNumber(100)
@@ -85,7 +90,7 @@ class TestExecutionAnchorResolution:
 
         # Act / Assert
         with pytest.raises(MissingExecutionAnchor):
-            build_blockstamp(details, el)
+            build_blockstamp(details, 32, el)
 
 
 @pytest.mark.unit
@@ -216,7 +221,10 @@ class TestAnchorBlockSelection:
     def test_get_blockstamp_by_state__post_fork_head__anchors_on_own_bid(self, el):
         # Arrange: the chain tip has no child, so it is its own anchor block.
         details = _post_fork_details(slot=100)
-        cc = Mock(get_block_details=Mock(return_value=details))
+        cc = Mock(
+            get_block_details=Mock(return_value=details),
+            get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=32)),
+        )
 
         # Act
         bs = get_blockstamp_by_state(cc, 'head', el)

@@ -67,6 +67,7 @@ def set_report_account(consensus):
 def test_get_latest_blockstamp(consensus, set_no_account):
     consensus.w3.cc.get_state_block_roots.return_value = "0x0000000000000000000000000000000000000000"
     consensus.w3.cc.get_block_details.return_value = BlockDetailsResponseFactory.build()
+    consensus.w3.cc.get_config_spec.return_value.SLOTS_PER_EPOCH = 32
 
     bs = consensus._get_latest_blockstamp()
 

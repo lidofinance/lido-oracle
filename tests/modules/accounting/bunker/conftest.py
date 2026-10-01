@@ -19,7 +19,7 @@ def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
 
 
 def simple_blockstamp(block_number: int) -> BlockStamp:
-    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0)
+    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:

@@ -76,6 +76,7 @@ class BlockStamp:
     block_hash: BlockHash
     block_number: BlockNumber
     block_timestamp: Timestamp
+    epoch_number: EpochNumber
 
 
 @dataclass(frozen=True)
@@ -107,7 +108,6 @@ class ReferenceBlockStamp(BlockStamp):
 
     ref_slot: SlotNumber
     ref_epoch: EpochNumber
-    epoch_number: EpochNumber
 
 
 class StakingModuleType(StrEnum):
