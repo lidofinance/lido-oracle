@@ -405,7 +405,8 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> BlockRoot:
         dependent_root = None
-        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
+        # v2 reports the last block of epoch-2: the proposer lookahead is fixed one epoch ahead (EIP-7917).
+        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 2))
         try:
             while not dependent_root:
                 dependent_root = self._select_block_root_by_slot(

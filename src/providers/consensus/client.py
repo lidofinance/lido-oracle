@@ -66,7 +66,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_BLOCK_DETAILS = 'eth/v2/beacon/blocks/{}'
     API_GET_ATTESTATION_COMMITTEES = 'eth/v1/beacon/states/{}/committees'
     API_GET_SYNC_COMMITTEE = 'eth/v1/beacon/states/{}/sync_committees'
-    API_GET_PROPOSER_DUTIES = 'eth/v1/validator/duties/proposer/{}'
+    API_GET_PROPOSER_DUTIES = 'eth/v2/validator/duties/proposer/{}'
     API_GET_STATE = 'eth/v2/debug/beacon/states/{}'
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
@@ -219,7 +219,7 @@ class ConsensusClient(HTTPProvider):
 
     @list_of_dataclasses(ProposerDuties.from_response)
     def get_proposer_duties(self, epoch: EpochNumber, expected_dependent_root: BlockRoot) -> list[ProposerDuties]:
-        """Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties"""
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDutiesV2"""
 
         def data_is_list_and_dependent_root_matches(data: Any, meta: dict, endpoint: str):
             data_is_list(data, meta, endpoint=endpoint)
