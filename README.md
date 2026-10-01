@@ -22,7 +22,7 @@ docker run --env-file .env lidofinance/oracle:{tag} accounting  # | ejector | cs
 
 # 5. Run an oracle via docker compose
 #    (`accounting` and `ejector` can run standalone;
-#     `csm` and `cm` also use Postgres + performance sidecars)
+#     `csm`, `csm_0x02` and `cm` also use Postgres + performance sidecars)
 
 # Accounting oracle
 docker compose up -d --build accounting-oracle

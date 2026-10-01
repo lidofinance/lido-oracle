@@ -4,7 +4,7 @@ Oracle daemon for the Lido decentralized staking protocol. Monitors state across
 
 ## Architecture
 
-Four oracle modules, each with its own reporting frame:
+Five oracle modules, each with its own reporting frame:
 
 | Module       | Command                                    | Frame                   | Purpose                                                 |
 |--------------|--------------------------------------------|-------------------------|---------------------------------------------------------|
