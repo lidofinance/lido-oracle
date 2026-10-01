@@ -305,9 +305,6 @@ class BeaconStateView(Nested, FromResponse):
     @cached_property
     def indexed_validators(self) -> list[Validator]:
         """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor.
-
-        `balances` stays raw: code modelling the spec's next transition reads it directly.
-        Builder entries carry BUILDER_INDEX_FLAG and match no validator.
         """
         in_flight: defaultdict[int, Gwei] = defaultdict(lambda: Gwei(0))
         for withdrawal in self.payload_expected_withdrawals:
