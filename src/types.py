@@ -76,6 +76,7 @@ class BlockStamp:
     block_hash: BlockHash
     block_number: BlockNumber
     block_timestamp: Timestamp
+    epoch_number: EpochNumber
 
 
 @dataclass(frozen=True)
@@ -98,8 +99,8 @@ class ReferenceBlockStamp(BlockStamp):
     still the last one applied. Revealed, it would have been slot 3's own execution block.
 
     `slot_number` therefore exceeds `ref_slot` and addresses a different block than `block_number`.
-    Ref slots are the last slot of an epoch, so `epoch_of(slot_number)` is normally `ref_epoch + 1`:
-    read `ref_epoch` for the report's epoch, never `slot_number`.
+    Ref slots are the last slot of an epoch, so `epoch_number` (the epoch of `slot_number`) is normally
+    `ref_epoch + 1`: read `ref_epoch` for the report's epoch and `epoch_number` for the state's.
 
     Before EIP-7732 all three are one block, falling back to the last non-missed slot at or before
     `ref_slot`.

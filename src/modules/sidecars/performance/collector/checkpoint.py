@@ -380,6 +380,7 @@ class FrameCheckpointProcessor:
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
             ),
+            self.converter.chain_config.slots_per_epoch,
             self.el,
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)

@@ -134,6 +134,7 @@ class TestTreeEncoder:
             block_timestamp=Timestamp(1234),
             ref_slot=SlotNumber(123450),
             ref_epoch=EpochNumber(123451),
+            epoch_number=EpochNumber(123451),
         )
 
         # Act
@@ -144,6 +145,7 @@ class TestTreeEncoder:
             'block_hash': '0xabc123',
             'block_number': 789654,
             'block_timestamp': 1234,
+            'epoch_number': 123451,
             'ref_epoch': 123451,
             'ref_slot': 123450,
             'slot_number': 123456,
@@ -180,6 +182,7 @@ class TestDumpedTreeAndPublish:
             block_timestamp=Timestamp(123456),
             ref_slot=SlotNumber(9),
             ref_epoch=EpochNumber(1),
+            epoch_number=EpochNumber(1),
         )
 
         return vaults, vaults_total_values, vaults_fees, vaults_slashing_reserve, bs

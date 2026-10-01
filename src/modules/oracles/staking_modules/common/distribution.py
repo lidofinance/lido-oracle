@@ -126,7 +126,7 @@ class Distribution:
         return get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=self.converter.get_epoch_last_slot(frame_ref_epoch),
-            ref_epoch=frame_ref_epoch,
+            slots_per_epoch=self.converter.chain_config.slots_per_epoch,
             last_finalized_slot_number=blockstamp.slot_number,
             el=self.w3.eth,
         )

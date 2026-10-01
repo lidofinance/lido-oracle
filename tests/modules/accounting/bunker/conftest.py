@@ -13,11 +13,13 @@ from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlock
 
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
-    return ReferenceBlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number)
+    return ReferenceBlockStamp(
+        f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number, block_number
+    )
 
 
 def simple_blockstamp(block_number: int) -> BlockStamp:
-    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0)
+    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -89,7 +91,7 @@ def mock_get_blockstamp(monkeypatch):
         }
         return slots[slot]
 
-    def _get_reference_blockstamp(_cc, ref_slot, last_finalized_slot_number, ref_epoch, el=None):
+    def _get_reference_blockstamp(_cc, ref_slot, last_finalized_slot_number, slots_per_epoch, el=None):
         slots = {
             0: simple_ref_blockstamp(0),
             10: simple_ref_blockstamp(10),

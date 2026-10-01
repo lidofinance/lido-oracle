@@ -10,8 +10,9 @@ from src.metrics.prometheus.basic import ORACLE_BLOCK_NUMBER, ORACLE_SLOT_NUMBER
 from src.providers.consensus.client import ConsensusClient, LiteralState
 from src.providers.consensus.types import BlockDetailsResponse, ExecutionPayload
 from src.providers.execution.exceptions import InconsistentData
-from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber
+from src.types import BlockHash, BlockStamp, ReferenceBlockStamp, SlotNumber
 from src.utils.slot import get_next_non_missed_slot, get_prev_non_missed_slot
+from src.utils.web3converter import epoch_from_slot
 
 
 logger = logging.getLogger(__name__)
@@ -30,47 +31,47 @@ def get_blockstamp(
     logger.info({'msg': f'Get Blockstamp for slot: {slot}'})
     anchor = _resolve_anchor_block(cc, slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
-    return build_blockstamp(anchor, el)
+    return build_blockstamp(anchor, cc.get_config_spec().SLOTS_PER_EPOCH, el)
 
 
 def get_reference_blockstamp(
     cc: ConsensusClient,
     ref_slot: SlotNumber,
     last_finalized_slot_number: SlotNumber,
-    ref_epoch: EpochNumber,
+    slots_per_epoch: int,
     el: Eth,
 ) -> ReferenceBlockStamp:
     logger.info({'msg': f'Get Reference Blockstamp for ref slot: {ref_slot}'})
     anchor = _resolve_anchor_block(cc, ref_slot, last_finalized_slot_number)
     logger.info({'msg': f'Resolved to slot: {anchor.message.slot}'})
-    return build_reference_blockstamp(anchor, ref_slot, ref_epoch, el)
+    return build_reference_blockstamp(anchor, ref_slot, slots_per_epoch, el)
 
 
 def get_blockstamp_by_state(cc: ConsensusClient, state: LiteralState, el: Eth) -> BlockStamp:
     """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot"""
     block_root = cc.get_block_root(state).root
     block_details = cc.get_block_details(block_root)
-    bs = build_blockstamp(block_details, el)
+    bs = build_blockstamp(block_details, cc.get_config_spec().SLOTS_PER_EPOCH, el)
     logger.info({'msg': f'Fetch {state} blockstamp.', 'value': asdict(bs)})
     ORACLE_SLOT_NUMBER.labels(state).set(bs.slot_number)
     ORACLE_BLOCK_NUMBER.labels(state).set(bs.block_number)
     return bs
 
 
-def build_blockstamp(slot_details: BlockDetailsResponse, el: Eth) -> BlockStamp:
-    return BlockStamp(**_get_base_fields(slot_details, el))
+def build_blockstamp(slot_details: BlockDetailsResponse, slots_per_epoch: int, el: Eth) -> BlockStamp:
+    return BlockStamp(**_get_base_fields(slot_details, slots_per_epoch, el))
 
 
 def build_reference_blockstamp(
     slot_details: BlockDetailsResponse,
     ref_slot: SlotNumber,
-    ref_epoch: EpochNumber,
+    slots_per_epoch: int,
     el: Eth,
 ) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
-        **_get_base_fields(slot_details, el),
+        **_get_base_fields(slot_details, slots_per_epoch, el),
         ref_slot=ref_slot,
-        ref_epoch=ref_epoch,
+        ref_epoch=epoch_from_slot(ref_slot, slots_per_epoch),
     )
 
 
@@ -107,9 +108,10 @@ def _get_block_at_or_before(
     return block
 
 
-def _get_base_fields(slot_details: BlockDetailsResponse, el: Eth) -> dict:
+def _get_base_fields(slot_details: BlockDetailsResponse, slots_per_epoch: int, el: Eth) -> dict:
     return {
         "slot_number": slot_details.message.slot,
+        "epoch_number": epoch_from_slot(slot_details.message.slot, slots_per_epoch),
         "state_root": slot_details.message.state_root,
         **_get_el_fields(slot_details, el),
     }

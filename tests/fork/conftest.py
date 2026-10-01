@@ -245,7 +245,7 @@ def blockstamp_for_forking(
         slot_to_fork,
         real_finalized_slot,
     )
-    blockstamp = build_blockstamp(existing, Web3(real_el_client).eth)
+    blockstamp = build_blockstamp(existing, real_cl_client.get_config_spec().SLOTS_PER_EPOCH, Web3(real_el_client).eth)
     logger.info(f"TESTRUN Blockstamp to fork: {blockstamp}")
     return blockstamp
 

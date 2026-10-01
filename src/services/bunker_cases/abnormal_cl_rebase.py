@@ -12,7 +12,7 @@ from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import BlockNumber, BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
 from src.utils.types import hex_str_to_bytes
@@ -383,7 +383,7 @@ class AbnormalClRebase:
         return get_reference_blockstamp(
             self.w3.cc,
             last_report_ref_slot,
-            ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
+            slots_per_epoch=self.c_conf.slots_per_epoch,
             last_finalized_slot_number=ref_blockstamp.slot_number,
             el=self.w3.eth,
         )

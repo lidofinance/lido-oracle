@@ -39,7 +39,12 @@ def _post_fork_details(slot: int, parent_block_hash: str | None = ANCHOR_HASH):
 
 def _cc(*, gloas: bool, **kwargs) -> Mock:
     """A consensus client whose fork gate answers `gloas` for every slot."""
-    return Mock(is_gloas_slot=Mock(return_value=gloas), is_gloas_epoch=Mock(return_value=gloas), **kwargs)
+    return Mock(
+        is_gloas_slot=Mock(return_value=gloas),
+        is_gloas_epoch=Mock(return_value=gloas),
+        get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=32)),
+        **kwargs,
+    )
 
 
 @pytest.fixture
@@ -55,7 +60,7 @@ class TestExecutionAnchorResolution:
         payload = details.message.body.execution_payload
 
         # Act
-        bs = build_blockstamp(details, el)
+        bs = build_blockstamp(details, 32, el)
 
         # Assert: identical to the legacy behavior, the execution client is never consulted.
         assert bs.block_hash == add_0x_prefix(payload.block_hash)
@@ -69,7 +74,7 @@ class TestExecutionAnchorResolution:
         details = _post_fork_details(slot=100)
 
         # Act
-        bs = build_blockstamp(details, el)
+        bs = build_blockstamp(details, 32, el)
 
         # Assert
         assert bs.slot_number == SlotNumber(100)
@@ -85,7 +90,7 @@ class TestExecutionAnchorResolution:
 
         # Act / Assert
         with pytest.raises(MissingExecutionAnchor):
-            build_blockstamp(details, el)
+            build_blockstamp(details, 32, el)
 
 
 @pytest.mark.unit
@@ -109,7 +114,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=True),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 
@@ -119,6 +124,25 @@ class TestAnchorBlockSelection:
         assert bs.slot_number == SlotNumber(101)
         assert bs.state_root == nxt.return_value.message.state_root
         assert bs.block_hash == add_0x_prefix(ANCHOR_HASH)
+
+    def test_get_reference_blockstamp__post_fork_child_in_next_epoch__epoch_number_follows_child(self, el, resolvers):
+        # Arrange: ref_slot 95 is the last slot of epoch 2, its child is the first slot of epoch 3.
+        prev, nxt = resolvers
+        prev.return_value = _post_fork_details(slot=95)
+        nxt.return_value = _post_fork_details(slot=96)
+
+        # Act
+        bs = get_reference_blockstamp(
+            _cc(gloas=True),
+            ref_slot=SlotNumber(95),
+            last_finalized_slot_number=SlotNumber(200),
+            slots_per_epoch=32,
+            el=el,
+        )
+
+        # Assert
+        assert bs.ref_epoch == EpochNumber(2)
+        assert bs.epoch_number == EpochNumber(3)
 
     def test_get_reference_blockstamp__pre_fork__built_from_last_block_at_or_before_ref_slot(self, el, resolvers):
         # Arrange: the block at (or before) ref_slot embeds its execution payload.
@@ -130,7 +154,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=False),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 
@@ -167,7 +191,7 @@ class TestAnchorBlockSelection:
             _cc(gloas=True),
             ref_slot=SlotNumber(99),
             last_finalized_slot_number=SlotNumber(200),
-            ref_epoch=EpochNumber(3),
+            slots_per_epoch=32,
             el=el,
         )
 
@@ -197,7 +221,10 @@ class TestAnchorBlockSelection:
     def test_get_blockstamp_by_state__post_fork_head__anchors_on_own_bid(self, el):
         # Arrange: the chain tip has no child, so it is its own anchor block.
         details = _post_fork_details(slot=100)
-        cc = Mock(get_block_details=Mock(return_value=details))
+        cc = Mock(
+            get_block_details=Mock(return_value=details),
+            get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=32)),
+        )
 
         # Act
         bs = get_blockstamp_by_state(cc, 'head', el)

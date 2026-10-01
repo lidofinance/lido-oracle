@@ -20,6 +20,7 @@ def get_blockstamp_by_state(w3, state_id) -> ReferenceBlockStamp:
         block_timestamp=Timestamp(slot_details.message.body.execution_payload.timestamp),
         ref_slot=SlotNumber(int(slot_details.message.slot)),
         ref_epoch=EpochNumber(int(int(slot_details.message.slot) / 12)),
+        epoch_number=EpochNumber(int(int(slot_details.message.slot) / 12)),
     )
 
 
