@@ -164,7 +164,10 @@ def test_get_member_info_no_member_account(consensus, set_not_member_account, ca
     assert isinstance(member_info, MemberInfo)
     assert not member_info.is_report_member
     assert not member_info.is_submit_member
-    assert "is not part of Oracle's members and has no submit role" in caplog.text
+    assert "is not a HashConsensus member and has no submit role at this block" in caplog.text
+    assert "it will be re-resolved on the next cycle" in caplog.text
+    assert '0x25F76608A3FbC9C75840E070e3c285ce1732F834' in caplog.text
+    assert bs.block_hash in caplog.text
 
 
 @pytest.mark.unit
