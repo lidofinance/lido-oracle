@@ -534,6 +534,11 @@ class StakingVaultsService:
         new_fee = liquidity_fee
 
         if isinstance(event, VaultFeesUpdatedEvent):
+            if event.liquidity_fee_bp != liquidity_fee:
+                raise InconsistentData(
+                    f'VaultFeesUpdated for vault {vault_address} sets liquidity fee {event.liquidity_fee_bp}, '
+                    f'expected {liquidity_fee}'
+                )
             new_fee = event.pre_liquidity_fee_bp
         elif isinstance(event, MintedSharesOnVaultEvent):
             shares_delta = -event.amount_of_shares
