@@ -1848,10 +1848,10 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
 def test_distribution__validator_slashed_only_in_child_state__counted_without_strike(monkeypatch):
     module_address = to_checksum_address("0x" + "11" * 20)
     frame = (EpochNumber(0), EpochNumber(31))
-    reference = ReferenceBlockStampFactory.build(slot_number=101, ref_slot=99, ref_epoch=EpochNumber(3))
+    reference = ReferenceBlockStampFactory.build(slot_number=1025, ref_slot=1023, ref_epoch=EpochNumber(31))
     monkeypatch.setattr(
         "src.modules.oracles.staking_modules.common.distribution.get_prev_non_missed_slot",
-        Mock(return_value=BlockDetailsResponseFactory.build(message={"slot": 99})),
+        Mock(return_value=BlockDetailsResponseFactory.build(message={"slot": 1023})),
     )
 
     pubkey = ValidatorStateFactory.build().pubkey
@@ -1861,7 +1861,7 @@ def test_distribution__validator_slashed_only_in_child_state__counted_without_st
     in_child = ValidatorFactory.build(
         index=ValidatorIndex(7), validator=ValidatorStateFactory.build(pubkey=pubkey, slashed=True)
     )
-    validators_by_slot = {99: [at_ref_slot], 101: [in_child]}
+    validators_by_slot = {1023: [at_ref_slot], 1025: [in_child]}
 
     w3 = Mock(
         spec=Web3StakingModule,
