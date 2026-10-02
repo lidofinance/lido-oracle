@@ -14,6 +14,7 @@ from web3_multi_provider import metrics as w3_metrics
 from src import variables
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
 from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
@@ -302,6 +303,48 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
     assert line['digest'] == digest_of(state)
     assert line['state_root'] == bs.state_root
     assert line['slot'] == 42
+
+
+def _validator_response(index: int) -> requests.Response:
+    resp = requests.Response()
+    resp.status_code = 200
+    resp._content = json.dumps(
+        {
+            'data': {
+                'index': str(index),
+                'balance': '32000000000',
+                'status': 'active_ongoing',
+                'validator': {
+                    'pubkey': '0x' + '11' * 48,
+                    'withdrawal_credentials': '0x01' + '00' * 31,
+                    'effective_balance': '32000000000',
+                    'slashed': False,
+                    'activation_eligibility_epoch': '0',
+                    'activation_epoch': '0',
+                    'exit_epoch': '18446744073709551615',
+                    'withdrawable_epoch': '18446744073709551615',
+                },
+            }
+        }
+    ).encode()
+    return resp
+
+
+@pytest.mark.unit
+def test_get_validator_state__index_matches_request__returns_validator(consensus_client: ConsensusClient):
+    consensus_client.session.get = Mock(return_value=_validator_response(index=7))
+
+    validator = consensus_client.get_validator_state(SlotNumber(0), 7)
+
+    assert validator.index == 7
+
+
+@pytest.mark.unit
+def test_get_validator_state__index_differs_from_request__raises(consensus_client: ConsensusClient):
+    consensus_client.session.get = Mock(return_value=_validator_response(index=8))
+
+    with pytest.raises(InconsistentData):
+        consensus_client.get_validator_state(SlotNumber(0), 7)
 
 
 @pytest.mark.unit
