@@ -87,6 +87,24 @@ def simple_validators(
             False,
         ),
         (
+            # midterm penalty is due in the reference epoch, so it is not applied in the reference state yet
+            simple_blockstamp(4096 * 32 + 31),
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            [*([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 50))],
+            199 * 10**9,
+            True,
+        ),
+        (
+            # midterm penalty was due in the epoch before the reference one, so it is already applied
+            simple_blockstamp(4097 * 32 + 31),
+            [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
+            simple_validators(1000, 1049, slashed=True),
+            [*([32 * 10**9] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 50))],
+            199 * 10**9,
+            False,
+        ),
+        (
             # one day since last report, penalty greater than report rebase
             simple_blockstamp(225 * 32),  # 8160
             [*simple_validators(0, 999), *simple_validators(1000, 1049, slashed=True)],
@@ -192,6 +210,18 @@ def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
             225,
             simple_validators(0, 9, slashed=True),
             {18: simple_validators(0, 9, slashed=True)},
+        ),
+        (
+            # midterm epoch is the reference epoch: the penalty is still pending
+            4096,
+            simple_validators(0, 9, slashed=True),
+            {18: simple_validators(0, 9, slashed=True)},
+        ),
+        (
+            # midterm epoch is right before the reference epoch: the penalty is already applied
+            4097,
+            simple_validators(0, 9, slashed=True),
+            {},
         ),
         (
             # midterm frames in past
