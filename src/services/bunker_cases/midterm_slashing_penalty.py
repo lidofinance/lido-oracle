@@ -145,8 +145,10 @@ class MidtermSlashingPenalty:
                 # We need only slashed validators
                 continue
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
-            if midterm_penalty_epoch <= ref_epoch:
-                # We need midterm penalties only from future frames
+            if midterm_penalty_epoch < ref_epoch:
+                # We need only midterm penalties which are not applied in the reference state yet.
+                # `process_slashings` runs in the epoch transition at the end of the midterm penalty epoch,
+                # so the penalty due in `ref_epoch` is still pending at the reference slot.
                 continue
             frame_number = web3_converter.get_frame_by_epoch(midterm_penalty_epoch)
             buckets[frame_number].append(validator)
