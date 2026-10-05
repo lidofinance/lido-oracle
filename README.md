@@ -87,7 +87,7 @@ Work is divided into frames (~5 hours / 45 epochs):
 
 Collects and reports validator attestation rate for node operators. Handles publishing metadata to IPFS for the Staking Module.
 
-Work is divided into frames (~28 days / 6300 epochs):
+Work is divided into frames, each module's HashConsensus sets its own length (on mainnet: ~28 days / 6300 epochs for CSM, ~14 days / 3150 epochs for CM):
 - **Data collection**: Processes new epochs and collects attestations.
 - **IPFS data submission**: Uploads report and full logs to IPFS.
 - **Update report**: Submits report to the CSFeeOracle contract.
