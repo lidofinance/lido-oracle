@@ -12,7 +12,7 @@ Five oracle modules, each with its own reporting frame:
 | `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs         | Validator exit requests to fund withdrawals             |
 | `csm`        | `make run-module ORACLE_MODULE=csm`        | ~28 days / 6300 epoches | Community Staking Module oracle                         |
 | `csm_0x02`   | `make run-module ORACLE_MODULE=csm_0x02`   | ~28 days / 6300 epoches | Community Staking Module 0x02 oracle                    |
-| `cm`         | `make run-module ORACLE_MODULE=cm`         | ~28 days / 6300 epoches | Curated Module V2 oracle                                |
+| `cm`         | `make run-module ORACLE_MODULE=cm`         | ~14 days / 3150 epochs  | Curated Module V2 oracle                                |
 
 Sidecars: `performance_collector`, `performance_web_server`
 
