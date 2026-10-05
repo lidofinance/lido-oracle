@@ -95,7 +95,7 @@ class OracleModule[W3: Web3Base](DaemonModule, ConsensusModule[W3], ABC):
         except KeysOutdatedException as error:
             logger.error({'msg': 'Keys API service returns outdated data.', 'error': str(error)})
         except Web3Exception as error:
-            logger.error({'msg': 'Web3py exception.', 'error': str(error)})
+            logger.error({'msg': 'Web3py exception.', 'error': ''.join(traceback.format_exception(error))})
         except IPFSError as error:
             logger.error({'msg': 'IPFS provider error.', 'error': str(error)})
         except ValueError as error:
