@@ -12,6 +12,7 @@ from src.modules.oracles.accounting.types import (
     VaultInfo,
 )
 from src.providers.execution.base_interface import ContractInterface
+from src.providers.execution.exceptions import InconsistentData
 from src.utils.abi import named_tuple_to_dataclass
 from src.utils.cache import global_lru_cache as lru_cache
 
@@ -113,6 +114,10 @@ class LazyOracleContract(ContractInterface):
             vaults.extend(batch)
             offset += variables.VAULT_PAGINATION_LIMIT
 
+        unique_count = len({vault.vault for vault in vaults})
+        if unique_count != total_count:
+            raise InconsistentData(f'Expected {total_count} unique vaults, got {unique_count}')
+
         return vaults
 
     def get_validator_statuses(
@@ -139,6 +144,9 @@ class LazyOracleContract(ContractInterface):
                 }
             )
 
+            if len(response) != len(batch):
+                raise InconsistentData(f'Expected {len(batch)} validator statuses, got {len(response)}')
+
             out.update(
                 {
                     pk.to_0x_hex(): ValidatorStatus(
@@ -146,7 +154,7 @@ class LazyOracleContract(ContractInterface):
                         staking_vault=status.stakingVault,
                         node_operator=status.nodeOperator,
                     )
-                    for pk, status in zip(batch, response, strict=False)
+                    for pk, status in zip(batch, response, strict=True)
                 }
             )
 
