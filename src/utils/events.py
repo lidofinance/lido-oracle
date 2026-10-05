@@ -24,12 +24,6 @@ def get_events_in_past(
     """
     Events emitted in the `for_slots` slots preceding the report's reference slot.
 
-    The cutoff is the reference slot's own time, so it does not depend on which block the blockstamp
-    physically stands on: pre-EIP-7732 that is the last non-missed slot at or before `ref_slot`,
-    after it the reference slot's child. Events carry timestamps on the same grid — the accounting
-    report timestamp is `GENESIS_TIME + refSlot * SECONDS_PER_SLOT` on the contract side, and an
-    execution block's timestamp is its own slot's.
-
     The block range is only a coarse pre-filter for the node query. Execution blocks advance at most
     once per slot, so stepping back as many blocks as there are slots in the window always reaches
     past the cutoff; the timestamp comparison below is what actually bounds the result.
