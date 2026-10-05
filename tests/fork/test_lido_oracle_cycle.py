@@ -7,6 +7,12 @@ from src.utils.range import sequence
 from tests.fork.conftest import first_slot_of_epoch
 
 
+# The first frame's ref slot is the last slot before the initial epoch. `simulateOracleReport` reads
+# `Lido.getBalanceStats()`, which calls `AccountingOracle.getCurrentFrame()`, and HashConsensus reverts
+# with `InitialEpochIsYetToArrive()` at any block before the initial epoch.
+FIRST_FRAME_SIMULATION_REVERTS = pytest.mark.skip(reason="accounting cannot simulate a report for the first frame")
+
+
 @pytest.fixture()
 def hash_consensus_bin():
     with open('tests/fork/contracts/lido/HashConsensus_bin') as f:
@@ -47,16 +53,18 @@ def missed_initial_frame(frame_config: FrameConfig):
 @pytest.mark.fork
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    'module',
-    [accounting_module, ejector_module],
+    ('module', 'running_finalized_slots'),
+    [
+        pytest.param(accounting_module, start_before_initial_epoch, marks=FIRST_FRAME_SIMULATION_REVERTS),
+        pytest.param(accounting_module, start_after_initial_epoch, marks=FIRST_FRAME_SIMULATION_REVERTS),
+        (accounting_module, missed_initial_frame),
+        (ejector_module, start_before_initial_epoch),
+        (ejector_module, start_after_initial_epoch),
+        (ejector_module, missed_initial_frame),
+    ],
     indirect=True,
 )
-@pytest.mark.parametrize(
-    'running_finalized_slots',
-    [start_before_initial_epoch, start_after_initial_epoch, missed_initial_frame],
-    indirect=True,
-)
-def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from):
+def test_lido_module_report(module, set_oracle_members, running_finalized_slots, account_from, signer_from):
     # Skip if consensus version is different
     current_consensus_version = module.report_contract.get_consensus_version('latest')
     if current_consensus_version != module.COMPATIBLE_CONSENSUS_VERSION:
@@ -73,7 +81,7 @@ def test_lido_module_report(module, set_oracle_members, running_finalized_slots,
     switch_finalized, _ = running_finalized_slots
     while switch_finalized():
         for _, private_key in members:
-            with account_from(private_key):
+            with account_from(private_key) as account, signer_from(account):
                 module.cycle_handler()
         report_frame = module.get_initial_or_current_frame(
             module._receive_last_finalized_slot()  # pylint: disable=protected-access

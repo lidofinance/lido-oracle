@@ -45,6 +45,7 @@ from src.web3py.extensions import (
     LidoValidatorsProvider,
     TransactionUtils,
 )
+from src.web3py.extensions.signer import SignerModule
 from src.web3py.extensions.staking_module import StakingModuleContracts
 
 
@@ -153,7 +154,32 @@ def account_from(monkeypatch):
                 Account.from_key(private_key=pk),
             )
             logger.info(f"TESTRUN Switched to ACCOUNT {variables.ACCOUNT.address}")
+            yield variables.ACCOUNT
+
+    return _use
+
+
+@pytest.fixture
+def signer_from(web3):
+    """Rebuild the signer for the given accounts.
+
+    Production resolves the signer once at startup from variables.ACCOUNT/ACCOUNT_2, so
+    patching those mid-test changes nothing. Fork tests drive several members from one
+    process, hence a fresh signer per cycle.
+    """
+
+    @contextmanager
+    def _use(account=None, account_2=None, delegation_contract_address=None):
+        accounts = [candidate for candidate in (account, account_2) if candidate is not None]
+        previous = getattr(web3, 'signer', None)
+        web3.signer = SignerModule(web3, accounts, delegation_contract_address)
+        try:
             yield
+        finally:
+            if previous is None:
+                del web3.signer
+            else:
+                web3.signer = previous
 
     return _use
 
@@ -308,6 +334,9 @@ def web3(forked_el_client, patched_cl_client, mocked_ipfs_client):
             'cc': lambda: patched_cl_client,  # type: ignore[dict-item]
             'kac': lambda: kac,  # type: ignore[dict-item]
             'ipfs': lambda: mocked_ipfs_client,
+            # Telemetry is covered by test_telemetry_data_bus; a stub keeps the report path
+            # from logging a failed DataBus send on every cycle.
+            'telemetry_data_bus': lambda: Mock(),
         }
     )
     yield forked_el_client

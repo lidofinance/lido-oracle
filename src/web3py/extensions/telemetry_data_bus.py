@@ -125,12 +125,13 @@ class TelemetryDataBus(Module):
         tx = self._contract.send_message(event_id.value, payload)
         tx_hash = self._send_telemetry(tx, self._data_bus_w3, variables.TELEMETRY_ACCOUNT)
 
-        logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
+        if tx_hash:
+            logger.info({'msg': 'DataBus telemetry sent.', 'tx_hash': tx_hash.hex(), 'module': self._module_name})
 
         self.update_telemetry_account_balance_metric()
         return tx_hash
 
-    def _send_telemetry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes:
+    def _send_telemetry(self, tx: ContractFunction, w3: Web3, account: LocalAccount) -> bytes | None:
         deadline = time.monotonic() + variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS
         tx_hash: bytes | None = None
         nonce: int | None = None
@@ -167,7 +168,16 @@ class TelemetryDataBus(Module):
             time.sleep(_POLL_INTERVAL_SECONDS)
 
         if tx_hash:
-            return tx_hash
+            # The transaction was broadcast but not confirmed within the time budget.
+            # Telemetry is fire-and-forget, so we do not wait or retry.
+            logger.warning(
+                {
+                    'msg': 'DataBus telemetry transaction was not confirmed within '
+                    f'{variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s.',
+                    'tx_hash': HexBytes(tx_hash).hex(),
+                }
+            )
+            return None
 
         raise TelemetrySendTimeoutError(
             f"Timed out sending DataBus telemetry transaction after {variables.TELEMETRY_TX_SEND_TIMEOUT_SECONDS}s."
