@@ -23,6 +23,7 @@ from src.modules.oracles.staking_modules.common.distribution import (
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
 from src.modules.oracles.staking_modules.common.types import StrikesList
+from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
     CurveParams,
@@ -34,7 +35,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KAPIInconsistentData
-from src.types import BlockStamp, EpochNumber, NodeOperatorId, SlotNumber, ValidatorIndex
+from src.types import BlockHash, BlockStamp, EpochNumber, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
@@ -1290,39 +1291,45 @@ def test_get_frame_state_blockstamp__pre_gloas_ref_slot__returned_as_is(monkeypa
 
 @pytest.mark.unit
 def test_get_frame_state_blockstamp__gloas_ref_slot__built_from_last_block_at_or_before_ref_slot(monkeypatch):
-    reference = ReferenceBlockStampFactory.build(slot_number=101, ref_slot=99)
-    block = BlockDetailsResponseFactory.build(message={"slot": 99})
-    payload = block.message.body.execution_payload
+    reference = ReferenceBlockStampFactory.build(slot_number=128, ref_slot=127)
+    block = BlockDetailsResponseFactory.build(message={"slot": 127})
+    block.message.body.execution_payload = None
+    bid = SignedExecutionPayloadBid(message=ExecutionPayloadBid(parent_block_hash=BlockHash("0xaaaa")))
+    block.message.body.signed_execution_payload_bid = bid
     prev = Mock(return_value=block)
     monkeypatch.setattr("src.modules.oracles.staking_modules.common.distribution.get_prev_non_missed_slot", prev)
-    w3 = Mock(cc=Mock(is_gloas_slot=Mock(return_value=True)), eth=Mock())
+    w3 = Mock(
+        cc=Mock(is_gloas_slot=Mock(return_value=True)),
+        eth=Mock(get_block=Mock(return_value={"number": 999, "timestamp": 424242})),
+    )
     distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=make_state())
 
     bs = distribution._get_frame_state_blockstamp(reference)
 
-    prev.assert_called_once_with(w3.cc, SlotNumber(99), SlotNumber(101))
+    prev.assert_called_once_with(w3.cc, SlotNumber(127), SlotNumber(128))
+    w3.eth.get_block.assert_called_once_with(bid.message.parent_block_hash)
     assert type(bs) is BlockStamp
-    assert bs.slot_number == SlotNumber(99)
+    assert bs.slot_number == SlotNumber(127)
     assert bs.state_root == block.message.state_root
-    assert bs.block_hash == add_0x_prefix(payload.block_hash)
+    assert bs.block_hash == add_0x_prefix(bid.message.parent_block_hash)
+    assert bs.block_number == 999
+    assert bs.block_timestamp == 424242
 
 
 @pytest.mark.unit
 def test_get_frame_state_blockstamp__missed_first_gloas_ref_slot__uses_pre_fork_parent():
-    # ref_slot 99 is the first Gloas slot and is missed, so its child 100 points back at the pre-fork block
-    # at slot 98, which embeds its execution payload.
     parent_root = "0xparent"
-    pre_fork_details = BlockDetailsResponseFactory.build(message={"slot": 98})
+    pre_fork_details = BlockDetailsResponseFactory.build(message={"slot": 95})
     payload = pre_fork_details.message.body.execution_payload
     child_header = BlockHeaderFullResponseFactory.build(
-        data={"header": {"message": {"slot": 100, "parent_root": parent_root}}}
+        data={"header": {"message": {"slot": 128, "parent_root": parent_root}}}
     )
-    parent_header = BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 98}}})
+    parent_header = BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 95}}})
 
     def get_block_header(state_id):
-        if state_id == SlotNumber(99):
+        if state_id in range(96, 128):
             raise NotOkResponse("missed", status=HTTPStatus.NOT_FOUND, text="not found")
-        return {SlotNumber(100): child_header, parent_root: parent_header}[state_id]
+        return {SlotNumber(128): child_header, parent_root: parent_header}[state_id]
 
     w3 = Mock(
         cc=Mock(
@@ -1332,13 +1339,13 @@ def test_get_frame_state_blockstamp__missed_first_gloas_ref_slot__uses_pre_fork_
         ),
         eth=Mock(),
     )
-    reference = ReferenceBlockStampFactory.build(slot_number=100, ref_slot=99)
+    reference = ReferenceBlockStampFactory.build(slot_number=128, ref_slot=127)
     distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=make_state())
 
     bs = distribution._get_frame_state_blockstamp(reference)
 
     w3.cc.get_block_details.assert_called_once_with(parent_header.data.root)
-    assert bs.slot_number == SlotNumber(98)
+    assert bs.slot_number == SlotNumber(95)
     assert bs.state_root == pre_fork_details.message.state_root
     assert bs.block_hash == add_0x_prefix(payload.block_hash)
     assert bs.block_number == payload.block_number
@@ -1865,7 +1872,11 @@ def test_distribution__validator_slashed_only_in_child_state__counted_without_st
 
     w3 = Mock(
         spec=Web3StakingModule,
-        staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
+        staking_module=Mock(
+            spec=StakingModuleContracts,
+            module=Mock(address=module_address),
+            fee_distributor=Mock(shares_to_distribute=Mock(return_value=100)),
+        ),
         kac=Mock(),
         cc=Mock(get_validators=Mock(side_effect=lambda bs: validators_by_slot[bs.slot_number])),
         eth=Mock(),
@@ -1892,15 +1903,11 @@ def test_distribution__validator_slashed_only_in_child_state__counted_without_st
         )
     }
     distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=state)
-    log = FramePerfLog(reference, frame)
 
-    frame_validators = distribution._get_module_validators(reference)
-    rewards_map, distributed_rewards, rebate, strikes = distribution._calculate_distribution_in_frame(
-        frame, reference, 100, frame_validators, log
-    )
+    result = distribution.calculate(reference, Mock(strikes={}, rewards=[]))
 
-    assert strikes == {}
-    assert dict(rewards_map) == {NodeOperatorId(1): 100}
-    assert distributed_rewards == 100
-    assert rebate == 0
-    assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].slashed is False
+    assert result.strikes == {}
+    assert dict(result.total_rewards_map) == {NodeOperatorId(1): 100}
+    assert result.total_rewards == 100
+    assert result.total_rebate == 0
+    assert result.logs.frames[0].operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].slashed is False
