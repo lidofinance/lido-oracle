@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [8.2.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.2.0) - 2026-10
+
+### Added
+- `csm_0x02` oracle module for the Community Staking Module 0x02 instance. It uses the same member set as `csm` and `cm`, so the existing `MEMBER_PRIV_KEY` works. Set `STAKING_MODULE_ADDRESS` to the 0x02 module address (`CS_MODULE_0X02_ADDRESS` in `docker-compose.yml`).
+- `docker-compose.yml`: `csm-0x02-oracle` service, with a Prometheus scrape target and an availability alert in `docs/monitoring/`.
+
 ## [8.1.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.1.0) - 2026-09
 
 ### Execution Delegation Framework
