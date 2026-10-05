@@ -3,9 +3,9 @@ import sys
 import requests
 
 
-# Above any container-level healthcheck timeout (Dockerfile: 3s, compose: 10s),
+# Above any container-level healthcheck timeout (Dockerfile and compose: 30s),
 # so the Docker/compose `timeout` setting decides when the probe fails.
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 60.0
 
 
 def probe(url: str, timeout: float = DEFAULT_TIMEOUT) -> int:

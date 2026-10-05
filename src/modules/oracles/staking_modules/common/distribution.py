@@ -22,13 +22,15 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.client import KAPIInconsistentData
 from src.types import (
+    BlockStamp,
     EpochNumber,
     NodeOperatorId,
     ReferenceBlockStamp,
     StakingModuleAddress,
     ValidatorIndex,
 )
-from src.utils.slot import get_reference_blockstamp
+from src.utils.blockstamp import build_blockstamp, get_reference_blockstamp
+from src.utils.slot import get_prev_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3StakingModule
@@ -126,9 +128,18 @@ class Distribution:
         return get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=self.converter.get_epoch_last_slot(frame_ref_epoch),
-            ref_epoch=frame_ref_epoch,
+            slots_per_epoch=self.converter.chain_config.slots_per_epoch,
             last_finalized_slot_number=blockstamp.slot_number,
+            el=self.w3.eth,
         )
+
+    def _get_frame_state_blockstamp(self, blockstamp: ReferenceBlockStamp) -> BlockStamp:
+        # Since Gloas the reference blockstamp is ref_slot's child, whose state already belongs to the next frame,
+        # so validators must be read from the last block at or before ref_slot.
+        if not self.w3.cc.is_gloas_slot(blockstamp.ref_slot):
+            return blockstamp
+        block = get_prev_non_missed_slot(self.w3.cc, blockstamp.ref_slot, blockstamp.slot_number)
+        return build_blockstamp(block, self.converter.chain_config.slots_per_epoch, self.w3.eth)
 
     def _get_module_validators(self, blockstamp: ReferenceBlockStamp) -> dict[NodeOperatorId, list[LidoValidator]]:
         module_address = StakingModuleAddress(self.w3.staking_module.module.address)
@@ -144,7 +155,7 @@ class Distribution:
                 )
             no_validators[NodeOperatorId(int(operator['index']))] = []
 
-        validators = self.w3.cc.get_validators(blockstamp)
+        validators = self.w3.cc.get_validators(self._get_frame_state_blockstamp(blockstamp))
         keys = {k.key: k for k in kapi['keys']}
         for validator in validators:
             lido_key = keys.get(HexStr(validator.validator.pubkey))

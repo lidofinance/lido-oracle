@@ -1,4 +1,5 @@
 from eth_typing import BlockNumber, HexStr
+from polyfactory import PostGenerated
 from web3.types import Timestamp
 
 from src.types import BlockHash, BlockStamp, EpochNumber, ReferenceBlockStamp, SlotNumber, StateRoot
@@ -11,6 +12,7 @@ class BlockStampFactory(Web3DataclassFactory[BlockStamp]):
     block_hash: BlockHash = BlockHash(HexStr('0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b'))
     block_number: BlockNumber = BlockNumber(281479)
     block_timestamp: Timestamp = Timestamp(1678794852)
+    epoch_number: EpochNumber = PostGenerated(lambda _, values: EpochNumber(values['slot_number'] // 32))
 
 
 class ReferenceBlockStampFactory(Web3DataclassFactory[ReferenceBlockStamp]):
@@ -19,6 +21,7 @@ class ReferenceBlockStampFactory(Web3DataclassFactory[ReferenceBlockStamp]):
     block_hash: BlockHash = BlockHash(HexStr('0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b'))
     block_number: BlockNumber = BlockNumber(281479)
     block_timestamp: Timestamp = Timestamp(1678794852)
+    epoch_number: EpochNumber = PostGenerated(lambda _, values: EpochNumber(values['slot_number'] // 32))
 
     ref_slot: SlotNumber = SlotNumber(294271)
     ref_epoch: EpochNumber = EpochNumber(9195)

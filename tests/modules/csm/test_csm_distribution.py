@@ -1,9 +1,11 @@
 import math
 import re
 from collections import defaultdict
-from unittest.mock import Mock
+from http import HTTPStatus
+from unittest.mock import Mock, call
 
 import pytest
+from eth_utils import add_0x_prefix
 from eth_utils.address import to_checksum_address
 from hexbytes import HexBytes
 from web3.types import Wei
@@ -21,6 +23,7 @@ from src.modules.oracles.staking_modules.common.distribution import (
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, OperatorFrameSummary, ValidatorFrameSummary
 from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, NetworkDuties, State
 from src.modules.oracles.staking_modules.common.types import StrikesList
+from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid
 from src.providers.execution.contracts.cs_fee_distributor import CSFeeDistributorContract
 from src.providers.execution.contracts.cs_parameters_registry import (
     CurveParams,
@@ -30,11 +33,14 @@ from src.providers.execution.contracts.cs_parameters_registry import (
     StrikesParams,
 )
 from src.providers.execution.exceptions import InconsistentData
+from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KAPIInconsistentData
-from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
+from src.types import BlockHash, BlockStamp, EpochNumber, NodeOperatorId, SlotNumber, ValidatorIndex
 from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3StakingModule
-from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
+from tests.factory.configs import BlockDetailsResponseFactory
+from tests.factory.consensus import BlockHeaderFullResponseFactory
 from tests.factory.no_registry import LidoKeyFactory, LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
 
@@ -1223,7 +1229,7 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
         spec=Web3StakingModule,
         staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
         kac=Mock(),
-        cc=Mock(),
+        cc=Mock(is_gloas_slot=Mock(return_value=False)),
     )
     w3.kac.get_used_module_operators_keys.return_value = {
         "module": {"id": 1},
@@ -1236,6 +1242,115 @@ def test_get_module_validators_raises_for_key_module_address_mismatch():
 
     with pytest.raises(KAPIInconsistentData, match="Invalid key"):
         distribution._get_module_validators(blockstamp)
+
+
+@pytest.mark.unit
+def test_get_module_validators__reads_validators_from_frame_state_blockstamp():
+    module_address = to_checksum_address("0x" + "11" * 20)
+    reference = ReferenceBlockStampFactory.build(slot_number=101, ref_slot=99)
+    state_blockstamp = BlockStampFactory.build(slot_number=99)
+
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(spec=StakingModuleContracts, module=Mock(address=module_address)),
+        kac=Mock(),
+        cc=Mock(),
+    )
+    w3.kac.get_used_module_operators_keys.return_value = {
+        "module": {"id": 1},
+        "operators": [{"index": 1, "moduleAddress": module_address}],
+        "keys": [],
+    }
+    w3.cc.get_validators.return_value = []
+
+    distribution = Distribution(w3, converter=Mock(), state=make_state())
+    distribution._get_frame_state_blockstamp = Mock(return_value=state_blockstamp)
+
+    distribution._get_module_validators(reference)
+
+    distribution._get_frame_state_blockstamp.assert_called_once_with(reference)
+    w3.cc.get_validators.assert_called_once_with(state_blockstamp)
+    w3.kac.get_used_module_operators_keys.assert_called_once_with(module_address, reference)
+
+
+@pytest.mark.unit
+def test_get_frame_state_blockstamp__pre_gloas_ref_slot__returned_as_is(monkeypatch):
+    reference = ReferenceBlockStampFactory.build(slot_number=99, ref_slot=99)
+    prev = Mock()
+    monkeypatch.setattr("src.modules.oracles.staking_modules.common.distribution.get_prev_non_missed_slot", prev)
+    w3 = Mock(cc=Mock(is_gloas_slot=Mock(return_value=False)), eth=Mock())
+    distribution = Distribution(w3, converter=Mock(), state=make_state())
+
+    bs = distribution._get_frame_state_blockstamp(reference)
+
+    assert bs is reference
+    assert w3.cc.mock_calls == [call.is_gloas_slot(SlotNumber(99))]
+    assert w3.eth.mock_calls == []
+    prev.assert_not_called()
+
+
+@pytest.mark.unit
+def test_get_frame_state_blockstamp__gloas_ref_slot__built_from_last_block_at_or_before_ref_slot(monkeypatch):
+    reference = ReferenceBlockStampFactory.build(slot_number=128, ref_slot=127)
+    block = BlockDetailsResponseFactory.build(message={"slot": 127})
+    block.message.body.execution_payload = None
+    bid = SignedExecutionPayloadBid(message=ExecutionPayloadBid(parent_block_hash=BlockHash("0xaaaa")))
+    block.message.body.signed_execution_payload_bid = bid
+    prev = Mock(return_value=block)
+    monkeypatch.setattr("src.modules.oracles.staking_modules.common.distribution.get_prev_non_missed_slot", prev)
+    w3 = Mock(
+        cc=Mock(is_gloas_slot=Mock(return_value=True)),
+        eth=Mock(get_block=Mock(return_value={"number": 999, "timestamp": 424242})),
+    )
+    distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=make_state())
+
+    bs = distribution._get_frame_state_blockstamp(reference)
+
+    prev.assert_called_once_with(w3.cc, SlotNumber(127), SlotNumber(128))
+    w3.eth.get_block.assert_called_once_with(bid.message.parent_block_hash)
+    assert type(bs) is BlockStamp
+    assert bs.slot_number == SlotNumber(127)
+    assert bs.state_root == block.message.state_root
+    assert bs.block_hash == add_0x_prefix(bid.message.parent_block_hash)
+    assert bs.block_number == 999
+    assert bs.block_timestamp == 424242
+
+
+@pytest.mark.unit
+def test_get_frame_state_blockstamp__missed_first_gloas_ref_slot__uses_pre_fork_parent():
+    parent_root = "0xparent"
+    pre_fork_details = BlockDetailsResponseFactory.build(message={"slot": 95})
+    payload = pre_fork_details.message.body.execution_payload
+    child_header = BlockHeaderFullResponseFactory.build(
+        data={"header": {"message": {"slot": 128, "parent_root": parent_root}}}
+    )
+    parent_header = BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 95}}})
+
+    def get_block_header(state_id):
+        if state_id in range(96, 128):
+            raise NotOkResponse("missed", status=HTTPStatus.NOT_FOUND, text="not found")
+        return {SlotNumber(128): child_header, parent_root: parent_header}[state_id]
+
+    w3 = Mock(
+        cc=Mock(
+            is_gloas_slot=Mock(return_value=True),
+            get_block_header=Mock(side_effect=get_block_header),
+            get_block_details=Mock(return_value=pre_fork_details),
+        ),
+        eth=Mock(),
+    )
+    reference = ReferenceBlockStampFactory.build(slot_number=128, ref_slot=127)
+    distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=make_state())
+
+    bs = distribution._get_frame_state_blockstamp(reference)
+
+    w3.cc.get_block_details.assert_called_once_with(parent_header.data.root)
+    assert bs.slot_number == SlotNumber(95)
+    assert bs.state_root == pre_fork_details.message.state_root
+    assert bs.block_hash == add_0x_prefix(payload.block_hash)
+    assert bs.block_number == payload.block_number
+    assert bs.block_timestamp == payload.timestamp
+    w3.eth.get_block.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -1734,3 +1849,65 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].reward_share == 0.7
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].reward_share == 0.6
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].reward_share == 0.5
+
+
+@pytest.mark.unit
+def test_distribution__validator_slashed_only_in_child_state__counted_without_strike(monkeypatch):
+    module_address = to_checksum_address("0x" + "11" * 20)
+    frame = (EpochNumber(0), EpochNumber(31))
+    reference = ReferenceBlockStampFactory.build(slot_number=1025, ref_slot=1023, ref_epoch=EpochNumber(31))
+    monkeypatch.setattr(
+        "src.modules.oracles.staking_modules.common.distribution.get_prev_non_missed_slot",
+        Mock(return_value=BlockDetailsResponseFactory.build(message={"slot": 1023})),
+    )
+
+    pubkey = ValidatorStateFactory.build().pubkey
+    at_ref_slot = ValidatorFactory.build(
+        index=ValidatorIndex(7), validator=ValidatorStateFactory.build(pubkey=pubkey, slashed=False)
+    )
+    in_child = ValidatorFactory.build(
+        index=ValidatorIndex(7), validator=ValidatorStateFactory.build(pubkey=pubkey, slashed=True)
+    )
+    validators_by_slot = {1023: [at_ref_slot], 1025: [in_child]}
+
+    w3 = Mock(
+        spec=Web3StakingModule,
+        staking_module=Mock(
+            spec=StakingModuleContracts,
+            module=Mock(address=module_address),
+            fee_distributor=Mock(shares_to_distribute=Mock(return_value=100)),
+        ),
+        kac=Mock(),
+        cc=Mock(get_validators=Mock(side_effect=lambda bs: validators_by_slot[bs.slot_number])),
+        eth=Mock(),
+    )
+    w3.kac.get_used_module_operators_keys.return_value = {
+        "module": {"id": 1},
+        "operators": [{"index": 1, "moduleAddress": module_address}],
+        "keys": [LidoKeyFactory.build(key=pubkey, operator_index=NodeOperatorId(1), module_address=module_address)],
+    }
+    w3.staking_module.get_curve_params = Mock(
+        return_value=CurveParams(
+            strikes_params=...,
+            perf_leeway_data=Mock(get_for=Mock(return_value=0.1)),
+            reward_share_data=Mock(get_for=Mock(return_value=1)),
+            perf_coeffs=PerformanceCoefficients(),
+        )
+    )
+    state = State(*frame, epochs_per_frame=32)
+    state.data = {
+        frame: NetworkDuties(
+            attestations=defaultdict(DutyAccumulator, {ValidatorIndex(7): DutyAccumulator(assigned=10, included=10)}),
+            proposals=defaultdict(DutyAccumulator),
+            syncs=defaultdict(DutyAccumulator),
+        )
+    }
+    distribution = Distribution(w3, converter=Mock(chain_config=Mock(slots_per_epoch=32)), state=state)
+
+    result = distribution.calculate(reference, Mock(strikes={}, rewards=[]))
+
+    assert result.strikes == {}
+    assert dict(result.total_rewards_map) == {NodeOperatorId(1): 100}
+    assert result.total_rewards == 100
+    assert result.total_rebate == 0
+    assert result.logs.frames[0].operators[NodeOperatorId(1)].validators[ValidatorIndex(7)].slashed is False

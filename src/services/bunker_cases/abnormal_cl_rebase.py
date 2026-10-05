@@ -10,11 +10,12 @@ from web3.types import EventData, Wei
 from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
 from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import BlockNumber, BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
-from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
@@ -129,10 +130,10 @@ class AbnormalClRebase:
 
         nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
 
-        # dict preserves insertion order and deduplicates by block_number
+        # dict preserves insertion order and deduplicates by state_root
         for bs in {
-            nearest_blockstamp.block_number: nearest_blockstamp,
-            distant_blockstamp.block_number: distant_blockstamp,
+            nearest_blockstamp.state_root: nearest_blockstamp,
+            distant_blockstamp.state_root: distant_blockstamp,
         }.values():
             rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
             logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
@@ -155,10 +156,10 @@ class AbnormalClRebase:
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
         nearest_blockstamp = get_blockstamp(
-            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
         distant_blockstamp = get_blockstamp(
-            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -189,8 +190,8 @@ class AbnormalClRebase:
         Check for these events is enough to account for all withdrawals since the protocol assumes that
         the vault can only be withdrawn at the time of the Oracle report between reference slots.
         """
-        if prev_blockstamp.block_number == ref_blockstamp.block_number:
-            # Can't calculate rebase between the same block
+        if prev_blockstamp.state_root == ref_blockstamp.state_root:
+            # Can't calculate rebase between the same CL state
             return Gwei(0)
 
         (prev_lido_validators, _) = LidoValidatorsProvider.compute_lido_validators(
@@ -258,6 +259,16 @@ class AbnormalClRebase:
                 )
             }
         )
+
+        if prev_blockstamp.block_number > ref_blockstamp.block_number:
+            raise InconsistentData(
+                f"Previous sample execution block [{prev_blockstamp.block_number}] is after "
+                f"the reference execution block [{ref_blockstamp.block_number}]."
+            )
+
+        if prev_blockstamp.block_number == ref_blockstamp.block_number:
+            logger.info({"msg": "No execution blocks between samples. Vault withdrawals: 0 Gwei."})
+            return Gwei(0)
 
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
@@ -383,8 +394,9 @@ class AbnormalClRebase:
         return get_reference_blockstamp(
             self.w3.cc,
             last_report_ref_slot,
-            ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
+            slots_per_epoch=self.c_conf.slots_per_epoch,
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            el=self.w3.eth,
         )
 
     @staticmethod
