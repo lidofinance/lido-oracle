@@ -740,6 +740,60 @@ def test_get_active_lido_validators__handles_multiple_consolidations(web3):
     assert len(active_validators[1].consolidating_as_target) == 2
 
 
+@pytest.mark.unit
+def test_get_active_lido_validators__consolidation_amount_capped_by_effective_balance(web3):
+    """
+    The consolidation amount must be capped by the source validator's own current effective
+    balance, not by the protocol-wide max effective balance — e.g. right after a deposit, a
+    validator's effective balance can still lag its actual balance, and only the effective
+    balance is guaranteed to be swept.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    source, target = LidoValidatorFactory.batch(2)
+    source.validator.slashed = False
+    source.balance = Gwei(30 * _GWEI)
+    source.validator.effective_balance = Gwei(28 * _GWEI)  # below both the balance and MAX_EFFECTIVE_BALANCE
+
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([source, target], []))
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._validate_total_validators_count = Mock()
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={source.index: source, target.index: target})
+    web3.cc.get_pending_consolidations = Mock(return_value=[Mock(source_index=source.index, target_index=target.index)])
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    source_result = next(v for v in active_validators if v.index == source.index)
+    assert source_result.consolidating_as_source is not None
+    assert source_result.consolidating_as_source.amount == source.validator.effective_balance
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__consolidation_amount_capped_by_balance(web3):
+    """
+    When the balance is the smaller side (the common case — the effective balance has already
+    caught up to the max), the amount is capped by the balance instead.
+    """
+    blockstamp = ReferenceBlockStampFactory.build()
+    source, target = LidoValidatorFactory.batch(2)
+    source.validator.slashed = False
+    source.balance = Gwei(20 * _GWEI)
+    source.validator.effective_balance = Gwei(32 * _GWEI)
+
+    web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([source, target], []))
+    web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
+    web3.lido_validators._validate_total_validators_count = Mock()
+    web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_validators_by_indexes = Mock(return_value={source.index: source, target.index: target})
+    web3.cc.get_pending_consolidations = Mock(return_value=[Mock(source_index=source.index, target_index=target.index)])
+
+    active_validators = web3.lido_validators.get_active_lido_validators(blockstamp)
+
+    source_result = next(v for v in active_validators if v.index == source.index)
+    assert source_result.consolidating_as_source is not None
+    assert source_result.consolidating_as_source.amount == source.balance
+
+
 # ---- top-ups on keys that are already used and already indexed on the CL ----
 #
 # These tests deliberately do NOT mock `_get_lido_validators_with_keys`: the whole point is to

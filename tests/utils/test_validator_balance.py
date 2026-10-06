@@ -18,7 +18,6 @@ from src.types import Gwei
 from src.utils.validator_balance import (
     get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
-    get_predictable_inbound_sweep,
 )
 from src.web3py.extensions.lido_validators import ConsolidationRequest
 from tests.factory.no_registry import LidoValidatorFactory, PendingDepositFactory, ValidatorStateFactory
@@ -138,57 +137,3 @@ class TestGetPredictableInboundBalance:
         result = get_predictable_inbound_balance(validator)
         # Assert
         assert result == MAX_EFFECTIVE_BALANCE_ELECTRA
-
-
-@pytest.mark.unit
-class TestGetPredictableInboundSweep:
-    """The part of the inbound sum that overflows the cap and will be swept out."""
-
-    def test_inbound_sweep__no_topups_and_balance_below_cap__returns_zero(self):
-        # Arrange
-        validator = _validator(30)
-        # Act
-        result = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert result == Gwei(0)
-
-    def test_inbound_sweep__eth1_validator_topped_over_cap__returns_excess(self):
-        # Arrange — 30 + 5 ETH against a 32 ETH cap leaves 3 ETH sweepable
-        validator = _validator(30, topups=[_topup(5)])
-        # Act
-        result = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert result == Gwei(3 * ETH)
-
-    def test_inbound_sweep__topup_lands_exactly_on_cap__returns_zero(self):
-        # Arrange — boundary: nothing overflows when the sum equals the cap
-        validator = _validator(24, topups=[_topup(8)])
-        # Act
-        result = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert result == Gwei(0)
-
-    def test_inbound_sweep__compounding_validator_topped_over_electra_cap__returns_excess(self):
-        # Arrange
-        validator = _validator(2040, compounding=True, topups=[_topup(32)])
-        # Act
-        result = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert result == Gwei(24 * ETH)
-
-    def test_inbound_sweep__consolidation_pushes_over_cap__counts_toward_excess(self):
-        # Arrange — incoming consolidations overflow the cap just like top-ups do
-        validator = _validator(30, incoming=[_incoming_consolidation(10)])
-        # Act
-        result = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert result == Gwei(8 * ETH)
-
-    def test_inbound_sweep__and_inbound_balance__together_reconstruct_full_balance(self):
-        # Arrange — the split must be lossless, whatever the mix of flows
-        validator = _validator(30, topups=[_topup(5), _topup(1.5)], incoming=[_incoming_consolidation(2)])
-        # Act
-        capped = get_predictable_inbound_balance(validator)
-        swept = get_predictable_inbound_sweep(validator)
-        # Assert
-        assert capped + swept == get_predictable_full_inbound_balance(validator)
