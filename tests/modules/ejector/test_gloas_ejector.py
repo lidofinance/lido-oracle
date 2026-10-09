@@ -4,9 +4,17 @@ from unittest.mock import Mock
 import pytest
 
 import src.modules.oracles.ejector.sweep as sweep_module
+from src.constants import (
+    COMPOUNDING_WITHDRAWAL_PREFIX,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+)
 from src.modules.common.types import ChainConfig
 from src.modules.oracles.ejector.ejector import Ejector
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs, predict_withdrawals_number_in_sweep_cycle
+from src.providers.consensus.types import PendingPartialWithdrawal
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
@@ -16,6 +24,8 @@ from src.utils.validator_state import (
 from src.web3py.types import Web3
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
+from tests.factory.consensus import BeaconStateViewFactory
+from tests.factory.no_registry import ValidatorStateFactory
 
 
 ETH = 10**9  # Gwei
@@ -39,22 +49,55 @@ class TestExitChurnLimitEip8061:
 
 @pytest.mark.unit
 class TestSweepDelayGloas:
-    def test_predict_withdrawals_number_in_sweep_cycle__gloas__excludes_pending_partials(self, monkeypatch):
+    @staticmethod
+    def _state_with_partials_draining_capped_validators():
+        """Four compounding validators sit 1 ETH above the cap with a queued 100 ETH partial each, so once
+        the partials are applied the ordinary sweep has nothing to skim from them. Two 0x01 validators stay
+        skimmable."""
+        capped = ValidatorStateFactory.batch(
+            4,
+            withdrawal_credentials=COMPOUNDING_WITHDRAWAL_PREFIX + '00' * 30,
+            effective_balance=MAX_EFFECTIVE_BALANCE_ELECTRA,
+            withdrawable_epoch=FAR_FUTURE_EPOCH,
+        )
+        ordinary = ValidatorStateFactory.batch(
+            2,
+            withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX + '00' * 31,
+            effective_balance=MIN_ACTIVATION_BALANCE,
+            withdrawable_epoch=FAR_FUTURE_EPOCH,
+        )
+        return BeaconStateViewFactory.build(
+            slot=32,
+            validators=capped + ordinary,
+            balances=[MAX_EFFECTIVE_BALANCE_ELECTRA + ETH] * 4 + [MIN_ACTIVATION_BALANCE + ETH] * 2,
+            pending_partial_withdrawals=[
+                PendingPartialWithdrawal(validator_index=i, amount=100 * ETH, withdrawable_epoch=0) for i in range(4)
+            ],
+            slashings=[],
+        )
+
+    def test_predict_withdrawals_number_in_sweep_cycle__gloas__partials_drain_capped_validators__skim_not_counted(
+        self,
+    ):
         # Arrange
-        state = Mock()
-        validators_withdrawals = [object(), object(), object()]
-        get_validators = Mock(return_value=validators_withdrawals)
-        get_partials = Mock(return_value=[object(), object()])
-        monkeypatch.setattr(sweep_module, "get_validators_withdrawals", get_validators)
-        monkeypatch.setattr(sweep_module, "get_pending_partial_withdrawals", get_partials)
+        state = self._state_with_partials_draining_capped_validators()
 
         # Act
         result = predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch=32, is_gloas_active=True)
 
+        # Assert — only the two 0x01 validators; partial entries themselves are not counted
+        assert result == 2
+
+    def test_predict_withdrawals_number_in_sweep_cycle__gloas__never_exceeds_pre_gloas(self):
+        # Arrange
+        state = self._state_with_partials_draining_capped_validators()
+
+        # Act
+        gloas = predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch=32, is_gloas_active=True)
+        pre_gloas = predict_withdrawals_number_in_sweep_cycle(state, slots_per_epoch=32, is_gloas_active=False)
+
         # Assert
-        assert result == len(validators_withdrawals)
-        get_partials.assert_not_called()
-        assert get_validators.call_args.args[1] == []
+        assert gloas <= pre_gloas
 
     def test_predict_withdrawals_number_in_sweep_cycle__pre_gloas__includes_pending_partials(self, monkeypatch):
         # Arrange
