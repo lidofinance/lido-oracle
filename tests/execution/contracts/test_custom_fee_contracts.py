@@ -1,3 +1,4 @@
+from collections import namedtuple
 from typing import cast
 from unittest.mock import MagicMock, patch
 
@@ -21,6 +22,8 @@ from src.web3py.contract_tweak import tweak_w3_contracts
 
 ADDR = cast(ChecksumAddress, "0x" + "1" * 40)
 PROVIDER_ADDR = cast(ChecksumAddress, "0x" + "2" * 40)
+
+WeightBoostProviderEntry = namedtuple("WeightBoostProviderEntry", ["provider", "mode"])
 
 
 def _mock_contract():
@@ -47,7 +50,10 @@ def make_real_contract(w3, contract_class):
 class TestMetaRegistryWeightBoostProviders:
     def test_get_weight_boost_providers__providers_registered__returns_addresses_at_block(self):
         contract = _mock_contract()
-        contract.functions.getWeightBoostProviders.return_value.call.return_value = [PROVIDER_ADDR, ADDR]
+        contract.functions.getWeightBoostProviders.return_value.call.return_value = [
+            WeightBoostProviderEntry(PROVIDER_ADDR, 0),
+            WeightBoostProviderEntry(ADDR, 1),
+        ]
 
         result = MetaRegistryContract.get_weight_boost_providers(contract, block_identifier="0xabc")
 
@@ -57,9 +63,9 @@ class TestMetaRegistryWeightBoostProviders:
 
 @pytest.mark.unit
 class TestMetaRegistryAbi:
-    def test_get_weight_boost_providers__abi_encoded_address_array__decodes_addresses(self, real_w3):
+    def test_get_weight_boost_providers__abi_encoded_entries__decodes_addresses(self, real_w3):
         contract = make_real_contract(real_w3, MetaRegistryContract)
-        encoded = encode(["address[]"], [[PROVIDER_ADDR, ADDR]])
+        encoded = encode(["(address,uint8)[]"], [[(PROVIDER_ADDR, 0), (ADDR, 1)]])
 
         with patch.object(real_w3.eth, "call", return_value=encoded):
             result = contract.get_weight_boost_providers(block_identifier="0xabc")
@@ -69,7 +75,7 @@ class TestMetaRegistryAbi:
     def test_get_weight_boost_providers__abi_encoded_empty_array__returns_empty_list(self, real_w3):
         contract = make_real_contract(real_w3, MetaRegistryContract)
 
-        with patch.object(real_w3.eth, "call", return_value=encode(["address[]"], [[]])):
+        with patch.object(real_w3.eth, "call", return_value=encode(["(address,uint8)[]"], [[]])):
             result = contract.get_weight_boost_providers(block_identifier="0xdef")
 
         assert result == []

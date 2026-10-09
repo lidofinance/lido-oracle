@@ -107,7 +107,7 @@ class MetaRegistryContract(ContractInterface):
                 'to': self.address,
             }
         )
-        return response
+        return [entry.provider for entry in response]
 
     def get_all_groups(self, block_identifier: BlockIdentifier) -> list[OperatorGroup]:
         # Group IDs are one-based: the contract reserves NO_GROUP_ID = 0
