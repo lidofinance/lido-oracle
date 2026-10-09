@@ -81,6 +81,7 @@ def test_receive_last_finalized_slot(oracle):
     block_details = BlockDetailsResponseFactory.build()
     execution_payload = block_details.message.body.execution_payload
     oracle.w3.cc.get_block_details.return_value = block_details
+    oracle.w3.cc.get_config_spec.return_value.SLOTS_PER_EPOCH = 32
 
     slot = oracle._receive_last_finalized_slot()
 
@@ -90,6 +91,7 @@ def test_receive_last_finalized_slot(oracle):
         block_hash=add_0x_prefix(execution_payload.block_hash),
         block_number=execution_payload.block_number,
         block_timestamp=execution_payload.timestamp,
+        epoch_number=block_details.message.slot // 32,
     )
 
 

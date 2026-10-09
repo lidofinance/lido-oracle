@@ -15,10 +15,21 @@ from src import variables
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.types import BlockStamp, EpochNumber, SlotNumber
 from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import BlockStampFactory
+
+
+def _cl_blockstamp(block_details) -> BlockStamp:
+    """A blockstamp addressing the given block's CL state.
+
+    These tests only query CL state, so the EL fields are irrelevant and no execution client is
+    needed to fill them in.
+    """
+    return BlockStampFactory.build(
+        state_root=block_details.message.state_root,
+        slot_number=block_details.message.slot,
+    )
 
 
 @pytest.fixture
@@ -168,7 +179,7 @@ def test_get_block_attestations_and_sync(consensus_client: ConsensusClient):
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     attestation_committees = list(consensus_client.get_attestation_committees(blockstamp))
     assert attestation_committees
@@ -187,7 +198,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 def test_get_sync_committee(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
     epoch = blockstamp.slot_number // 32
 
     sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
@@ -209,7 +220,7 @@ def test_get_sync_committee(consensus_client: ConsensusClient):
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     validators: list[Validator] = consensus_client.get_validators(blockstamp)
     assert validators
@@ -223,7 +234,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number
@@ -305,12 +316,53 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
 
 
 @pytest.mark.unit
-def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClient):
-    resp = requests.Response()
-    resp.status_code = 200
-    resp._content = b'{"data": [], "dependent_root": "0x01"}'
+class TestGetProposerDuties:
+    DUTY = {"pubkey": "0xaa", "validator_index": "7", "slot": "3200"}
 
-    consensus_client.session.get = Mock(return_value=resp)
+    @staticmethod
+    def _response(status: int, dependent_root: str = "", data: list | None = None) -> requests.Response:
+        resp = requests.Response()
+        resp.status_code = status
+        resp._content = json.dumps({"data": data or [], "dependent_root": dependent_root}).encode()
+        return resp
 
-    with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
-        consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+    @pytest.fixture
+    def client(self):
+        return ConsensusClient(['http://a/'], 30)
+
+    def test_get_proposer_duties__root_matches__returns_duties_from_v2(self, client):
+        client.session.get = Mock(return_value=self._response(200, "0x02", [self.DUTY]))
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0x02")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 7)]
+        client.session.get.assert_called_once()
+        assert client.session.get.call_args.args[0] == 'http://a/eth/v2/validator/duties/proposer/100'
+
+    def test_get_proposer_duties__root_mismatch__raises(self, client):
+        client.session.get = Mock(return_value=self._response(200, "0x01"))
+
+        with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
+            client.get_proposer_duties(EpochNumber(100), "0x02")
+
+    def test_get_proposer_duties__not_found__raises_without_v1_fallback(self, client):
+        client.session.get = Mock(return_value=self._response(404))
+
+        with pytest.raises(NotOkResponse):
+            client.get_proposer_duties(EpochNumber(100), "0x02")
+        client.session.get.assert_called_once()
+
+    def test_get_proposer_duties__forked_host__returns_duties_of_synced_host(self):
+        client = ConsensusClient(['http://forked/', 'http://synced/'], 30)
+        synced_duty = {**self.DUTY, "validator_index": "8"}
+        client.session.get = Mock(
+            side_effect=lambda url, **_: (
+                self._response(200, "0xfork", [self.DUTY])
+                if url.startswith('http://forked/')
+                else self._response(200, "0x02", [synced_duty])
+            )
+        )
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0x02")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 8)]
