@@ -13,7 +13,7 @@ from src.providers.consensus.types import Validator
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import BlockNumber, BlockStamp, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
 from src.utils.types import hex_str_to_bytes
@@ -178,6 +178,11 @@ class AbnormalClRebase:
                 "is too large"
             )
 
+    def _get_frame_by_el_timestamp(self, blockstamp: BlockStamp) -> FrameNumber:
+        return self._web3_converter.get_frame_by_epoch(
+            self._web3_converter.get_epoch_by_timestamp(blockstamp.block_timestamp)
+        )
+
     def _calculate_cl_rebase_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
     ) -> Gwei:
@@ -335,14 +340,17 @@ class AbnormalClRebase:
         prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
         # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
         # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
-        # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
-        # ref share the same frame (see _validate_prev_slot_within_ref_frame).
+        # deposits in [prev, ref] regardless of how many reports settled in between.
+        # The counter's frame follows the execution timestamp; a Gloas anchor in an earlier frame holds only
+        # deposits made before the window.
         ref_deposited_in_frame = (
             ref_balance_stats.deposited_since_last_report - ref_balance_stats.deposited_for_current_report
         )
         prev_deposited_in_frame = (
             prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report
         )
+        if self._get_frame_by_el_timestamp(prev_blockstamp) < self._get_frame_by_el_timestamp(ref_blockstamp):
+            prev_deposited_in_frame = 0
         deposited_in_window = wei_to_gwei(Wei(ref_deposited_in_frame - prev_deposited_in_frame))
 
         current_pending = self._sum_valid_lido_pending(

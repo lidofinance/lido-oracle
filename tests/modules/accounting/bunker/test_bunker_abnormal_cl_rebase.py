@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 from eth_typing import HexStr
-from web3.types import Wei
+from web3.types import Timestamp, Wei
 
 from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
 from src.modules.oracles.accounting.types import BalanceStats
@@ -962,3 +962,123 @@ class TestClSampleIdentityUnderEip7732:
         # Assert
         assert result is False
         assert abnormal_case._calculate_cl_rebase_between_blocks.call_count == 2
+
+
+@pytest.mark.unit
+class TestDepositCounterAcrossElFrames:
+    """A withheld payload streak can leave a sample's CL child in the reference frame while its execution
+    anchor still sits in the previous frame. Lido's `depositedNextReport` follows the execution timestamp,
+    so the anchor reports the previous frame's deposits — none of which fall inside [prev, ref]."""
+
+    # FrameConfigFactory: 10 epochs * 32 slots = 320-slot frames; ref_slot 294271 lies in the frame
+    # starting at slot 294080.
+    PREV_CL_SLOT = SlotNumber(294100)
+    PREV_EL_SLOT_IN_PREVIOUS_FRAME = 294000
+    PREV_EL_SLOT_IN_REF_FRAME = 294090
+    REF_EL_SLOT = 294200
+
+    @staticmethod
+    def _timestamp(slot: int) -> Timestamp:
+        return Timestamp(slot * ChainConfigFactory.seconds_per_slot)
+
+    def _abnormal_case(
+        self, web3, prev_balance_stats: BalanceStats, ref_balance_stats: BalanceStats
+    ) -> AbnormalClRebase:
+        abnormal_case = AbnormalClRebase(
+            web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+        )
+        abnormal_case.lido_keys = []
+        abnormal_case.lido_validators = []
+        abnormal_case._get_last_report_reference_blockstamp = Mock(
+            return_value=ReferenceBlockStampFactory.build(block_number=5)
+        )
+        abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
+        abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
+        abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
+        abnormal_case.w3.cc.get_pending_deposits = Mock(return_value=[])
+        abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
+            side_effect=[ref_balance_stats, prev_balance_stats]
+        )
+        return abnormal_case
+
+    def _blockstamps(self, prev_el_slot: int):
+        prev_blockstamp = ReferenceBlockStampFactory.build(
+            block_number=10,
+            slot_number=self.PREV_CL_SLOT,
+            block_timestamp=self._timestamp(prev_el_slot),
+            state_root=StateRoot(HexStr('0xaa')),
+        )
+        ref_blockstamp = ReferenceBlockStampFactory.build(
+            block_number=20,
+            block_timestamp=self._timestamp(self.REF_EL_SLOT),
+            state_root=StateRoot(HexStr('0xbb')),
+        )
+        return prev_blockstamp, ref_blockstamp
+
+    @pytest.mark.parametrize(
+        ("ref_deposited_since_last_report_wei", "expected_gwei"),
+        [
+            # Payloads resumed and the previous report settled; nothing deposited since
+            (0, 0),
+            # 64 ETH deposited in the reference frame after payloads resumed
+            (64 * 10**18, 64 * 10**9),
+        ],
+    )
+    def test_calculate_injected_capital__prev_el_anchor_in_previous_frame__previous_frame_deposits_excluded(
+        self, web3, ref_deposited_since_last_report_wei, expected_gwei
+    ):
+        # Arrange — 32 ETH deposited during the previous frame, read through the stale anchor
+        prev_blockstamp, ref_blockstamp = self._blockstamps(self.PREV_EL_SLOT_IN_PREVIOUS_FRAME)
+        abnormal_case = self._abnormal_case(
+            web3,
+            prev_balance_stats=BalanceStats(0, 0, 32 * 10**18, 0),
+            ref_balance_stats=BalanceStats(0, 0, ref_deposited_since_last_report_wei, 0),
+        )
+
+        # Act
+        result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+        # Assert
+        assert result == Gwei(expected_gwei)
+
+    def test_calculate_injected_capital__prev_el_anchor_in_ref_frame__prev_counter_subtracted(self, web3):
+        # Arrange — 32 ETH deposited before prev and 64 ETH in total by ref, all within one frame
+        prev_blockstamp, ref_blockstamp = self._blockstamps(self.PREV_EL_SLOT_IN_REF_FRAME)
+        abnormal_case = self._abnormal_case(
+            web3,
+            prev_balance_stats=BalanceStats(0, 0, 32 * 10**18, 0),
+            ref_balance_stats=BalanceStats(0, 0, 64 * 10**18, 0),
+        )
+
+        # Act
+        result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+        # Assert
+        assert result == Gwei(32 * 10**9)
+
+    def test_calculate_cl_rebase_between_blocks__prev_el_anchor_in_previous_frame__loss_stays_negative(
+        self, web3, monkeypatch
+    ):
+        # Arrange — Lido balance drops by 1 ETH between the samples; the previous frame's 32 ETH deposit
+        # is already part of the validator balance at both ends.
+        prev_blockstamp, ref_blockstamp = self._blockstamps(self.PREV_EL_SLOT_IN_PREVIOUS_FRAME)
+        abnormal_case = self._abnormal_case(
+            web3,
+            prev_balance_stats=BalanceStats(0, 0, 32 * 10**18, 0),
+            ref_balance_stats=BalanceStats(0, 0, 0, 0),
+        )
+        abnormal_case.lido_validators = simple_validators(0, 0, balance=Gwei(63 * 10**9))
+        abnormal_case.w3.cc.get_validators_no_cache = Mock(return_value=[])
+        abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(return_value=Wei(0))
+        abnormal_case._get_eth_distributed_events = Mock(return_value=[])
+        monkeypatch.setattr(
+            LidoValidatorsProvider,
+            "compute_lido_validators",
+            Mock(return_value=(simple_validators(0, 0, balance=Gwei(64 * 10**9)), [])),
+        )
+
+        # Act
+        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
+        # Assert
+        assert result == -1 * 10**9
