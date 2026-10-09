@@ -9,6 +9,7 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import (
+    DOUBLE_STRIKE_ATTESTATION_PERF,
     EFFECTIVE_BALANCE_INCREMENT,
     MIN_ACTIVATION_BALANCE,
     TOTAL_BASIS_POINTS,
@@ -834,7 +835,10 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(4),
                         validator=ValidatorStateFactory.build(
-                            slashed=False, pubkey="0x04", effective_balance=MIN_ACTIVATION_BALANCE
+                            slashed=False,
+                            pubkey="0x04",
+                            effective_balance=MIN_ACTIVATION_BALANCE,
+                            activation_epoch=EpochNumber(22),
                         ),
                     ),
                 ],
@@ -843,7 +847,10 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
                     LidoValidatorFactory.build(
                         index=ValidatorIndex(5),
                         validator=ValidatorStateFactory.build(
-                            slashed=False, pubkey="0x05", effective_balance=MIN_ACTIVATION_BALANCE
+                            slashed=False,
+                            pubkey="0x05",
+                            effective_balance=MIN_ACTIVATION_BALANCE,
+                            activation_epoch=EpochNumber(22),
                         ),
                     ),
                 ],
@@ -1342,6 +1349,7 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
         reward_share,
         PerformanceCoefficients(),
         log_operator,
+        (EpochNumber(0), EpochNumber(31)),
     )
 
     assert outcome == expected_outcome
@@ -1635,6 +1643,7 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
         reward_share,
         PerformanceCoefficients(),
         log_operator,
+        (EpochNumber(0), EpochNumber(31)),
     )
 
     expected_assigned = 10 * MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
@@ -1734,3 +1743,125 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].reward_share == 0.7
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].reward_share == 0.6
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].reward_share == 0.5
+
+
+class TestCalcBadPerformanceStrikes:
+    frame = (EpochNumber(10), EpochNumber(20))
+
+    @pytest.fixture
+    def validator(self):
+        validator = LidoValidatorFactory.build()
+        validator.validator.activation_epoch = EpochNumber(10)
+        validator.validator.exit_epoch = EpochNumber(21)
+        return validator
+
+    @pytest.mark.unit
+    def test_calc_bad_performance_strikes__perf_below_double_strike_perf__returns_two(self, validator):
+        attestation = DutyAccumulator(assigned=100, included=24)
+
+        assert Distribution.calc_bad_performance_strikes(validator, attestation, self.frame) == 2
+
+    @pytest.mark.unit
+    def test_calc_bad_performance_strikes__perf_equals_double_strike_perf__returns_one(self, validator):
+        attestation = DutyAccumulator(assigned=100, included=25)
+        assert attestation.perf == DOUBLE_STRIKE_ATTESTATION_PERF
+
+        assert Distribution.calc_bad_performance_strikes(validator, attestation, self.frame) == 1
+
+    @pytest.mark.unit
+    def test_calc_bad_performance_strikes__activated_after_frame_start__returns_one(self, validator):
+        validator.validator.activation_epoch = EpochNumber(11)
+        attestation = DutyAccumulator(assigned=100, included=0)
+
+        assert Distribution.calc_bad_performance_strikes(validator, attestation, self.frame) == 1
+
+    @pytest.mark.unit
+    def test_calc_bad_performance_strikes__exited_within_frame__returns_one(self, validator):
+        validator.validator.exit_epoch = EpochNumber(20)
+        attestation = DutyAccumulator(assigned=100, included=0)
+
+        assert Distribution.calc_bad_performance_strikes(validator, attestation, self.frame) == 1
+
+
+class TestGetValidatorDutiesOutcomeStrikes:
+    frame = (EpochNumber(0), EpochNumber(31))
+
+    @pytest.fixture
+    def validator(self):
+        validator = LidoValidatorFactory.build()
+        validator.validator.slashed = False
+        validator.validator.effective_balance = MIN_ACTIVATION_BALANCE
+        validator.validator.activation_epoch = EpochNumber(0)
+        validator.validator.exit_epoch = EpochNumber(100)
+        return validator
+
+    @pytest.fixture
+    def log_operator(self):
+        log_operator = Mock()
+        log_operator.validators = defaultdict(ValidatorFrameSummary)
+        return log_operator
+
+    @pytest.mark.unit
+    def test_get_validator_duties_outcome__performance_at_threshold__no_strikes(self, validator, log_operator):
+        duties = ValidatorDuties(attestation=DutyAccumulator(assigned=100, included=10), proposal=None, sync=None)
+
+        outcome = Distribution.get_validator_duties_outcome(
+            validator, duties, 0.1, 1, PerformanceCoefficients(), log_operator, self.frame
+        )
+
+        assert outcome.strikes == 0
+
+    @pytest.mark.unit
+    def test_get_validator_duties_outcome__slashed_below_threshold__one_strike(self, validator, log_operator):
+        validator.validator.slashed = True
+        duties = ValidatorDuties(attestation=DutyAccumulator(assigned=100, included=0), proposal=None, sync=None)
+
+        outcome = Distribution.get_validator_duties_outcome(
+            validator, duties, 0.5, 1, PerformanceCoefficients(), log_operator, self.frame
+        )
+
+        assert outcome.strikes == 1
+
+    @pytest.mark.unit
+    def test_get_validator_duties_outcome__bad_performance_whole_frame__two_strikes(self, validator, log_operator):
+        duties = ValidatorDuties(attestation=DutyAccumulator(assigned=100, included=10), proposal=None, sync=None)
+
+        outcome = Distribution.get_validator_duties_outcome(
+            validator, duties, 0.5, 1, PerformanceCoefficients(), log_operator, self.frame
+        )
+
+        assert outcome.strikes == 2
+
+    @pytest.mark.unit
+    def test_calculate_distribution_in_frame__bad_performance_whole_frame__frame_strikes_carry_two(self, validator):
+        w3 = Mock(spec=Web3StakingModule, staking_module=Mock())
+        w3.staking_module.get_curve_params = Mock(
+            return_value=CurveParams(
+                strikes_params=...,
+                perf_leeway_data=Mock(get_for=Mock(return_value=0.0)),
+                reward_share_data=Mock(get_for=Mock(return_value=1.0)),
+                perf_coeffs=PerformanceCoefficients(),
+            )
+        )
+        distribution = Distribution(w3, converter=..., state=make_state())
+        distribution._get_network_performance = Mock(return_value=0.9)
+        distribution.state.data = {
+            self.frame: NetworkDuties(
+                attestations=defaultdict(
+                    DutyAccumulator, {validator.index: DutyAccumulator(assigned=100, included=10)}
+                ),
+                proposals=defaultdict(DutyAccumulator),
+                syncs=defaultdict(DutyAccumulator),
+            )
+        }
+        log = FramePerfLog(ReferenceBlockStampFactory.build(ref_epoch=31), self.frame)
+
+        *_, strikes_in_frame = distribution._calculate_distribution_in_frame(
+            self.frame,
+            ReferenceBlockStampFactory.build(ref_epoch=31),
+            Wei(100),
+            {NodeOperatorId(1): [validator]},
+            log,
+        )
+
+        assert strikes_in_frame == {(NodeOperatorId(1), validator.pubkey): 2}

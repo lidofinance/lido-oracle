@@ -6,10 +6,15 @@ from dataclasses import asdict, dataclass, field
 
 from eth_typing import HexStr
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    DOUBLE_STRIKE_ATTESTATION_PERF,
+    EFFECTIVE_BALANCE_INCREMENT,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+)
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs, OperatorFrameSummary
-from src.modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
+from src.modules.oracles.staking_modules.common.state import DutyAccumulator, Frame, State, ValidatorDuties
 from src.modules.oracles.staking_modules.common.types import (
     ParticipationShares,
     RewardsShares,
@@ -207,6 +212,7 @@ class Distribution:
                     key_reward_share,
                     curve_params.perf_coeffs,
                     log_operator,
+                    frame,
                 )
                 if validator_duties_outcome.strikes:
                     frame_strikes[(no_id, validator.pubkey)] = validator_duties_outcome.strikes
@@ -247,6 +253,7 @@ class Distribution:
         reward_share: float,
         perf_coeffs: PerformanceCoefficients,
         log_operator: OperatorFrameSummary,
+        frame: Frame,
     ) -> ValidatorDutiesOutcome:
         if duties.attestation is None or duties.attestation.assigned == 0:
             # It's possible that the validator is not assigned to any duty, hence it's performance
@@ -309,7 +316,21 @@ class Distribution:
 
         # In case of bad performance the validator should be striked and assigned attestations are not counted for
         # the operator's reward and rebate, so rewards will be socialized between CSM operators.
-        return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
+        return ValidatorDutiesOutcome(
+            participation_share=0,
+            rebate_share=0,
+            strikes=Distribution.calc_bad_performance_strikes(validator, duties.attestation, frame),
+        )
+
+    @staticmethod
+    def calc_bad_performance_strikes(validator: LidoValidator, attestation: DutyAccumulator, frame: Frame) -> int:
+        l_epoch, r_epoch = frame
+        was_active_whole_frame = (
+            validator.validator.activation_epoch <= l_epoch and validator.validator.exit_epoch > r_epoch
+        )
+        if was_active_whole_frame and attestation.perf < DOUBLE_STRIKE_ATTESTATION_PERF:
+            return 2
+        return 1
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
