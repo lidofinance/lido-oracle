@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 
+from eth_typing import ChecksumAddress
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
@@ -90,6 +91,23 @@ class MetaRegistryContract(ContractInterface):
             }
         )
         return response
+
+    @lru_cache()
+    def get_weight_boost_providers(self, block_identifier: BlockIdentifier) -> list[ChecksumAddress]:
+        """
+        Returns the addresses of the weight boost providers
+        """
+        response = self.functions.getWeightBoostProviders().call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': 'Call `getWeightBoostProviders()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return [entry.provider for entry in response]
 
     def get_all_groups(self, block_identifier: BlockIdentifier) -> list[OperatorGroup]:
         # Group IDs are one-based: the contract reserves NO_GROUP_ID = 0

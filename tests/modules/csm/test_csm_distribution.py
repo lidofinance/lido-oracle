@@ -1117,6 +1117,7 @@ def test_calculate_distribution_in_frame(
     # Mocking the data from EL
     w3 = Mock(spec=Web3StakingModule, staking_module=Mock(spec=StakingModuleContracts))
     w3.staking_module.get_curve_params = mocked_curve_params
+    w3.staking_module.get_fee_share_discount = Mock(return_value=0)
 
     frame = (EpochNumber(0), EpochNumber(31))
     state = State(*frame, epochs_per_frame=32)
@@ -1674,6 +1675,7 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
             perf_coeffs=PerformanceCoefficients(attestations_weight=1, blocks_weight=0, sync_weight=0),
         )
     )
+    w3.staking_module.get_fee_share_discount = Mock(return_value=0)
 
     distribution = Distribution(w3, converter=..., state=make_state())
     distribution._get_network_performance = Mock(return_value=0.9)

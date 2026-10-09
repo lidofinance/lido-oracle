@@ -6,7 +6,12 @@ from dataclasses import asdict, dataclass, field
 
 from eth_typing import HexStr
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    EFFECTIVE_BALANCE_INCREMENT,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+    TOTAL_BASIS_POINTS,
+)
 from src.modules.oracles.staking_modules.common.helpers.last_report import LastReport
 from src.modules.oracles.staking_modules.common.log import FramePerfLog, Logs, OperatorFrameSummary
 from src.modules.oracles.staking_modules.common.state import Frame, State, ValidatorDuties
@@ -189,6 +194,8 @@ class Distribution:
             curve_params = self.w3.staking_module.get_curve_params(no_id, blockstamp)
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
+            fee_share_discount = self.w3.staking_module.get_fee_share_discount(no_id, blockstamp)
+
             # Sort from biggest to smallest balance and by index from oldest to newest.
             active_validators.sort(
                 key=lambda v: (-min(v.validator.effective_balance, MAX_EFFECTIVE_BALANCE_ELECTRA), v.index)
@@ -196,7 +203,9 @@ class Distribution:
             numbered_validators = enumerate(active_validators, 1)
             for key_number, validator in numbered_validators:
                 key_threshold = max(network_perf - curve_params.perf_leeway_data.get_for(key_number), 0)
-                key_reward_share = curve_params.reward_share_data.get_for(key_number)
+                key_reward_share = self.calc_discounted_reward_share(
+                    curve_params.reward_share_data.get_for(key_number), fee_share_discount
+                )
 
                 duties = self.state.get_validator_duties(frame, validator.index)
 
@@ -310,6 +319,10 @@ class Distribution:
         # In case of bad performance the validator should be striked and assigned attestations are not counted for
         # the operator's reward and rebate, so rewards will be socialized between CSM operators.
         return ValidatorDutiesOutcome(participation_share=0, rebate_share=0, strikes=1)
+
+    @staticmethod
+    def calc_discounted_reward_share(base_reward_share: float, fee_share_discount: int) -> float:
+        return base_reward_share * ((TOTAL_BASIS_POINTS - fee_share_discount) / TOTAL_BASIS_POINTS)
 
     @staticmethod
     def calc_rewards_distribution_in_frame(
