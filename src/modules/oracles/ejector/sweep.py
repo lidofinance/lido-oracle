@@ -65,14 +65,14 @@ def predict_withdrawals_number_in_sweep_cycle(
     in any group of 16,384 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP consecutive validators is less than 1%.
     This makes such an event extremely unlikely. More details can be found in the research: https://hackmd.io/@lido/HyrhJeLOJe.
     """
-    if is_gloas_active:
-        # Simplification: pending partial withdrawals are left out of the projection. This can only
-        # shorten the estimated delay, so in some cases the ejector requests a few more exits than
-        # the pre-Gloas projection did.
-        return len(get_validators_withdrawals(state, [], slots_per_epoch))
-
     pending_partial_withdrawals = get_pending_partial_withdrawals(state)
     validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
+
+    if is_gloas_active:
+        # Pending partials still reduce balances but their own entries are left out of the cycle. Both can
+        # only shorten the estimated delay, so in some cases the ejector requests a few more exits than
+        # the pre-Gloas projection did.
+        return len(validators_withdrawals)
 
     pending_partial_withdrawals_number = len(pending_partial_withdrawals)
     validators_withdrawals_number = len(validators_withdrawals)
