@@ -36,7 +36,14 @@ class OracleDaemonConfigContract(ContractInterface):
             if not str(revert.data).startswith(ValueDoesntExistRevert):
                 raise
 
-        logger.info({'msg': f'Value for `{param}` is not set.', 'block_identifier': repr(block_identifier)})
+        logger.info(
+            {
+                'msg': f'Call `get({param})`: value is not set.',
+                'value': None,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
         return None
 
     @lru_cache(maxsize=1)
