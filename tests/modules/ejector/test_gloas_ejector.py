@@ -76,7 +76,7 @@ class TestSweepDelayGloas:
             slashings=[],
         )
 
-    def test_predict_withdrawals_number_in_sweep_cycle__gloas__partials_drain_capped_validators__skim_not_counted(
+    def test_predict_withdrawals_number_in_sweep_cycle__gloas_partials_drain_capped_validators__skim_not_counted(
         self,
     ):
         # Arrange
