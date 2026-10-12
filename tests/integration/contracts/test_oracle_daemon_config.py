@@ -38,7 +38,7 @@ def test_oracle_daemon_config_contract(oracle_daemon_config_contract, caplog):
             (
                 'max_validator_exit_requests_per_report',
                 ('latest',),
-                lambda response: response is None or check_value_type(response, int),
+                lambda response: check_value_type(response, int),
             ),
             # (
             #    'exit_events_lookback_window_in_slots',

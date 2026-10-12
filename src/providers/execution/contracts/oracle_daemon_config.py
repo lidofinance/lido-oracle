@@ -1,7 +1,6 @@
 import logging
 
 from web3 import Web3
-from web3.exceptions import ContractCustomError
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
@@ -9,8 +8,6 @@ from src.utils.cache import global_lru_cache as lru_cache
 
 
 logger = logging.getLogger(__name__)
-
-ValueDoesntExistRevert = Web3.to_hex(primitive=Web3.keccak(text="ValueDoesntExist(string)")[:4])
 
 
 class OracleDaemonConfigContract(ContractInterface):
@@ -28,23 +25,6 @@ class OracleDaemonConfigContract(ContractInterface):
             }
         )
         return response
-
-    def _get_optional(self, param: str, block_identifier: BlockIdentifier) -> int | None:
-        try:
-            return self._get(param, block_identifier)
-        except ContractCustomError as revert:
-            if not str(revert.data).startswith(ValueDoesntExistRevert):
-                raise
-
-        logger.info(
-            {
-                'msg': f'Call `get({param})`: value is not set.',
-                'value': None,
-                'block_identifier': repr(block_identifier),
-                'to': self.address,
-            }
-        )
-        return None
 
     @lru_cache(maxsize=1)
     def normalized_cl_reward_per_epoch(self, block_identifier: BlockIdentifier) -> int:
@@ -83,5 +63,5 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('SLASHING_RESERVE_WE_RIGHT_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
-    def max_validator_exit_requests_per_report(self, block_identifier: BlockIdentifier) -> int | None:
-        return self._get_optional('MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT', block_identifier)
+    def max_validator_exit_requests_per_report(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT', block_identifier)

@@ -14,7 +14,6 @@ from src.constants import (
 from src.modules.common.types import ChainConfig
 from src.providers.execution.contracts.meta_registry import ExternalOperator, SubNodeOperator
 from src.services.exit_order_iterator import (
-    DEFAULT_MAX_EXIT_REQUESTS_PER_REPORT,
     InvalidCuratedModuleConfigError,
     NodeOperatorAlreadyGroupedError,
     NodeOperatorExpectedToBeInCMv1Error,
@@ -47,7 +46,7 @@ def iterator(web3):
     it.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=Mock(max_balance_exit_requested_per_report_in_eth=100)
     )
-    it.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report = Mock(return_value=None)
+    it.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report = Mock(return_value=500)
     it.w3.eth.contract = Mock()
     it._reset_iterator_data()
     it.max_exit_requests_per_report = 500
@@ -1485,13 +1484,6 @@ class TestFinalizeAndReportLimits:
         iterator._get_report_limits()
 
         assert iterator.max_exit_requests_per_report == 0
-
-    def test_get_report_limits__daemon_config_value_unset__uses_default(self, iterator):
-        iterator.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report.return_value = None
-
-        iterator._get_report_limits()
-
-        assert iterator.max_exit_requests_per_report == DEFAULT_MAX_EXIT_REQUESTS_PER_REPORT == 500
 
 
 @pytest.mark.unit

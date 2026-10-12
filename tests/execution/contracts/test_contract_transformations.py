@@ -8,11 +8,8 @@ from typing import cast
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from eth_abi import abi
 from eth_typing import BlockNumber, ChecksumAddress, Hash32
 from hexbytes import HexBytes
-from web3 import Web3
-from web3.exceptions import ContractCustomError
 from web3.types import EventData, Wei
 
 from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
@@ -1654,47 +1651,18 @@ class TestCuratedStakingModulePassThroughs:
 
 
 # ---------------------------------------------------------------------------
-# OracleDaemonConfigContract.max_validator_exit_requests_per_report — optional key
+# OracleDaemonConfigContract.max_validator_exit_requests_per_report
 # ---------------------------------------------------------------------------
-
-
-def _daemon_config_contract(get_call):
-    contract = _mock_contract()
-    contract._get = lambda param, bi: OracleDaemonConfigContract._get(contract, param, bi)
-    contract._get_optional = lambda param, bi: OracleDaemonConfigContract._get_optional(contract, param, bi)
-    contract.functions.get.return_value.call = get_call
-    return contract
-
-
-def _revert_data(signature: str, abi_types: list[str], args: list) -> str:
-    return Web3.to_hex(Web3.keccak(text=signature)[:4] + abi.encode(abi_types, args))
 
 
 @pytest.mark.unit
 def test_max_validator_exit_requests_per_report__value_set__returns_decoded_int():
-    contract = _daemon_config_contract(MagicMock(return_value=(600).to_bytes(32, 'big')))
+    contract = _mock_contract()
+    contract._get = lambda param, bi: OracleDaemonConfigContract._get(contract, param, bi)
+    contract.functions.get.return_value.call = MagicMock(return_value=(600).to_bytes(32, 'big'))
 
     result = OracleDaemonConfigContract.max_validator_exit_requests_per_report(contract, "0xset")
 
     assert result == 600
     contract.functions.get.assert_called_once_with('MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT')
     contract.functions.get.return_value.call.assert_called_once_with(block_identifier="0xset")
-
-
-@pytest.mark.unit
-def test_max_validator_exit_requests_per_report__value_unset__returns_none():
-    data = _revert_data("ValueDoesntExist(string)", ["string"], ["MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT"])
-    contract = _daemon_config_contract(MagicMock(side_effect=ContractCustomError(data, data=data)))
-
-    result = OracleDaemonConfigContract.max_validator_exit_requests_per_report(contract, "0xunset")
-
-    assert result is None
-
-
-@pytest.mark.unit
-def test_max_validator_exit_requests_per_report__other_revert__raises():
-    data = _revert_data("EmptyValue(string)", ["string"], ["MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT"])
-    contract = _daemon_config_contract(MagicMock(side_effect=ContractCustomError(data, data=data)))
-
-    with pytest.raises(ContractCustomError):
-        OracleDaemonConfigContract.max_validator_exit_requests_per_report(contract, "0xother")
