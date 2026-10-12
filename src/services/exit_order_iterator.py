@@ -31,9 +31,6 @@ from src.web3py.types import Web3
 
 logger = logging.getLogger(__name__)
 
-# Applied while OracleDaemonConfig has no MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT value.
-DEFAULT_MAX_EXIT_REQUESTS_PER_REPORT = 500
-
 
 type CMv1 = tuple[StakingModuleId, CuratedStakingModuleContract]
 type CMv2 = tuple[StakingModuleId, CuratedStakingModuleContract]
@@ -397,11 +394,10 @@ class ValidatorExitIterator:
             ).max_balance_exit_requested_per_report_in_eth
             * 10**9
         )
-        max_exit_requests = self.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report(
-            self.blockstamp.block_hash,
-        )
         self.max_exit_requests_per_report = (
-            DEFAULT_MAX_EXIT_REQUESTS_PER_REPORT if max_exit_requests is None else max_exit_requests
+            self.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report(
+                self.blockstamp.block_hash,
+            )
         )
 
     # --- Iterator ---
