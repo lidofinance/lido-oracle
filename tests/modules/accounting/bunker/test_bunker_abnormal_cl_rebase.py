@@ -4,7 +4,7 @@ import pytest
 from eth_typing import HexStr
 from web3.types import Timestamp, Wei
 
-from src.constants import FAR_FUTURE_EPOCH, UINT64_MAX
+from src.constants import FAR_FUTURE_EPOCH
 from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.execution.exceptions import InconsistentData
@@ -344,17 +344,6 @@ def test_get_nearest_and_distant_blockstamps(
             # Rebase is equal to penalties.
             Gwei(-10 * 100_000),
         ),
-        (
-            # New vals count is less than previous,
-            LidoValidatorFactory.batch(10, balance=32 * 10**9),
-            # and have the same balance
-            LidoValidatorFactory.batch(9, balance=32 * 10**9),
-            UINT64_MAX,
-            UINT64_MAX,
-            UINT64_MAX,
-            # It is an exception because the new vals count can't be less that previous
-            ValueError("Validators count diff should be positive or 0. Something went wrong with CL API"),
-        ),
     ],
 )
 def test_calculate_cl_rebase_between_blocks(
@@ -387,19 +376,14 @@ def test_calculate_cl_rebase_between_blocks(
         side_effect=[curr_withdrawals_vault_balance, prev_withdrawals_vault_balance]
     )
     abnormal_case._get_withdrawn_from_vault_between_blocks = Mock(return_value=withdrawn_from_vault)
-    abnormal_case.w3.lido_contracts.accounting_oracle.get_consensus_version = Mock(return_value=3)
-    # Pre-v4: version check returns 3, so _calculate_injected_capital uses the fallback path
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
-    abnormal_case._get_last_report_reference_blockstamp = Mock(
-        return_value=ReferenceBlockStampFactory.build(block_number=0)
+    # Each validator that appears in these cases entered with a 32 ETH deposit inside the window.
+    abnormal_case._calculate_injected_capital = Mock(
+        return_value=Gwei((len(curr_lido_validators) - len(prev_lido_validators)) * 32 * 10**9)
     )
 
-    if isinstance(expected_rebase, Exception):
-        with pytest.raises(ValueError, match=expected_rebase.args[0]):
-            abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
-    else:
-        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
-        assert result == expected_rebase
+    result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
+    assert result == expected_rebase
 
 
 @pytest.mark.unit
@@ -468,37 +452,6 @@ def test_get_withdrawn_from_vault_between(
         assert result == expected_result
 
 
-MAX_EB_BALANCE = Gwei(2048 * 10**9)
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("prev_validators", "curr_validators", "expected_result"),
-    [
-        ([], [], 0),
-        # No new validators
-        (simple_validators(0, 9), simple_validators(0, 9), 0),
-        # Two new validators at 32 ETH each
-        (simple_validators(0, 9), simple_validators(0, 11), 2 * 32 * 10**9),
-        # One new validator — counted at LIDO_DEPOSIT_AMOUNT (32 ETH) regardless of balance
-        (
-            simple_validators(0, 9),
-            simple_validators(0, 9) + simple_validators(10, 10, balance=MAX_EB_BALANCE),
-            32 * 10**9,
-        ),
-    ],
-)
-def test_get_validators_diff_in_gwei(prev_validators, curr_validators, expected_result):
-    result = AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_validators, curr_validators)
-    assert result == expected_result
-
-
-@pytest.mark.unit
-def test_get_validators_diff_in_gwei_raises_on_shrink():
-    with pytest.raises(ValueError, match="Something went wrong with CL API"):
-        AbnormalClRebase.calculate_validators_count_diff_in_gwei(simple_validators(0, 10), simple_validators(0, 9))
-
-
 @pytest.mark.unit
 @pytest.mark.parametrize(
     (
@@ -561,9 +514,6 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
     abnormal_case.lido_validators = []
 
-    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
-    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
     abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
     genesis_mock = Mock()
     genesis_mock.genesis_fork_version = '0x00000000'
@@ -595,8 +545,6 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
 
     assert result == Gwei(expected_gwei)
-    # The v4 upgrade check must read the contract version at the last report block
-    abnormal_case.w3.lido_contracts.lido.get_contract_version.assert_called_once_with(last_report_bs.block_number)
 
 
 @pytest.mark.unit
@@ -633,10 +581,6 @@ def test_calculate_injected_capital__v4__topup_to_indexed_validator__counted_wit
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
     abnormal_case.lido_validators = [indexed_validator]  # the key is already on the CL at ref
 
-    abnormal_case._get_last_report_reference_blockstamp = Mock(
-        return_value=ReferenceBlockStampFactory.build(block_number=5)
-    )
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
     abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
     abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
     monkeypatch.setattr(
@@ -683,10 +627,6 @@ def test_calculate_injected_capital__v4__topup_queued_at_prev_and_applied_by_ref
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
     abnormal_case.lido_validators = [indexed_validator]
 
-    abnormal_case._get_last_report_reference_blockstamp = Mock(
-        return_value=ReferenceBlockStampFactory.build(block_number=5)
-    )
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
     abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
     abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
     monkeypatch.setattr(
@@ -724,8 +664,6 @@ def test_calculate_injected_capital__v4__prev_slot_before_ref_frame__raises(web3
     abnormal_case = AbnormalClRebase(
         web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
     )
-    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build())
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
 
     with pytest.raises(ValueError, match="prev_slot=294079 is before the start of the current reporting frame"):
         abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
@@ -745,9 +683,6 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
     abnormal_case.lido_keys = [simple_key(lido_pubkey)]
     abnormal_case.lido_validators = []
 
-    last_report_bs = ReferenceBlockStampFactory.build(block_number=5)
-    abnormal_case._get_last_report_reference_blockstamp = Mock(return_value=last_report_bs)
-    abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
     abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
     genesis_mock = Mock()
     genesis_mock.genesis_fork_version = '0x00000000'
@@ -777,8 +712,6 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
 
     # Only the valid 1000 ETH deposit should be counted; invalid 1 ETH excluded
     assert result == Gwei(1000 * 10**9)
-    # The v4 upgrade check must read the contract version at the last report block
-    abnormal_case.w3.lido_contracts.lido.get_contract_version.assert_called_once_with(last_report_bs.block_number)
 
 
 @pytest.mark.unit
@@ -876,10 +809,7 @@ class TestClSampleIdentityUnderEip7732:
         abnormal_case.w3.cc = Mock()
         abnormal_case.w3.lido_contracts = Mock()
         abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(return_value=Wei(0))
-        abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
-        abnormal_case._get_last_report_reference_blockstamp = Mock(
-            return_value=ReferenceBlockStampFactory.build(block_number=0)
-        )
+        abnormal_case._calculate_injected_capital = Mock(return_value=Gwei(0))
         abnormal_case.lido_validators = simple_validators(0, 0, balance=ref_balance)
         return abnormal_case
 
@@ -989,10 +919,6 @@ class TestDepositCounterAcrossElFrames:
         )
         abnormal_case.lido_keys = []
         abnormal_case.lido_validators = []
-        abnormal_case._get_last_report_reference_blockstamp = Mock(
-            return_value=ReferenceBlockStampFactory.build(block_number=5)
-        )
-        abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=4)
         abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
         abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
         abnormal_case.w3.cc.get_pending_deposits = Mock(return_value=[])
@@ -1082,3 +1008,32 @@ class TestDepositCounterAcrossElFrames:
 
         # Assert
         assert result == -1 * 10**9
+
+    def test_calculate_cl_rebase_between_blocks__first_report_after_v4_upgrade_topup_to_existing__loss_stays_negative(
+        self, web3, monkeypatch
+    ):
+        # Arrange — the previous report's reference predates the v3 -> v4 upgrade, the samples do not.
+        # A 64 ETH top-up to an existing validator lands inside the window while the validator loses 1 ETH.
+        prev_blockstamp, ref_blockstamp = self._blockstamps(self.PREV_EL_SLOT_IN_REF_FRAME)
+        abnormal_case = self._abnormal_case(
+            web3,
+            prev_balance_stats=BalanceStats(0, 0, 0, 0),
+            ref_balance_stats=BalanceStats(0, 0, 64 * 10**18, 0),
+        )
+        abnormal_case.w3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+        abnormal_case.lido_validators = simple_validators(0, 0, balance=Gwei(95 * 10**9))
+        abnormal_case.w3.cc.get_validators_no_cache = Mock(return_value=[])
+        abnormal_case.w3.lido_contracts.get_withdrawal_balance_no_cache = Mock(return_value=Wei(0))
+        abnormal_case._get_eth_distributed_events = Mock(return_value=[])
+        monkeypatch.setattr(
+            LidoValidatorsProvider,
+            "compute_lido_validators",
+            Mock(return_value=(simple_validators(0, 0, balance=Gwei(32 * 10**9)), [])),
+        )
+
+        # Act
+        result = abnormal_case._calculate_cl_rebase_between_blocks(prev_blockstamp, ref_blockstamp)
+
+        # Assert
+        assert result == -1 * 10**9
+        abnormal_case.w3.lido_contracts.lido.get_contract_version.assert_not_called()
