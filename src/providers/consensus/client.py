@@ -32,7 +32,7 @@ from src.providers.http_provider import (
     data_is_list,
     data_is_transient_dict,
 )
-from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
+from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.fingerprint import log_fingerprint
@@ -71,6 +71,7 @@ class ConsensusClient(HTTPProvider):
     API_GET_SPEC = 'eth/v1/config/spec'
     API_GET_GENESIS = 'eth/v1/beacon/genesis'
     API_GET_VALIDATOR = 'eth/v1/beacon/states/{}/validators/{}'
+    API_POST_VALIDATORS = 'eth/v1/beacon/states/{}/validators'
 
     def __init__(
         self, hosts: list[str], timeout: int, retry_total: int = 3, retry_backoff_factor: int = 3, chain_id: int = 1
@@ -297,6 +298,27 @@ class ConsensusClient(HTTPProvider):
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getStateValidator")
         return Validator.from_response(**data)
+
+    def get_validators_by_ids(self, state_id: SlotNumber, validator_ids: list[ValidatorIndex]) -> list[Validator]:
+        """Spec: https://ethereum.github.io/beacon-APIs/#/Beacon/postStateValidators"""
+        data, _ = self._post(
+            self.API_POST_VALIDATORS,
+            path_params=(state_id,),
+            body_data={'ids': [str(i) for i in validator_ids]},
+            force_raise=self.__raise_last_missed_slot_error,
+            validate_response=data_is_list,
+        )
+        validators = [Validator.from_response(**item) for item in data]
+
+        requested_ids = set(validator_ids)
+        returned_ids = {v.index for v in validators}
+        if returned_ids != requested_ids:
+            raise ValueError(
+                f"Unexpected validators from getStateValidators at {state_id=}: "
+                f"missing={sorted(requested_ids - returned_ids)}, "
+                f"unexpected={sorted(returned_ids - requested_ids)}"
+            )
+        return validators
 
     def _get_state_by_state_id(self, state_id: StateRoot | SlotNumber) -> dict:
         data, _ = self._get(

@@ -23,6 +23,7 @@ from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.client import KAPIInconsistentData
 from src.types import (
     EpochNumber,
+    Gwei,
     NodeOperatorId,
     ReferenceBlockStamp,
     StakingModuleAddress,
@@ -74,7 +75,6 @@ class Distribution:
             logger.info({"msg": f"Calculating distribution for frame [{from_epoch};{to_epoch}]"})
 
             frame_blockstamp = self._get_frame_blockstamp(blockstamp, to_epoch)
-            frame_module_validators = self._get_module_validators(frame_blockstamp)
 
             total_rewards_to_distribute = self.w3.staking_module.fee_distributor.shares_to_distribute(
                 frame_blockstamp.block_hash
@@ -84,7 +84,7 @@ class Distribution:
             frame_log = FramePerfLog(frame_blockstamp, frame)
             (rewards_map_in_frame, distributed_rewards_in_frame, rebate_to_protocol_in_frame, strikes_in_frame) = (
                 self._calculate_distribution_in_frame(
-                    frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_module_validators, frame_log
+                    frame, frame_blockstamp, rewards_to_distribute_in_frame, frame_log
                 )
             )
             if not distributed_rewards_in_frame:
@@ -161,12 +161,29 @@ class Distribution:
 
         return no_validators
 
+    def _get_last_active_balances(
+        self, frame: Frame, active_by_operator: dict[NodeOperatorId, list[LidoValidator]]
+    ) -> dict[ValidatorIndex, Gwei]:
+        _, to_epoch = frame
+        active = [v for validators in active_by_operator.values() for v in validators]
+        # Validators active until the frame end are weighted by their frame-end balance.
+        balances = {v.index: v.validator.effective_balance for v in active}
+        # Validators exited within the frame are weighted by their pre-exit balance, as the frame-end one may be 0.
+        exited = [v for v in active if v.validator.exit_epoch <= to_epoch]
+        # Validators that exited in the same epoch share one state, so they are read in one request.
+        for exit_epoch in {v.validator.exit_epoch for v in exited}:
+            state_slot = self.converter.get_epoch_first_slot(EpochNumber(exit_epoch - 1))
+            indexes = [v.index for v in exited if v.validator.exit_epoch == exit_epoch]
+            # The exit churn limit lets only a few validators exit per epoch, so the request needs no batching.
+            validators_at_slot = self.w3.cc.get_validators_by_ids(state_slot, indexes)
+            balances |= {v.index: v.validator.effective_balance for v in validators_at_slot}
+        return balances
+
     def _calculate_distribution_in_frame(
         self,
         frame: Frame,
         blockstamp: ReferenceBlockStamp,
         rewards_to_distribute: RewardsShares,
-        operators_to_validators: dict[NodeOperatorId, list[LidoValidator]],
         log: FramePerfLog,
     ) -> tuple[dict[NodeOperatorId, RewardsShares], RewardsShares, RewardsShares, dict[StrikesValidator, int]]:
         total_rebate_share = 0
@@ -177,8 +194,14 @@ class Distribution:
 
         logger.info({"msg": f"Network performance in {frame=}: {network_perf=}"})
 
-        for no_id, validators in operators_to_validators.items():
-            active_validators = [v for v in validators if self.state.data[frame].attestations[v.index].assigned > 0]
+        operators_to_validators = self._get_module_validators(blockstamp)
+        active_by_operator = {
+            no_id: [v for v in validators if self.state.data[frame].attestations[v.index].assigned > 0]
+            for no_id, validators in operators_to_validators.items()
+        }
+        last_active_balances = self._get_last_active_balances(frame, active_by_operator)
+
+        for no_id, active_validators in active_by_operator.items():
             if not active_validators:
                 logger.info({"msg": f"No active validators for {no_id=} in the frame. Skipping"})
                 continue
@@ -190,6 +213,7 @@ class Distribution:
             log_operator.performance_coefficients = curve_params.perf_coeffs
 
             # Sort from biggest to smallest balance and by index from oldest to newest.
+            # Frame-end balance on purpose: validators withdrawn in the frame get the last key numbers.
             active_validators.sort(
                 key=lambda v: (-min(v.validator.effective_balance, MAX_EFFECTIVE_BALANCE_ELECTRA), v.index)
             )
@@ -207,6 +231,7 @@ class Distribution:
                     key_reward_share,
                     curve_params.perf_coeffs,
                     log_operator,
+                    last_active_balances[validator.index],
                 )
                 if validator_duties_outcome.strikes:
                     frame_strikes[(no_id, validator.pubkey)] = validator_duties_outcome.strikes
@@ -247,6 +272,7 @@ class Distribution:
         reward_share: float,
         perf_coeffs: PerformanceCoefficients,
         log_operator: OperatorFrameSummary,
+        last_active_effective_balance: Gwei,
     ) -> ValidatorDutiesOutcome:
         if duties.attestation is None or duties.attestation.assigned == 0:
             # It's possible that the validator is not assigned to any duty, hence it's performance
@@ -282,7 +308,8 @@ class Distribution:
         # Distribution should calculate participation and rebate shares proportional to effective balance as well.
         # NOTE: Moment of getting 2048 ETH can be too close to the report and trick the distribution.
         #
-        val_effective_balance = max(MIN_ACTIVATION_BALANCE, validator.validator.effective_balance)
+        # A full withdrawal zeroes the frame-end balance, so exited validators are weighted by their last active epoch.
+        val_effective_balance = max(MIN_ACTIVATION_BALANCE, last_active_effective_balance)
         participation_share_multiplier = val_effective_balance // EFFECTIVE_BALANCE_INCREMENT
 
         log_validator.participation_share_multiplier = participation_share_multiplier

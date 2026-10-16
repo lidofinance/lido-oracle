@@ -3,19 +3,22 @@
 
 import json
 import logging
+import re
 from unittest.mock import Mock
 
 import pytest
 import requests
+import responses
 from prometheus_client import CollectorRegistry
 from prometheus_client.exposition import generate_latest
 from web3_multi_provider import metrics as w3_metrics
 
 from src import variables
+from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
 from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, SlotNumber
+from src.types import EpochNumber, SlotNumber, ValidatorIndex
 from src.utils.blockstamp import build_blockstamp
 from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import BlockStampFactory
@@ -314,3 +317,54 @@ def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClie
 
     with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
         consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+
+
+def build_validator_response(index: int) -> dict:
+    return {
+        'index': str(index),
+        'balance': '32000000000',
+        'status': 'active_ongoing',
+        'validator': {
+            'pubkey': '0x' + '11' * 48,
+            'withdrawal_credentials': '0x01',
+            'effective_balance': '32000000000',
+            'slashed': False,
+            'activation_eligibility_epoch': '0',
+            'activation_epoch': '0',
+            'exit_epoch': str(FAR_FUTURE_EPOCH),
+            'withdrawable_epoch': str(FAR_FUTURE_EPOCH),
+        },
+    }
+
+
+@pytest.mark.unit
+@responses.activate
+def test_get_validators_by_ids__ids_requested__posts_ids_as_strings_and_parses_validators():
+    client = ConsensusClient(['http://localhost:5051'], 30)
+    ids = [ValidatorIndex(i) for i in range(250)]
+    responses.add(
+        responses.POST,
+        'http://localhost:5051/eth/v1/beacon/states/100/validators',
+        json={'data': [build_validator_response(i) for i in ids]},
+    )
+
+    validators = client.get_validators_by_ids(SlotNumber(100), ids)
+
+    assert len(responses.calls) == 1
+    assert json.loads(responses.calls[0].request.body) == {'ids': [str(i) for i in ids]}
+    assert [v.index for v in validators] == ids
+
+
+@pytest.mark.unit
+@responses.activate
+def test_get_validators_by_ids__response_misses_an_id__raises_value_error():
+    client = ConsensusClient(['http://localhost:5051'], 30)
+    ids = [ValidatorIndex(i) for i in range(250)]
+    responses.add(
+        responses.POST,
+        'http://localhost:5051/eth/v1/beacon/states/100/validators',
+        json={'data': [build_validator_response(i) for i in ids if i != 150]},
+    )
+
+    with pytest.raises(ValueError, match=re.escape("missing=[150], unexpected=[]")):
+        client.get_validators_by_ids(SlotNumber(100), ids)
