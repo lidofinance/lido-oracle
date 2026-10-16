@@ -1,7 +1,7 @@
 import math
 import re
 from collections import defaultdict
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from eth_utils.address import to_checksum_address
@@ -9,7 +9,9 @@ from hexbytes import HexBytes
 from web3.types import Wei
 
 from src.constants import (
+    COMPOUNDING_WITHDRAWAL_PREFIX,
     EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
     MIN_ACTIVATION_BALANCE,
     TOTAL_BASIS_POINTS,
 )
@@ -31,7 +33,7 @@ from src.providers.execution.contracts.cs_parameters_registry import (
 )
 from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.client import KAPIInconsistentData
-from src.types import EpochNumber, NodeOperatorId, ValidatorIndex
+from src.types import EpochNumber, Gwei, NodeOperatorId, ValidatorIndex
 from src.web3py.extensions import StakingModuleContracts
 from src.web3py.types import Web3StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -319,7 +321,6 @@ def test_calculate_distribution(
     w3.staking_module.get_curve_params = mocked_curve_params
 
     distribution = Distribution(w3, converter=..., state=make_state())
-    distribution._get_module_validators = Mock(...)
     distribution.state.data = {f: {} for f in frames}
     distribution._get_frame_blockstamp = Mock(side_effect=frame_blockstamps)
     distribution._calculate_distribution_in_frame = Mock(side_effect=distribution_in_frame)
@@ -348,7 +349,6 @@ def test_calculate_distribution_handles_invalid_distribution():
     w3.staking_module.get_curve_params = Mock(...)
 
     distribution = Distribution(w3, converter=..., state=make_state())
-    distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
     distribution._calculate_distribution_in_frame = Mock(
@@ -379,7 +379,6 @@ def test_calculate_distribution_handles_invalid_distribution_in_total():
     w3.staking_module.get_curve_params = Mock(...)
 
     distribution = Distribution(w3, converter=..., state=make_state())
-    distribution._get_module_validators = Mock(...)
     distribution.state.data = {(EpochNumber(0), EpochNumber(31)): {}}
     distribution._get_frame_blockstamp = Mock(return_value=ReferenceBlockStampFactory.build(ref_epoch=31))
     distribution._calculate_distribution_in_frame = Mock(
@@ -1123,13 +1122,13 @@ def test_calculate_distribution_in_frame(
     state.data = {frame: frame_state_data}
 
     distribution = Distribution(w3, converter=..., state=state)
+    distribution._get_module_validators = Mock(return_value=frame_validators)
 
     (rewards_distribution, distributed_rewards, rebate_to_protocol, strikes_in_frame) = (
         distribution._calculate_distribution_in_frame(
             frame,
             blockstamp=...,
             rewards_to_distribute=to_distribute,
-            operators_to_validators=frame_validators,
             log=log,
         )
     )
@@ -1342,6 +1341,7 @@ def test_process_validator_duty(validator_duties, is_slashed, threshold, reward_
         reward_share,
         PerformanceCoefficients(),
         log_operator,
+        validator.validator.effective_balance,
     )
 
     assert outcome == expected_outcome
@@ -1635,6 +1635,7 @@ def test_get_validator_duties_outcome_scales_by_effective_balance(multiplier: in
         reward_share,
         PerformanceCoefficients(),
         log_operator,
+        validator.validator.effective_balance,
     )
 
     expected_assigned = 10 * MIN_ACTIVATION_BALANCE * multiplier // EFFECTIVE_BALANCE_INCREMENT
@@ -1726,7 +1727,9 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
         NodeOperatorId(1): [v_idx10, v_idx7, v_idx5, v_idx8, v_idx9, v_idx6],
     }
 
-    distribution._calculate_distribution_in_frame(frame, blockstamp, Wei(300), operators_to_validators, log)
+    distribution._get_module_validators = Mock(return_value=operators_to_validators)
+
+    distribution._calculate_distribution_in_frame(frame, blockstamp, Wei(300), log)
 
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(6)].reward_share == 1.0
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(9)].reward_share == 0.9
@@ -1734,3 +1737,155 @@ def test_calculate_distribution_in_frame_assigns_keys_by_sorted_order():
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(8)].reward_share == 0.7
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(10)].reward_share == 0.6
     assert log.operators[NodeOperatorId(1)].validators[ValidatorIndex(5)].reward_share == 0.5
+
+
+def build_frame_validator(index: int, exit_epoch: int = FAR_FUTURE_EPOCH, effective_balance: int = 0):
+    validator = LidoValidatorFactory.build(index=ValidatorIndex(index))
+    validator.validator.slashed = False
+    validator.validator.exit_epoch = EpochNumber(exit_epoch)
+    validator.validator.effective_balance = Gwei(effective_balance)
+    return validator
+
+
+def build_distribution() -> Distribution:
+    w3 = Mock(spec=Web3StakingModule, cc=Mock())
+    converter = Mock(get_epoch_first_slot=Mock(side_effect=lambda epoch: epoch * 32))
+    return Distribution(w3, converter=converter, state=make_state())
+
+
+@pytest.mark.unit
+def test_get_validator_duties_outcome__zero_frame_end_balance__weights_by_last_active_balance():
+    validator = build_frame_validator(1, exit_epoch=20, effective_balance=0)
+    duties = ValidatorDuties(attestation=DutyAccumulator(assigned=10, included=10), proposal=None, sync=None)
+    log_operator = Mock()
+    log_operator.validators = defaultdict(ValidatorFrameSummary)
+
+    outcome = Distribution.get_validator_duties_outcome(
+        validator, duties, 0.0, 1.0, PerformanceCoefficients(), log_operator, Gwei(MIN_ACTIVATION_BALANCE * 64)
+    )
+
+    assert log_operator.validators[validator.index].participation_share_multiplier == 2048
+    assert outcome.participation_share == 10 * 2048
+
+
+@pytest.mark.unit
+def test_get_last_active_balances__exited_with_zero_end_balance__returns_balance_of_the_last_active_epoch():
+    frame = (EpochNumber(0), EpochNumber(31))
+    validator = build_frame_validator(1, exit_epoch=20, effective_balance=0)
+    distribution = build_distribution()
+    distribution.w3.cc.get_validators_by_ids.return_value = [
+        ValidatorFactory.build(
+            index=ValidatorIndex(1),
+            validator=ValidatorStateFactory.build(
+                withdrawal_credentials=COMPOUNDING_WITHDRAWAL_PREFIX,
+                effective_balance=Gwei(MIN_ACTIVATION_BALANCE * 64),
+            ),
+        )
+    ]
+
+    result = distribution._get_last_active_balances(frame, {NodeOperatorId(1): [validator]})
+
+    assert result == {ValidatorIndex(1): MIN_ACTIVATION_BALANCE * 64}
+
+
+@pytest.mark.parametrize("exit_epoch", [FAR_FUTURE_EPOCH, 32], ids=["not_exiting", "exit_after_frame_end"])
+@pytest.mark.unit
+def test_get_last_active_balances__validator_active_at_frame_end__returns_frame_end_balance_without_request(exit_epoch):
+    frame = (EpochNumber(0), EpochNumber(31))
+    validator = build_frame_validator(1, exit_epoch=exit_epoch, effective_balance=MIN_ACTIVATION_BALANCE)
+    distribution = build_distribution()
+
+    result = distribution._get_last_active_balances(frame, {NodeOperatorId(1): [validator]})
+
+    assert result == {ValidatorIndex(1): MIN_ACTIVATION_BALANCE}
+    distribution.w3.cc.get_validators_by_ids.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "exit_epochs, expected_calls",
+    [
+        pytest.param([20, 20], [call(19 * 32, [1, 2])], id="same_exit_epoch"),
+        pytest.param([20, 25], [call(19 * 32, [1]), call(24 * 32, [2])], id="different_exit_epochs"),
+    ],
+)
+@pytest.mark.unit
+def test_get_last_active_balances__exit_epochs__requests_once_per_exit_epoch_at_first_slot_of_previous_epoch(
+    exit_epochs, expected_calls
+):
+    frame = (EpochNumber(0), EpochNumber(31))
+    validators = [build_frame_validator(i, exit_epoch=e) for i, e in enumerate(exit_epochs, 1)]
+    distribution = build_distribution()
+    distribution.w3.cc.get_validators_by_ids.side_effect = lambda slot, ids: [
+        ValidatorFactory.build(
+            index=ValidatorIndex(i),
+            validator=ValidatorStateFactory.build(effective_balance=Gwei(MIN_ACTIVATION_BALANCE)),
+        )
+        for i in ids
+    ]
+
+    result = distribution._get_last_active_balances(
+        frame, {NodeOperatorId(1): validators[:1], NodeOperatorId(2): validators[1:]}
+    )
+
+    distribution.w3.cc.get_validators_by_ids.assert_has_calls(expected_calls, any_order=True)
+    assert distribution.w3.cc.get_validators_by_ids.call_count == len(expected_calls)
+    assert result == {ValidatorIndex(1): MIN_ACTIVATION_BALANCE, ValidatorIndex(2): MIN_ACTIVATION_BALANCE}
+
+
+@pytest.mark.unit
+def test_calculate_distribution_in_frame__validator_without_assigned_attestations__balance_is_not_requested():
+    frame = (EpochNumber(0), EpochNumber(31))
+    validator = build_frame_validator(1, exit_epoch=20)
+    distribution = build_distribution()
+    distribution.state.data = {
+        frame: NetworkDuties(
+            attestations=defaultdict(DutyAccumulator, {validator.index: DutyAccumulator(assigned=0, included=0)}),
+            proposals=defaultdict(DutyAccumulator),
+            syncs=defaultdict(DutyAccumulator),
+        )
+    }
+    distribution._get_module_validators = Mock(return_value={NodeOperatorId(1): [validator]})
+    distribution._get_network_performance = Mock(return_value=0.9)
+
+    distribution._calculate_distribution_in_frame(frame, ..., Wei(300), FramePerfLog(..., frame))
+
+    distribution.w3.cc.get_validators_by_ids.assert_not_called()
+
+
+@pytest.mark.unit
+def test_calculate_distribution_in_frame__validator_exited_in_frame__is_weighted_by_balance_before_exit():
+    frame = (EpochNumber(0), EpochNumber(31))
+    validator = build_frame_validator(1, exit_epoch=20, effective_balance=0)
+    distribution = build_distribution()
+    distribution.w3.staking_module = Mock()
+    distribution.w3.staking_module.get_curve_params = Mock(
+        return_value=CurveParams(
+            strikes_params=...,
+            perf_leeway_data=Mock(get_for=Mock(return_value=0.0)),
+            reward_share_data=Mock(get_for=Mock(return_value=1.0)),
+            perf_coeffs=PerformanceCoefficients(attestations_weight=1, blocks_weight=0, sync_weight=0),
+        )
+    )
+    distribution.w3.cc.get_validators_by_ids.return_value = [
+        ValidatorFactory.build(
+            index=validator.index,
+            validator=ValidatorStateFactory.build(
+                withdrawal_credentials=COMPOUNDING_WITHDRAWAL_PREFIX,
+                effective_balance=Gwei(MIN_ACTIVATION_BALANCE * 64),
+            ),
+        )
+    ]
+    distribution.state.data = {
+        frame: NetworkDuties(
+            attestations=defaultdict(DutyAccumulator, {validator.index: DutyAccumulator(assigned=10, included=10)}),
+            proposals=defaultdict(DutyAccumulator),
+            syncs=defaultdict(DutyAccumulator),
+        )
+    }
+    distribution._get_module_validators = Mock(return_value={NodeOperatorId(1): [validator]})
+    distribution._get_network_performance = Mock(return_value=0.9)
+    log = FramePerfLog(..., frame)
+
+    distribution._calculate_distribution_in_frame(frame, ..., Wei(300), log)
+
+    assert log.operators[NodeOperatorId(1)].validators[validator.index].participation_share_multiplier == 2048
