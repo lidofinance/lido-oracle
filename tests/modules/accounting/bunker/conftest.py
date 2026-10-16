@@ -4,6 +4,7 @@ import pytest
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.common.types import ChainConfig, FrameConfig
+from src.modules.oracles.accounting.types import BalanceStats
 from src.providers.consensus.types import Validator, ValidatorState
 from src.providers.keys.types import LidoKey
 from src.services.bunker import BunkerService
@@ -14,12 +15,19 @@ from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlock
 
 def simple_ref_blockstamp(block_number: int) -> ReferenceBlockStamp:
     return ReferenceBlockStamp(
-        f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number, block_number
+        f"0x{block_number}",
+        block_number,
+        f"0x{block_number}",
+        block_number,
+        0,
+        block_number,
+        block_number,
+        block_number,
     )
 
 
 def simple_blockstamp(block_number: int) -> BlockStamp:
-    return BlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number)
+    return BlockStamp(f"0x{block_number}", block_number, f"0x{block_number}", block_number, 0, block_number)
 
 
 def simple_key(pubkey: str) -> LidoKey:
@@ -156,92 +164,96 @@ def mock_get_withdrawal_vault_balance(abnormal_case):
 @pytest.fixture
 def mock_get_validators(web3):
     def _get_validators(state: ReferenceBlockStamp, _=None):
-        validators = {
-            0: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', 32 * 10**9),
-                simple_validator(4, '0x04', 32 * 10**9),
-                simple_validator(5, '0x05', 32 * 10**9),
-            ],
-            10: [
-                simple_validator(0, '0x00', (32 * 10**9) + 15),
-                simple_validator(1, '0x01', (32 * 10**9) + 17),
-                simple_validator(2, '0x02', (32 * 10**9) + 63),
-                simple_validator(3, '0x03', (32 * 10**9) + 1),
-                simple_validator(4, '0x04', 32 * 10**9),
-                simple_validator(5, '0x05', (32 * 10**9) + 99),
-            ],
-            20: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', (32 * 10**9) - 200),
-                simple_validator(4, '0x04', 0),
-                simple_validator(5, '0x05', (32 * 10**9) - 100500),
-            ],
-            30: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', 32 * 10**9),
-                simple_validator(4, '0x04', 32 * 10**9),
-            ],
-            31: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', 32 * 10**9),
-                simple_validator(4, '0x04', 32 * 10**9),
-                simple_validator(5, '0x05', 32 * 10**9),
-            ],
-            33: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', 32 * 10**9),
-                simple_validator(4, '0x04', 32 * 10**9),
-                simple_validator(5, '0x05', 32 * 10**9),
-            ],
-            40: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', (32 * 10**9) + 333333),
-                simple_validator(4, '0x04', 32 * 10**9),
-                simple_validator(5, '0x05', (32 * 10**9) + 824112),
-            ],
-            50: [
-                simple_validator(4, '0x00', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', (32 * 10**9) + 333333),
-                simple_validator(4, '0x04', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
-                simple_validator(5, '0x05', (32 * 10**9) + 824112),
-            ],
-            1000: [
-                simple_validator(0, '0x00', 32 * 10**9),
-                simple_validator(1, '0x01', 32 * 10**9),
-                simple_validator(2, '0x02', 32 * 10**9),
-                simple_validator(3, '0x03', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
-                simple_validator(4, '0x04', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
-                simple_validator(5, '0x05', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
-                *[simple_validator(i, f'0x0{i}', 32 * 10**9) for i in range(6, 200)],
-            ],
-            123: [
-                simple_validator(0, '0x00', 32 * 10**9, exit_epoch='1'),
-                simple_validator(1, '0x01', 32 * 10**9, exit_epoch='1'),
-                simple_validator(2, '0x02', 32 * 10**9, exit_epoch='1'),
-                simple_validator(3, '0x03', 32 * 10**9, exit_epoch='1'),
-                simple_validator(4, '0x04', 32 * 10**9, exit_epoch='1'),
-                simple_validator(5, '0x05', 32 * 10**9, exit_epoch='1'),
-            ],
-        }
-        return validators[state.slot_number]
+        return _validators_at(state.slot_number)
 
     web3.cc.get_validators_no_cache = Mock(side_effect=_get_validators)
     web3.cc.get_validators = Mock(side_effect=_get_validators)
+
+
+def _validators_at(slot: int) -> list[Validator]:
+    validators = {
+        0: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', 32 * 10**9),
+            simple_validator(4, '0x04', 32 * 10**9),
+            simple_validator(5, '0x05', 32 * 10**9),
+        ],
+        10: [
+            simple_validator(0, '0x00', (32 * 10**9) + 15),
+            simple_validator(1, '0x01', (32 * 10**9) + 17),
+            simple_validator(2, '0x02', (32 * 10**9) + 63),
+            simple_validator(3, '0x03', (32 * 10**9) + 1),
+            simple_validator(4, '0x04', 32 * 10**9),
+            simple_validator(5, '0x05', (32 * 10**9) + 99),
+        ],
+        20: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', (32 * 10**9) - 200),
+            simple_validator(4, '0x04', 0),
+            simple_validator(5, '0x05', (32 * 10**9) - 100500),
+        ],
+        30: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', 32 * 10**9),
+            simple_validator(4, '0x04', 32 * 10**9),
+        ],
+        31: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', 32 * 10**9),
+            simple_validator(4, '0x04', 32 * 10**9),
+            simple_validator(5, '0x05', 32 * 10**9),
+        ],
+        33: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', 32 * 10**9),
+            simple_validator(4, '0x04', 32 * 10**9),
+            simple_validator(5, '0x05', 32 * 10**9),
+        ],
+        40: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', (32 * 10**9) + 333333),
+            simple_validator(4, '0x04', 32 * 10**9),
+            simple_validator(5, '0x05', (32 * 10**9) + 824112),
+        ],
+        50: [
+            simple_validator(4, '0x00', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', (32 * 10**9) + 333333),
+            simple_validator(4, '0x04', balance=0, effective_balance=0, activation_epoch=FAR_FUTURE_EPOCH),
+            simple_validator(5, '0x05', (32 * 10**9) + 824112),
+        ],
+        1000: [
+            simple_validator(0, '0x00', 32 * 10**9),
+            simple_validator(1, '0x01', 32 * 10**9),
+            simple_validator(2, '0x02', 32 * 10**9),
+            simple_validator(3, '0x03', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
+            simple_validator(4, '0x04', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
+            simple_validator(5, '0x05', 32 * 10**9, slashed=True, withdrawable_epoch='10001'),
+            *[simple_validator(i, f'0x0{i}', 32 * 10**9) for i in range(6, 200)],
+        ],
+        123: [
+            simple_validator(0, '0x00', 32 * 10**9, exit_epoch='1'),
+            simple_validator(1, '0x01', 32 * 10**9, exit_epoch='1'),
+            simple_validator(2, '0x02', 32 * 10**9, exit_epoch='1'),
+            simple_validator(3, '0x03', 32 * 10**9, exit_epoch='1'),
+            simple_validator(4, '0x04', 32 * 10**9, exit_epoch='1'),
+            simple_validator(5, '0x05', 32 * 10**9, exit_epoch='1'),
+        ],
+    }
+    return validators[slot]
 
 
 @pytest.fixture
@@ -279,7 +291,18 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
     # Large enough that every ref_slot used across these tests (up to ~444444) stays in frame 0,
     # comfortably ahead of any rebase_check_{nearest,distant}_epoch_distance used in tests.
     frame_config = FrameConfig(initial_epoch=0, epochs_per_frame=1_000_000, fast_lane_length_slots=0)
-    # Pre-v4 by default: no top-up support, no pending deposits
-    web3.lido_contracts.lido.get_contract_version = Mock(return_value=3)
+    abnormal_case = AbnormalClRebase(web3, c_conf, b_conf, frame_config)
+
+    def _get_balance_stats(block_hash: str) -> BalanceStats:
+        # Every Lido validator in these states entered with one 32 ETH deposit and nothing is queued,
+        # so the deposit counter at a block is the Lido validator count of its state.
+        slot = int(block_hash[2:])
+        lido_pubkeys = {key.key for key in abnormal_case.lido_keys}
+        lido_validators = [v for v in _validators_at(slot) if v.validator.pubkey in lido_pubkeys]
+        return BalanceStats(0, 0, len(lido_validators) * 32 * 10**18, 0)
+
     web3.cc.get_pending_deposits = Mock(return_value=[])
-    return AbnormalClRebase(web3, c_conf, b_conf, frame_config)
+    web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
+    web3.lido_validators.get_lido_wc_list = Mock(return_value=[])
+    web3.lido_contracts.lido.get_balance_stats = Mock(side_effect=_get_balance_stats)
+    return abnormal_case

@@ -7,7 +7,7 @@ from eth_typing import HexStr
 from web3.contract.contract import ContractEvent
 from web3.types import EventData, Wei
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT
 from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
 from src.providers.execution.exceptions import InconsistentData
@@ -25,8 +25,6 @@ from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
-
-_LIDO_V4 = 4  # Lido contract version that introduced getBalanceStats / EIP-7251 top-up support
 
 
 class AbnormalClRebase:
@@ -215,8 +213,7 @@ class AbnormalClRebase:
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
-        # Capital injected via deposits: new validators (pre-v4)
-        # or new validators + top-ups (post-v4)
+        # Capital injected via deposits: new validators and top-ups
         injected_capital = self._calculate_injected_capital(prev_blockstamp, ref_blockstamp, prev_lido_validators)
 
         # Finally, we can calculate a corrected CL rebase
@@ -310,16 +307,7 @@ class AbnormalClRebase:
         ref_blockstamp: ReferenceBlockStamp,
         prev_lido_validators: list[LidoValidator],
     ) -> Gwei:
-        """How much ETH entered Lido validators' balances via deposits in [prev, ref].
-
-        Pre-v4: only new validators, counted as 32 ETH each.
-        Post-v4 (EIP-7251): new validators + top-ups to existing ones.
-        """
-        last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
-
-        if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
-            return AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_lido_validators, self.lido_validators)
-
+        """How much ETH entered Lido validators' balances via deposits in [prev, ref]: new validators and top-ups."""
         self._validate_prev_slot_within_ref_frame(prev_blockstamp.slot_number, ref_blockstamp.ref_slot)
 
         lido_pubkeys = {key.key for key in self.lido_keys}
@@ -406,23 +394,6 @@ class AbnormalClRebase:
             last_finalized_slot_number=ref_blockstamp.slot_number,
             el=self.w3.eth,
         )
-
-    @staticmethod
-    def calculate_validators_count_diff_in_gwei(
-        prev_validators: Sequence[Validator],
-        ref_validators: Sequence[Validator],
-    ) -> Gwei:
-        """
-        Handle 32 ETH balances of freshly baked validators, who appeared between epochs
-        Lido validators are counted by public keys that the protocol deposited with 32 ETH,
-        so we can safely count the differences in the number of validators when they occur by deposit size.
-        Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
-        and goes into `used` state
-        """
-        validators_diff = len(ref_validators) - len(prev_validators)
-        if validators_diff < 0:
-            raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * LIDO_DEPOSIT_AMOUNT)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(
