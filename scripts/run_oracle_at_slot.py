@@ -38,7 +38,10 @@ def parse_args() -> argparse.Namespace:
         '--slot',
         type=int,
         default=None,
-        help='Reference slot to build the report for. Defaults to the latest finalized slot.',
+        help=(
+            'Reference slot to build the report for. Defaults to the latest finalized slot '
+            '(after Gloas: the slot before it, since the blockstamp needs a finalized child block).'
+        ),
     )
     parser.add_argument('--prometheus-port', type=int, default=None, help='Defaults to a free port.')
     parser.add_argument('--healthcheck-port', type=int, default=None, help='Defaults to a free port.')
@@ -107,7 +110,7 @@ def main() -> None:
     from src import variables
     from src.modules.oracles.common.consensus import ConsensusModule, logger as consensus_logger
     from src.types import BlockStamp, ReferenceBlockStamp, SlotNumber
-    from src.utils.slot import get_reference_blockstamp
+    from src.utils.blockstamp import get_reference_blockstamp
 
     forced_ref_slot = SlotNumber(int(args.slot)) if args.slot else None
 
@@ -115,13 +118,21 @@ def main() -> None:
         """Patched: always build the report blockstamp for the forced reference slot."""
         converter = self._get_web3_converter(last_finalized_blockstamp)  # pylint: disable=protected-access
 
-        ref_slot = forced_ref_slot or SlotNumber(last_finalized_blockstamp.slot_number)
+        last_finalized_slot = SlotNumber(last_finalized_blockstamp.slot_number)
+        # Under Gloas the blockstamp comes from the reference slot's child block, and the last finalized
+        # slot has no finalized child yet, so the latest usable default is the slot right before it.
+        if self.w3.cc.is_gloas_slot(last_finalized_slot):
+            default_ref_slot = SlotNumber(last_finalized_slot - 1)
+        else:
+            default_ref_slot = last_finalized_slot
+        ref_slot = forced_ref_slot or default_ref_slot
 
         bs = get_reference_blockstamp(
             cc=self.w3.cc,
             ref_slot=ref_slot,
-            ref_epoch=converter.get_epoch_by_slot(ref_slot),
+            slots_per_epoch=converter.chain_config.slots_per_epoch,
             last_finalized_slot_number=last_finalized_blockstamp.slot_number,
+            el=self.w3.eth,
         )
         consensus_logger.info({'msg': 'Calculate blockstamp for report.', 'value': bs})
 
