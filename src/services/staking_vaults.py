@@ -46,6 +46,7 @@ from src.modules.oracles.accounting.types import (
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
@@ -153,10 +154,14 @@ class StakingVaultsService:
         wc_to_vault: dict[str, VaultInfo] = {v.withdrawal_credentials: v for v in vaults.values()}
 
         vault_to_validators: VaultToValidators = defaultdict(list)
+        vault_pubkeys: set[str] = set()
         for validator in validators:
             wc = validator.validator.withdrawal_credentials
 
             if vault_info := wc_to_vault.get(wc):
+                if validator.validator.pubkey in vault_pubkeys:
+                    raise InconsistentData(f'Duplicate vault validator pubkey {validator.validator.pubkey}')
+                vault_pubkeys.add(validator.validator.pubkey)
                 vault_to_validators[vault_info.vault].append(validator)
 
         return vault_to_validators
@@ -529,6 +534,11 @@ class StakingVaultsService:
         new_fee = liquidity_fee
 
         if isinstance(event, VaultFeesUpdatedEvent):
+            if event.liquidity_fee_bp != liquidity_fee:
+                raise InconsistentData(
+                    f'VaultFeesUpdated for vault {vault_address} sets liquidity fee {event.liquidity_fee_bp}, '
+                    f'expected {liquidity_fee}'
+                )
             new_fee = event.pre_liquidity_fee_bp
         elif isinstance(event, MintedSharesOnVaultEvent):
             shares_delta = -event.amount_of_shares
