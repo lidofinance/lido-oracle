@@ -1,15 +1,19 @@
 from dataclasses import dataclass
+from http import HTTPStatus
 from unittest.mock import Mock
 
 import pytest
 
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
-from src.providers.consensus.types import ValidatorState
+from src.providers.consensus.types import ExecutionPayloadBid, SignedExecutionPayloadBid, ValidatorState
+from src.providers.http_provider import NotOkResponse
 from src.services.safe_border import SafeBorder
+from src.types import BlockHash, SlotNumber
 from src.web3py.extensions.lido_validators import Validator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
-from tests.factory.configs import OracleReportLimitsFactory
-from tests.factory.no_registry import ValidatorFactory, ValidatorStateFactory
+from tests.factory.configs import BlockDetailsResponseFactory, OracleReportLimitsFactory
+from tests.factory.consensus import BlockHeaderFullResponseFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorFactory, ValidatorStateFactory
 
 
 FAR_FUTURE_EPOCH = 2**64 - 1
@@ -327,3 +331,165 @@ def test_get_last_finalized_withdrawal_request_epoch_no_requests(safe_border):
     safe_border.w3.lido_contracts.withdrawal_queue_nft.get_last_finalized_request_id = Mock(return_value=0)
 
     assert safe_border._get_last_finalized_withdrawal_request_epoch() == 0
+
+
+SLASHED_PUBKEY = '0x' + 'ab' * 48
+# frame_config: 10 epochs per frame, so frame 5 starts at epoch 50, slot 1600.
+FRAME_5_FIRST_SLOT = 1600
+FRAME_5_FIRST_EPOCH = 50
+
+
+class FinalizedChain:
+    """Finalized canonical chain with a block in every slot except `missed`.
+
+    A block's post-state holds the slashing once the chain has processed the block at `slashed_in_slot`.
+    """
+
+    def __init__(self, last_slot: int, missed: set[int], slashed_in_slot: int, gloas: bool):
+        self.missed = missed
+        self.slashed_in_slot = slashed_in_slot
+        self.gloas = gloas
+        self.headers_by_root = {}
+        self.slot_by_root = {}
+        parent_root = '0x' + '00' * 32
+        for slot in range(last_slot + 1):
+            if slot in missed:
+                continue
+            root = f'0x{slot:064x}'
+            self.headers_by_root[root] = self._header(slot, root, parent_root)
+            self.slot_by_root[root] = slot
+            parent_root = root
+
+    @staticmethod
+    def _header(slot: int, root: str, parent_root: str):
+        header = BlockHeaderFullResponseFactory.build(finalized=True)
+        header.data.root = root
+        header.data.canonical = True
+        header.data.header.message.slot = SlotNumber(slot)
+        header.data.header.message.parent_root = parent_root
+        return header
+
+    def get_block_header(self, state_id):
+        if isinstance(state_id, int):
+            if state_id in self.missed:
+                raise NotOkResponse('missed', status=HTTPStatus.NOT_FOUND, text='not found')
+            state_id = f'0x{state_id:064x}'
+        return self.headers_by_root[state_id]
+
+    def get_block_details(self, root):
+        slot = self.slot_by_root[root]
+        details = BlockDetailsResponseFactory.build(message={'slot': slot, 'state_root': f'0xstate{slot}'})
+        if self.gloas:
+            details.message.body.execution_payload = None
+            details.message.body.signed_execution_payload_bid = SignedExecutionPayloadBid(
+                message=ExecutionPayloadBid(parent_block_hash=BlockHash('0xaaaa'))
+            )
+        return details
+
+    def lido_validators_at(self, blockstamp):
+        is_slashed = blockstamp.slot_number >= self.slashed_in_slot
+        return [
+            LidoValidatorFactory.build(
+                validator=ValidatorStateFactory.build(pubkey=SLASHED_PUBKEY, slashed=is_slashed),
+            )
+        ]
+
+
+@pytest.mark.unit
+class TestFindEarliestSlashedEpochOverFinalizedChain:
+    """Slashed with a long exit queue: withdrawable - exit == MIN_VALIDATOR_WITHDRAWABILITY_DELAY forces the search."""
+
+    WITHDRAWABLE_EPOCH = FRAME_5_FIRST_EPOCH + EPOCHS_PER_SLASHINGS_VECTOR
+
+    @pytest.fixture
+    def slashed_validator(self):
+        return LidoValidatorFactory.build(
+            validator=ValidatorStateFactory.build(
+                pubkey=SLASHED_PUBKEY,
+                slashed=True,
+                activation_epoch=0,
+                exit_epoch=self.WITHDRAWABLE_EPOCH - MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+                withdrawable_epoch=self.WITHDRAWABLE_EPOCH,
+            )
+        )
+
+    @pytest.fixture
+    def subject(self, web3, chain_config, frame_config):
+        ref_slot = 100 * SLOTS_PER_EPOCH - 1
+        web3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
+            return_value=OracleReportLimitsFactory.build()
+        )
+        web3.lido_contracts.oracle_daemon_config.finalization_max_negative_rebase_epoch_shift = Mock(return_value=100)
+        blockstamp = ReferenceBlockStampFactory.build(ref_slot=ref_slot, ref_epoch=ref_slot // SLOTS_PER_EPOCH)
+        subject = SafeBorder(web3, blockstamp, chain_config, frame_config)
+        subject._get_last_finalized_withdrawal_request_epoch = Mock(return_value=0)
+        web3.eth.get_block = Mock(return_value={'number': 1, 'timestamp': 1})
+        return subject
+
+    @staticmethod
+    def attach(subject: SafeBorder, chain: FinalizedChain):
+        subject.w3.cc = Mock(
+            get_block_header=Mock(side_effect=chain.get_block_header),
+            get_block_details=Mock(side_effect=chain.get_block_details),
+            is_gloas_slot=Mock(return_value=chain.gloas),
+            get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=SLOTS_PER_EPOCH)),
+        )
+        subject.w3.lido_validators.get_active_lido_validators = Mock(side_effect=chain.lido_validators_at)
+
+    @pytest.mark.parametrize('gloas', [True, False])
+    def test_find_earliest_slashed_epoch__slashed_in_first_block_of_frame__returns_that_frame(
+        self, subject, slashed_validator, gloas
+    ):
+        # Arrange
+        self.attach(subject, FinalizedChain(3199, missed=set(), slashed_in_slot=FRAME_5_FIRST_SLOT, gloas=gloas))
+
+        # Act
+        result = subject._find_earliest_slashed_epoch_rounded_to_frame([slashed_validator])
+
+        # Assert
+        assert result == FRAME_5_FIRST_EPOCH
+
+    @pytest.mark.parametrize('gloas', [True, False])
+    def test_find_earliest_slashed_epoch__boundary_slots_missed_and_slashed_in_next_block__returns_next_frame(
+        self, subject, slashed_validator, gloas
+    ):
+        # Arrange
+        missed = {FRAME_5_FIRST_SLOT - 1, FRAME_5_FIRST_SLOT, FRAME_5_FIRST_SLOT + 1}
+        chain = FinalizedChain(3199, missed=missed, slashed_in_slot=FRAME_5_FIRST_SLOT + 2, gloas=gloas)
+        self.attach(subject, chain)
+
+        # Act
+        result = subject._find_earliest_slashed_epoch_rounded_to_frame([slashed_validator])
+
+        # Assert
+        assert result == FRAME_5_FIRST_EPOCH
+
+    @pytest.mark.parametrize('gloas', [True, False])
+    def test_find_earliest_slashed_epoch__slashed_in_last_block_of_frame__returns_that_frame(
+        self, subject, slashed_validator, gloas
+    ):
+        # Arrange
+        self.attach(subject, FinalizedChain(3199, missed=set(), slashed_in_slot=FRAME_5_FIRST_SLOT - 1, gloas=gloas))
+
+        # Act
+        result = subject._find_earliest_slashed_epoch_rounded_to_frame([slashed_validator])
+
+        # Assert
+        assert result == FRAME_5_FIRST_EPOCH - 10
+
+    def test_get_safe_border_epoch__gloas_first_block_slashing_below_negative_rebase_cap__borders_at_slashing_frame(
+        self, subject, slashed_validator
+    ):
+        # Arrange
+        chain = FinalizedChain(3199, missed=set(), slashed_in_slot=FRAME_5_FIRST_SLOT, gloas=True)
+        self.attach(subject, chain)
+        subject.w3.lido_validators.get_active_lido_validators = Mock(
+            side_effect=lambda bs: [slashed_validator] if bs == subject.blockstamp else chain.lido_validators_at(bs)
+        )
+        subject._get_bunker_start_or_last_successful_report_epoch = Mock(return_value=99)
+
+        # Act
+        result = subject.get_safe_border_epoch(is_bunker=True)
+
+        # Assert
+        assert result == FRAME_5_FIRST_EPOCH - subject.finalization_default_shift
