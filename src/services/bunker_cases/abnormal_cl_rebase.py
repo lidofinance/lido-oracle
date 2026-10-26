@@ -7,14 +7,15 @@ from eth_typing import HexStr
 from web3.contract.contract import ContractEvent
 from web3.types import EventData, Wei
 
-from src.constants import EFFECTIVE_BALANCE_INCREMENT, LIDO_DEPOSIT_AMOUNT
+from src.constants import EFFECTIVE_BALANCE_INCREMENT
 from src.modules.common.types import ChainConfig, FrameConfig
 from src.providers.consensus.types import Validator
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.keys.types import LidoKey
 from src.services.bunker_cases.types import BunkerConfig
-from src.types import BlockNumber, BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.types import BlockNumber, BlockStamp, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import get_blockstamp, get_reference_blockstamp
 from src.utils.events import get_events_in_range
-from src.utils.slot import get_blockstamp, get_reference_blockstamp
 from src.utils.types import hex_str_to_bytes
 from src.utils.units import wei_to_gwei
 from src.utils.validator_state import calculate_active_effective_balance_sum
@@ -24,8 +25,6 @@ from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
-
-_LIDO_V4 = 4  # Lido contract version that introduced getBalanceStats / EIP-7251 top-up support
 
 
 class AbnormalClRebase:
@@ -129,10 +128,10 @@ class AbnormalClRebase:
 
         nearest_blockstamp, distant_blockstamp = self._get_nearest_and_distant_blockstamps(blockstamp)
 
-        # dict preserves insertion order and deduplicates by block_number
+        # dict preserves insertion order and deduplicates by state_root
         for bs in {
-            nearest_blockstamp.block_number: nearest_blockstamp,
-            distant_blockstamp.block_number: distant_blockstamp,
+            nearest_blockstamp.state_root: nearest_blockstamp,
+            distant_blockstamp.state_root: distant_blockstamp,
         }.values():
             rebase = self._calculate_cl_rebase_between_blocks(bs, blockstamp)
             logger.info({"msg": f"Intraframe sampled CL rebase: {rebase} Gwei"})
@@ -155,10 +154,10 @@ class AbnormalClRebase:
         AbnormalClRebase.validate_slot_distance(distant_slot, nearest_slot, ref_blockstamp.slot_number)
 
         nearest_blockstamp = get_blockstamp(
-            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, nearest_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
         distant_blockstamp = get_blockstamp(
-            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number
+            self.w3.cc, distant_slot, last_finalized_slot_number=ref_blockstamp.slot_number, el=self.w3.eth
         )
 
         return nearest_blockstamp, distant_blockstamp
@@ -177,6 +176,11 @@ class AbnormalClRebase:
                 "is too large"
             )
 
+    def _get_frame_by_el_timestamp(self, blockstamp: BlockStamp) -> FrameNumber:
+        return self._web3_converter.get_frame_by_epoch(
+            self._web3_converter.get_epoch_by_timestamp(blockstamp.block_timestamp)
+        )
+
     def _calculate_cl_rebase_between_blocks(
         self, prev_blockstamp: BlockStamp, ref_blockstamp: ReferenceBlockStamp
     ) -> Gwei:
@@ -189,8 +193,8 @@ class AbnormalClRebase:
         Check for these events is enough to account for all withdrawals since the protocol assumes that
         the vault can only be withdrawn at the time of the Oracle report between reference slots.
         """
-        if prev_blockstamp.block_number == ref_blockstamp.block_number:
-            # Can't calculate rebase between the same block
+        if prev_blockstamp.state_root == ref_blockstamp.state_root:
+            # Can't calculate rebase between the same CL state
             return Gwei(0)
 
         (prev_lido_validators, _) = LidoValidatorsProvider.compute_lido_validators(
@@ -209,8 +213,7 @@ class AbnormalClRebase:
         # And withdrawals from WithdrawalVault
         withdrawn_from_vault = self._get_withdrawn_from_vault_between_blocks(prev_blockstamp, ref_blockstamp)
 
-        # Capital injected via deposits: new validators (pre-v4)
-        # or new validators + top-ups (post-v4)
+        # Capital injected via deposits: new validators and top-ups
         injected_capital = self._calculate_injected_capital(prev_blockstamp, ref_blockstamp, prev_lido_validators)
 
         # Finally, we can calculate a corrected CL rebase
@@ -259,6 +262,16 @@ class AbnormalClRebase:
             }
         )
 
+        if prev_blockstamp.block_number > ref_blockstamp.block_number:
+            raise InconsistentData(
+                f"Previous sample execution block [{prev_blockstamp.block_number}] is after "
+                f"the reference execution block [{ref_blockstamp.block_number}]."
+            )
+
+        if prev_blockstamp.block_number == ref_blockstamp.block_number:
+            logger.info({"msg": "No execution blocks between samples. Vault withdrawals: 0 Gwei."})
+            return Gwei(0)
+
         events = self._get_eth_distributed_events(
             # We added +1 to prev block number because withdrawals from vault
             # are already counted in balance state on prev block number
@@ -294,16 +307,7 @@ class AbnormalClRebase:
         ref_blockstamp: ReferenceBlockStamp,
         prev_lido_validators: list[LidoValidator],
     ) -> Gwei:
-        """How much ETH entered Lido validators' balances via deposits in [prev, ref].
-
-        Pre-v4: only new validators, counted as 32 ETH each.
-        Post-v4 (EIP-7251): new validators + top-ups to existing ones.
-        """
-        last_report_blockstamp = self._get_last_report_reference_blockstamp(ref_blockstamp)
-
-        if self.w3.lido_contracts.lido.get_contract_version(last_report_blockstamp.block_number) < _LIDO_V4:
-            return AbnormalClRebase.calculate_validators_count_diff_in_gwei(prev_lido_validators, self.lido_validators)
-
+        """How much ETH entered Lido validators' balances via deposits in [prev, ref]: new validators and top-ups."""
         self._validate_prev_slot_within_ref_frame(prev_blockstamp.slot_number, ref_blockstamp.ref_slot)
 
         lido_pubkeys = {key.key for key in self.lido_keys}
@@ -324,14 +328,17 @@ class AbnormalClRebase:
         prev_balance_stats = self.w3.lido_contracts.lido.get_balance_stats(prev_blockstamp.block_hash)
         # deposited_since_last_report - deposited_for_current_report ("depositedNextReport") only resets
         # on a frame rollover, never on a report settling, so applying it at both ends and diffing gives
-        # deposits in [prev, ref] regardless of how many reports settled in between — as long as prev and
-        # ref share the same frame (see _validate_prev_slot_within_ref_frame).
+        # deposits in [prev, ref] regardless of how many reports settled in between.
+        # The counter's frame follows the execution timestamp; a Gloas anchor in an earlier frame holds only
+        # deposits made before the window.
         ref_deposited_in_frame = (
             ref_balance_stats.deposited_since_last_report - ref_balance_stats.deposited_for_current_report
         )
         prev_deposited_in_frame = (
             prev_balance_stats.deposited_since_last_report - prev_balance_stats.deposited_for_current_report
         )
+        if self._get_frame_by_el_timestamp(prev_blockstamp) < self._get_frame_by_el_timestamp(ref_blockstamp):
+            prev_deposited_in_frame = 0
         deposited_in_window = wei_to_gwei(Wei(ref_deposited_in_frame - prev_deposited_in_frame))
 
         current_pending = self._sum_valid_lido_pending(
@@ -383,26 +390,10 @@ class AbnormalClRebase:
         return get_reference_blockstamp(
             self.w3.cc,
             last_report_ref_slot,
-            ref_epoch=EpochNumber(last_report_ref_slot // self.c_conf.slots_per_epoch),
+            slots_per_epoch=self.c_conf.slots_per_epoch,
             last_finalized_slot_number=ref_blockstamp.slot_number,
+            el=self.w3.eth,
         )
-
-    @staticmethod
-    def calculate_validators_count_diff_in_gwei(
-        prev_validators: Sequence[Validator],
-        ref_validators: Sequence[Validator],
-    ) -> Gwei:
-        """
-        Handle 32 ETH balances of freshly baked validators, who appeared between epochs
-        Lido validators are counted by public keys that the protocol deposited with 32 ETH,
-        so we can safely count the differences in the number of validators when they occur by deposit size.
-        Any pre-deposits to Lido keys will not be counted until the key is deposited through the protocol
-        and goes into `used` state
-        """
-        validators_diff = len(ref_validators) - len(prev_validators)
-        if validators_diff < 0:
-            raise ValueError("Validators count diff should be positive or 0. Something went wrong with CL API")
-        return Gwei(validators_diff * LIDO_DEPOSIT_AMOUNT)
 
     @staticmethod
     def get_mean_sum_of_effective_balance(

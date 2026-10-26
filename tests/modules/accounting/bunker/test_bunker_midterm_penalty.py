@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from src.constants import (
@@ -8,19 +10,27 @@ from src.constants import (
 )
 from src.modules.common.types import ChainConfig
 from src.modules.oracles.common.consensus import FrameConfig
-from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.consensus.types import ValidatorState
 from src.services.bunker_cases.midterm_slashing_penalty import MidtermSlashingPenalty
 from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
 from src.utils.web3converter import Web3Converter
+from src.web3py.extensions.lido_validators import ConsolidationRequest, LidoValidator
+from tests.factory.configs import BunkerConfigFactory
+from tests.factory.consensus import BeaconStateViewFactory
+from tests.factory.contract_responses import ReportSimulationResultsFactory
+from tests.factory.no_registry import LidoKeyFactory, PendingDepositFactory
 
 
 DEFAULT_EFFECTIVE_BALANCE = Gwei(32 * 10**9)
+LIDO_KEY = LidoKeyFactory.build()
 
 
 def simple_blockstamp(
     block_number: int,
 ) -> ReferenceBlockStamp:
-    return ReferenceBlockStamp(f"0x{block_number}", block_number, '', block_number, 0, block_number, block_number // 32)
+    return ReferenceBlockStamp(
+        f"0x{block_number}", block_number, '', block_number, 0, block_number // 32, block_number, block_number // 32
+    )
 
 
 def simple_validators(
@@ -31,10 +41,16 @@ def simple_validators(
     exit_epoch=7892,
     effective_balance=DEFAULT_EFFECTIVE_BALANCE,
     is_0x02=False,
-) -> list[Validator]:
+    consolidating_as_target=(),
+    pending_topups=(),
+) -> list[LidoValidator]:
     validators = []
     for index in range(from_index, to_index + 1):
-        validator = Validator(
+        validator = LidoValidator(
+            lido_id=LIDO_KEY,
+            pending_topups=list(pending_topups),
+            consolidating_as_source=None,
+            consolidating_as_target=list(consolidating_as_target),
             index=ValidatorIndex(index),
             balance=effective_balance,
             validator=ValidatorState(
@@ -642,3 +658,228 @@ def test_cut_slashings__equal_to_full_cycle__preserves_current_bucket():
     assert len(result) == 1
     # Verify that report_ref_epoch data is preserved (as per post-state API behavior)
     assert Gwei(100) in result
+
+
+ETH = 10**9
+# Default `simple_validators` slashed state: withdrawable at 8192, so `process_slashings` charges at 4096.
+MIDTERM_PENALTY_EPOCH = EpochNumber(8192 - EPOCHS_PER_SLASHINGS_VECTOR // 2)
+
+
+def queued_consolidation(target_index: int, source_withdrawable_epoch: int, amount: int = 32 * ETH):
+    return ConsolidationRequest(
+        source_index=0,
+        target_index=target_index,
+        amount=Gwei(amount),
+        source_withdrawable_epoch=EpochNumber(source_withdrawable_epoch),
+    )
+
+
+def slashed_target(consolidating_as_target=(), balance=DEFAULT_EFFECTIVE_BALANCE, **kwargs) -> LidoValidator:
+    validator = simple_validators(
+        1000, 1000, slashed=True, is_0x02=True, consolidating_as_target=consolidating_as_target, **kwargs
+    )[0]
+    validator.balance = Gwei(balance)
+    return validator
+
+
+@pytest.mark.unit
+class TestGetEffectiveBalanceAtMidtermPenaltyEpoch:
+    def test_get_effective_balance__no_queued_consolidations__returns_current_effective_balance(self):
+        # Arrange
+        validator = slashed_target(balance=31_500_000_000)
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 32 * ETH
+
+    def test_get_effective_balance__source_withdrawable_at_penalty_epoch__adds_consolidated_balance(self):
+        # Arrange
+        validator = slashed_target([queued_consolidation(1000, MIDTERM_PENALTY_EPOCH)])
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 64 * ETH
+
+    def test_get_effective_balance__source_withdrawable_after_penalty_epoch__ignores_consolidation(self):
+        # Arrange
+        validator = slashed_target([queued_consolidation(1000, MIDTERM_PENALTY_EPOCH + 1)])
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 32 * ETH
+
+    def test_get_effective_balance__sources_on_both_sides_of_penalty_epoch__adds_only_earlier_ones(self):
+        # Arrange
+        validator = slashed_target(
+            [
+                queued_consolidation(1000, 300),
+                queued_consolidation(1000, 1200),
+                queued_consolidation(1000, MIDTERM_PENALTY_EPOCH + 10),
+            ]
+        )
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 96 * ETH
+
+    def test_get_effective_balance__fractional_resulting_balance__floors_to_increment(self):
+        # Arrange
+        validator = slashed_target(
+            [queued_consolidation(1000, 300, amount=31_600_000_000)],
+            balance=32_700_000_000,
+        )
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 64 * ETH
+
+    def test_get_effective_balance__inflow_above_compounding_cap__caps_at_max_effective_balance(self):
+        # Arrange
+        validator = slashed_target([queued_consolidation(1000, 300)] * 70)
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == MAX_EFFECTIVE_BALANCE_ELECTRA
+
+    def test_get_effective_balance__pending_topups__ignored_as_postponed_until_withdrawable(self):
+        # Arrange
+        validator = slashed_target(pending_topups=[PendingDepositFactory.build(amount=Gwei(100 * ETH))])
+
+        # Act
+        result = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(validator, MIDTERM_PENALTY_EPOCH)
+
+        # Assert
+        assert result == 32 * ETH
+
+
+@pytest.mark.unit
+class TestQueuedConsolidationsIntoSlashedTargets:
+    """
+    50 slashed Lido 0x02 targets with 7 queued 32 ETH sources each, out of 33,600 ETH total active balance.
+    `process_slashings` charges (1600 * 3 * 10**9 // 33600) = 142_857_142 gwei per increment:
+    - on the reference-epoch effective balance (32 ETH):  142_857_142 * 32 * 50 = 228_571_427_200
+    - on the consolidated effective balance (256 ETH):   142_857_142 * 256 * 50 = 1_828_571_417_600
+    A one-frame CL rebase of 1000 ETH lies between them.
+    """
+
+    REPORT_CL_REBASE = Gwei(1000 * ETH)
+    SLASHINGS = [*([0] * 8110), *([32 * ETH] * 50), *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 8160))]
+
+    @pytest.fixture
+    def web3_converter(self) -> Web3Converter:
+        return Web3Converter(
+            ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            FrameConfig(initial_epoch=EpochNumber(0), epochs_per_frame=EpochNumber(225), fast_lane_length_slots=0),
+        )
+
+    @staticmethod
+    def slashed_targets(source_withdrawable_epoch: int) -> list[LidoValidator]:
+        return [
+            simple_validators(
+                index,
+                index,
+                slashed=True,
+                is_0x02=True,
+                consolidating_as_target=[queued_consolidation(index, source_withdrawable_epoch)] * 7,
+            )[0]
+            for index in range(1000, 1050)
+        ]
+
+    def predict_penalty(self, web3_converter, lido_validators) -> Gwei:
+        blockstamp = simple_blockstamp(225 * 32)
+        buckets = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
+            blockstamp.ref_epoch, web3_converter, lido_validators
+        )
+        per_frame = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
+            blockstamp.ref_epoch, self.SLASHINGS, Gwei(1050 * 32 * ETH), buckets
+        )
+        return Gwei(sum(per_frame.values()))
+
+    def is_high_penalty(self, web3_converter, lido_validators) -> bool:
+        return MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
+            simple_blockstamp(225 * 32),
+            web3_converter,
+            [*simple_validators(0, 999), *lido_validators],
+            lido_validators,
+            self.SLASHINGS,
+            self.REPORT_CL_REBASE,
+            SlotNumber(0),
+        )
+
+    def test_predict_penalty__sources_land_before_penalty_epoch__charges_consolidated_effective_balance(
+        self, web3_converter
+    ):
+        # Act
+        result = self.predict_penalty(web3_converter, self.slashed_targets(source_withdrawable_epoch=500))
+
+        # Assert
+        assert result == 1_828_571_417_600
+
+    def test_predict_penalty__sources_land_after_penalty_epoch__charges_current_effective_balance(self, web3_converter):
+        # Act
+        result = self.predict_penalty(
+            web3_converter, self.slashed_targets(source_withdrawable_epoch=MIDTERM_PENALTY_EPOCH + 1)
+        )
+
+        # Assert
+        assert result == 228_571_427_200
+
+    def test_is_high_midterm_slashing_penalty__sources_land_before_penalty_epoch__returns_true(self, web3_converter):
+        # Act
+        result = self.is_high_penalty(web3_converter, self.slashed_targets(source_withdrawable_epoch=500))
+
+        # Assert
+        assert result is True
+
+    def test_is_high_midterm_slashing_penalty__sources_land_after_penalty_epoch__returns_false(self, web3_converter):
+        # Act
+        result = self.is_high_penalty(
+            web3_converter, self.slashed_targets(source_withdrawable_epoch=MIDTERM_PENALTY_EPOCH + 1)
+        )
+
+        # Assert
+        assert result is False
+
+    @pytest.mark.parametrize(
+        ("source_withdrawable_epoch", "expected_bunker"),
+        [(500, True), (MIDTERM_PENALTY_EPOCH + 1, False)],
+    )
+    def test_is_bunker_mode__slashed_targets_with_queued_consolidations__follows_penalty_epoch(
+        self, bunker, monkeypatch, source_withdrawable_epoch, expected_bunker
+    ):
+        # Arrange
+        lido_validators = self.slashed_targets(source_withdrawable_epoch)
+        state = BeaconStateViewFactory.build_with_validators(
+            validators=[*simple_validators(0, 999), *lido_validators],
+            slashings=self.SLASHINGS,
+            payload_expected_withdrawals=[],
+        )
+        bunker._get_config = Mock(return_value=BunkerConfigFactory.build())
+        bunker.w3.cc.get_state_view = Mock(return_value=state)
+        bunker.w3.lido_validators.get_active_lido_validators = Mock(return_value=lido_validators)
+        bunker.w3.lido_contracts.get_accounting_last_processing_ref_slot = Mock(return_value=SlotNumber(1))
+        bunker.get_cl_rebase_for_current_report = Mock(return_value=self.REPORT_CL_REBASE)
+        monkeypatch.setattr("src.services.bunker.AbnormalClRebase.is_abnormal_cl_rebase", Mock(return_value=False))
+
+        # Act
+        result = bunker.is_bunker_mode(
+            simple_blockstamp(225 * 32),
+            FrameConfig(initial_epoch=EpochNumber(0), epochs_per_frame=EpochNumber(225), fast_lane_length_slots=0),
+            ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            ReportSimulationResultsFactory.build(),
+        )
+
+        # Assert
+        assert result is expected_bunker
