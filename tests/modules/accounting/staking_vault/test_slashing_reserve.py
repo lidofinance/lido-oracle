@@ -37,7 +37,6 @@ class TestGetVaultsSlashingReserve:
             block_timestamp=MagicMock(),
             ref_slot=MagicMock(),
             ref_epoch=mock_ref_epoch,
-            epoch_number=mock_ref_epoch,
         )
 
         vault_address_1 = ChecksumAddress(HexAddress(HexStr('0x1234567890abcdef1234567890abcdef12345678')))
@@ -134,7 +133,6 @@ class TestGetVaultsSlashingReserve:
             block_timestamp=MagicMock(),
             ref_slot=MagicMock(),
             ref_epoch=EpochNumber(mock_ref_epoch - left_shift),
-            epoch_number=EpochNumber(mock_ref_epoch - left_shift),
         )
 
         vault_address = ChecksumAddress(HexAddress(HexStr('0x1234567890abcdef1234567890abcdef12345678')))
@@ -220,7 +218,6 @@ class TestGetVaultsSlashingReserve:
             block_timestamp=MagicMock(),
             ref_slot=MagicMock(),
             ref_epoch=EpochNumber(mock_ref_epoch - left_shift - 1),
-            epoch_number=EpochNumber(mock_ref_epoch - left_shift - 1),
         )
 
         vault_address = ChecksumAddress(HexAddress(HexStr('0x2222222222222222222222222222222222222222')))
@@ -296,7 +293,6 @@ class TestGetVaultsSlashingReserve:
             block_timestamp=MagicMock(),
             ref_slot=MagicMock(),
             ref_epoch=EpochNumber(mock_ref_epoch + right_shift),
-            epoch_number=EpochNumber(mock_ref_epoch + right_shift),
         )
 
         vault_address = ChecksumAddress(HexAddress(HexStr('0x3333333333333333333333333333333333333333')))
@@ -365,7 +361,6 @@ class TestGetVaultsSlashingReserve:
             block_timestamp=MagicMock(),
             ref_slot=MagicMock(),
             ref_epoch=EpochNumber(mock_ref_epoch + right_shift + 1),
-            epoch_number=EpochNumber(mock_ref_epoch + right_shift + 1),
         )
 
         vault_address = ChecksumAddress(HexAddress(HexStr('0x4444444444444444444444444444444444444444')))

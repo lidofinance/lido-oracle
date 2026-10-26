@@ -67,7 +67,6 @@ class TestGetVaultsFees:
             block_timestamp=MagicMock(),
             ref_slot=SlotNumber(slot),
             ref_epoch=MagicMock(),
-            epoch_number=MagicMock(),
         )
 
     def test_zero_time_elapsed_allowed(self, service):
@@ -129,7 +128,7 @@ class TestGetVaultsFees:
         blockstamp = self.make_blockstamp(block=3 * 32 - 1, slot=3 * 32 - 1)
         monkeypatch.setattr(
             "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number, el: BlockStampFactory.build(block_number=slot),
+            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
         service.get_vaults_fees(
@@ -180,7 +179,7 @@ class TestGetVaultsFees:
 
         monkeypatch.setattr(
             "src.services.staking_vaults.get_blockstamp",
-            lambda cc, slot, last_finalized_slot_number, el: BlockStampFactory.build(block_number=slot),
+            lambda cc, slot, last_finalized_slot_number: BlockStampFactory.build(block_number=slot),
         )
 
         # First report -> events should be fetched from initial_epoch - frame_epoches

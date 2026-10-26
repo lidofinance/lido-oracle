@@ -31,8 +31,6 @@ CHURN_LIMIT_QUOTIENT = 2**16
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = Gwei(2**7 * 10**9)
 MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
-# https://github.com/ethereum/consensus-specs/blob/81749c877c36760a9a5fca1e11bfd83ab6427bcc/specs/gloas/beacon-chain.md#validator-cycle
-CHURN_LIMIT_QUOTIENT_GLOAS = 2**15
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#sync-committee
@@ -47,6 +45,10 @@ GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
 # Lido contracts constants
+# We assume that the Lido deposit amount is currently 32 ETH (MIN_ACTIVATION_BALANCE).
+# If Lido decides to support 0x2 withdrawal credentials in the future, this variable
+# should be revisited to accommodate potential changes in deposit requirements.
+LIDO_DEPOSIT_AMOUNT = MIN_ACTIVATION_BALANCE
 PRECISION_E27 = 27
 SHARE_RATE_PRECISION_E27 = 10**PRECISION_E27
 TOTAL_BASIS_POINTS = 10000
