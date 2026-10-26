@@ -6,9 +6,6 @@ from datetime import datetime
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from timeout_decorator import TimeoutError as DecoratorTimeoutError
-from web3.eth import Eth
-from web3.exceptions import Web3Exception
-from web3_multi_provider import NoActiveProviderError
 
 from src import variables
 from src.metrics.prometheus.performance_collector import (
@@ -41,8 +38,8 @@ class PerformanceCollector(DaemonModule):
     last_epochs_demand_update: datetime | None = None
     last_demands_count: int = 0
 
-    def __init__(self, cc: ConsensusClient, el: Eth):
-        super().__init__(cc=cc, el=el)
+    def __init__(self, cc: ConsensusClient):
+        super().__init__(cc=cc)
         self.db = DutiesDB(
             connect_timeout=variables.PERFORMANCE_COLLECTOR_DB_CONNECTION_TIMEOUT,
             statement_timeout_ms=variables.PERFORMANCE_COLLECTOR_DB_STATEMENT_TIMEOUT_MS,
@@ -58,9 +55,6 @@ class PerformanceCollector(DaemonModule):
         except DecoratorTimeoutError as error:
             logger.error({'msg': 'Performance collector does not respond.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="timeout").inc()
-        except NoActiveProviderError as error:
-            logger.error({'msg': ''.join(traceback.format_exception(error))})
-            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="no_active_provider").inc()
         except RequestsConnectionError as error:
             logger.error({'msg': 'Connection error.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="connection").inc()
@@ -70,9 +64,6 @@ class PerformanceCollector(DaemonModule):
         except (NoSlotsAvailable, SlotNotFinalized, InconsistentData) as error:
             logger.error({'msg': 'Inconsistent response from consensus layer node.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="inconsistent_data").inc()
-        except Web3Exception as error:
-            logger.error({'msg': 'Web3py exception.', 'error': ''.join(traceback.format_exception(error))})
-            PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="web3").inc()
         except ValueError as error:
             logger.error({'msg': 'Unexpected error.', 'error': str(error)})
             PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type="value_error").inc()
@@ -114,7 +105,6 @@ class PerformanceCollector(DaemonModule):
         )
         processor = FrameCheckpointProcessor(
             self.cc,
-            self._el,
             self.db,
             converter,
             last_finalized_blockstamp,

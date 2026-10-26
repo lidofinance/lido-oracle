@@ -182,7 +182,7 @@ class ValidatorExitIterator:
 
     def _prepare_validator_stats(self):
         recently_requested_indexes = self.lvs.get_recently_requested_to_exit_validators_by_node_operator(
-            self.chain_config,
+            self.chain_config.seconds_per_slot,
             self.blockstamp,
         )
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
@@ -394,11 +394,8 @@ class ValidatorExitIterator:
             ).max_balance_exit_requested_per_report_in_eth
             * 10**9
         )
-        self.max_exit_requests_per_report = (
-            self.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report(
-                self.blockstamp.block_hash,
-            )
-        )
+        # TODO: Hardcoded limit. Should be replaced with Gloas.
+        self.max_exit_requests_per_report = 500
 
     # --- Iterator ---
     @duration_meter()

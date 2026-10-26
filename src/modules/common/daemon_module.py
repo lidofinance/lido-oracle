@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 
 from timeout_decorator import timeout
-from web3.eth import Eth
 
 from src import variables
 from src.metrics.healthcheck_server import pulse
@@ -34,10 +33,9 @@ class DaemonModule(ABC):
     - Timeout management
     """
 
-    def __init__(self, cc: ConsensusClient, el: Eth, **kwargs) -> None:
+    def __init__(self, cc: ConsensusClient, **kwargs) -> None:
         super().__init__(**kwargs)
         self._cc = cc
-        self._el = el
         self._slot_threshold = SlotNumber(0)
 
     def run_as_daemon(self):
@@ -93,7 +91,7 @@ class DaemonModule(ABC):
 
     def _receive_last_finalized_slot(self) -> BlockStamp:
         """Gets last finalized BlockStamp"""
-        return get_blockstamp_by_state(self.cc, 'finalized', self._el)
+        return get_blockstamp_by_state(self.cc, 'finalized')
 
     def run_cycle(self, last_finalized_blockstamp: BlockStamp):
         """Base logic for daemon module cycle execution"""

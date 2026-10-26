@@ -9,7 +9,6 @@ from threading import Lock
 from typing import cast
 
 from hexbytes import HexBytes
-from web3.eth import Eth
 
 from src import variables
 from src.constants import EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_HISTORICAL_ROOT, SYNC_COMMITTEE_SIZE
@@ -118,7 +117,6 @@ SYNC_COMMITTEES_CACHE = SyncCommitteesCache()
 
 class FrameCheckpointProcessor:
     cc: ConsensusClient
-    el: Eth
     converter: ChainConverter
 
     db: DutiesDB
@@ -127,13 +125,11 @@ class FrameCheckpointProcessor:
     def __init__(
         self,
         cc: ConsensusClient,
-        el: Eth,
         db: DutiesDB,
         converter: ChainConverter,
         finalized_blockstamp: BlockStamp,
     ):
         self.cc = cc
-        self.el = el
         self.converter = converter
         self.db = db
         self.finalized_blockstamp = finalized_blockstamp
@@ -379,9 +375,7 @@ class FrameCheckpointProcessor:
         state_blockstamp = build_blockstamp(
             get_prev_non_missed_slot(
                 self.cc, self.converter.get_epoch_first_slot(epoch), self.finalized_blockstamp.slot_number
-            ),
-            self.converter.chain_config.slots_per_epoch,
-            self.el,
+            )
         )
         sync_committee = self.cc.get_sync_committee(state_blockstamp, epoch)
         SYNC_COMMITTEES_CACHE[sync_committee_period] = sync_committee
@@ -406,8 +400,7 @@ class FrameCheckpointProcessor:
         self, epoch: EpochNumber, checkpoint_block_roots: list[BlockRoot | None], checkpoint_slot: SlotNumber
     ) -> BlockRoot:
         dependent_root = None
-        # v2 reports the last block of epoch-2: the proposer lookahead is fixed one epoch ahead (EIP-7917).
-        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 2))
+        dependent_slot = self.converter.get_epoch_last_slot(EpochNumber(epoch - 1))
         try:
             while not dependent_root:
                 dependent_root = self._select_block_root_by_slot(
