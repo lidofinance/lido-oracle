@@ -28,14 +28,14 @@ jobs:
 
       - name: Tag name
         id: tag_name
-        run: |
-          if [ '${{ inputs.tag }}' = '' ]; then
-            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "TAG=$TAG" >> $GITHUB_OUTPUT
-          fi
         env:
           TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$TAG" ]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build prod image
         uses: lidofinance/dispatch-workflow@v1
