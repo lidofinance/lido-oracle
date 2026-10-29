@@ -25,6 +25,7 @@ from src.providers.consensus.types import (
     SyncCommittee,
     Validator,
 )
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
@@ -296,7 +297,10 @@ class ConsensusClient(HTTPProvider):
         )
         if not isinstance(data, dict):
             raise ValueError("Expected mapping response from getStateValidator")
-        return Validator.from_response(**data)
+        validator = Validator.from_response(**data)
+        if validator.index != validator_id:
+            raise InconsistentData(f"Requested validator {validator_id}, got {validator.index}")
+        return validator
 
     def _get_state_by_state_id(self, state_id: StateRoot | SlotNumber) -> dict:
         data, _ = self._get(

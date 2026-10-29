@@ -499,6 +499,7 @@ class TestGetVaultsFees:
             vault=vault_adr,
             block_number=BlockNumber(10),
             pre_liquidity_fee_bp=2,
+            liquidity_fee_bp=1,
         )
         vault_hub_mock.get_vault_fee_updated_events.return_value = [fee_event]
 
@@ -578,11 +579,13 @@ class TestGetVaultsFees:
             vault=vault_adr,
             block_number=BlockNumber(10),
             pre_liquidity_fee_bp=2,
+            liquidity_fee_bp=3,
         )
         event_2 = VaultFeesUpdatedEventFactory.build(
             vault=vault_adr,
             block_number=BlockNumber(20),
             pre_liquidity_fee_bp=3,
+            liquidity_fee_bp=1,
         )
         vault_hub_mock.get_vault_fee_updated_events.return_value = [event_1, event_2]
 

@@ -5,6 +5,7 @@ from eth_typing import BlockNumber
 from web3.types import Wei
 
 from src.constants import TOTAL_BASIS_POINTS
+from src.providers.execution.exceptions import InconsistentData
 from src.services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     BadDebtSocializedEventFactory,
@@ -80,6 +81,7 @@ class TestCalculateLiquidityFeeByEvents:
             block_number=BlockNumber(1),
             log_index=1,
             pre_liquidity_fee_bp=100,
+            liquidity_fee_bp=200,
         )
         event_high = VaultFeesUpdatedEventFactory.build(
             vault=vault_adr,
@@ -144,6 +146,62 @@ class TestCalculateLiquidityFeeByEvents:
                     BlockNumber(105): 105 * FeeTestConstants.SECONDS_PER_SLOT,
                 },
             )
+
+    def test_calculate_liquidity_fee_by_events__fee_update_mismatches_rate__raises(self):
+        # Setup
+        vault_adr = VaultAddresses.VAULT_0
+        fee_event = VaultFeesUpdatedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(1),
+            pre_liquidity_fee_bp=400,
+            liquidity_fee_bp=500,
+        )
+
+        # Act & Assert
+        with pytest.raises(InconsistentData):
+            StakingVaultsService._calculate_liquidity_fee_by_events(
+                vault_address=vault_adr,
+                liability_shares=10,
+                liquidity_fee_bp=650,
+                vault_events=[fee_event],
+                prev_ref_slot_timestamp=0,
+                current_ref_slot_timestamp=20,
+                pre_total_pooled_ether=Wei(1),
+                pre_total_shares=1,
+                core_apr_ratio=Decimal(1),
+                block_timestamps={BlockNumber(1): 10},
+            )
+
+    def test_calculate_liquidity_fee_by_events__fee_update_before_connect__not_checked(self):
+        # Setup
+        vault_adr = VaultAddresses.VAULT_0
+        old_fee_event = VaultFeesUpdatedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(1),
+            pre_liquidity_fee_bp=400,
+            liquidity_fee_bp=500,
+        )
+        connected_event = VaultConnectedEventFactory.build(
+            vault=vault_adr,
+            block_number=BlockNumber(2),
+        )
+
+        # Act
+        _, liability_shares = StakingVaultsService._calculate_liquidity_fee_by_events(
+            vault_address=vault_adr,
+            liability_shares=0,
+            liquidity_fee_bp=650,
+            vault_events=[old_fee_event, connected_event],
+            prev_ref_slot_timestamp=0,
+            current_ref_slot_timestamp=30,
+            pre_total_pooled_ether=Wei(1),
+            pre_total_shares=1,
+            core_apr_ratio=Decimal(1),
+            block_timestamps={BlockNumber(1): 10, BlockNumber(2): 20},
+        )
+
+        # Assert
+        assert liability_shares == 0
 
     def test_raises_if_event_after_current_report(self):
         # Setup
