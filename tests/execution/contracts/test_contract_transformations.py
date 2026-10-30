@@ -55,6 +55,7 @@ from src.providers.execution.contracts.curated_staking_module import CuratedStak
 from src.providers.execution.contracts.data_bus import DataBusContract
 from src.providers.execution.contracts.delegation_contract import DelegationContract
 from src.providers.execution.contracts.deposit_contract import DepositContract
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
@@ -1647,3 +1648,19 @@ class TestCuratedStakingModulePassThroughs:
         contract.functions.META_REGISTRY.return_value.call.return_value = _ADDR
         result = CuratedStakingModuleContract.get_meta_registry_address(contract, block_identifier="latest")
         assert result == _ADDR
+
+
+# ---------------------------------------------------------------------------
+# ExitBusOracleContract.get_max_validators_per_report
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_get_max_validators_per_report__called__returns_contract_value():
+    contract = _mock_contract()
+    contract.functions.getMaxValidatorsPerReport.return_value.call.return_value = 600
+
+    result = ExitBusOracleContract.get_max_validators_per_report(contract, "0xset")
+
+    assert result == 600
+    contract.functions.getMaxValidatorsPerReport.return_value.call.assert_called_once_with(block_identifier="0xset")

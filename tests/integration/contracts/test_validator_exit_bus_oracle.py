@@ -15,6 +15,7 @@ def test_vebo(validators_exit_bus_oracle_contract, caplog):
         [
             ('is_paused', ('latest',), make_checker(bool)),
             ('get_processing_state', ('latest',), make_checker(EjectorProcessingState)),
+            ('get_max_validators_per_report', ('latest',), make_checker(int)),
         ],
         caplog,
     )
