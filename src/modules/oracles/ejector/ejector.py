@@ -322,8 +322,7 @@ class Ejector(OracleModule[Web3]):
         """
         https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn
 
-        The spec uses get_current_epoch(state). `blockstamp.epoch_number` is the epoch of the state read here,
-        which post-Gloas is ref_slot's child and therefore normally ref_epoch + 1.
+        Current epoch is the state's epoch, not ref_epoch.
         """
         earliest_exit_epoch = max(state.earliest_exit_epoch, compute_activation_exit_epoch(blockstamp.epoch_number))
         total_active_balance = self._get_total_active_balance(blockstamp)
@@ -368,7 +367,6 @@ class Ejector(OracleModule[Web3]):
 
     @lru_cache(maxsize=1)
     def _get_active_validators(self, blockstamp: ReferenceBlockStamp) -> list[Validator]:
-        # Active at get_current_epoch(state), as in the spec's get_total_active_balance.
         return [v for v in self.w3.cc.get_validators(blockstamp) if is_active_validator(v, blockstamp.epoch_number)]
 
     def _get_deposit_lock_amount(self, epoches_number: int, blockstamp: ReferenceBlockStamp) -> Wei:
