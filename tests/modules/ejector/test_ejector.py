@@ -6,6 +6,7 @@ from web3.exceptions import ContractCustomError
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
     GWEI_TO_WEI,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
@@ -37,7 +38,7 @@ from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
 def build_extended_validator(**kwargs) -> LidoValidator:
@@ -687,6 +688,32 @@ class TestPredictedWithdrawableEpoch:
         )
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + 3 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
+    @pytest.mark.unit
+    def test_activation_exit_epoch_uses_state_epoch(self, ejector: Ejector, set_consensus) -> None:
+        # Post-Gloas the report reads ref_slot's child block, whose state is already in ref_epoch + 1.
+        # The spec computes the exit epoch from get_current_epoch(state), not from ref_epoch.
+        ref_epoch = EpochNumber(10_000)
+        child_blockstamp = ReferenceBlockStampFactory.build(
+            ref_slot=SlotNumber(ref_epoch * 32 + 31),
+            ref_epoch=ref_epoch,
+            slot_number=SlotNumber((ref_epoch + 1) * 32),
+        )
+        ejector._get_total_active_balance = Mock(return_value=int(2048e9))
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=child_blockstamp.slot_number,
+                validators=[],
+                balances=[],
+                earliest_exit_epoch=ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+                slashings=[],
+            )
+        )
+
+        result = ejector._get_predicted_withdrawable_epoch(MIN_ACTIVATION_BALANCE, child_blockstamp)
+
+        assert result == (ref_epoch + 1) + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
     @pytest.fixture(autouse=True)
     def _patch_ejector(self, ejector: Ejector):
         ejector.w3.cc = Mock()
@@ -695,7 +722,7 @@ class TestPredictedWithdrawableEpoch:
 
 @pytest.mark.unit
 def test_get_total_active_validators(ejector: Ejector) -> None:
-    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
+    ref_blockstamp = ReferenceBlockStampFactory.build(slot_number=SlotNumber(3546 * 32), ref_epoch=3546)
     ejector.w3 = Mock()
     ejector.w3.cc.get_validators = Mock(
         return_value=[
@@ -706,6 +733,28 @@ def test_get_total_active_validators(ejector: Ejector) -> None:
     )
 
     assert len(ejector._get_active_validators(ref_blockstamp)) == 100
+
+
+@pytest.mark.unit
+def test_get_active_validators_uses_state_epoch(ejector: Ejector) -> None:
+    # Spec get_total_active_balance counts validators active at get_current_epoch(state). Post-Gloas
+    # the state is ref_slot's child, one epoch after ref_epoch.
+    ref_epoch = EpochNumber(10_000)
+    child_blockstamp = ReferenceBlockStampFactory.build(
+        ref_slot=SlotNumber(ref_epoch * 32 + 31),
+        ref_epoch=ref_epoch,
+        slot_number=SlotNumber((ref_epoch + 1) * 32),
+    )
+    activated_at_state_epoch = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(activation_epoch=ref_epoch + 1, exit_epoch=FAR_FUTURE_EPOCH)
+    )
+    exited_at_state_epoch = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(activation_epoch=0, exit_epoch=ref_epoch + 1)
+    )
+    ejector.w3 = Mock()
+    ejector.w3.cc.get_validators = Mock(return_value=[activated_at_state_epoch, exited_at_state_epoch])
+
+    assert ejector._get_active_validators(child_blockstamp) == [activated_at_state_epoch]
 
 
 @pytest.mark.unit

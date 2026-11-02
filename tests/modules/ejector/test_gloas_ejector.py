@@ -160,8 +160,8 @@ class TestForkGateEpoch:
         # Act
         result = ejector.compute_exit_epoch_and_update_churn(state, exit_balance, blockstamp)
 
-        # Assert
-        assert result == compute_activation_exit_epoch(blockstamp.ref_epoch)
+        # Assert: fits a single epoch, counted from the anchor state's epoch as in the spec.
+        assert result == compute_activation_exit_epoch(blockstamp.epoch_number)
         ejector.w3.cc.is_gloas_epoch.assert_called_once_with(EpochNumber(2))
 
     def test_compute_exit_epoch_and_update_churn__called_per_candidate__reads_fork_config_once(self, ejector: Ejector):
