@@ -19,7 +19,7 @@ from src.metrics.prometheus.ejector import (
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.ejector.data_encode import encode_data
+from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, WithdrawalRequest, encode_data
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.providers.consensus.types import BeaconStateView, Validator
@@ -151,14 +151,22 @@ class Ejector(OracleModule[Web3]):
             },
         )
 
-        data, data_format = encode_data(validators)
+        # The iterator still selects full exits only, so every request is an FWR for now.
+        requests = [
+            WithdrawalRequest(
+                module_id=module_id,
+                node_operator_id=node_operator_id,
+                key_index=validator.lido_id.index,
+                amount=FWR_AMOUNT,
+            )
+            for (module_id, node_operator_id), validator in validators
+        ]
 
         report_data = ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
             ref_slot=blockstamp.ref_slot,
-            requests_count=len(validators),
-            data_format=data_format,
-            data=data,
+            requests_count=len(requests),
+            data=encode_data(requests),
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)

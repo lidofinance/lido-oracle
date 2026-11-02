@@ -19,5 +19,4 @@ class ReportData:
     consensus_version: int
     ref_slot: SlotNumber
     requests_count: int
-    data_format: int
     data: bytes
