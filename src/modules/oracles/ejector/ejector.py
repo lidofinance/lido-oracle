@@ -249,7 +249,7 @@ class Ejector(OracleModule[Web3]):
         logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
         EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
 
-        time_to_last_withdrawal_in_epoch = withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch
+        time_to_last_withdrawal_in_epoch = withdrawal_epoch + epochs_to_sweep - blockstamp.epoch_number
 
         future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
         logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})

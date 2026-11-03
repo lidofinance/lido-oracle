@@ -578,6 +578,35 @@ class TestPredictedElBalanceSubtractsDepositLock:
         assert result == Wei(10_000 + 1_000 + 100)
 
 
+@pytest.mark.unit
+def test_get_predicted_el_balance__state_in_next_epoch__horizon_counts_from_state_epoch(
+    ejector: Ejector, chain_config: ChainConfig
+) -> None:
+    # Arrange: post-Gloas the report reads ref_slot's child block, one epoch after ref_epoch.
+    # withdrawal_epoch is predicted from that state, so the horizon must start there as well.
+    ref_epoch = EpochNumber(10_000)
+    child_blockstamp = ReferenceBlockStampFactory.build(
+        ref_slot=SlotNumber(ref_epoch * 32 + 31),
+        ref_epoch=ref_epoch,
+        slot_number=SlotNumber((ref_epoch + 1) * 32),
+    )
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector._get_total_el_balance = Mock(return_value=Wei(0))
+    ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_epoch + 1 + 10))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(100))
+    ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+    # Act
+    result = ejector._get_predicted_el_balance(Gwei(0), child_blockstamp)
+
+    # Assert
+    assert result == Wei(10 * 100)
+    ejector._get_deposit_lock_amount.assert_called_once_with(10, child_blockstamp)
+
+
 class TestPredictedWithdrawableEpoch:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
