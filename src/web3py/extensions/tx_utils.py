@@ -81,7 +81,7 @@ class TransactionUtils(Module):
         try:
             tx_receipt = self.w3.eth.wait_for_transaction_receipt(transaction_hash)
         except TimeExhausted:
-            TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
+            TRANSACTIONS_COUNT.labels(status=Status.FAILURE.value).inc()
             logger.warning({"msg": "Transaction was not found in blockchain after 120 seconds."})
             return None
 
@@ -99,8 +99,8 @@ class TransactionUtils(Module):
         )
 
         if tx_receipt["status"] == 1:
-            TRANSACTIONS_COUNT.labels(status=Status.SUCCESS).inc()
+            TRANSACTIONS_COUNT.labels(status=Status.SUCCESS.value).inc()
         else:
-            TRANSACTIONS_COUNT.labels(status=Status.FAILURE).inc()
+            TRANSACTIONS_COUNT.labels(status=Status.FAILURE.value).inc()
 
         return tx_receipt
