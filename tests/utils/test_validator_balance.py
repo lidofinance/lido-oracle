@@ -14,7 +14,7 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
 )
-from src.types import Gwei
+from src.types import EpochNumber, Gwei
 from src.utils.validator_balance import (
     get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
@@ -47,7 +47,12 @@ def _topup(amount_eth: float):
 
 
 def _incoming_consolidation(amount_eth: float):
-    return ConsolidationRequest(source_index=1, target_index=2, amount=Gwei(int(amount_eth * ETH)))
+    return ConsolidationRequest(
+        source_index=1,
+        target_index=2,
+        amount=Gwei(int(amount_eth * ETH)),
+        source_withdrawable_epoch=EpochNumber(0),
+    )
 
 
 @pytest.mark.unit

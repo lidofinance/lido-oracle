@@ -394,8 +394,11 @@ class ValidatorExitIterator:
             ).max_balance_exit_requested_per_report_in_eth
             * 10**9
         )
-        # TODO: Hardcoded limit. Should be replaced with Gloas.
-        self.max_exit_requests_per_report = 500
+        self.max_exit_requests_per_report = (
+            self.w3.lido_contracts.oracle_daemon_config.max_validator_exit_requests_per_report(
+                self.blockstamp.block_hash,
+            )
+        )
 
     # --- Iterator ---
     @duration_meter()

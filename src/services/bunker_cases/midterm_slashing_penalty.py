@@ -10,7 +10,7 @@ from src.constants import (
 )
 from src.providers.consensus.types import Validator
 from src.types import EpochNumber, FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
-from src.utils.validator_state import calculate_total_active_effective_balance
+from src.utils.validator_state import calculate_total_active_effective_balance, get_max_effective_balance
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import LidoValidator
 
@@ -211,12 +211,45 @@ class MidtermSlashingPenalty:
             slashings_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
             total_balance,
         )
-        effective_balance = validator.validator.effective_balance
+        effective_balance = MidtermSlashingPenalty.get_effective_balance_at_midterm_penalty_epoch(
+            validator, midterm_penalty_epoch
+        )
         increment = EFFECTIVE_BALANCE_INCREMENT
         penalty_per_effective_balance_increment = adjusted_total_slashing_balance // (total_balance // increment)
         effective_balance_increments = effective_balance // increment
         penalty = penalty_per_effective_balance_increment * effective_balance_increments
         return Gwei(penalty)
+
+    @staticmethod
+    def get_effective_balance_at_midterm_penalty_epoch(
+        validator: LidoValidator, midterm_penalty_epoch: EpochNumber
+    ) -> Gwei:
+        """
+        Project the effective balance that `process_slashings` will charge at the midterm penalty epoch.
+
+        `process_pending_consolidations` checks only the source, so consolidations queued before the slashing
+        still move stake into the slashed target. A source withdrawable at epoch W is moved in the epoch processing
+        of W - 1, after `process_slashings` and before `process_effective_balance_updates`, so it is charged
+        only if W <= midterm_penalty_epoch.
+
+        Pending top-ups are not added: `process_pending_deposits` postpones deposits to an exiting validator
+        until its withdrawable epoch, which is EPOCHS_PER_SLASHINGS_VECTOR // 2 epochs after the penalty.
+
+        https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-process_pending_consolidations
+        https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-process_pending_deposits
+        """
+        inbound_balance = sum(
+            consolidation.amount
+            for consolidation in validator.consolidating_as_target
+            if consolidation.source_withdrawable_epoch <= midterm_penalty_epoch
+        )
+        if not inbound_balance:
+            return validator.validator.effective_balance
+
+        balance = validator.balance + inbound_balance
+        return Gwei(
+            min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, get_max_effective_balance(validator.validator))
+        )
 
     @staticmethod
     def _cut_slashings(

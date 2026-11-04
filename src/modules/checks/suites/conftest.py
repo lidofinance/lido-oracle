@@ -107,10 +107,12 @@ def web3_curated_module():
     ]
 )
 def blockstamp(web3, finalized_blockstamp, request):
-    epochs_per_frame = request.param
+    epochs_ago = request.param
+    if epochs_ago == 0:
+        return finalized_blockstamp
+
     cc_config = web3.cc.get_config_spec()
-    slots_per_frame = epochs_per_frame * cc_config.SLOTS_PER_EPOCH
-    last_report_ref_slot = SlotNumber(finalized_blockstamp.slot_number - slots_per_frame)
+    last_report_ref_slot = SlotNumber(finalized_blockstamp.slot_number - epochs_ago * cc_config.SLOTS_PER_EPOCH)
 
     return get_reference_blockstamp(
         web3.cc,

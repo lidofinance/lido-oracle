@@ -69,7 +69,7 @@ class Accounting(OracleModule[Web3]):
     """
 
     COMPATIBLE_CONTRACT_VERSION = 5
-    COMPATIBLE_CONSENSUS_VERSION = 6
+    COMPATIBLE_CONSENSUS_VERSION = 7
 
     def __init__(self, w3: Web3):
         self.report_contract: AccountingOracleContract = w3.lido_contracts.accounting_oracle
