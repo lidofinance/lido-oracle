@@ -325,7 +325,7 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
     """Without this the call site can be dropped in a refactor and CI stays green."""
     caplog.set_level(logging.INFO)
     _mock_state_response(consensus_client, _state_data())
-    bs = BlockStampFactory.build()
+    bs = BlockStampFactory.build(slot_number=SlotNumber(42))
 
     state = consensus_client.get_state_view_no_cache(bs)
 
@@ -358,7 +358,7 @@ def test_get_state_view_no_cache__electra_field_missing__raises_inconsistent_dat
 
     # Act / Assert
     with pytest.raises(InconsistentData, match=field):
-        consensus_client.get_state_view_no_cache(BlockStampFactory.build())
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
 
 @pytest.mark.unit
@@ -369,7 +369,7 @@ def test_get_state_view_no_cache__pre_gloas_state_without_expected_withdrawals__
     _mock_state_response(consensus_client, _state_data(), gloas=False)
 
     # Act
-    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build())
+    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
     # Assert
     assert state.payload_expected_withdrawals == []
@@ -385,7 +385,20 @@ def test_get_state_view_no_cache__gloas_state_without_expected_withdrawals__rais
 
     # Act / Assert
     with pytest.raises(InconsistentData, match='payload_expected_withdrawals'):
-        consensus_client.get_state_view_no_cache(BlockStampFactory.build())
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
+
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__response_slot_differs_from_requested__raises_inconsistent_data(
+    consensus_client: ConsensusClient,
+):
+    # Arrange: a Gloas slot was requested, the response claims a pre-Gloas slot and omits the withdrawals.
+    _mock_state_response(consensus_client, _state_data(slot='41'))
+    consensus_client.is_gloas_slot = Mock(side_effect=lambda slot: slot >= 42)
+
+    # Act / Assert
+    with pytest.raises(InconsistentData, match='expected \\[42\\]'):
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
 
 @pytest.mark.unit
@@ -411,7 +424,7 @@ def test_get_state_view_no_cache__gloas_state_with_expected_withdrawals__adds_th
     _mock_state_response(consensus_client, data, gloas=True)
 
     # Act
-    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build())
+    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
     # Assert
     assert state.indexed_validators[0].balance == 32000000005
