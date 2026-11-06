@@ -1,5 +1,6 @@
 import json
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, HexAddress, HexStr
@@ -194,15 +195,13 @@ class TestDumpedTreeAndPublish:
             StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves)
         )
 
-        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=0)
-
         # Act
         dumped = StakingVaultsService.get_dumped_tree(
             tree=tree,
             vaults=vaults,
             bs=bs,
             prev_tree_cid='prev',
-            chain_config=chain_config,
+            timestamp=120,
             vaults_fee_map=fees,
         )
 
@@ -223,20 +222,18 @@ class TestDumpedTreeAndPublish:
             StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves)
         )
 
-        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
-
         # Act
         dumped = StakingVaultsService.get_dumped_tree(
             tree=tree,
             vaults=vaults,
             bs=bs,
             prev_tree_cid='prev',
-            chain_config=chain_config,
+            timestamp=220,
             vaults_fee_map=fees,
         )
 
         # Assert
-        assert dumped["timestamp"] == chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot
+        assert dumped["timestamp"] == 220
         assert dumped["refSlot"] == bs.ref_slot
         assert dumped["blockNumber"] == bs.block_number
         assert dumped["prevTreeCID"] == "prev"
@@ -274,13 +271,66 @@ class TestDumpedTreeAndPublish:
                 vaults=vaults,
                 bs=bs,
                 prev_tree_cid='prev',
-                chain_config=chain_config,
+                timestamp=120,
                 vaults_fee_map=fees,
             ),
             default=service.tree_encoder,
         ).encode('ascii')
         web3.ipfs.publish.assert_called_once_with(expected_payload, MERKLE_TREE_VAULTS_FILENAME)
         assert cid == 'cid123'
+
+    def test_get_tree_timestamp__pre_gloas_ref_slot__uses_block_slot(self, basic_setup, web3):
+        # Arrange
+        *_, bs = basic_setup
+        web3.cc.is_gloas_slot = Mock(return_value=False)
+        service = StakingVaultsService(web3)
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
+
+        # Act
+        timestamp = service.get_tree_timestamp(bs, chain_config)
+
+        # Assert
+        assert timestamp == 100 + 10 * 12
+        web3.cc.is_gloas_slot.assert_called_once_with(bs.ref_slot)
+
+    def test_get_tree_timestamp__post_gloas_child_block__uses_ref_slot(self, basic_setup, web3):
+        # Arrange
+        *_, bs = basic_setup
+        web3.cc.is_gloas_slot = Mock(return_value=True)
+        service = StakingVaultsService(web3)
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
+
+        # Act
+        timestamp = service.get_tree_timestamp(bs, chain_config)
+
+        # Assert
+        assert bs.slot_number != bs.ref_slot
+        assert timestamp == 100 + 9 * 12
+        web3.cc.is_gloas_slot.assert_called_once_with(bs.ref_slot)
+
+    def test_publish_tree__post_gloas_child_block__publishes_ref_slot_timestamp(self, basic_setup, web3):
+        # Arrange
+        vaults, total_values, fees, reserves, bs = basic_setup
+        web3.cc.is_gloas_slot = Mock(return_value=True)
+        web3.ipfs.publish.return_value = 'cid123'
+        service = StakingVaultsService(web3)
+        tree = service.get_merkle_tree(StakingVaultsService.build_tree_data(vaults, total_values, fees, reserves))
+        chain_config = ChainConfig(slots_per_epoch=1, seconds_per_slot=12, genesis_time=100)
+
+        # Act
+        service.publish_tree(
+            tree=tree,
+            vaults=vaults,
+            bs=bs,
+            prev_tree_cid='prev',
+            chain_config=chain_config,
+            vaults_fee_map=fees,
+        )
+
+        # Assert
+        payload = json.loads(web3.ipfs.publish.call_args.args[0])
+        assert payload["timestamp"] == 100 + 9 * 12
+        assert payload["refSlot"] == 9
 
     def test_is_tree_root_valid_checks_root(self, web3):
         # Setup
