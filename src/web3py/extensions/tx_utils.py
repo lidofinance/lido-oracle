@@ -9,7 +9,7 @@ from web3.types import TxParams, TxReceipt
 
 from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
-from src.types import EpochNumber
+from src.types import SlotNumber
 from src.utils.input import prompt
 from src.utils.transaction import (
     GasEstimateAboveCap,
@@ -57,11 +57,10 @@ class TransactionUtils(Module):
 
     def _is_glamsterdam_active(self) -> bool:
         """Glamsterdam activates on the EL by timestamp, so the latest block shows whether it is live."""
-        spec = self.w3.cc.get_config_spec()
+        seconds_per_slot = self.w3.cc.get_config_spec().SECONDS_PER_SLOT
         genesis_time = self.w3.cc.get_genesis().genesis_time
         latest_timestamp = self.w3.eth.get_block('latest')['timestamp']  # type: ignore[index]
-        head_slot = (latest_timestamp - genesis_time) // spec.SECONDS_PER_SLOT
-        return self.w3.cc.is_gloas_epoch(EpochNumber(head_slot // spec.SLOTS_PER_EPOCH))
+        return self.w3.cc.is_gloas_slot(SlotNumber((latest_timestamp - genesis_time) // seconds_per_slot))
 
     def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount) -> TxReceipt | None:
         logger.warning({'msg': 'Send transaction in manual mode.'})

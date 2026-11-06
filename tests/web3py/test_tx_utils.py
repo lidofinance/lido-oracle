@@ -30,9 +30,9 @@ def fake_transaction_utils():
     account.address = "0x123"
     w3.signer.active_signer = account
     w3.signer.is_delegated = False
-    w3.cc.get_config_spec.return_value = MagicMock(SECONDS_PER_SLOT=SECONDS_PER_SLOT, SLOTS_PER_EPOCH=SLOTS_PER_EPOCH)
+    w3.cc.get_config_spec.return_value = MagicMock(SECONDS_PER_SLOT=SECONDS_PER_SLOT)
     w3.cc.get_genesis.return_value.genesis_time = GENESIS_TIME
-    w3.cc.is_gloas_epoch.side_effect = lambda epoch: epoch >= GLOAS_FORK_EPOCH
+    w3.cc.is_gloas_slot.side_effect = lambda slot: slot // SLOTS_PER_EPOCH >= GLOAS_FORK_EPOCH
     w3.eth.get_block.return_value = {'baseFeePerGas': 10, 'timestamp': timestamp_at_epoch(0)}
     utils = TransactionUtils(w3)
     return utils, account
@@ -243,7 +243,7 @@ class TestTransactionUtils:
         utils.check_and_send_transaction(tx)
 
         # Assert
-        utils.w3.cc.is_gloas_epoch.assert_called_once_with(epoch)
+        utils.w3.cc.is_gloas_slot.assert_called_once_with(epoch * SLOTS_PER_EPOCH)
         mock_build_params.assert_called_once_with(utils.w3, tx, account, expected_cap)
 
     @pytest.mark.parametrize(
