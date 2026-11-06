@@ -299,14 +299,14 @@ class BeaconStateView(Nested, FromResponse):
     balances: list[Gwei]
     slashings: list[Gwei]
 
-    # These fields are new in Electra, so here are default values for backward compatibility.
-    exit_balance_to_consume: Gwei = Gwei(0)
-    earliest_exit_epoch: EpochNumber = EpochNumber(0)
-    pending_deposits: list[PendingDeposit] = field(default_factory=list)
-    pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
-    pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+    exit_balance_to_consume: Gwei
+    earliest_exit_epoch: EpochNumber
+    pending_deposits: list[PendingDeposit]
+    pending_partial_withdrawals: list[PendingPartialWithdrawal]
+    pending_consolidations: list[PendingConsolidation]
 
     # Gloas: withdrawals debited from `balances` but not yet paid out by the execution payload.
+    # Absent before Gloas; `ConsensusClient` rejects a Gloas state without it.
     payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property

@@ -60,6 +60,8 @@ def _state(validators: int = 4, deposits: int = 3) -> BeaconStateView:
         validators=[_validator_state(i) for i in range(validators)],
         balances=[32 * 10**9 + i for i in range(validators)],
         slashings=[0, 7],
+        exit_balance_to_consume=64 * 10**9,
+        earliest_exit_epoch=400000,
         pending_deposits=[_pending_deposit(i) for i in range(deposits)],
         pending_partial_withdrawals=[
             PendingPartialWithdrawal(validator_index=0, amount=10**9, withdrawable_epoch=8),
