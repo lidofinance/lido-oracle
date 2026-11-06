@@ -46,6 +46,7 @@ from src.modules.oracles.accounting.types import (
 from src.providers.consensus.types import PendingDeposit, Validator
 from src.providers.execution.contracts.accounting_oracle import AccountingOracleContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
@@ -832,13 +833,23 @@ class StakingVaultsService:
             el=self.w3.eth,
         ).block_number
 
-        # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.
-        events, connected_vaults_set = self._get_vault_events_for_fees(
-            vault_hub=vault_hub,
-            # Do not include events from last block of last frame
-            from_block=BlockNumber(prev_report_block_number + 1),
-            to_block=blockstamp.block_number,
-        )
+        if prev_report_block_number > blockstamp.block_number:
+            raise InconsistentData(
+                f"Previous report execution block [{prev_report_block_number}] is after "
+                f"the reference execution block [{blockstamp.block_number}]."
+            )
+
+        events: defaultdict[str, list[VaultEventType]] = defaultdict(list)
+        connected_vaults_set: set[str] = set()
+        # With no execution block since the previous report there is nothing to fetch.
+        if prev_report_block_number < blockstamp.block_number:
+            # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.
+            events, connected_vaults_set = self._get_vault_events_for_fees(
+                vault_hub=vault_hub,
+                # Do not include events from last block of last frame
+                from_block=BlockNumber(prev_report_block_number + 1),
+                to_block=blockstamp.block_number,
+            )
 
         # Missed CL slots produce no EL blocks, so elapsed time must be derived from ref slots.
         current_ref_slot_timestamp = self._get_report_timestamp(blockstamp.ref_slot, chain_config)
