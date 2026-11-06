@@ -382,7 +382,7 @@ class Accounting(OracleModule[Web3]):
         pending_balance = self._get_cl_pending_validators_balance(blockstamp)
 
         report = ReportSimulationPayload(
-            timestamp=blockstamp.block_timestamp,
+            timestamp=chain_conf.genesis_time + blockstamp.ref_slot * chain_conf.seconds_per_slot,
             time_elapsed=self._get_slots_elapsed_from_last_report(blockstamp) * chain_conf.seconds_per_slot,
             cl_validators_balance=gwei_to_wei(cl_balance),
             cl_pending_balance=gwei_to_wei(pending_balance),

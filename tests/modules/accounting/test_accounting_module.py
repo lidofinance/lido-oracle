@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from web3.exceptions import ContractCustomError
-from web3.types import Wei
+from web3.types import Timestamp, Wei
 
 from src import variables
 from src.constants import ETH1_ADDRESS_WITHDRAWAL_PREFIX
@@ -614,12 +614,18 @@ def test_simulate_full_rebase(accounting: Accounting, ref_bs: ReferenceBlockStam
 
 
 @pytest.mark.unit
-def test_simulate_rebase_after_report(
-    accounting: Accounting,
-    ref_bs: ReferenceBlockStamp,
-    chain_config: ChainConfig,
-):
+def test_simulate_rebase_after_report__block_after_ref_slot__uses_ref_slot_timestamp(accounting: Accounting):
     # NOTE: we don't test the actual rebase calculation here, just the logic of the method
+    chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=1_606_824_023)
+    ref_bs = cast(
+        ReferenceBlockStamp,
+        ReferenceBlockStampFactory.build(
+            ref_slot=SlotNumber(1_000),
+            slot_number=SlotNumber(1_002),
+            block_timestamp=Timestamp(1_606_824_023 + 1_002 * 12),
+            block_hash='0x0d339fdfa3018561311a39bf00568ed08048055082448d17091d5a4dc2fa035b',
+        ),
+    )
     accounting.get_chain_config = Mock(return_value=chain_config)
     accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=17)
     accounting.get_shares_to_burn = Mock(return_value=13)
@@ -659,7 +665,7 @@ def test_simulate_rebase_after_report(
     out = accounting.simulate_rebase_after_report(ref_bs, Wei(0))
     accounting.w3.lido_contracts.accounting.simulate_oracle_report.assert_called_once_with(
         ReportSimulationPayload(
-            timestamp=1678794852,
+            timestamp=1_606_824_023 + 1_000 * 12,
             time_elapsed=504,
             cl_validators_balance=Wei(0),
             cl_pending_balance=Wei(0),

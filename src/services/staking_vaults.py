@@ -388,7 +388,7 @@ class StakingVaultsService:
             vaults=vaults,
             bs=bs,
             prev_tree_cid=prev_tree_cid,
-            chain_config=chain_config,
+            timestamp=self.get_tree_timestamp(bs, chain_config),
             vaults_fee_map=vaults_fee_map,
         )
 
@@ -396,13 +396,18 @@ class StakingVaultsService:
 
         return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), MERKLE_TREE_VAULTS_FILENAME)
 
+    def get_tree_timestamp(self, bs: ReferenceBlockStamp, chain_config: ChainConfig) -> int:
+        if self.w3.cc.is_gloas_slot(bs.ref_slot):
+            return self._get_report_timestamp(bs.ref_slot, chain_config)
+        return chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot
+
     @staticmethod
     def get_dumped_tree(
         tree: StandardMerkleTree,
         vaults: VaultsMap,
         bs: ReferenceBlockStamp,
         prev_tree_cid: str,
-        chain_config: ChainConfig,
+        timestamp: int,
         vaults_fee_map: VaultFeeMap,
     ) -> dict[str, Any]:
         def stringify_values(data) -> list[dict[str, str | int]]:
@@ -433,7 +438,7 @@ class StakingVaultsService:
             "refSlot": bs.ref_slot,
             "blockHash": bs.block_hash,
             "blockNumber": bs.block_number,
-            "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
+            "timestamp": timestamp,
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {k.value: v.value for k, v in MerkleValue.leaf_index_to_data().items()},
