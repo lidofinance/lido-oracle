@@ -7,12 +7,29 @@ from web3.exceptions import ContractLogicError
 from web3.types import BlockData, TxParams, Wei
 
 from src import variables
+from src.constants import EIP_7825_TX_GAS_LIMIT, EIP_8037_TX_MAX_TOTAL_GAS_LIMIT
 
 
 logger = logging.getLogger(__name__)
 
 
-def build_transaction_params(w3: Web3, transaction: ContractFunction, account: LocalAccount) -> TxParams:
+class GasEstimateAboveCap(Exception):
+    pass
+
+
+def tx_gas_cap(is_glamsterdam: bool) -> int:
+    fork_cap = EIP_8037_TX_MAX_TOTAL_GAS_LIMIT if is_glamsterdam else EIP_7825_TX_GAS_LIMIT
+    if variables.TX_GAS_LIMIT is None:
+        return fork_cap
+    return min(fork_cap, variables.TX_GAS_LIMIT)
+
+
+def build_transaction_params(
+    w3: Web3,
+    transaction: ContractFunction,
+    account: LocalAccount,
+    gas_cap: int,
+) -> TxParams:
     latest_block: BlockData = w3.eth.get_block("latest")
     max_priority_fee = Wei(
         min(
@@ -33,14 +50,17 @@ def build_transaction_params(w3: Web3, transaction: ContractFunction, account: L
         "nonce": w3.eth.get_transaction_count(account.address),
     }
 
-    if gas := estimate_gas(transaction, account):
+    if gas := estimate_gas(transaction, account, gas_cap):
         params['gas'] = gas
 
     return params
 
 
-def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | None:
-    """If transaction throws exception return None"""
+def estimate_gas(transaction: ContractFunction, account: LocalAccount, gas_cap: int) -> int | None:
+    """
+    Returns None if the estimation reverts.
+    Raises GasEstimateAboveCap if the estimate alone exceeds gas_cap: such a transaction can only run out of gas.
+    """
     try:
         gas = transaction.estimate_gas({'from': account.address})
     except ContractLogicError as error:
@@ -50,18 +70,28 @@ def estimate_gas(transaction: ContractFunction, account: LocalAccount) -> int | 
         logger.warning({'msg': 'Can not estimate gas. Execution reverted.', 'error': str(error)})
         return None
 
-    gas_with_addition = gas + variables.TX_GAS_ADDITION
-
-    if gas_with_addition > variables.TX_GAS_LIMIT:
-        logger.warning(
+    if gas > gas_cap:
+        logger.error(
             {
-                'msg': 'Gas is clamped to TX_GAS_LIMIT.',
+                'msg': 'Estimated gas exceeds the transaction gas cap. Transaction is not sent.',
                 'estimated_gas': gas,
-                'gas_addition': variables.TX_GAS_ADDITION,
-                'limit': variables.TX_GAS_LIMIT,
+                'gas_cap': gas_cap,
             }
         )
-        return variables.TX_GAS_LIMIT
+        raise GasEstimateAboveCap(f'Estimated gas {gas} exceeds the transaction gas cap {gas_cap}.')
+
+    gas_with_addition = gas + variables.TX_GAS_ADDITION
+
+    if gas_with_addition > gas_cap:
+        logger.warning(
+            {
+                'msg': 'Gas addition is clamped to the transaction gas cap.',
+                'estimated_gas': gas,
+                'gas_addition': variables.TX_GAS_ADDITION,
+                'gas_cap': gas_cap,
+            }
+        )
+        return gas_cap
 
     return gas_with_addition
 

@@ -33,6 +33,11 @@ MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA = Gwei(2**7 * 10**9)
 MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT = Gwei(2**8 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/81749c877c36760a9a5fca1e11bfd83ab6427bcc/specs/gloas/beacon-chain.md#validator-cycle
 CHURN_LIMIT_QUOTIENT_GLOAS = 2**15
+# https://eips.ethereum.org/EIPS/eip-7825
+EIP_7825_TX_GAS_LIMIT = 2**24
+# Glamsterdam: state gas is charged on top of the EIP-7825 execution gas cap
+# https://eips.ethereum.org/EIPS/eip-8037
+EIP_8037_TX_MAX_TOTAL_GAS_LIMIT = 2**32 - 1
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters
 SLOTS_PER_HISTORICAL_ROOT = 2**13  # 8192
 # https://github.com/ethereum/consensus-specs/blob/master/specs/altair/beacon-chain.md#sync-committee

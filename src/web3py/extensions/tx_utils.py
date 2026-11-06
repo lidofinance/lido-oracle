@@ -9,8 +9,14 @@ from web3.types import TxParams, TxReceipt
 
 from src import variables
 from src.metrics.prometheus.basic import TRANSACTIONS_COUNT, Status
+from src.types import SlotNumber
 from src.utils.input import prompt
-from src.utils.transaction import build_transaction_params, sign_and_send_transaction
+from src.utils.transaction import (
+    GasEstimateAboveCap,
+    build_transaction_params,
+    sign_and_send_transaction,
+    tx_gas_cap,
+)
 
 
 if TYPE_CHECKING:
@@ -31,7 +37,15 @@ class TransactionUtils(Module):
         if self.w3.signer.is_delegated:
             transaction = self.w3.signer.wrap_call_for_delegation(transaction)
 
-        params = build_transaction_params(self.w3, transaction, self.w3.signer.active_signer)
+        try:
+            params = build_transaction_params(
+                self.w3,
+                transaction,
+                self.w3.signer.active_signer,
+                tx_gas_cap(self._is_glamsterdam_active()),
+            )
+        except GasEstimateAboveCap:
+            return None
 
         if self._check_transaction(transaction, params):
             if not variables.DAEMON:
@@ -40,6 +54,13 @@ class TransactionUtils(Module):
             return self._send_transaction(transaction, params, self.w3.signer.active_signer)
 
         return None
+
+    def _is_glamsterdam_active(self) -> bool:
+        """Glamsterdam activates on the EL by timestamp, so the latest block shows whether it is live."""
+        seconds_per_slot = self.w3.cc.get_config_spec().SECONDS_PER_SLOT
+        genesis_time = self.w3.cc.get_genesis().genesis_time
+        latest_timestamp = self.w3.eth.get_block('latest')['timestamp']  # type: ignore[index]
+        return self.w3.cc.is_gloas_slot(SlotNumber((latest_timestamp - genesis_time) // seconds_per_slot))
 
     def _manual_tx_processing(self, transaction, params: TxParams, account: LocalAccount) -> TxReceipt | None:
         logger.warning({'msg': 'Send transaction in manual mode.'})
