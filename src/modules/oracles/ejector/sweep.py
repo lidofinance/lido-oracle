@@ -69,9 +69,9 @@ def predict_withdrawals_number_in_sweep_cycle(
     validators_withdrawals = get_validators_withdrawals(state, pending_partial_withdrawals, slots_per_epoch)
 
     if is_gloas_active:
-        # Pending partials still reduce balances but their own entries are left out of the cycle. Both can
-        # only shorten the estimated delay, so in some cases the ejector requests a few more exits than
-        # the pre-Gloas projection did.
+        # Only validator withdrawals are counted; pending partials still reduce the balances they draw from.
+        # Partial and builder withdrawals, the builder sweep and slots with an empty parent are left out on
+        # purpose: they are externally driven and bursty, so there is no stable per-cycle share to model.
         return len(validators_withdrawals)
 
     pending_partial_withdrawals_number = len(pending_partial_withdrawals)

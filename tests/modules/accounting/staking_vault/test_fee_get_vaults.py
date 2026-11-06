@@ -7,6 +7,7 @@ from web3.types import Wei
 
 from src.constants import SECONDS_IN_YEAR, TOTAL_BASIS_POINTS
 from src.modules.common.types import ChainConfig, FrameConfig
+from src.providers.execution.exceptions import InconsistentData
 from src.services.staking_vaults import StakingVaultsService
 from src.types import FrameNumber, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
@@ -220,6 +221,87 @@ class TestGetVaultsFees:
         service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.assert_called_once_with(
             blockstamp.block_hash
         )
+
+    def test_get_vaults_fees__no_execution_block_since_prev_report__skips_event_fetch(
+        self, service, vault_hub_mock, monkeypatch
+    ):
+        # Arrange
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
+        blockstamp = self.make_blockstamp(block=10, slot=300)
+
+        service.w3.lido_contracts.vault_hub = vault_hub_mock
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
+        service._calculate_vault_fee_components = MagicMock(return_value=(Decimal(0), Decimal(0), Decimal(0), 0))
+        monkeypatch.setattr(
+            "src.services.staking_vaults.get_blockstamp",
+            MagicMock(return_value=BlockStampFactory.build(block_number=blockstamp.block_number)),
+        )
+
+        # Act
+        fees = service.get_vaults_fees(
+            blockstamp=blockstamp,
+            vaults={vault_adr: vault},
+            vaults_total_values={},
+            latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
+            core_apr_ratio=Decimal("0"),
+            pre_total_pooled_ether=Wei(0),
+            pre_total_shares=0,
+            frame_config=FrameConfig(initial_epoch=0, epochs_per_frame=1, fast_lane_length_slots=0),
+            chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            current_frame=FrameNumber(0),
+        )
+
+        # Assert
+        assert vault_adr in fees
+        vault_hub_mock.get_vault_fee_updated_events.assert_not_called()
+        vault_hub_mock.get_vault_connected_events.assert_not_called()
+        service._calculate_vault_fee_components.assert_called_once_with(
+            vault_address=vault_adr,
+            vault_info=vault,
+            vault_total_value=0,
+            vault_events=[],
+            report_interval_seconds=200 * 12,
+            prev_ref_slot_timestamp=ANY,
+            current_ref_slot_timestamp=ANY,
+            core_apr_ratio=Decimal(0),
+            pre_total_pooled_ether=0,
+            pre_total_shares=0,
+            block_timestamps={},
+        )
+
+    def test_get_vaults_fees__prev_report_block_after_ref_block__raises_inconsistent_data(
+        self, service, vault_hub_mock, monkeypatch
+    ):
+        # Arrange
+        vault_adr = VaultAddresses.VAULT_0
+        vault = VaultInfoFactory.build(vault=vault_adr, liability_shares=0, max_liability_shares=0)
+        blockstamp = self.make_blockstamp(block=10, slot=300)
+
+        service.w3.lido_contracts.vault_hub = vault_hub_mock
+        service.w3.lido_contracts.accounting_oracle.get_last_processing_ref_slot.return_value = SlotNumber(100)
+        service._get_prev_vault_ipfs_report = MagicMock(return_value=None)
+        monkeypatch.setattr(
+            "src.services.staking_vaults.get_blockstamp",
+            MagicMock(return_value=BlockStampFactory.build(block_number=BlockNumber(11))),
+        )
+
+        # Act & Assert
+        with pytest.raises(InconsistentData, match="is after the reference execution block"):
+            service.get_vaults_fees(
+                blockstamp=blockstamp,
+                vaults={vault_adr: vault},
+                vaults_total_values={},
+                latest_onchain_ipfs_report_data=OnChainIpfsVaultReportDataFactory.build(report_cid=""),
+                core_apr_ratio=Decimal("0"),
+                pre_total_pooled_ether=Wei(0),
+                pre_total_shares=0,
+                frame_config=FrameConfig(initial_epoch=0, epochs_per_frame=1, fast_lane_length_slots=0),
+                chain_config=ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+                current_frame=FrameNumber(0),
+            )
+        vault_hub_mock.get_vault_fee_updated_events.assert_not_called()
 
     def test_raises_if_liability_shares_mismatch(self, service, vault_hub_mock):
         # Setup
