@@ -76,7 +76,7 @@ def test_attested_indices():
     committees = {
         (42, 20): [20000 + i for i in range(130)],
         (42, 22): [22000 + i for i in range(131)],
-        (17, 12): [12000 + i for i in range(999)],
+        (17, 12): [12000 + i for i in range(85)],
     }
     # Create misses set for all validators in committees
     misses = set()
@@ -140,3 +140,32 @@ def test_get_committee_indices():
         20,
         23,
     ]
+
+
+MULTI_COMMITTEE_ATTESTATION = Mock(
+    data=Mock(slot=42, index=0),
+    aggregation_bits="0x000000000000000000001000000000000010001000000000000000000000000020",
+    committee_bits="0x0000500000000000",
+)
+
+
+@pytest.mark.unit
+def test_process_attestations__one_of_committees_unknown__raises():
+    committees = {(42, 20): [20000 + i for i in range(130)]}
+    misses = set(committees[(42, 20)])
+
+    with pytest.raises(ValueError, match="references unknown committees"):
+        process_attestations([MULTI_COMMITTEE_ATTESTATION], committees, misses)  # type: ignore
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("second_committee_size", [130, 132])
+def test_process_attestations__aggregation_bits_length_mismatch__raises(second_committee_size):
+    committees = {
+        (42, 20): [20000 + i for i in range(130)],
+        (42, 22): [22000 + i for i in range(second_committee_size)],
+    }
+    misses = {vid for validators in committees.values() for vid in validators}
+
+    with pytest.raises(ValueError, match="261 aggregation bits"):
+        process_attestations([MULTI_COMMITTEE_ATTESTATION], committees, misses)  # type: ignore
