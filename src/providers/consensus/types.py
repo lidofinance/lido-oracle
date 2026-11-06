@@ -8,6 +8,7 @@ from hexbytes import HexBytes
 from web3.types import Timestamp
 
 from src.constants import FAR_FUTURE_EPOCH
+from src.providers.execution.exceptions import InconsistentData
 from src.types import (
     BlockHash,
     BlockRoot,
@@ -185,12 +186,18 @@ class BeaconBlockBody(Nested, FromResponse):
     def __post_init__(self):
         super().__post_init__()
         # Nested cannot resolve `X | None` fields.
-        if isinstance(self.execution_payload, dict):
-            self.execution_payload = ExecutionPayload.from_response(**self.execution_payload)
-        if isinstance(self.signed_execution_payload_bid, dict):
-            self.signed_execution_payload_bid = SignedExecutionPayloadBid.from_response(
-                **self.signed_execution_payload_bid
-            )
+        self.execution_payload = _parse_optional(self.execution_payload, ExecutionPayload, 'execution_payload')
+        self.signed_execution_payload_bid = _parse_optional(
+            self.signed_execution_payload_bid, SignedExecutionPayloadBid, 'signed_execution_payload_bid'
+        )
+
+
+def _parse_optional[T: FromResponse](value: object, factory: type[T], name: str) -> T | None:
+    if value is None or isinstance(value, factory):
+        return value
+    if isinstance(value, dict):
+        return factory.from_response(**value)
+    raise InconsistentData(f'Block body field `{name}` is neither an object nor null: {type(value).__name__}.')
 
 
 @dataclass
@@ -304,8 +311,7 @@ class BeaconStateView(Nested, FromResponse):
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
-        """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor.
-        """
+        """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor."""
         in_flight: defaultdict[int, Gwei] = defaultdict(lambda: Gwei(0))
         for withdrawal in self.payload_expected_withdrawals:
             in_flight[withdrawal.validator_index] = Gwei(in_flight[withdrawal.validator_index] + withdrawal.amount)
