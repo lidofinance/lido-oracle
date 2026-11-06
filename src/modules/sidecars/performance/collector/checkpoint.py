@@ -448,15 +448,24 @@ def process_attestations(
     misses: AttDutyMisses,
 ) -> AttDutyMisses:
     for attestation in attestations:
-        committee_offset = 0
         att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
         att_slot = attestation.data.slot
-        for committee_idx in get_committee_indices(attestation):
-            committee = committees.get((att_slot, committee_idx))
-            if not committee:
-                # It is attestation from prev or future epoch.
-                # We already checked that before or check in next epoch processing.
-                continue
+        committee_indices = get_committee_indices(attestation)
+        att_committees = [committees.get((att_slot, committee_idx)) for committee_idx in committee_indices]
+        found_committees = [committee for committee in att_committees if committee is not None]
+        if not found_committees:
+            # It is attestation from prev or future epoch.
+            # We already checked that before or check in next epoch processing.
+            continue
+        if len(found_committees) != len(att_committees):
+            raise ValueError(f"Attestation at {att_slot=} references unknown committees: {committee_indices=}")
+        expected_bits_len = sum(len(committee) for committee in found_committees)
+        if len(att_bits) != expected_bits_len:
+            raise ValueError(
+                f"Attestation at {att_slot=} has {len(att_bits)} aggregation bits, expected {expected_bits_len}"
+            )
+        committee_offset = 0
+        for committee in found_committees:
             att_committee_bits = att_bits[committee_offset:][: len(committee)]
             # Treat only set bits as reliable because committees can attest in multiple blocks.
             # Unset bits do not necessarily mean a miss: when a committee was partially aggregated in

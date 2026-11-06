@@ -346,7 +346,7 @@ class TestAttestations:
         attestation2 = cast(BlockAttestation, BlockAttestationFactory.build())
         attestation2.data.slot = 0
         attestation2.data.index = 0
-        attestation2.aggregation_bits = BitListFactory.build(set_indices=[]).hex()
+        attestation2.aggregation_bits = "0x0000000001"
 
         committees, misses = processor._prepare_attestation_duties(0)
         original_misses_count = len(misses)
