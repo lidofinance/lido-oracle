@@ -1,14 +1,9 @@
 import json
-import logging
 from typing import Any, Self
 
 from web3 import Web3
-from web3.types import BlockIdentifier
 
 from src.web3py.contract_tweak import Contract
-
-
-logger = logging.getLogger(__name__)
 
 
 class ContractInterface(Contract):
@@ -26,8 +21,3 @@ class ContractInterface(Contract):
 
         kwargs['abi'] = cls.load_abi(cls.abi_path)
         return super().factory(w3, class_name, **kwargs)
-
-    def is_deployed(self, block: BlockIdentifier) -> bool:
-        result = self.w3.eth.get_code(self.address, block_identifier=block) != b""
-        logger.info({"msg": f"Check that the contract {self.__class__.__name__} exists at {block=}", "value": result})
-        return result
