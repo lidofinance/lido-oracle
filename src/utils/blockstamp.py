@@ -18,7 +18,7 @@ from src.utils.web3converter import epoch_from_slot
 logger = logging.getLogger(__name__)
 
 
-class MissingExecutionAnchor(Exception):
+class MissingExecutionAnchor(InconsistentData):
     pass
 
 

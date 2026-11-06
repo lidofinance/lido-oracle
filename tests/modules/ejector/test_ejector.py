@@ -604,6 +604,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -625,6 +628,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(int(256e9)),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -650,6 +656,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(1),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -675,6 +684,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(

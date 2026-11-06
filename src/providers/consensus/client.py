@@ -1,3 +1,4 @@
+from dataclasses import MISSING, fields
 from http import HTTPStatus
 from typing import Any, Literal, cast
 
@@ -25,6 +26,7 @@ from src.providers.consensus.types import (
     SyncCommittee,
     Validator,
 )
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import (
     HTTPProvider,
     NotOkResponse,
@@ -281,9 +283,31 @@ class ConsensusClient(HTTPProvider):
             else:
                 raise
 
+        self._check_required_state_fields(data)
         state = BeaconStateView.from_response(**data)
+        if state.slot != blockstamp.slot_number:
+            raise InconsistentData(
+                f'Beacon state for [{blockstamp.state_root}] is at slot [{state.slot}], '
+                f'expected [{blockstamp.slot_number}].'
+            )
+        self._check_gloas_state_fields(blockstamp.slot_number, data)
         log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
         return state
+
+    @staticmethod
+    def _check_required_state_fields(data: dict) -> None:
+        missing = [
+            f.name
+            for f in fields(BeaconStateView)
+            if f.default is MISSING and f.default_factory is MISSING and f.name not in data
+        ]
+        if missing:
+            raise InconsistentData(f'Beacon state response lacks required fields: {missing}.')
+
+    def _check_gloas_state_fields(self, slot: SlotNumber, data: dict) -> None:
+        # Missing in-flight withdrawals would silently under-report validator balances.
+        if 'payload_expected_withdrawals' not in data and self.is_gloas_slot(slot):
+            raise InconsistentData(f'Gloas state at slot [{slot}] has no `payload_expected_withdrawals`.')
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         return self.get_state_view(blockstamp).pending_deposits
