@@ -253,11 +253,8 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     lido_rebase = ReportSimulationResultsFactory.build(
         post_total_pooled_ether=post_total_pooled_ether,
         post_total_shares=post_total_shares,
-        withdrawals_vault_transfer=Wei(10),
-        el_rewards_vault_transfer=Wei(10),
         ether_to_finalize_wq=0,
         shares_to_finalize_wq=0,
-        shares_to_burn_for_withdrawals=0,
         total_shares_to_burn=0,
         shares_to_mint_as_fees=0,
         fee_distribution=ReportSimulationFeeDistribution(
@@ -275,17 +272,21 @@ def test_get_finalization_data(accounting: Accounting, post_total_pooled_ether, 
     accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
     accounting.simulate_full_rebase = Mock(return_value=lido_rebase)
     accounting._is_bunker = Mock(return_value=False)
+    accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(10))
+    accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(20))
 
     bs = ReferenceBlockStampFactory.build()
 
     with (
         patch.object(Withdrawal, '__init__', return_value=None),
-        patch.object(Withdrawal, 'get_finalization_batches', return_value=[]),
+        patch.object(Withdrawal, 'get_finalization_batches', return_value=[]) as get_finalization_batches,
     ):
         batches, share_rate = accounting._get_finalization_data(bs)
 
     assert batches == []
     assert share_rate == expected_share_rate
+    # Both reported vault balances are settled in full, so the whole of them is available for finalization
+    get_finalization_batches.assert_called_once_with(False, expected_share_rate, Wei(10), Wei(20))
 
     if post_total_pooled_ether > post_total_shares:
         assert share_rate > 10**27
@@ -633,11 +634,8 @@ def test_simulate_rebase_after_report(
 
     accounting.w3.lido_contracts.accounting.simulate_oracle_report = Mock(
         return_value=ReportSimulationResults(
-            withdrawals_vault_transfer=Wei(0),
-            el_rewards_vault_transfer=Wei(0),
             ether_to_finalize_wq=Wei(0),
             shares_to_finalize_wq=Shares(0),
-            shares_to_burn_for_withdrawals=Shares(0),
             total_shares_to_burn=Shares(0),
             shares_to_mint_as_fees=Shares(0),
             fee_distribution=ReportSimulationFeeDistribution(
@@ -800,11 +798,8 @@ def test_get_finalization_data_zero_shares(accounting: Accounting):
     lido_rebase = ReportSimulationResultsFactory.build(
         post_total_pooled_ether=10**18,
         post_total_shares=0,
-        withdrawals_vault_transfer=Wei(0),
-        el_rewards_vault_transfer=Wei(0),
         ether_to_finalize_wq=0,
         shares_to_finalize_wq=0,
-        shares_to_burn_for_withdrawals=0,
         total_shares_to_burn=0,
         shares_to_mint_as_fees=0,
         fee_distribution=ReportSimulationFeeDistribution(
@@ -821,6 +816,8 @@ def test_get_finalization_data_zero_shares(accounting: Accounting):
     accounting.get_frame_config = Mock(return_value=FrameConfigFactory.build(initial_epoch=2, epochs_per_frame=1))
     accounting.simulate_full_rebase = Mock(return_value=lido_rebase)
     accounting._is_bunker = Mock(return_value=False)
+    accounting.w3.lido_contracts.get_withdrawal_balance = Mock(return_value=Wei(0))
+    accounting.w3.lido_contracts.get_el_vault_balance = Mock(return_value=Wei(0))
 
     bs = ReferenceBlockStampFactory.build()
     with (

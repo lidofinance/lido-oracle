@@ -927,8 +927,8 @@ _DUMMY_FEE_DIST = MagicMock()
 
 
 def _make_simulation_response():
-    """15-element tuple matching ReportSimulationResults field order."""
-    return (1, 2, 3, 4, 5, 6, 7, _DUMMY_FEE_DIST, 8, 9, 10, 11, 12, 13, 14)
+    """12-element tuple matching ReportSimulationResults field order."""
+    return (1, 2, 3, 4, _DUMMY_FEE_DIST, 5, 6, 7, 8, 9, 10, 11)
 
 
 @pytest.mark.unit
@@ -964,9 +964,10 @@ class TestAccountingSimulateOracleReport:
         result = AccountingContract.simulate_oracle_report(contract, payload, block_identifier="latest")
 
         assert isinstance(result, ReportSimulationResults)
-        assert result.withdrawals_vault_transfer == 1
-        assert result.el_rewards_vault_transfer == 2
-        assert result.post_total_pooled_ether == 14
+        assert result.ether_to_finalize_wq == 1
+        assert result.shares_to_mint_as_fees == 4
+        assert result.fee_distribution is _DUMMY_FEE_DIST
+        assert result.post_total_pooled_ether == 11
         contract.functions.simulateOracleReport.return_value.call.assert_called_with(block_identifier="latest")
 
 
@@ -1064,7 +1065,7 @@ _OracleReportLimitsTuple = namedtuple(
     [
         "exitedEthAmountPerDayLimit",
         "appearedEthAmountPerDayLimit",
-        "annualBalanceIncreaseBpLimit",
+        "annualCLRebaseIncreaseSoftBPLimit",
         "simulatedShareRateDeviationBpLimit",
         "maxBalanceExitRequestedPerReportInEth",
         "maxEffectiveBalanceWeightWCType01",
@@ -1072,11 +1073,13 @@ _OracleReportLimitsTuple = namedtuple(
         "maxItemsPerExtraDataTransaction",
         "maxNodeOperatorsPerExtraDataItem",
         "requestTimestampMargin",
-        "maxPositiveTokenRebase",
-        "maxClBalanceDecreaseBp",
-        "clBalanceOraclesErrorUpperBpLimit",
+        "annualCLRebaseIncreaseHardBPLimit",
+        "clRebaseDecreaseSoftBPLimit",
+        "clRebaseDecreaseHardBPLimit",
         "consolidationEthAmountPerDayLimit",
         "exitedValidatorEthAmountLimit",
+        "externalPendingBalanceCapEth",
+        "dailyCLRebaseDecreaseHardBPLimit",
     ],
 )
 
@@ -1256,12 +1259,18 @@ class TestBurnerContract:
 class TestOracleReportSanityCheckerContract:
     def test_get_oracle_report_limits(self):
         contract = _mock_contract()
-        raw = _OracleReportLimitsTuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+        raw = _OracleReportLimitsTuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)
         contract.functions.getOracleReportLimits.return_value.call.return_value = raw
         result = OracleReportSanityCheckerContract.get_oracle_report_limits(contract, block_identifier="latest")
         assert isinstance(result, OracleReportLimits)
         assert result.exited_eth_amount_per_day_limit == 1
+        assert result.annual_cl_rebase_increase_soft_bp_limit == 3
+        assert result.request_timestamp_margin == 10
+        assert result.annual_cl_rebase_increase_hard_bp_limit == 11
+        assert result.cl_rebase_decrease_soft_bp_limit == 12
+        assert result.cl_rebase_decrease_hard_bp_limit == 13
         assert result.exited_validator_eth_amount_limit == 15
+        assert result.daily_cl_rebase_decrease_hard_bp_limit == 17
         contract.functions.getOracleReportLimits.return_value.call.assert_called_with(block_identifier="latest")
 
 
