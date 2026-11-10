@@ -2486,3 +2486,51 @@ class TestFirstActivationEpoch:
 
         # Assert
         assert iterator.first_activation_epoch == {gid_active: ref_epoch - 50}
+
+
+@pytest.mark.unit
+class TestPhasesShareReportLimit:
+    def test_all_phases__one_report_limit__phase_3_gets_what_phases_1_and_2_left(self, iterator):
+        # Arrange: CMv2 operators 400/100/100 ETH with equal weights (target 200 each).
+        a1 = make_validator(1, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([a1], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        # A 0x01 module operator that must exit both of its validators.
+        sm1 = make_staking_module(1, wc_type=1)
+        forced = make_node_operator(9, sm1)
+        f1, f2 = make_validator(11, 32, wc=ETH1_WC), make_validator(12, 32, wc=ETH1_WC)
+        forced_gid = (sm1.id, forced.id)
+        ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(64 * ETH))
+        iterator.module_stats[sm1.id] = ms1
+        iterator.node_operators_stats[forced_gid] = NodeOperatorStats(
+            node_operator=forced,
+            module_stats=ms1,
+            predictable_validators=2,
+            predictable_balance=Gwei(64 * ETH),
+            total_stake=Gwei(64 * ETH),
+            force_exit_to=0,
+        )
+        iterator.exitable_validators[forced_gid] = [f1, f2]
+        iterator.first_activation_epoch[forced_gid] = EpochNumber(0)
+        iterator.total_lido_predictable_balance = Gwei(iterator.total_lido_predictable_balance + 64 * ETH)
+        # FWR of a 0x01 module weighs 32 ETH, a PWR its amount: 160 ETH fits two FWRs and three 32 ETH PWRs.
+        iterator.exit_limit_in_gwei = Gwei(160 * ETH)
+        enable_rebalancing(iterator, operator_bp=1_000)
+
+        # Act
+        phase_1 = next(iterator)
+        phase_2 = iterator.allocate_forced_exits()
+        phase_3 = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert (phase_1.validator, phase_1.amount) == (f1, FWR_AMOUNT), "a forced operator ranks first in phase 1"
+        assert [(s.validator, s.amount) for s in phase_2] == [(f2, FWR_AMOUNT)]
+        # The trigger alone would allow 9 chunks; the 96 ETH left under the shared limit allow 3.
+        assert [(s.validator, s.amount) for s in phase_3] == [(a1, Gwei(32 * ETH))] * 3
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [
+            (f1.lido_id.index, FWR_AMOUNT),
+            (f2.lido_id.index, FWR_AMOUNT),
+            (a1.lido_id.index, 96 * ETH),
+        ]
