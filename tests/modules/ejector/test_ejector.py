@@ -13,6 +13,11 @@ from src.constants import (
     MIN_ACTIVATION_BALANCE,
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
 )
+from src.metrics.prometheus.ejector import (
+    EJECTOR_PARTIAL_WITHDRAWAL_GWEI_AMOUNT,
+    EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+    EJECTOR_WITHDRAWAL_REQUESTS,
+)
 from src.modules.common.types import ChainConfig, CurrentFrame, ModuleExecuteDelay
 from src.modules.oracles.ejector import ejector as ejector_module
 from src.modules.oracles.ejector.data_encode import (
@@ -189,6 +194,30 @@ def test_ejector_build_report_keeps_iterator_order(ejector: Ejector, ref_blockst
 
     assert requests_count == 2
     assert data == encode_data(requests, 400), "Records must keep the iterator order"
+
+
+@pytest.mark.unit
+def test_build_report__mixed_requests__metrics_by_type(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
+    # Arrange: one FWR and two PWRs of 32 and 10 ETH
+    ejector.get_withdrawal_requests = Mock(
+        return_value=[
+            WithdrawalRequest(StakingModuleId(1), NodeOperatorId(1), 1, FWR_AMOUNT),
+            WithdrawalRequest(StakingModuleId(1), NodeOperatorId(1), 2, Gwei(32 * 10**9)),
+            WithdrawalRequest(StakingModuleId(1), NodeOperatorId(2), 3, Gwei(10 * 10**9)),
+        ]
+    )
+    vebo = ejector.w3.lido_contracts.validators_exit_bus_oracle
+    vebo.get_last_processing_ref_slot.return_value = SlotNumber(0)
+    vebo.get_max_requests_per_report.return_value = 400
+
+    # Act
+    ejector.build_report(ref_blockstamp)
+
+    # Assert
+    assert EJECTOR_VALIDATORS_COUNT_TO_EJECT._value.get() == 3
+    assert EJECTOR_WITHDRAWAL_REQUESTS.labels(type='full')._value.get() == 1
+    assert EJECTOR_WITHDRAWAL_REQUESTS.labels(type='partial')._value.get() == 2
+    assert EJECTOR_PARTIAL_WITHDRAWAL_GWEI_AMOUNT._value.get() == 42 * 10**9
 
 
 @pytest.mark.unit
