@@ -61,3 +61,23 @@ class OracleDaemonConfigContract(ContractInterface):
     @lru_cache(maxsize=1)
     def exit_iteration_chunk_eth(self, block_identifier: BlockIdentifier) -> int:
         return self._get('EXIT_ITERATION_CHUNK', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_enabled(self, block_identifier: BlockIdentifier) -> bool:
+        return bool(self._get('ACTIVE_REBALANCING_ENABLED', block_identifier))
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_rate_limit_eth(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_RATE_LIMIT', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_operator_excess_bp(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_OPERATOR_EXCESS_BP', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_module_excess_bp(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_MODULE_EXCESS_BP', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_grace_period_epochs(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS', block_identifier)
