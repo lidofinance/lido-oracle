@@ -1,5 +1,6 @@
 import logging
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import cast
 
@@ -71,7 +72,6 @@ class ActiveRebalancingConfig:
     rate_limit: Gwei
     operator_excess_bp: int
     module_excess_bp: int
-    grace_period_epochs: int
 
 
 @dataclass
@@ -85,10 +85,8 @@ class _Allocation:
 class StakingModuleStats:
     staking_module: StakingModule
     partial_withdrawals_allowed: bool = False
+    is_cm_v2: bool = False
     predictable_balance: Gwei = Gwei(0)
-
-    total_stake: Gwei = Gwei(0)
-    total_weight: float = 0
 
 
 @dataclass
@@ -99,6 +97,7 @@ class NodeOperatorStats:
     predictable_validators: int = 0
     predictable_balance: Gwei = Gwei(0)
 
+    # Own balance, plus the share of the group's external stake for a CMv2 operator.
     total_stake: Gwei = Gwei(0)
 
     # Link to group if NO is internal to CMv2
@@ -203,6 +202,7 @@ class ValidatorExitIterator:
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
         self.first_activation_epoch: dict[NodeOperatorGlobalIndex, EpochNumber] = {}
+        self._in_flight_pwr_by_gid: dict[NodeOperatorGlobalIndex, Gwei] | None = None
 
     def _prepare_data_structure(self):
         self._prepare_module_stats()
@@ -260,7 +260,6 @@ class ValidatorExitIterator:
         self._calculate_current_cl_balance()
         self._calculate_pending_validator_cl_balance()
         self._finalize_cm_v1_and_cm_v2_stats()
-        self._calculate_sm_weights()
 
     def _calculate_current_cl_balance(self):
         for gid, validators in self.exitable_validators.items():
@@ -272,7 +271,6 @@ class ValidatorExitIterator:
 
                 # --- Update lido stats ---
                 self.total_lido_predictable_balance += validator_predictable_balance
-                self.module_stats[gid[0]].total_stake += validator_predictable_balance
                 self.module_stats[gid[0]].predictable_balance += validator_predictable_balance
                 self.node_operators_stats[gid].predictable_balance += validator_predictable_balance
                 self.node_operators_stats[gid].total_stake += validator_predictable_balance
@@ -294,7 +292,6 @@ class ValidatorExitIterator:
 
             self.total_lido_predictable_balance += predictable_balance
             self.module_stats[sm_id].predictable_balance += predictable_balance
-            self.module_stats[sm_id].total_stake += predictable_balance
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_validators += 1
             self.node_operators_stats[(sm_id, lido_key.operator_index)].predictable_balance += predictable_balance
             self.node_operators_stats[(sm_id, lido_key.operator_index)].total_stake += predictable_balance
@@ -305,6 +302,7 @@ class ValidatorExitIterator:
         self._setup_weights(cm_v2)
         self._setup_meta_connections(cm_v1, cm_v2)
         self.cm_v2_id = cm_v2[0]
+        self.module_stats[self.cm_v2_id].is_cm_v2 = True
 
     def _fetch_curated_modules(self) -> tuple[CMv1, CMv2]:
         cm_v1_modules: list[CMv1] = []
@@ -409,7 +407,6 @@ class ValidatorExitIterator:
             external_balance += self.node_operators_stats[gid].predictable_balance
 
         internal_weight = 0
-        internal_balance = Gwei(0)
 
         for no in group.sub_node_operators:
             gid = (cm_v2_id, no.node_operator_id)
@@ -421,7 +418,6 @@ class ValidatorExitIterator:
                 raise NodeOperatorAlreadyGroupedError(f"Node operator {gid} is already persists in a group.")
             self.node_operators_stats[gid].internal_operator_group = group
 
-            internal_balance += self.node_operators_stats[gid].predictable_balance
             internal_weight += self.node_operators_stats[gid].weight
 
         if not group.has_connection():
@@ -440,15 +436,7 @@ class ValidatorExitIterator:
                 self.node_operators_stats[gid].total_stake += external_balance * no.share / TOTAL_BASIS_POINTS
 
         for gid in external_gids:
-            self.node_operators_stats[gid].total_stake += internal_balance / len(external_gids)
             self.node_operators_stats[gid].weight = internal_weight / len(external_gids)
-
-        self.module_stats[cm_v1_id].total_stake += internal_balance
-        self.module_stats[cm_v2_id].total_stake += external_balance
-
-    def _calculate_sm_weights(self) -> None:
-        for (sm_id, _), node_operator in self.node_operators_stats.items():
-            self.module_stats[sm_id].total_weight += node_operator.weight
 
     def _get_report_limits(self) -> None:
         limits = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
@@ -474,7 +462,10 @@ class ValidatorExitIterator:
     @duration_meter()
     def __next__(self) -> WithdrawalStep:
         """Phase 1: the next chunk of WQ demand."""
-        for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
+        deviations = self._get_target_stake_deviations()
+        for node_operator in sorted(
+            self.node_operators_stats.values(), key=lambda no: self._no_predicate(no, deviations)
+        ):
             gid = (
                 node_operator.module_stats.staking_module.id,
                 node_operator.node_operator.id,
@@ -530,16 +521,10 @@ class ValidatorExitIterator:
         if config is None:
             return []
 
-        participants = self._get_rebalancing_participants(config)
-        in_flight_pwr = {
-            gid: sum(self.in_flight.pwr_amounts.get(v.index, Gwei(0)) for v in self.exitable_validators.get(gid, []))
-            for gid in participants
-        }
-
         steps: list[WithdrawalStep] = []
         rebalanced = Gwei(0)
         while True:
-            for gid in self._get_over_target_operators(participants, in_flight_pwr, config):
+            for gid in self._get_over_target_operators(config):
                 pick = self._pick(gid, forced=False)
                 if pick is None:
                     continue
@@ -573,44 +558,24 @@ class ValidatorExitIterator:
             rate_limit=Gwei(daemon_config.active_rebalancing_rate_limit_eth(block) * GWEI_PER_ETH),
             operator_excess_bp=daemon_config.active_rebalancing_operator_excess_bp(block),
             module_excess_bp=daemon_config.active_rebalancing_module_excess_bp(block),
-            grace_period_epochs=daemon_config.active_rebalancing_grace_period_epochs(block),
         )
 
-    def _get_rebalancing_participants(self, config: ActiveRebalancingConfig) -> list[NodeOperatorGlobalIndex]:
-        """CMv2 operators outside the grace period: active for at least the grace period since the first activation."""
-        return [
-            gid
-            for gid in self.node_operators_stats
-            if gid[0] == self.cm_v2_id
-            and gid in self.first_activation_epoch
-            and self.blockstamp.ref_epoch - self.first_activation_epoch[gid] >= config.grace_period_epochs
-        ]
-
-    def _get_over_target_operators(
-        self,
-        participants: list[NodeOperatorGlobalIndex],
-        in_flight_pwr: dict[NodeOperatorGlobalIndex, int],
-        config: ActiveRebalancingConfig,
-    ) -> list[NodeOperatorGlobalIndex]:
+    def _get_over_target_operators(self, config: ActiveRebalancingConfig) -> list[NodeOperatorGlobalIndex]:
         """
-        Operators above their target stake, furthest above first. Empty while neither the operator-level
+        CMv2 operators above their target stake, furthest above first. Empty while neither the operator-level
         nor the module-level trigger holds.
-
-        currentStake already includes the external stake share and pending deposits, and drops
-        with every withdrawal allocated in this report.
         """
-        current = {gid: self.node_operators_stats[gid].total_stake - in_flight_pwr[gid] for gid in participants}
-        module_stake = sum(current.values())
-        module_weight = sum(self.node_operators_stats[gid].weight for gid in participants)
-        if module_weight == 0:
+        participants = self._get_cm_v2_participants()
+        if sum(self.node_operators_stats[gid].weight for gid in participants) == 0:
             return []
 
-        target = {gid: module_stake * self.node_operators_stats[gid].weight / module_weight for gid in participants}
-        excess = {gid: current[gid] - target[gid] for gid in participants}
+        stakes = self._get_target_stakes(participants)
+        module_stake = sum(current for current, _ in stakes.values())
+        excess = {gid: current - target for gid, (current, target) in stakes.items()}
 
         operator_trigger = any(
-            current[gid] * TOTAL_BASIS_POINTS > target[gid] * (TOTAL_BASIS_POINTS + config.operator_excess_bp)
-            for gid in participants
+            current * TOTAL_BASIS_POINTS > target * (TOTAL_BASIS_POINTS + config.operator_excess_bp)
+            for current, target in stakes.values()
         )
         module_trigger = (
             sum(max(0, e) for e in excess.values()) * TOTAL_BASIS_POINTS > module_stake * config.module_excess_bp
@@ -622,6 +587,68 @@ class ValidatorExitIterator:
             (gid for gid in participants if excess[gid] > 0),
             key=lambda gid: (-excess[gid], self._lowest_validator_index_predicate(self.node_operators_stats[gid]), gid),
         )
+
+    # --- Target stake ---
+    def _get_target_stake_deviations(self) -> dict[NodeOperatorGlobalIndex, float]:
+        """
+        currentStake - targetStake by operator. CMv2 counts only the operators outside the grace period;
+        an operator inside it ranks after every other operator of the module. Other modules use their
+        operators' own stake.
+        """
+        deviations: dict[NodeOperatorGlobalIndex, float] = {}
+        for gid, (current, target) in self._get_target_stakes(self._get_cm_v2_participants()).items():
+            deviations[gid] = current - target
+
+        gids_by_module: dict[StakingModuleId, list[NodeOperatorGlobalIndex]] = defaultdict(list)
+        for gid, no in self.node_operators_stats.items():
+            if no.module_stats.is_cm_v2:
+                deviations.setdefault(gid, -math.inf)
+            else:
+                gids_by_module[gid[0]].append(gid)
+
+        for gids in gids_by_module.values():
+            for gid, (current, target) in self._get_target_stakes(gids).items():
+                deviations[gid] = current - target
+
+        return deviations
+
+    def _get_target_stakes(
+        self, gids: list[NodeOperatorGlobalIndex]
+    ) -> dict[NodeOperatorGlobalIndex, tuple[float, float]]:
+        """(currentStake, targetStake) by operator, with the module stake and weight summed over `gids`."""
+        current = {gid: self._get_current_stake(gid) for gid in gids}
+        module_stake = sum(current.values())
+        module_weight = sum(self.node_operators_stats[gid].weight for gid in gids)
+        return {
+            gid: (
+                current[gid],
+                module_stake * self.node_operators_stats[gid].weight / module_weight if module_weight else 0,
+            )
+            for gid in gids
+        }
+
+    def _get_current_stake(self, gid: NodeOperatorGlobalIndex) -> float:
+        """Stake after the withdrawals in this report and the PWRs requested in earlier ones."""
+        if self._in_flight_pwr_by_gid is None:
+            # Stable for the whole report: an FWR never goes to a validator with an in-flight PWR.
+            self._in_flight_pwr_by_gid = {
+                no_gid: Gwei(sum(self.in_flight.pwr_amounts.get(v.index, Gwei(0)) for v in validators))
+                for no_gid, validators in self.exitable_validators.items()
+            }
+        return self.node_operators_stats[gid].total_stake - self._in_flight_pwr_by_gid.get(gid, Gwei(0))
+
+    def _get_cm_v2_participants(self) -> list[NodeOperatorGlobalIndex]:
+        """CMv2 operators active for at least ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS since their first activation."""
+        grace_period_epochs = self.w3.lido_contracts.oracle_daemon_config.active_rebalancing_grace_period_epochs(
+            self.blockstamp.block_hash
+        )
+        return [
+            gid
+            for gid, no in self.node_operators_stats.items()
+            if no.module_stats.is_cm_v2
+            and gid in self.first_activation_epoch
+            and self.blockstamp.ref_epoch - self.first_activation_epoch[gid] >= grace_period_epochs
+        ]
 
     def get_requests(self) -> list[WithdrawalRequest]:
         """The report records, in report order."""
@@ -786,20 +813,10 @@ class ValidatorExitIterator:
         )
 
     def _decrease_affected_stake(self, gid: NodeOperatorGlobalIndex, exit_balance: Gwei) -> None:
-        self.module_stats[gid[0]].total_stake -= exit_balance
         self.node_operators_stats[gid].total_stake -= exit_balance
-
-        i_group = self.node_operators_stats[gid].internal_operator_group
-        if i_group and i_group.has_connection():
-            self.module_stats[i_group.external_operators[0].get_gid()[0]].total_stake -= exit_balance
-
-            for op in i_group.external_operators:
-                self.node_operators_stats[op.get_gid()].total_stake -= exit_balance / len(i_group.external_operators)
 
         e_group = self.node_operators_stats[gid].external_operator_group
         if e_group and e_group.has_connection():
-            self.module_stats[self.cm_v2_id].total_stake -= exit_balance
-
             total_weight = sum(
                 self.node_operators_stats[(self.cm_v2_id, no.node_operator_id)].weight
                 for no in e_group.sub_node_operators
@@ -816,12 +833,15 @@ class ValidatorExitIterator:
                         exit_balance * op.share / TOTAL_BASIS_POINTS
                     )
 
-    def _no_predicate(self, node_operator: NodeOperatorStats) -> tuple:
+    def _no_predicate(
+        self, node_operator: NodeOperatorStats, deviations: dict[NodeOperatorGlobalIndex, float]
+    ) -> tuple:
+        gid = (node_operator.module_stats.staking_module.id, node_operator.node_operator.id)
         return (
             -self._no_force_predicate(node_operator),
             -self._no_soft_predicate(node_operator),
             -self._max_share_rate_coefficient_predicate(node_operator),
-            -self._no_target_balance_deviation_predicate(node_operator),
+            -deviations[gid],
             self._lowest_validator_index_predicate(node_operator),
         )
 
@@ -869,20 +889,6 @@ class ValidatorExitIterator:
             return node_operator.module_stats.predictable_balance - max_module_predictable_balance
 
         return -1 / node_operator.module_stats.predictable_balance
-
-    @staticmethod
-    def _no_target_balance_deviation_predicate(node_operator: NodeOperatorStats) -> Gwei:
-        """
-        Highest deviation current balance from target stake rate by weight.
-        """
-        if node_operator.module_stats.total_weight == 0:
-            return Gwei(node_operator.total_stake)
-
-        target_no_stake = (
-            node_operator.module_stats.total_stake * node_operator.weight / node_operator.module_stats.total_weight
-        )
-
-        return Gwei(node_operator.total_stake - target_no_stake)
 
     def _lowest_validator_index_predicate(self, node_operator: NodeOperatorStats) -> int:
         """

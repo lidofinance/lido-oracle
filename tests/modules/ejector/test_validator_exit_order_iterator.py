@@ -1,3 +1,4 @@
+import math
 from collections import Counter
 from unittest.mock import Mock
 
@@ -47,6 +48,7 @@ def iterator(web3):
     )
     it.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report = Mock(return_value=500)
     it.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth = Mock(return_value=32)
+    it.w3.lido_contracts.oracle_daemon_config.active_rebalancing_grace_period_epochs = Mock(return_value=0)
     it.w3.lido_contracts.staking_router.is_partial_withdrawals_allowed = Mock(return_value=False)
     it.w3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(return_value=[])
     it.w3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
@@ -145,12 +147,9 @@ def test_no_predicate(iterator):
     ms2 = StakingModuleStats(
         staking_module=sm2,
         predictable_balance=Gwei(200 * 32 * 10**9),
-        total_stake=Gwei(200 * 32 * 10**9),
-        total_weight=10.0,
     )
 
     # force_exit_to=50, soft_exit_to=25, predictable_validators=2000 → both over target
-    # total_stake equals target (2000 * 10.0 / 10.0 = 2000 vals) → deviation = 0
     nos2 = NodeOperatorStats(
         node_operator=no2,
         module_stats=ms2,
@@ -166,14 +165,14 @@ def test_no_predicate(iterator):
         (sm2.id, no2.id): [Mock(index=20)],
     }
 
-    res2 = iterator._no_predicate(nos2)
+    res2 = iterator._no_predicate(nos2, {(sm2.id, no2.id): 0.0})
     # force: -(2000 - 50) = -1950
     assert res2[0] == -(2000 - 50)
     # soft:  -(2000 - 25) = -1975
     assert res2[1] == -(2000 - 25)
     # share: -(200*32e9 - 150*32e9) = -(50 * 32e9)
     assert res2[2] == -(50 * 32 * 10**9)
-    # target stake deviation: total_stake = target → 0
+    # target stake deviation, taken from the precomputed deviations
     assert res2[3] == 0
     # lowest validator index
     assert res2[4] == 20
@@ -353,64 +352,110 @@ def test_allocate_forced_exits__below_target__returns_empty(iterator):
     assert forced == [], "No forced exits needed when validators are below target"
 
 
-@pytest.mark.unit
-def test_no_target_balance_deviation_predicate(iterator):
-    """_no_target_balance_deviation_predicate returns total_stake - target_stake."""
-    sm = make_staking_module(1)
-    no = make_node_operator(1, sm)
-    ms = StakingModuleStats(staking_module=sm, total_stake=Gwei(1000 * 10**9), total_weight=10.0)
-
-    # Equal to target → deviation is 0
-    # target = 1000e9 * 5.0 / 10.0 = 500e9
-    nos_at_target = NodeOperatorStats(
-        node_operator=no,
-        module_stats=ms,
-        predictable_validators=1,
-        total_stake=Gwei(500 * 10**9),
-        weight=5.0,
-    )
-    assert iterator._no_target_balance_deviation_predicate(nos_at_target) == 0
-
-    # Below target → negative deviation (lower exit priority)
-    nos_below = NodeOperatorStats(
-        node_operator=no,
-        module_stats=ms,
-        predictable_validators=1,
-        total_stake=Gwei(100 * 10**9),
-        weight=5.0,
-    )
-    # target = 500e9, deviation = 100e9 - 500e9 = -400e9
-    assert iterator._no_target_balance_deviation_predicate(nos_below) == Gwei(-400 * 10**9)
-
-    # Above target → positive deviation (higher exit priority)
-    nos_above = NodeOperatorStats(
-        node_operator=no,
-        module_stats=ms,
-        predictable_validators=1,
-        total_stake=Gwei(800 * 10**9),
-        weight=5.0,
-    )
-    # target = 500e9, deviation = 800e9 - 500e9 = 300e9
-    assert iterator._no_target_balance_deviation_predicate(nos_above) == Gwei(300 * 10**9)
+def set_operators(iterator, module_id, operators, *, is_cm_v2=False):
+    """Operators given as {no_id: (stake_eth, weight)}, with no validators behind them."""
+    sm = make_staking_module(module_id)
+    ms = StakingModuleStats(staking_module=sm, is_cm_v2=is_cm_v2)
+    iterator.module_stats[sm.id] = ms
+    for no_id, (stake_eth, weight) in operators.items():
+        gid = (sm.id, NodeOperatorId(no_id))
+        iterator.node_operators_stats[gid] = NodeOperatorStats(
+            node_operator=make_node_operator(no_id, sm),
+            module_stats=ms,
+            total_stake=Gwei(stake_eth * 10**9),
+            weight=float(weight),
+        )
+        iterator.exitable_validators[gid] = []
+        iterator.first_activation_epoch[gid] = EpochNumber(0)
+    return sm.id
 
 
 @pytest.mark.unit
-def test_no_target_balance_deviation_predicate__zero_total_weight__returns_total_stake(iterator):
-    """_no_target_balance_deviation_predicate must not divide by zero when total_weight is 0,
-    and falls back to the NO's own total_stake (no target to compare against)."""
-    sm = make_staking_module(1)
-    no = make_node_operator(1, sm)
-    ms = StakingModuleStats(staking_module=sm, total_stake=Gwei(1000 * 10**9), total_weight=0)
+class TestTargetStakeDeviations:
+    def test_get_target_stake_deviations__equal_weights__deviation_from_module_average(self, iterator):
+        # Arrange: 100 + 300 = 400 ETH, equal weights → target 200 each
+        sm_id = set_operators(iterator, 1, {1: (100, 1), 2: (300, 1)})
 
-    nos = NodeOperatorStats(
-        node_operator=no,
-        module_stats=ms,
-        predictable_validators=1,
-        total_stake=Gwei(500 * 10**9),
-        weight=0,
+        # Act
+        deviations = iterator._get_target_stake_deviations()
+
+        # Assert
+        assert deviations == {(sm_id, 1): -100 * 10**9, (sm_id, 2): 100 * 10**9}
+
+    def test_get_target_stake_deviations__weights__target_follows_weight(self, iterator):
+        # Arrange: 400 ETH, weights 3/1 → targets 300/100
+        sm_id = set_operators(iterator, 1, {1: (100, 3), 2: (300, 1)})
+
+        # Act
+        deviations = iterator._get_target_stake_deviations()
+
+        # Assert
+        assert deviations == {(sm_id, 1): -200 * 10**9, (sm_id, 2): 200 * 10**9}
+
+    def test_get_target_stake_deviations__zero_weights__deviation_is_own_stake(self, iterator):
+        sm_id = set_operators(iterator, 1, {1: (100, 0), 2: (300, 0)})
+
+        assert iterator._get_target_stake_deviations() == {(sm_id, 1): 100 * 10**9, (sm_id, 2): 300 * 10**9}
+
+    def test_get_target_stake_deviations__modules__computed_per_module(self, iterator):
+        # Arrange: module 1 is balanced, module 2 is not; the modules do not share a target
+        sm1 = set_operators(iterator, 1, {1: (100, 1), 2: (100, 1)})
+        sm2 = set_operators(iterator, 2, {3: (500, 1), 4: (100, 1)})
+
+        # Act
+        deviations = iterator._get_target_stake_deviations()
+
+        # Assert
+        assert deviations == {
+            (sm1, 1): 0,
+            (sm1, 2): 0,
+            (sm2, 3): 200 * 10**9,
+            (sm2, 4): -200 * 10**9,
+        }
+
+    def test_get_target_stake_deviations__cm_v2_grace_period__excluded_and_ranked_last(self, iterator):
+        # Arrange: operator 3 activated 10 epochs ago, inside a 100-epoch grace period. The others share
+        # 400 + 100 = 500 ETH → target 250.
+        sm_id = set_operators(iterator, 2, {1: (400, 1), 2: (100, 1), 3: (1000, 1)}, is_cm_v2=True)
+        iterator.first_activation_epoch[(sm_id, 3)] = EpochNumber(iterator.blockstamp.ref_epoch - 10)
+        iterator.w3.lido_contracts.oracle_daemon_config.active_rebalancing_grace_period_epochs = Mock(return_value=100)
+
+        # Act
+        deviations = iterator._get_target_stake_deviations()
+
+        # Assert
+        assert deviations == {(sm_id, 1): 150 * 10**9, (sm_id, 2): -150 * 10**9, (sm_id, 3): -math.inf}
+
+    def test_get_target_stake_deviations__cm_v2_in_flight_pwr__counted_out_of_stake(self, iterator):
+        # Arrange: operator 1 holds 400 ETH with 300 ETH already requested as PWRs → 100/100
+        sm_id = set_operators(iterator, 2, {1: (400, 1), 2: (100, 1)}, is_cm_v2=True)
+        validator = make_validator(1, 400)
+        iterator.exitable_validators[(sm_id, 1)] = [validator]
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={validator.index: Gwei(300 * 10**9)})
+
+        # Act / Assert
+        assert iterator._get_target_stake_deviations() == {(sm_id, 1): 0, (sm_id, 2): 0}
+
+    @pytest.mark.parametrize(
+        ("grace_period_epochs", "expected_no_id"),
+        [
+            pytest.param(100, 2, id="new_operator_in_grace__ranked_last"),
+            pytest.param(0, 1, id="no_grace__largest_excess_first"),
+        ],
     )
+    def test_next__cm_v2_new_operator__grace_period_decides_order(self, iterator, grace_period_epochs, expected_no_id):
+        # Arrange: operator 1 holds 1000 ETH but activated 10 epochs ago; operator 2 holds 100 ETH
+        setup_cmv2_operators(iterator, {1: ([make_validator(1, 1000)], 1), 2: ([make_validator(2, 100)], 1)})
+        iterator.first_activation_epoch[gid_of(1)] = EpochNumber(iterator.blockstamp.ref_epoch - 10)
+        iterator.w3.lido_contracts.oracle_daemon_config.active_rebalancing_grace_period_epochs = Mock(
+            return_value=grace_period_epochs
+        )
 
-    assert iterator._no_target_balance_deviation_predicate(nos) == Gwei(500 * 10**9)
+        # Act
+        step = next(iterator)
+
+        # Assert
+        assert step.gid == gid_of(expected_no_id)
 
 
 @pytest.mark.unit
@@ -459,44 +504,12 @@ def test_max_share_rate_coefficient_predicate_zero_balance(iterator):
 
 
 @pytest.mark.unit
-class TestCalculateSmWeights:
-    def test_calculate_sm_weights__multiple_modules__sums_weights_per_module(self, iterator):
-        sm1 = make_staking_module(1)
-        sm2 = make_staking_module(2)
-        ms1 = StakingModuleStats(staking_module=sm1)
-        ms2 = StakingModuleStats(staking_module=sm2)
-        iterator.module_stats = {sm1.id: ms1, sm2.id: ms2}
-        iterator.node_operators_stats = {
-            (sm1.id, NodeOperatorId(1)): NodeOperatorStats(
-                node_operator=make_node_operator(1, sm1),
-                module_stats=ms1,
-                weight=3.0,
-            ),
-            (sm1.id, NodeOperatorId(2)): NodeOperatorStats(
-                node_operator=make_node_operator(2, sm1),
-                module_stats=ms1,
-                weight=7.0,
-            ),
-            (sm2.id, NodeOperatorId(3)): NodeOperatorStats(
-                node_operator=make_node_operator(3, sm2),
-                module_stats=ms2,
-                weight=5.0,
-            ),
-        }
-
-        iterator._calculate_sm_weights()
-
-        assert ms1.total_weight == 10.0
-        assert ms2.total_weight == 5.0
-
-
-@pytest.mark.unit
 class TestProcessGroup:
     @staticmethod
     def _make_ext_data(sm_id, no_id):
         return bytes([0, sm_id]) + no_id.to_bytes(8, byteorder='big')
 
-    def test_process_group__two_internal_two_external__redistributes_balance_and_weight(self, iterator):
+    def test_process_group__two_internal_two_external__external_stake_to_cm_v2_weight_to_cm_v1(self, iterator):
         sm_v2 = make_staking_module(2)
         sm_v1 = make_staking_module(1)
         ms_v2 = StakingModuleStats(staking_module=sm_v2)
@@ -553,16 +566,12 @@ class TestProcessGroup:
         assert nos_int2.internal_operator_group is not None
         assert nos_ext1.external_operator_group is not None
         assert nos_ext2.external_operator_group is not None
-        # external_balance = 50 + 30 = 80, added to cm_v2 total_stake
-        assert ms_v2.total_stake == Gwei(80 * 10**9)
-        # internal_balance = 100 + 200 = 300, split equally among 2 externals = 150 each
-        assert nos_ext1.total_stake == Gwei(150 * 10**9)
-        assert nos_ext2.total_stake == Gwei(150 * 10**9)
+        # CMv1 operators keep their own stake (externalStake = 0 outside CMv2)
+        assert nos_ext1.total_stake == 0
+        assert nos_ext2.total_stake == 0
         # internal_weight = 4.0 + 6.0 = 10.0, split equally among 2 externals = 5.0 each
         assert nos_ext1.weight == 5.0
         assert nos_ext2.weight == 5.0
-        # internal_balance added to cm_v1 total_stake
-        assert ms_v1.total_stake == Gwei(300 * 10**9)
         # int1 gets external_balance * 4.0/10.0 = 80 * 0.4 = 32
         assert nos_int1.total_stake == Gwei(32 * 10**9)
         # int2 gets external_balance * 6.0/10.0 = 80 * 0.6 = 48
@@ -689,7 +698,6 @@ class TestEjectValidatorTotalStake:
         ms = StakingModuleStats(
             staking_module=sm,
             predictable_balance=initial_stake,
-            total_stake=initial_stake,
         )
         nos = NodeOperatorStats(
             node_operator=no,
@@ -708,7 +716,7 @@ class TestEjectValidatorTotalStake:
 
         iterator._allocate(gid, validator, FWR_AMOUNT)
 
-        assert ms.total_stake == initial_stake - exit_balance
+        assert ms.predictable_balance == initial_stake - exit_balance
         assert nos.total_stake == initial_stake - exit_balance
 
 
@@ -1046,28 +1054,25 @@ class TestDecreaseAffectedStake:
     def _make_ext_data(sm_id, no_id):
         return bytes([0, sm_id]) + no_id.to_bytes(8, byteorder='big')
 
-    def test_no_group__only_decreases_own_module_and_no(self, iterator):
-        """When NO has no group, only its own module and NO stats are decreased."""
+    def test_no_group__only_decreases_own_stake(self, iterator):
         sm = make_staking_module(1)
-        ms = StakingModuleStats(staking_module=sm, total_stake=Gwei(100 * 10**9))
+        ms = StakingModuleStats(staking_module=sm)
         no = make_node_operator(1, sm)
         nos = NodeOperatorStats(node_operator=no, module_stats=ms, total_stake=Gwei(60 * 10**9))
         gid = (sm.id, no.id)
         iterator.module_stats = {sm.id: ms}
         iterator.node_operators_stats = {gid: nos}
 
-        exit_balance = Gwei(32 * 10**9)
-        iterator._decrease_affected_stake(gid, exit_balance)
+        iterator._decrease_affected_stake(gid, Gwei(32 * 10**9))
 
-        assert ms.total_stake == Gwei(68 * 10**9)
         assert nos.total_stake == Gwei(28 * 10**9)
 
-    def test_internal_exit__propagates_to_external_operators(self, iterator):
-        """When an internal (CMv2) NO exits, stake is propagated to external (CMv1) NOs."""
+    def test_internal_exit__cm_v1_operators_untouched(self, iterator):
+        """A CMv2 exit does not reach the CMv1 operators of the group: their stake is their own."""
         sm_v2 = make_staking_module(2)
         sm_v1 = make_staking_module(1)
-        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
-        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, is_cm_v2=True)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
 
         no_int = make_node_operator(10, sm_v2)
         no_ext1 = make_node_operator(20, sm_v1)
@@ -1080,52 +1085,33 @@ class TestDecreaseAffectedStake:
                 ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext2.id)),
             ],
         )
-
         nos_int = NodeOperatorStats(
-            node_operator=no_int,
-            module_stats=ms_v2,
-            total_stake=Gwei(100 * 10**9),
-            internal_operator_group=group,
+            node_operator=no_int, module_stats=ms_v2, total_stake=Gwei(100 * 10**9), internal_operator_group=group
         )
-        nos_ext1 = NodeOperatorStats(
-            node_operator=no_ext1,
-            module_stats=ms_v1,
-            total_stake=Gwei(150 * 10**9),
-        )
-        nos_ext2 = NodeOperatorStats(
-            node_operator=no_ext2,
-            module_stats=ms_v1,
-            total_stake=Gwei(150 * 10**9),
-        )
+        nos_ext1 = NodeOperatorStats(node_operator=no_ext1, module_stats=ms_v1, total_stake=Gwei(50 * 10**9))
+        nos_ext2 = NodeOperatorStats(node_operator=no_ext2, module_stats=ms_v1, total_stake=Gwei(30 * 10**9))
 
         gid_int = (sm_v2.id, no_int.id)
-        gid_ext1 = (sm_v1.id, no_ext1.id)
-        gid_ext2 = (sm_v1.id, no_ext2.id)
+        iterator.cm_v2_id = sm_v2.id
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
         iterator.node_operators_stats = {
             gid_int: nos_int,
-            gid_ext1: nos_ext1,
-            gid_ext2: nos_ext2,
+            (sm_v1.id, no_ext1.id): nos_ext1,
+            (sm_v1.id, no_ext2.id): nos_ext2,
         }
 
-        exit_balance = Gwei(32 * 10**9)
-        iterator._decrease_affected_stake(gid_int, exit_balance)
+        iterator._decrease_affected_stake(gid_int, Gwei(32 * 10**9))
 
-        # Own module and NO decreased
-        assert ms_v2.total_stake == Gwei(200 * 10**9 - 32 * 10**9)
-        assert nos_int.total_stake == Gwei(100 * 10**9 - 32 * 10**9)
-        # Cross-module: cm_v1 module stats decreased
-        assert ms_v1.total_stake == Gwei(300 * 10**9 - 32 * 10**9)
-        # Each external NO gets equal share: 32 / 2 = 16
-        assert nos_ext1.total_stake == Gwei(150 * 10**9 - 16 * 10**9)
-        assert nos_ext2.total_stake == Gwei(150 * 10**9 - 16 * 10**9)
+        assert nos_int.total_stake == Gwei(68 * 10**9)
+        assert nos_ext1.total_stake == Gwei(50 * 10**9)
+        assert nos_ext2.total_stake == Gwei(30 * 10**9)
 
     def test_external_exit__propagates_to_internal_operators_by_weight(self, iterator):
-        """When an external (CMv1) NO exits, stake is propagated to internal (CMv2) NOs by weight."""
+        """A CMv1 exit lowers the external stake share of the group's CMv2 operators, by weight."""
         sm_v2 = make_staking_module(2)
         sm_v1 = make_staking_module(1)
-        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
-        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, is_cm_v2=True)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
 
         no_ext = make_node_operator(20, sm_v1)
         no_int1 = make_node_operator(10, sm_v2)
@@ -1136,82 +1122,47 @@ class TestDecreaseAffectedStake:
                 SubNodeOperator(node_operator_id=no_int1.id, share=50),
                 SubNodeOperator(node_operator_id=no_int2.id, share=50),
             ],
-            external_operators=[
-                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id)),
-            ],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
-
         nos_ext = NodeOperatorStats(
-            node_operator=no_ext,
-            module_stats=ms_v1,
-            total_stake=Gwei(100 * 10**9),
-            external_operator_group=group,
+            node_operator=no_ext, module_stats=ms_v1, total_stake=Gwei(100 * 10**9), external_operator_group=group
         )
         nos_int1 = NodeOperatorStats(
-            node_operator=no_int1,
-            module_stats=ms_v2,
-            total_stake=Gwei(80 * 10**9),
-            weight=4.0,
+            node_operator=no_int1, module_stats=ms_v2, total_stake=Gwei(80 * 10**9), weight=4.0
         )
         nos_int2 = NodeOperatorStats(
-            node_operator=no_int2,
-            module_stats=ms_v2,
-            total_stake=Gwei(120 * 10**9),
-            weight=6.0,
+            node_operator=no_int2, module_stats=ms_v2, total_stake=Gwei(120 * 10**9), weight=6.0
         )
 
         gid_ext = (sm_v1.id, no_ext.id)
-        gid_int1 = (sm_v2.id, no_int1.id)
-        gid_int2 = (sm_v2.id, no_int2.id)
         iterator.cm_v2_id = sm_v2.id
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
         iterator.node_operators_stats = {
             gid_ext: nos_ext,
-            gid_int1: nos_int1,
-            gid_int2: nos_int2,
+            (sm_v2.id, no_int1.id): nos_int1,
+            (sm_v2.id, no_int2.id): nos_int2,
         }
 
-        exit_balance = Gwei(50 * 10**9)
-        iterator._decrease_affected_stake(gid_ext, exit_balance)
+        iterator._decrease_affected_stake(gid_ext, Gwei(50 * 10**9))
 
-        # Own module and NO decreased
-        assert ms_v1.total_stake == Gwei(300 * 10**9 - 50 * 10**9)
-        assert nos_ext.total_stake == Gwei(100 * 10**9 - 50 * 10**9)
-        # Cross-module: cm_v2 module stats decreased
-        assert ms_v2.total_stake == Gwei(200 * 10**9 - 50 * 10**9)
-        # Internal NOs decreased by weight: total_weight = 4+6 = 10
-        # int1: 50 * 4/10 = 20, int2: 50 * 6/10 = 30
-        assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
-        assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
+        assert nos_ext.total_stake == Gwei(50 * 10**9)
+        # weights 4 and 6 of 10: 20 and 30 ETH of the 50 ETH exit
+        assert nos_int1.total_stake == Gwei(60 * 10**9)
+        assert nos_int2.total_stake == Gwei(90 * 10**9)
 
     def test_decrease_affected_stake__fractional_weights__consistent_total_and_deterministic_order(self, iterator):
-        """Fractional weight splits must not crash, must conserve the exit balance within float dust,
-        and must keep the sort order deterministic."""
+        """Fractional weight splits must conserve the exit balance within float dust and keep the order stable."""
         sm_v2 = make_staking_module(2)
         sm_v1 = make_staking_module(1)
-        ms_v2 = StakingModuleStats(
-            staking_module=sm_v2,
-            total_stake=Gwei(300 * 10**9),
-            predictable_balance=Gwei(300 * 10**9),
-            total_weight=3.0,
-        )
-        ms_v1 = StakingModuleStats(
-            staking_module=sm_v1,
-            total_stake=Gwei(300 * 10**9),
-            predictable_balance=Gwei(300 * 10**9),
-            total_weight=1.0,
-        )
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, predictable_balance=Gwei(300 * 10**9))
+        ms_v1 = StakingModuleStats(staking_module=sm_v1, predictable_balance=Gwei(300 * 10**9))
 
         no_ext = make_node_operator(20, sm_v1)
-        no_int1 = make_node_operator(10, sm_v2)
-        no_int2 = make_node_operator(11, sm_v2)
-        no_int3 = make_node_operator(12, sm_v2)
-
+        internal = [make_node_operator(no_id, sm_v2) for no_id in (10, 11, 12)]
         group = OperatorGroupFactory.build(
             sub_node_operators=[
-                SubNodeOperator(node_operator_id=no_int1.id, share=3333),
-                SubNodeOperator(node_operator_id=no_int2.id, share=3333),
-                SubNodeOperator(node_operator_id=no_int3.id, share=3334),
+                SubNodeOperator(node_operator_id=no.id, share=share)
+                for no, share in zip(internal, (3333, 3333, 3334), strict=True)
             ],
             external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
@@ -1224,180 +1175,106 @@ class TestDecreaseAffectedStake:
             weight=1.0,
             external_operator_group=group,
         )
-        nos_int1 = NodeOperatorStats(
-            node_operator=no_int1,
-            module_stats=ms_v2,
-            total_stake=Gwei(100 * 10**9),
-            predictable_balance=Gwei(100 * 10**9),
-            weight=1.0,
-        )
-        nos_int2 = NodeOperatorStats(
-            node_operator=no_int2,
-            module_stats=ms_v2,
-            total_stake=Gwei(100 * 10**9),
-            predictable_balance=Gwei(100 * 10**9),
-            weight=1.0,
-        )
-        nos_int3 = NodeOperatorStats(
-            node_operator=no_int3,
-            module_stats=ms_v2,
-            total_stake=Gwei(100 * 10**9),
-            predictable_balance=Gwei(100 * 10**9),
-            weight=1.0,
-        )
+        nos_internal = [
+            NodeOperatorStats(
+                node_operator=no,
+                module_stats=ms_v2,
+                total_stake=Gwei(100 * 10**9),
+                predictable_balance=Gwei(100 * 10**9),
+                weight=1.0,
+            )
+            for no in internal
+        ]
 
         gid_ext = (sm_v1.id, no_ext.id)
-        gid_int1 = (sm_v2.id, no_int1.id)
-        gid_int2 = (sm_v2.id, no_int2.id)
-        gid_int3 = (sm_v2.id, no_int3.id)
         iterator.cm_v2_id = sm_v2.id
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
-        iterator.node_operators_stats = {
-            gid_ext: nos_ext,
-            gid_int1: nos_int1,
-            gid_int2: nos_int2,
-            gid_int3: nos_int3,
-        }
-        iterator.exitable_validators = {gid_ext: [], gid_int1: [], gid_int2: [], gid_int3: []}
+        iterator.node_operators_stats = {gid_ext: nos_ext} | {(sm_v2.id, n.node_operator.id): n for n in nos_internal}
+        iterator.exitable_validators = {gid: [] for gid in iterator.node_operators_stats}
         iterator.total_lido_predictable_balance = Gwei(600 * 10**9)
 
         exit_balance = Gwei(100 * 10**9)  # 100 / 3 does not divide evenly among three internal NOs
-        before = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
+        before = sum(n.total_stake for n in nos_internal)
 
         iterator._decrease_affected_stake(gid_ext, exit_balance)
 
-        after = nos_int1.total_stake + nos_int2.total_stake + nos_int3.total_stake
-        # The three fractional decrements together conserve the whole exit balance within float dust.
+        after = sum(n.total_stake for n in nos_internal)
         assert abs((before - after) - exit_balance) < 1
-        # The module-level decrement is integer, so it stays exact.
-        assert ms_v2.total_stake == Gwei(300 * 10**9) - exit_balance
-        # Sorting over the now-float stats must be stable across repeated calls.
-        order1 = [
-            (s.node_operator.staking_module.id, s.node_operator.id)
-            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
-        ]
-        order2 = [
-            (s.node_operator.staking_module.id, s.node_operator.id)
-            for s in sorted(iterator.node_operators_stats.values(), key=iterator._no_predicate)
-        ]
-        assert order1 == order2
+
+        def order():
+            deviations = iterator._get_target_stake_deviations()
+            return [
+                (s.node_operator.staking_module.id, s.node_operator.id)
+                for s in sorted(
+                    iterator.node_operators_stats.values(), key=lambda no: iterator._no_predicate(no, deviations)
+                )
+            ]
+
+        assert order() == order()
 
     def test_external_exit__zero_total_weight__decreases_internal_stake_by_share(self, iterator):
         """When all internal NO weights are 0, their stake decreases by operator share."""
         sm_v2 = make_staking_module(2)
         sm_v1 = make_staking_module(1)
-        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
-        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, is_cm_v2=True)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
 
         no_ext = make_node_operator(20, sm_v1)
         no_int1 = make_node_operator(10, sm_v2)
         no_int2 = make_node_operator(11, sm_v2)
-
         group = OperatorGroupFactory.build(
             sub_node_operators=[
                 SubNodeOperator(node_operator_id=no_int1.id, share=4_000),
                 SubNodeOperator(node_operator_id=no_int2.id, share=6_000),
             ],
-            external_operators=[
-                ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id)),
-            ],
+            external_operators=[ExternalOperator(data=self._make_ext_data(sm_v1.id, no_ext.id))],
         )
-
         nos_ext = NodeOperatorStats(
-            node_operator=no_ext,
-            module_stats=ms_v1,
-            total_stake=Gwei(100 * 10**9),
-            external_operator_group=group,
+            node_operator=no_ext, module_stats=ms_v1, total_stake=Gwei(100 * 10**9), external_operator_group=group
         )
-        nos_int1 = NodeOperatorStats(
-            node_operator=no_int1,
-            module_stats=ms_v2,
-            total_stake=Gwei(80 * 10**9),
-            weight=0,
-        )
-        nos_int2 = NodeOperatorStats(
-            node_operator=no_int2,
-            module_stats=ms_v2,
-            total_stake=Gwei(120 * 10**9),
-            weight=0,
-        )
+        nos_int1 = NodeOperatorStats(node_operator=no_int1, module_stats=ms_v2, total_stake=Gwei(80 * 10**9), weight=0)
+        nos_int2 = NodeOperatorStats(node_operator=no_int2, module_stats=ms_v2, total_stake=Gwei(120 * 10**9), weight=0)
 
         gid_ext = (sm_v1.id, no_ext.id)
-        gid_int1 = (sm_v2.id, no_int1.id)
-        gid_int2 = (sm_v2.id, no_int2.id)
         iterator.cm_v2_id = sm_v2.id
         iterator.module_stats = {sm_v2.id: ms_v2, sm_v1.id: ms_v1}
         iterator.node_operators_stats = {
             gid_ext: nos_ext,
-            gid_int1: nos_int1,
-            gid_int2: nos_int2,
+            (sm_v2.id, no_int1.id): nos_int1,
+            (sm_v2.id, no_int2.id): nos_int2,
         }
 
-        exit_balance = Gwei(50 * 10**9)
-        iterator._decrease_affected_stake(gid_ext, exit_balance)
+        iterator._decrease_affected_stake(gid_ext, Gwei(50 * 10**9))
 
-        # total_weight = 0, so a 50 ETH exit is distributed by shares: 20 ETH and 30 ETH.
-        assert nos_int1.total_stake == Gwei(80 * 10**9 - 20 * 10**9)
-        assert nos_int2.total_stake == Gwei(120 * 10**9 - 30 * 10**9)
-        assert nos_int1.total_stake + nos_int2.total_stake == Gwei(150 * 10**9)
-
-    def test_internal_exit__unfulfilled_group__no_cross_module_propagation(self, iterator):
-        """When group is not fulfilled, only own module/NO are decreased."""
-        sm_v2 = make_staking_module(2)
-        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
-
-        no_int = make_node_operator(10, sm_v2)
-        # Group with no external operators — not fulfilled
-        group = OperatorGroupFactory.build(
-            sub_node_operators=[SubNodeOperator(node_operator_id=no_int.id, share=100)],
-            external_operators=[],
-        )
-
-        nos_int = NodeOperatorStats(
-            node_operator=no_int,
-            module_stats=ms_v2,
-            total_stake=Gwei(100 * 10**9),
-            internal_operator_group=group,
-        )
-
-        gid = (sm_v2.id, no_int.id)
-        iterator.module_stats = {sm_v2.id: ms_v2}
-        iterator.node_operators_stats = {gid: nos_int}
-
-        exit_balance = Gwei(32 * 10**9)
-        iterator._decrease_affected_stake(gid, exit_balance)
-
-        # Only own module and NO decreased, no cross-module propagation
-        assert ms_v2.total_stake == Gwei(200 * 10**9 - 32 * 10**9)
-        assert nos_int.total_stake == Gwei(100 * 10**9 - 32 * 10**9)
+        # total weight 0, so the 50 ETH exit is split by shares: 20 ETH and 30 ETH
+        assert nos_int1.total_stake == Gwei(60 * 10**9)
+        assert nos_int2.total_stake == Gwei(90 * 10**9)
 
     def test_external_exit__unfulfilled_group__no_cross_module_propagation(self, iterator):
-        """When external NO is in an unfulfilled group (no sub_node_operators), no cross-module propagation."""
         sm_v1 = make_staking_module(1)
         sm_v2 = make_staking_module(2)
-        ms_v1 = StakingModuleStats(staking_module=sm_v1, total_stake=Gwei(300 * 10**9))
-        ms_v2 = StakingModuleStats(staking_module=sm_v2, total_stake=Gwei(200 * 10**9))
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2, is_cm_v2=True)
 
         no_ext = make_node_operator(20, sm_v1)
+        no_int = make_node_operator(10, sm_v2)
         unfulfilled_group = OperatorGroupFactory.build(sub_node_operators=[], external_operators=[])
-
         nos_ext = NodeOperatorStats(
             node_operator=no_ext,
             module_stats=ms_v1,
             total_stake=Gwei(100 * 10**9),
             external_operator_group=unfulfilled_group,
         )
+        nos_int = NodeOperatorStats(node_operator=no_int, module_stats=ms_v2, total_stake=Gwei(200 * 10**9))
         gid = (sm_v1.id, no_ext.id)
         iterator.module_stats = {sm_v1.id: ms_v1, sm_v2.id: ms_v2}
-        iterator.node_operators_stats = {gid: nos_ext}
+        iterator.node_operators_stats = {gid: nos_ext, (sm_v2.id, no_int.id): nos_int}
         iterator.cm_v2_id = sm_v2.id
 
-        exit_balance = Gwei(32 * 10**9)
-        iterator._decrease_affected_stake(gid, exit_balance)
+        iterator._decrease_affected_stake(gid, Gwei(32 * 10**9))
 
-        assert ms_v1.total_stake == Gwei(300 * 10**9 - 32 * 10**9)
-        assert nos_ext.total_stake == Gwei(100 * 10**9 - 32 * 10**9)
-        assert ms_v2.total_stake == Gwei(200 * 10**9), "cm_v2 not affected when group unfulfilled"
+        assert nos_ext.total_stake == Gwei(68 * 10**9)
+        assert nos_int.total_stake == Gwei(200 * 10**9), "CMv2 not affected when the group is unfulfilled"
 
 
 @pytest.mark.unit
@@ -1427,19 +1304,22 @@ class TestProcessGroupUnfulfilled:
 
         # Internal NO should be marked grouped
         assert nos1.internal_operator_group is not None
-        # No cross-accounting: total_stake unchanged, module total_stake unchanged
+        # No external stake to share
         assert nos1.total_stake == Gwei(0)
-        assert ms_v2.total_stake == Gwei(0)
 
 
 @pytest.mark.unit
 class TestFinalizeAndReportLimits:
     def test_finalize_cm_v1_and_cm_v2_stats__sets_cm_v2_id(self, iterator):
-        """_finalize_cm_v1_and_cm_v2_stats sets self.cm_v2_id to the cm_v2 module id."""
+        """_finalize_cm_v1_and_cm_v2_stats records the cm_v2 module id and marks only that module as CMv2."""
         sm_v1 = make_staking_module(1)
         sm_v2 = make_staking_module(2)
         cm_v1 = (sm_v1.id, Mock())
         cm_v2 = (sm_v2.id, Mock())
+        iterator.module_stats = {
+            sm_v1.id: StakingModuleStats(staking_module=sm_v1),
+            sm_v2.id: StakingModuleStats(staking_module=sm_v2),
+        }
 
         iterator._fetch_curated_modules = Mock(return_value=(cm_v1, cm_v2))
         iterator._setup_weights = Mock()
@@ -1448,6 +1328,8 @@ class TestFinalizeAndReportLimits:
         iterator._finalize_cm_v1_and_cm_v2_stats()
 
         assert iterator.cm_v2_id == sm_v2.id
+        assert iterator.module_stats[sm_v2.id].is_cm_v2
+        assert not iterator.module_stats[sm_v1.id].is_cm_v2
         iterator._setup_weights.assert_called_once_with(cm_v2)
         iterator._setup_meta_connections.assert_called_once_with(cm_v1, cm_v2)
 
@@ -1522,7 +1404,6 @@ class TestCalculatePendingValidatorClBalance:
         expected_balance = Gwei(deposit_amount)
         assert iterator.total_lido_predictable_balance == expected_balance
         assert ms.predictable_balance == expected_balance
-        assert ms.total_stake == expected_balance
         assert nos.predictable_validators == 1
         assert nos.predictable_balance == expected_balance
         assert nos.total_stake == expected_balance
@@ -1539,8 +1420,6 @@ class TestNextAndIterFull:
         ms = StakingModuleStats(
             staking_module=sm,
             predictable_balance=Gwei(32 * 10**9),
-            total_stake=Gwei(32 * 10**9),
-            total_weight=weight,
         )
         validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
 
@@ -1574,8 +1453,6 @@ class TestNextAndIterFull:
         ms = StakingModuleStats(
             staking_module=sm,
             predictable_balance=Gwei(32 * 10**9),
-            total_stake=Gwei(32 * 10**9),
-            total_weight=weight,
         )
         validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
 
@@ -1603,7 +1480,7 @@ class TestNextAndIterFull:
         no = make_node_operator(1, sm)
         gid = (sm.id, no.id)
         weight = float(10 * 10000)
-        ms = StakingModuleStats(staking_module=sm, total_weight=weight)
+        ms = StakingModuleStats(staking_module=sm)
         nos = NodeOperatorStats(node_operator=no, module_stats=ms, weight=weight)
 
         iterator.module_stats = {sm.id: ms}
@@ -1627,8 +1504,6 @@ class TestNextAndIterFull:
         ms = StakingModuleStats(
             staking_module=sm,
             predictable_balance=Gwei(128 * 10**9),
-            total_stake=Gwei(128 * 10**9),
-            total_weight=weight * 2,
         )
         nos_empty = NodeOperatorStats(
             node_operator=no_empty,
@@ -1800,50 +1675,47 @@ class TestNextAndIterFull:
         assert nos_stats[gids['int5']].internal_operator_group is None
         assert nos_stats[gids['ext4']].external_operator_group is None
 
-        # Group A (zero internal_weight): external_balance (30+20=50) split equally between int1/int2;
-        # internal_balance (25+15=40) split equally between ext1/ext2.
+        # Group A (zero internal_weight): external_balance (30+20=50) split by share between int1/int2.
         assert nos_stats[gids['int1']].total_stake == 25 * ETH + 50 * ETH / 2
         assert nos_stats[gids['int2']].total_stake == 15 * ETH + 50 * ETH / 2
-        assert nos_stats[gids['ext1']].total_stake == 30 * ETH + 40 * ETH / 2
-        assert nos_stats[gids['ext2']].total_stake == 20 * ETH + 40 * ETH / 2
-
-        # Group B (nonzero internal_weight=10): external_balance (28) split by weight 4/10, 6/10;
-        # internal_balance (22+12=34) attributed wholly to the single external NO (ext3).
+        # Group B (internal_weight=10): external_balance (28) split by weight 4/10, 6/10.
         assert nos_stats[gids['int3']].total_stake == 22 * ETH + 28 * ETH * 4.0 / 10.0
         assert nos_stats[gids['int4']].total_stake == 12 * ETH + 28 * ETH * 6.0 / 10.0
-        assert nos_stats[gids['ext3']].total_stake == 28 * ETH + 34 * ETH
-
-        # Ungrouped NOs: total_stake is just their own predictable balance, untouched by any group.
+        # CMv1 operators keep their own stake (externalStake = 0 outside CMv2), but take the group's weight.
+        assert nos_stats[gids['ext1']].total_stake == 30 * ETH
+        assert nos_stats[gids['ext2']].total_stake == 20 * ETH
+        assert nos_stats[gids['ext3']].total_stake == 28 * ETH
+        assert (nos_stats[gids['ext1']].weight, nos_stats[gids['ext3']].weight) == (0.0, 10.0)
+        # Ungrouped NOs: own predictable balance only.
         assert nos_stats[gids['int5']].total_stake == 27 * ETH
         assert nos_stats[gids['ext4']].total_stake == 18 * ETH
-
-        # Module-level total_stake accumulates both groups' cross-attributed balances.
-        assert iterator.module_stats[sm_v1.id].total_stake == 96 * ETH + 40 * ETH + 34 * ETH
-        assert iterator.module_stats[sm_v2.id].total_stake == 101 * ETH + 50 * ETH + 28 * ETH
-
-        # Module-level total_weight sums every NO's weight, zero and nonzero alike;
-        # sm_v2 is genuinely nonzero here (0 + 0 + 4.0 + 6.0 + 3.0), unlike the all-zero unit test case.
-        assert iterator.module_stats[sm_v2.id].total_weight == 0.0 + 0.0 + 4.0 + 6.0 + 3.0
 
         # --- Now drain the iterator for real and verify ejection completeness/module attribution ---
         ejected: list[WithdrawalStep] = []
         for _i in range(8):
             ejected.append(next(iterator))
 
-        assert len(ejected) == 8
-
+        # Hand-computed: the module share-rate predicate alternates the modules by predictable balance
+        # (v2 101 > v1 96 at the start), and the target-stake deviation picks the operator inside each.
+        # Exits of ext1/ext3 lower their group's CMv2 external share; CMv2 exits never touch CMv1.
+        assert [name for step in ejected for name, gid in gids.items() if gid == step.gid] == [
+            'int1',  # v2: deviation +50 (target 0, weight 0)
+            'ext1',  # v1: +30 (weight 0); int1/int2 lose 15 ETH of external share each
+            'int2',  # v2: +25; int1 has no validator left
+            'ext3',  # v1: ~+28 beats ext2 +20; int3/int4 lose 11.2/16.8 ETH
+            'int5',  # v2: +8.3 (stake 81 over weights 4/6/3); int3 -2.9, int4 -25.4
+            'ext2',  # v1: +20; ext4 below its target
+            'int3',  # v2: +11.5
+            'ext4',  # v1: the only validator left there
+        ]
         ejected_module_counts = Counter(step.gid[0] for step in ejected)
-        assert ejected_module_counts[sm_v1.id] == 4  # ext1, ext2, ext3, ext4
-        assert ejected_module_counts[sm_v2.id] == 4  # int1, int2, int3, int5
+        assert ejected_module_counts[sm_v1.id] == 4
+        assert ejected_module_counts[sm_v2.id] == 4
 
         assert nos_stats[gids['int5']].total_stake == 0 * ETH
         assert nos_stats[gids['ext4']].total_stake == 0 * ETH
         assert nos_stats[gids['int4']].total_stake == 12 * ETH
-
-        assert iterator.module_stats[gids['int4'][0]].total_stake == 12 * ETH
         assert iterator.module_stats[gids['int4'][0]].predictable_balance == 12 * ETH
-
-        assert iterator.module_stats[gids['ext1'][0]].total_stake == 12 * ETH
         assert iterator.module_stats[gids['ext1'][0]].predictable_balance == 0 * ETH
 
 
@@ -1854,7 +1726,7 @@ class TestGetRemainingForcedEdgeCases:
         sm = make_staking_module(1)
         no = make_node_operator(1, sm, total_dep=3, target=0, limit_mode=NodeOperatorLimitMode.FORCE)
         gid = (sm.id, no.id)
-        ms = StakingModuleStats(staking_module=sm, predictable_balance=Gwei(96 * 10**9), total_stake=Gwei(96 * 10**9))
+        ms = StakingModuleStats(staking_module=sm, predictable_balance=Gwei(96 * 10**9))
         validators = [
             LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(3)
         ]
@@ -1967,8 +1839,6 @@ def setup_single_operator(iterator, validators, *, partial_allowed=True, wc_type
         staking_module=sm,
         partial_withdrawals_allowed=partial_allowed,
         predictable_balance=total,
-        total_stake=total,
-        total_weight=1.0,
     )
     nos = NodeOperatorStats(
         node_operator=no,
@@ -2235,9 +2105,8 @@ def setup_cmv2_operators(iterator, operators, *, partial_allowed=True, first_act
     ms = StakingModuleStats(
         staking_module=sm,
         partial_withdrawals_allowed=partial_allowed,
+        is_cm_v2=True,
         predictable_balance=total,
-        total_stake=total,
-        total_weight=float(sum(weight for _, weight in operators.values())),
     )
     iterator.module_stats = {sm.id: ms}
     iterator.node_operators_stats = {}
