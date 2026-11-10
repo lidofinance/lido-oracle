@@ -22,6 +22,7 @@ from src.providers.execution.contracts.oracle_report_sanity_checker import (
     OracleReportSanityCheckerContract,
 )
 from src.providers.execution.contracts.staking_router import StakingRouterContract
+from src.providers.execution.contracts.triggerable_withdrawals_bus import TriggerableWithdrawalsBusContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import (
     WithdrawalQueueNftContract,
@@ -45,6 +46,7 @@ class LidoContracts(Module):
     oracle_report_sanity_checker: OracleReportSanityCheckerContract
     oracle_daemon_config: OracleDaemonConfigContract
     burner: BurnerContract
+    triggerable_withdrawals_bus: TriggerableWithdrawalsBusContract
 
     def __init__(self, w3: Web3):
         super().__init__(w3)
@@ -172,6 +174,15 @@ class LidoContracts(Module):
             self.w3.eth.contract(
                 address=self.lido_locator.vault_hub('latest'),
                 ContractFactoryClass=VaultHubContract,
+                decode_tuples=True,
+            ),
+        )
+
+        self.triggerable_withdrawals_bus = cast(
+            TriggerableWithdrawalsBusContract,
+            self.w3.eth.contract(
+                address=self.lido_locator.triggerable_withdrawals_bus('latest'),
+                ContractFactoryClass=TriggerableWithdrawalsBusContract,
                 decode_tuples=True,
             ),
         )
