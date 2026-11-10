@@ -6,7 +6,9 @@ from eth_typing import HexStr
 
 from src.constants import FAR_FUTURE_EPOCH
 from src.modules.common.types import ChainConfig
-from src.providers.consensus.types import Validator, ValidatorState
+from src.providers.consensus.types import PendingPartialWithdrawal, Validator, ValidatorState
+from src.providers.execution.contracts.triggerable_withdrawals_bus import WithdrawalIntent
+from src.providers.execution.withdrawal_request_queue import QueuedWithdrawalRequest
 from src.providers.keys.types import LidoKey
 from src.services.validator_state import LidoValidatorStateService
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
@@ -16,6 +18,7 @@ from src.web3py.extensions.lido_validators import (
     StakingModule,
 )
 from tests.factory.blockstamp import ReferenceBlockStampFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
 TESTING_REF_EPOCH = 100
@@ -131,6 +134,19 @@ def validator_state(web3, lido_validators):
     return LidoValidatorStateService(web3)
 
 
+WITHDRAWAL_VAULT = '0xB9D7934878B5FB9610B3fE8A5e441e8fad7E293f'
+OTHER_SOURCE = '0x00000000000000000000000000000000000000Aa'
+
+
+@pytest.fixture
+def eip7002_queue(web3, monkeypatch):
+    """Requests in the EIP-7002 queue; empty unless a test sets `return_value`."""
+    web3.lido_contracts.lido_locator.withdrawal_vault = Mock(return_value=WITHDRAWAL_VAULT)
+    queue = Mock(return_value=[])
+    monkeypatch.setattr('src.services.validator_state.get_queued_withdrawal_requests', queue)
+    return queue
+
+
 @pytest.fixture
 def chain_config():
     return ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
@@ -144,51 +160,104 @@ def test_get_lido_new_exited_validators(web3, validator_state):
 
 
 @pytest.mark.unit
-def test_get_recently_requested_validators_by_operator(monkeypatch, web3, validator_state):
-    exit_event_lookback_window = 7200
-    mock_get_events_in_past = Mock(
+def test_get_in_flight_withdrawals__cl_pending_and_bus_intents__aggregated_by_validator(
+    web3, validator_state, eip7002_queue
+):
+    # Arrange: validator 1 has a 3 ETH partial on the CL and a 2 ETH PWR in the Bus, validator 8 a 5 ETH PWR,
+    # validator 6 an FWR. One intent targets a key outside Lido.
+    web3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_partial_withdrawals=[
+                PendingPartialWithdrawal(
+                    validator_index=ValidatorIndex(1), amount=Gwei(3 * 10**9), withdrawable_epoch=EpochNumber(0)
+                )
+            ]
+        )
+    )
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
         return_value=[
-            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
-            {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+            WithdrawalIntent(pubkey=HexStr('0x1'), amount=Gwei(2 * 10**9)),
+            WithdrawalIntent(pubkey=HexStr('0x8'), amount=Gwei(5 * 10**9)),
+            WithdrawalIntent(pubkey=HexStr('0x6'), amount=Gwei(0)),
+            WithdrawalIntent(pubkey=HexStr('0x' + 'ab' * 48), amount=Gwei(0)),
         ]
     )
-    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(
-        return_value=exit_event_lookback_window
-    )
 
-    chain_config = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
-    global_indexes = validator_state.get_recently_requested_to_exit_validators_by_node_operator(
-        chain_config, blockstamp
-    )
-    assert global_indexes == {(1, 0): {1, 2}, (1, 1): set()}
-    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
-    mock_get_events_in_past.assert_called_once_with(
-        web3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,
-        to_blockstamp=blockstamp,
-        for_slots=exit_event_lookback_window,
-        chain_config=chain_config,
-    )
+    # Act
+    in_flight = validator_state.get_in_flight_withdrawals(blockstamp)
+
+    # Assert
+    assert in_flight.pwr_amounts == {1: Gwei(5 * 10**9), 8: Gwei(5 * 10**9)}
+    assert in_flight.fwr_validators == frozenset({6})
 
 
 @pytest.mark.unit
-def test_get_recently_requested_but_not_exited_validators(monkeypatch, web3, chain_config, validator_state):
-    mocked_events = [
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 1}},
-        {'args': {'stakingModuleId': 1, 'nodeOperatorId': 0, 'validatorIndex': 2}},
+def test_get_requested_but_not_exiting_validators__bus_fwrs__only_not_on_exit(web3, validator_state, eip7002_queue):
+    # Arrange: FWRs for 1 (active), 2 (already exiting) and 6 (active); a PWR for 8 does not count.
+    web3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
+        return_value=[
+            WithdrawalIntent(pubkey=HexStr('0x1'), amount=Gwei(0)),
+            WithdrawalIntent(pubkey=HexStr('0x2'), amount=Gwei(0)),
+            WithdrawalIntent(pubkey=HexStr('0x6'), amount=Gwei(0)),
+            WithdrawalIntent(pubkey=HexStr('0x8'), amount=Gwei(10**9)),
+        ]
+    )
+
+    # Act
+    requested = validator_state.get_requested_but_not_exiting_validators(blockstamp)
+
+    # Assert
+    assert sorted(int(v.index) for v in requested) == [1, 6]
+
+
+@pytest.mark.unit
+def test_get_requested_but_not_exiting_validators__consolidating_source__excluded(web3, validator_state, eip7002_queue):
+    # Arrange
+    consolidating = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
+        consolidating_as_source=Mock(),
+    )
+    web3.lido_validators.get_lido_validators_by_node_operators = Mock(
+        return_value={(StakingModuleId(1), NodeOperatorId(0)): [consolidating]}
+    )
+    web3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
+        return_value=[WithdrawalIntent(pubkey=HexStr(consolidating.validator.pubkey), amount=Gwei(0))]
+    )
+
+    # Act / Assert
+    assert validator_state.get_requested_but_not_exiting_validators(blockstamp) == []
+
+
+@pytest.mark.unit
+def test_get_in_flight_withdrawals__eip7002_queue__lido_requests_merged_with_bus_and_cl(
+    web3, validator_state, eip7002_queue
+):
+    # Arrange: validator 1 has a 3 ETH partial on the CL, a 4 ETH PWR in the EIP-7002 queue and a 2 ETH PWR
+    # in the Bus; validator 6 has an FWR in the EIP-7002 queue; validator 8 has a PWR queued by someone else.
+    web3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_partial_withdrawals=[
+                PendingPartialWithdrawal(
+                    validator_index=ValidatorIndex(1), amount=Gwei(3 * 10**9), withdrawable_epoch=EpochNumber(0)
+                )
+            ]
+        )
+    )
+    eip7002_queue.return_value = [
+        QueuedWithdrawalRequest(WITHDRAWAL_VAULT, HexStr('0x1'), Gwei(4 * 10**9)),
+        QueuedWithdrawalRequest(WITHDRAWAL_VAULT, HexStr('0x6'), Gwei(0)),
+        QueuedWithdrawalRequest(OTHER_SOURCE, HexStr('0x8'), Gwei(7 * 10**9)),
     ]
-    mock_get_events_in_past = Mock(return_value=mocked_events)
-    monkeypatch.setattr('src.services.validator_state.get_events_in_past', mock_get_events_in_past)
-    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots = Mock(return_value=7200)
-
-    blockstamp = ReferenceBlockStampFactory.build(
-        ref_slot=15392,
-        ref_epoch=481,
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
+        return_value=[WithdrawalIntent(pubkey=HexStr('0x1'), amount=Gwei(2 * 10**9))]
     )
-    recently_requested_validators = validator_state.get_recently_requested_but_not_exiting_validators(
-        chain_config,
-        blockstamp,
-    )
-    web3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots.assert_called_once()
 
-    assert [int(v.index) for v in recently_requested_validators] == [1]
+    # Act
+    in_flight = validator_state.get_in_flight_withdrawals(blockstamp)
+
+    # Assert
+    assert in_flight.pwr_amounts == {1: Gwei(9 * 10**9)}
+    assert in_flight.fwr_validators == frozenset({6})
+    eip7002_queue.assert_called_once_with(web3, blockstamp.block_hash)

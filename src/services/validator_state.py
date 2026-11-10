@@ -1,18 +1,27 @@
 import logging
+from collections import defaultdict
 from copy import deepcopy
+from dataclasses import dataclass, field
 from functools import reduce
 
 from src.metrics.prometheus.accounting import ACCOUNTING_EXITED_VALIDATORS
-from src.modules.common.types import ChainConfig
-from src.types import OperatorsValidatorCount, ReferenceBlockStamp
+from src.providers.execution.withdrawal_request_queue import get_queued_withdrawal_requests
+from src.types import Gwei, OperatorsValidatorCount, ReferenceBlockStamp, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.events import get_events_in_past
 from src.utils.validator_state import is_exited_validator, is_on_exit
-from src.web3py.extensions.lido_validators import LidoValidator, NodeOperatorGlobalIndex
+from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class InFlightWithdrawals:
+    """Withdrawals requested in earlier reports and not finished yet, by validator index."""
+
+    pwr_amounts: dict[ValidatorIndex, Gwei] = field(default_factory=dict)
+    fwr_validators: frozenset[ValidatorIndex] = frozenset()
 
 
 class LidoValidatorStateService:
@@ -52,72 +61,50 @@ class LidoValidatorStateService:
         return result
 
     @lru_cache(maxsize=1)
-    def get_recently_requested_but_not_exiting_validators(
-        self,
-        chain_config: ChainConfig,
-        blockstamp: ReferenceBlockStamp,
-    ) -> list[LidoValidator]:
+    def get_in_flight_withdrawals(self, blockstamp: ReferenceBlockStamp) -> InFlightWithdrawals:
         """
-        Returns the list of validators recently requested to exit (exit deadline slot in future).
+        PWRs pending on the CL, Lido requests queued in the EIP-7002 system contract,
+        and intents queued in the TriggerableWithdrawalsBus.
         """
-        lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-        recent_exit_requests = self.get_recently_requested_to_exit_validators_by_node_operator(
-            chain_config,
-            blockstamp,
-        )
+        pwr_amounts: dict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
+        fwr_validators: set[ValidatorIndex] = set()
 
-        validators_recently_requested_to_exit: list[LidoValidator] = []
+        state = self.w3.cc.get_state_view(blockstamp)
+        for pending in state.pending_partial_withdrawals:
+            pwr_amounts[ValidatorIndex(pending.validator_index)] += pending.amount
 
-        for global_index, validators in lido_validators_by_operator.items():
+        withdrawal_vault = self.w3.lido_contracts.lido_locator.withdrawal_vault(blockstamp.block_hash)
+        queued = [
+            request
+            for request in get_queued_withdrawal_requests(self.w3, blockstamp.block_hash)
+            if request.source_address == withdrawal_vault
+        ]
+        intents = self.w3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents(blockstamp.block_hash)
 
-            def is_validator_recently_requested_but_not_exiting(
-                validator: LidoValidator,
-                gid: NodeOperatorGlobalIndex = global_index,
-            ) -> bool:
-                # Validator is not exiting on CL and there is recent exit request event
-                return (
-                    not is_on_exit(validator)
-                    and validator.index in recent_exit_requests[gid]
-                    # In the case of consolidation validator is not exitable
-                    and validator.consolidating_as_source is None
-                )
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        index_by_pubkey = {v.validator.pubkey: v.index for vs in lido_validators.values() for v in vs}
+        for request in [*queued, *intents]:
+            index = index_by_pubkey.get(request.pubkey)
+            if index is None:
+                logger.warning({'msg': 'Queued withdrawal request for an unknown validator.', 'pubkey': request.pubkey})
+                continue
+            if request.is_full:
+                fwr_validators.add(index)
+            else:
+                pwr_amounts[index] += request.amount
 
-            validators_recently_requested_to_exit.extend(
-                filter(is_validator_recently_requested_but_not_exiting, validators)
-            )
+        return InFlightWithdrawals(pwr_amounts=dict(pwr_amounts), fwr_validators=frozenset(fwr_validators))
 
-        return validators_recently_requested_to_exit
-
-    @lru_cache(maxsize=1)
-    def get_recently_requested_to_exit_validators_by_node_operator(
-        self,
-        chain_config: ChainConfig,
-        blockstamp: ReferenceBlockStamp,
-    ) -> dict[NodeOperatorGlobalIndex, set[int]]:
-        """
-        Returns validators indexes asked to exit in the last {{lookup_window}} slots.
-        """
-        lookup_window = self.w3.lido_contracts.oracle_daemon_config.exit_events_lookback_window_in_slots(
-            blockstamp.block_hash
-        )
-
-        events = get_events_in_past(
-            self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
-            to_blockstamp=blockstamp,
-            for_slots=lookup_window,
-            chain_config=chain_config,
-        )
-
-        logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})
-
-        node_operators = self.w3.lido_validators.get_lido_node_operators(blockstamp)
-        # Initialize dict with empty sets for operators which validators were not contained in any event
-        global_indexes: dict[NodeOperatorGlobalIndex, set[int]] = {
-            (operator.staking_module.id, operator.id): set() for operator in node_operators
-        }
-
-        for event in events:
-            operator_global_index = (event['args']['stakingModuleId'], event['args']['nodeOperatorId'])
-            global_indexes[operator_global_index].add(event['args']['validatorIndex'])
-
-        return global_indexes
+    def get_requested_but_not_exiting_validators(self, blockstamp: ReferenceBlockStamp) -> list[LidoValidator]:
+        """Validators with a full withdrawal queued in EIP-7002 or the TriggerableWithdrawalsBus, not on exit yet."""
+        fwr_validators = self.get_in_flight_withdrawals(blockstamp).fwr_validators
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        return [
+            validator
+            for validators in lido_validators.values()
+            for validator in validators
+            if validator.index in fwr_validators
+            and not is_on_exit(validator)
+            # A consolidating source leaves through the consolidation, not through the withdrawal.
+            and validator.consolidating_as_source is None
+        ]

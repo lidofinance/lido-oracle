@@ -69,7 +69,7 @@ class TestPredictedElBalanceWithInFlightWithdrawals:
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
 
     def test_get_predicted_el_balance__in_flight_full_withdrawal__counted_once(self, ejector):
         blockstamp = _ref_bs()
@@ -86,9 +86,7 @@ class TestPredictedElBalanceWithInFlightWithdrawals:
         balance = _corrected_balance(Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA - in_flight), in_flight)
         validator = _validator(balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
         ejector.w3.lido_validators.get_active_lido_validators = Mock(return_value=[validator])
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
-            return_value=[validator]
-        )
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[validator])
         blockstamp = _ref_bs()
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(blockstamp.ref_epoch))
 
