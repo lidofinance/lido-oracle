@@ -194,3 +194,17 @@ class LidoLocatorContract(ContractInterface):
             }
         )
         return response
+
+    @lru_cache(maxsize=1)
+    def triggerable_withdrawals_bus(self, block_identifier: BlockIdentifier) -> ChecksumAddress:
+        response = self.functions.triggerableWithdrawalsBus().call(block_identifier=block_identifier)
+
+        logger.debug(
+            {
+                'msg': 'Call `triggerableWithdrawalsBus()`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return response
