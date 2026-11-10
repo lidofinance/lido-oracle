@@ -525,19 +525,19 @@ class ValidatorExitIterator:
             return None
 
         candidates = [
-            (validator, headroom)
+            validator
             for validator in self.exitable_validators[gid]
-            if self._is_selectable(validator) and (headroom := self._pwr_headroom(validator)) > 0
+            if self._is_selectable(validator) and self._pwr_headroom(validator) > 0
         ]
         if not candidates:
             return None
 
-        # Keep taking from validators already in this report, then from the smallest eligible one.
-        validator, headroom = min(
+        # Keep taking from validators already in this report, then from the eligible one with the smallest balance.
+        validator = min(
             candidates,
-            key=lambda c: (c[0].index not in self._allocations, c[1], c[0].index),
+            key=lambda v: (v.index not in self._allocations, self._remaining_balance(v), v.index),
         )
-        return validator, Gwei(min(self.chunk, headroom))
+        return validator, Gwei(min(self.chunk, self._pwr_headroom(validator)))
 
     def _pick_fwr_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator | None:
         """
@@ -558,16 +558,18 @@ class ValidatorExitIterator:
         if not has_compounding_withdrawal_credential(validator.validator):
             return Gwei(0)
 
-        in_report = self._report_pwr_amount(validator)
-        remaining = (
-            validator.balance
-            - self.in_flight.pwr_amounts.get(validator.index, Gwei(0))
-            - in_report
-            - MIN_ACTIVATION_BALANCE
-        )
+        remaining = self._remaining_balance(validator) - MIN_ACTIVATION_BALANCE
         if remaining < MIN_PWR_HEADROOM:
             return Gwei(0)
-        return Gwei(max(0, min(remaining, MAX_PWR_AMOUNT - in_report)))
+        return Gwei(max(0, min(remaining, MAX_PWR_AMOUNT - self._report_pwr_amount(validator))))
+
+    def _remaining_balance(self, validator: LidoValidator) -> Gwei:
+        """Balance left after the PWRs requested in earlier reports and in this one."""
+        return Gwei(
+            validator.balance
+            - self.in_flight.pwr_amounts.get(validator.index, Gwei(0))
+            - self._report_pwr_amount(validator)
+        )
 
     def _report_pwr_amount(self, validator: LidoValidator) -> Gwei:
         allocation = self._allocations.get(validator.index)
