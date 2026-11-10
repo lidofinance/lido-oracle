@@ -13,10 +13,9 @@ from src.constants import (
     TOTAL_BASIS_POINTS,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
-from src.modules.common.types import ChainConfig
 from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
 from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
-from src.services.validator_state import LidoValidatorStateService
+from src.services.validator_state import InFlightWithdrawals, LidoValidatorStateService
 from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
 from src.utils.validator_balance import get_predictable_inbound_balance
 from src.utils.validator_state import get_max_effective_balance, is_on_exit
@@ -113,6 +112,7 @@ class ValidatorExitIterator:
     exit_limit_in_gwei: Gwei
     ejected_validators_count: int
     max_exit_requests_per_report: int
+    in_flight: InFlightWithdrawals
     total_lido_predictable_balance: Gwei
     module_stats: dict[StakingModuleId, StakingModuleStats]
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
@@ -120,15 +120,9 @@ class ValidatorExitIterator:
 
     cm_v2_id: StakingModuleId
 
-    def __init__(
-        self,
-        w3: Web3,
-        blockstamp: ReferenceBlockStamp,
-        chain_config: ChainConfig,
-    ):
+    def __init__(self, w3: Web3, blockstamp: ReferenceBlockStamp):
         self.w3 = w3
         self.blockstamp = blockstamp
-        self.chain_config = chain_config
         self.lvs = LidoValidatorStateService(self.w3)
 
     # --- Iterator initialization ---
@@ -181,14 +175,11 @@ class ValidatorExitIterator:
                 )
 
     def _prepare_validator_stats(self):
-        recently_requested_indexes = self.lvs.get_recently_requested_to_exit_validators_by_node_operator(
-            self.chain_config,
-            self.blockstamp,
-        )
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
+        self.in_flight = self.lvs.get_in_flight_withdrawals(self.blockstamp)
         for gid, validators_list in lido_validators.items():
             self.exitable_validators[gid] = sorted(
-                filter(self._make_exit_predicate(gid, recently_requested_indexes), validators_list),
+                filter(self._is_validator_exitable, validators_list),
                 key=lambda v: v.index,
             )
 
@@ -434,17 +425,13 @@ class ValidatorExitIterator:
 
         raise StopIteration
 
-    @staticmethod
-    def _make_exit_predicate(gid: NodeOperatorGlobalIndex, indexes: dict):
-        def is_validator_exitable(validator: LidoValidator) -> bool:
-            """Returns True if the validator is exitable: not on exit and not requested to exit"""
-            return (
-                not is_on_exit(validator)
-                and validator.index not in indexes[gid]
-                and validator.consolidating_as_source is None
-            )
-
-        return is_validator_exitable
+    def _is_validator_exitable(self, validator: LidoValidator) -> bool:
+        """Not on exit, no full withdrawal queued in EIP-7002 or the Bus, not a consolidation source."""
+        return (
+            not is_on_exit(validator)
+            and validator.index not in self.in_flight.fwr_validators
+            and validator.consolidating_as_source is None
+        )
 
     def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
         lido_validator = self.exitable_validators[gid].pop(0)
