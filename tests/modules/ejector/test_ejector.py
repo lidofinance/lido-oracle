@@ -27,7 +27,7 @@ from src.providers.consensus.types import (
     BeaconStateView,
 )
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
-from src.services.exit_order_iterator import WeightsNotUpdatedError
+from src.services.exit_order_iterator import WeightsNotUpdatedError, WithdrawalStep
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
 from src.utils.validator_balance import (
     get_predictable_full_inbound_balance,
@@ -163,7 +163,7 @@ def test_ejector_execute_module_on_pause(ejector: Ejector, blockstamp: BlockStam
 
 @pytest.mark.unit
 def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
-    ejector.get_validators_to_eject = Mock(return_value=[])
+    ejector.get_withdrawal_requests = Mock(return_value=[])
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_last_processing_ref_slot.return_value = SlotNumber(0)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report.return_value = 400
 
@@ -172,27 +172,23 @@ def test_ejector_build_report(ejector: Ejector, ref_blockstamp: ReferenceBlockSt
 
     assert ref_slot == ref_blockstamp.ref_slot, "Unexpected blockstamp.ref_slot"
     assert data == b"", "Unexpected encoded data"
-    ejector.get_validators_to_eject.assert_called_once_with(ref_blockstamp)
+    ejector.get_withdrawal_requests.assert_called_once_with(ref_blockstamp)
 
 
 @pytest.mark.unit
 def test_ejector_build_report_keeps_iterator_order(ejector: Ejector, ref_blockstamp: ReferenceBlockStamp) -> None:
-    validators = [
-        ((StakingModuleId(3), NodeOperatorId(1)), LidoValidatorFactory.build(index=10)),
-        ((StakingModuleId(1), NodeOperatorId(7)), LidoValidatorFactory.build(index=5)),
+    requests = [
+        WithdrawalRequest(StakingModuleId(3), NodeOperatorId(1), 10, FWR_AMOUNT),
+        WithdrawalRequest(StakingModuleId(1), NodeOperatorId(7), 5, Gwei(32 * 10**9)),
     ]
-    ejector.get_validators_to_eject = Mock(return_value=validators)
+    ejector.get_withdrawal_requests = Mock(return_value=requests)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_last_processing_ref_slot.return_value = SlotNumber(0)
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report.return_value = 400
 
     _, _, requests_count, data = ejector.build_report(ref_blockstamp)
 
     assert requests_count == 2
-    expected = encode_data(
-        [WithdrawalRequest(module_id, no_id, v.lido_id.index, FWR_AMOUNT) for (module_id, no_id), v in validators],
-        400,
-    )
-    assert data == expected, "Records must be FWRs in iterator order"
+    assert data == encode_data(requests, 400), "Records must keep the iterator order"
 
 
 @pytest.mark.unit
@@ -200,10 +196,10 @@ def test_build_report__more_requests_than_wo_limit__raises(
     ejector: Ejector, ref_blockstamp: ReferenceBlockStamp
 ) -> None:
     # Arrange: the WO accepts one record, the iterator returned two.
-    ejector.get_validators_to_eject = Mock(
+    ejector.get_withdrawal_requests = Mock(
         return_value=[
-            ((StakingModuleId(1), NodeOperatorId(1)), LidoValidatorFactory.build(index=1)),
-            ((StakingModuleId(1), NodeOperatorId(1)), LidoValidatorFactory.build(index=2)),
+            WithdrawalRequest(StakingModuleId(1), NodeOperatorId(1), 1, FWR_AMOUNT),
+            WithdrawalRequest(StakingModuleId(1), NodeOperatorId(1), 2, FWR_AMOUNT),
         ]
     )
     vebo = ejector.w3.lido_contracts.validators_exit_bus_oracle
@@ -216,22 +212,40 @@ def test_build_report__more_requests_than_wo_limit__raises(
     vebo.get_max_requests_per_report.assert_called_once_with(ref_blockstamp.block_hash)
 
 
+def fwr_request(gid, validator: LidoValidator) -> WithdrawalRequest:
+    return WithdrawalRequest(gid[0], gid[1], validator.lido_id.index, FWR_AMOUNT)
+
+
+def fwr_step(gid, validator: LidoValidator) -> WithdrawalStep:
+    return WithdrawalStep(gid, validator, FWR_AMOUNT, get_predictable_inbound_balance(validator))
+
+
 class SimpleIterator:
-    def __init__(self, lst):
+    """Stands in for ValidatorExitIterator: yields FWR steps and reports the taken ones in order."""
+
+    def __init__(self, lst, forced=None):
         self.lst = lst
+        self.forced = forced or []
+        self.taken: list = []
 
     def __iter__(self):
         self.iter = iter(self.lst)
         return self
 
     def __next__(self):
-        return next(self.iter)
+        gid, validator = next(self.iter)
+        self.taken.append((gid, validator))
+        return fwr_step(gid, validator)
 
-    def get_remaining_forced_validators(self):
-        return []
+    def allocate_forced_exits(self):
+        self.taken.extend(self.forced)
+        return [fwr_step(gid, validator) for gid, validator in self.forced]
+
+    def get_requests(self):
+        return [fwr_request(gid, validator) for gid, validator in self.taken]
 
 
-class TestGetValidatorsToEject:
+class TestGetWithdrawalRequests:
     @pytest.mark.unit
     def test_no_validators_to_eject(
         self,
@@ -260,7 +274,7 @@ class TestGetValidatorsToEject:
                 "__iter__",
                 Mock(return_value=val_iter),
             )
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
             assert result == [], "Unexpected validators to eject"
 
     @pytest.mark.unit
@@ -297,11 +311,11 @@ class TestGetValidatorsToEject:
                 "__iter__",
                 Mock(return_value=val_iter),
             )
-            result = ejector.get_validators_to_eject(ref_blockstamp)
-            assert [v[1].index for v in result] == [validators[0][1].index], "Unexpected validators to eject"
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
+            assert result == [fwr_request(*validators[0])], "Unexpected validators to eject"
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__exact_coverage_after_first_validator__ejects_only_first(
+    def test_get_withdrawal_requests__exact_coverage_after_first_validator__ejects_only_first(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -324,13 +338,13 @@ class TestGetValidatorsToEject:
         val_iter = iter(SimpleIterator(validators))
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
             # Act
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert [v[1].index for v in result] == [validators[0][1].index], "Exact coverage must not eject extra validator"
+        assert result == [fwr_request(*validators[0])], "Exact coverage must not eject extra validator"
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__exact_coverage_after_second_validator__ejects_two(
+    def test_get_withdrawal_requests__exact_coverage_after_second_validator__ejects_two(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -356,15 +370,15 @@ class TestGetValidatorsToEject:
         val_iter = iter(SimpleIterator(validators))
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
             # Act
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+        assert result == [fwr_request(*validators[0]), fwr_request(*validators[1])], (
             "Exact coverage after second validator must eject exactly two"
         )
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__dust_balance_shortfall_after_first__ejects_second_to_cover(
+    def test_get_withdrawal_requests__dust_balance_shortfall_after_first__ejects_second_to_cover(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -400,15 +414,15 @@ class TestGetValidatorsToEject:
         val_iter = iter(SimpleIterator(validators))
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
             # Act
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert [v[1].index for v in result] == [validators[0][1].index, validators[1][1].index], (
+        assert result == [fwr_request(*validators[0]), fwr_request(*validators[1])], (
             "A one-Wei shortfall after the first dusty validator must eject the second, never under-eject"
         )
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__dust_exact_coverage_after_first__ejects_only_first(
+    def test_get_withdrawal_requests__dust_exact_coverage_after_first__ejects_only_first(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -442,15 +456,15 @@ class TestGetValidatorsToEject:
         val_iter = iter(SimpleIterator(validators))
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
             # Act
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert [v[1].index for v in result] == [validators[0][1].index], (
+        assert result == [fwr_request(*validators[0])], (
             "Exact coverage with a dusty balance must not eject an extra validator"
         )
 
     @pytest.mark.unit
-    def test_get_validators_to_eject__demand_and_forced__concatenated_in_iterator_order(
+    def test_get_withdrawal_requests__demand_and_forced__concatenated_in_iterator_order(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -464,16 +478,17 @@ class TestGetValidatorsToEject:
 
         demand = [((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator()) for _ in range(3)]
         forced = [((StakingModuleId(0), NodeOperatorId(2)), build_extended_validator()) for _ in range(2)]
-        simple_iterator = SimpleIterator(demand)
-        simple_iterator.get_remaining_forced_validators = Mock(return_value=forced)
+        simple_iterator = SimpleIterator(demand, forced=forced)
 
         val_iter = iter(simple_iterator)
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
             # Act
-            result = ejector.get_validators_to_eject(ref_blockstamp)
+            result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert result == demand + forced, "The ejector must report the iterator output as is"
+        assert result == [fwr_request(*pair) for pair in demand + forced], (
+            "The ejector must report the iterator output as is"
+        )
 
 
 @pytest.mark.unit
@@ -1066,24 +1081,13 @@ def test_get_deposit_lock_amount__reserve_locked__charges_half(
     assert isinstance(result, int)
 
 
-class ForcedIterator:
+def forced_iterator(forced_vals) -> SimpleIterator:
     """Iterator that yields no regular validators but returns forced validators on demand."""
-
-    def __init__(self, forced_vals):
-        self.forced_vals = forced_vals
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        raise StopIteration
-
-    def get_remaining_forced_validators(self):
-        return self.forced_vals
+    return iter(SimpleIterator([], forced=forced_vals))
 
 
 @pytest.mark.unit
-def test_get_validators_to_eject__forced_validators_present__included_in_result(
+def test_get_withdrawal_requests__forced_validators_present__included_in_result(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
@@ -1101,7 +1105,7 @@ def test_get_validators_to_eject__forced_validators_present__included_in_result(
 
     forced_gid = (StakingModuleId(1), NodeOperatorId(1))
     forced_validator = build_extended_validator()
-    forced_iter = ForcedIterator([(forced_gid, forced_validator)])
+    forced_iter = forced_iterator([(forced_gid, forced_validator)])
 
     with monkeypatch.context() as m:
         m.setattr(
@@ -1110,15 +1114,14 @@ def test_get_validators_to_eject__forced_validators_present__included_in_result(
             Mock(return_value=forced_iter),
         )
 
-        result = ejector.get_validators_to_eject(ref_blockstamp)
+        result = ejector.get_withdrawal_requests(ref_blockstamp)
 
     assert len(result) == 1, "Forced validator should be included even when no regular ejections are needed"
-    assert result[0][0] == forced_gid
-    assert result[0][1].index == forced_validator.index
+    assert result[0] == fwr_request(forced_gid, forced_validator)
 
 
 @pytest.mark.unit
-def test_get_validators_to_eject__forced_validators_present__included_without_wr_pressure(
+def test_get_withdrawal_requests__forced_validators_present__included_without_wr_pressure(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
@@ -1136,7 +1139,7 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
 
     forced_gid = (StakingModuleId(1), NodeOperatorId(1))
     forced_validator = build_extended_validator()
-    forced_iter = ForcedIterator([(forced_gid, forced_validator)])
+    forced_iter = forced_iterator([(forced_gid, forced_validator)])
 
     with monkeypatch.context() as m:
         m.setattr(
@@ -1145,15 +1148,14 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
             Mock(return_value=forced_iter),
         )
 
-        result = ejector.get_validators_to_eject(ref_blockstamp)
+        result = ejector.get_withdrawal_requests(ref_blockstamp)
 
     assert len(result) == 1, "Forced validator should be included when withdrawal queue pressure is absent"
-    assert result[0][0] == forced_gid
-    assert result[0][1].index == forced_validator.index
+    assert result[0] == fwr_request(forced_gid, forced_validator)
 
 
 @pytest.mark.unit
-def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
+def test_get_withdrawal_requests__no_wq_pressure__no_validator_ejections(
     ejector: Ejector,
     ref_blockstamp: ReferenceBlockStamp,
     chain_config: ChainConfig,
@@ -1171,7 +1173,7 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
 
     v_gid = (StakingModuleId(1), NodeOperatorId(1))
     v = build_extended_validator()
-    simple_it = SimpleIterator([(v_gid, v)])
+    simple_it = iter(SimpleIterator([(v_gid, v)]))
 
     with monkeypatch.context() as m:
         m.setattr(
@@ -1180,7 +1182,7 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
             Mock(return_value=simple_it),
         )
 
-        result = ejector.get_validators_to_eject(ref_blockstamp)
+        result = ejector.get_withdrawal_requests(ref_blockstamp)
 
     assert len(result) == 0, "No WQ pressure we need to exit only forced validators"
 
