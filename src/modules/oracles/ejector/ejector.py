@@ -180,7 +180,6 @@ class Ejector(OracleModule[Web3]):
             ValidatorExitIterator(
                 w3=self.w3,
                 blockstamp=blockstamp,
-                chain_config=self.get_chain_config(blockstamp),
             )
         )
 
@@ -227,10 +226,7 @@ class Ejector(OracleModule[Web3]):
         rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
         logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
 
-        validators_going_to_exit = self.validators_state_service.get_recently_requested_but_not_exiting_validators(
-            chain_config,
-            blockstamp,
-        )
+        validators_going_to_exit = self.validators_state_service.get_requested_but_not_exiting_validators(blockstamp)
 
         going_to_withdraw_balance_gwei = Gwei(
             sum(

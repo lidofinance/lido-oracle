@@ -199,7 +199,7 @@ class TestGetValidatorsToEject:
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(1))
         ejector._get_sweep_delay_in_epochs = Mock(return_value=1)
         ejector._get_total_el_balance = Mock(return_value=Wei(50))
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 1)
         ejector._get_withdrawable_principal = Mock(return_value=Wei(10))
         ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -228,7 +228,7 @@ class TestGetValidatorsToEject:
         ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(1))
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector._get_total_el_balance = Mock(return_value=Wei(100))
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
 
         ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch + 50)
@@ -498,7 +498,7 @@ class TestGetPredictedElBalance:
         going_to_exit_validator = build_extended_validator_with_balance(balance, meb=MAX_EFFECTIVE_BALANCE)
         capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
 
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(
             return_value=[going_to_exit_validator]
         )
 
@@ -520,7 +520,7 @@ class TestGetPredictedElBalance:
         capped_balance = Gwei(MIN_ACTIVATION_BALANCE)
         to_exit_gwei = Gwei(5 * 10**9)
 
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(
             return_value=[going_to_exit_validator]
         )
 
@@ -539,7 +539,7 @@ class TestPredictedElBalanceSubtractsDepositLock:
         ejector.get_chain_config = Mock(return_value=chain_config)
         ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
         ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_blockstamp.ref_epoch + 10))
-        ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+        ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
         # Distinct powers of ten, so a missing or duplicated term shows up in the total.
         ejector._get_total_el_balance = Mock(return_value=Wei(10_000))
         # horizon is 10 epochs (sweep delay 0), so this projects to 1_000 of future_rewards
@@ -769,7 +769,7 @@ def _mock_predicted_el_balance_terms(ejector: Ejector, chain_config: ChainConfig
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
-    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
 
 
 @pytest.mark.unit
@@ -1046,7 +1046,7 @@ def test_get_validators_to_eject__forced_validators_present__included_in_result(
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
-    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -1081,7 +1081,7 @@ def test_get_validators_to_eject__forced_validators_present__included_without_wr
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
-    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
@@ -1116,7 +1116,7 @@ def test_get_validators_to_eject__no_wq_pressure__no_validator_ejections(
     ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(0))
     ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
     ejector._get_total_el_balance = Mock(return_value=Wei(0))
-    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector.validators_state_service.get_requested_but_not_exiting_validators = Mock(return_value=[])
     ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
     ejector._get_predicted_withdrawable_epoch = Mock(return_value=ref_blockstamp.ref_epoch)
     ejector._get_deposit_lock_amount = Mock(return_value=Wei(1000 * 10**18))

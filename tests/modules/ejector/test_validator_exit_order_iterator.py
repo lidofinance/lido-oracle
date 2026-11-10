@@ -11,7 +11,6 @@ from src.constants import (
     FAR_FUTURE_EPOCH,
     MIN_ACTIVATION_BALANCE,
 )
-from src.modules.common.types import ChainConfig
 from src.providers.execution.contracts.meta_registry import ExternalOperator, SubNodeOperator
 from src.services.exit_order_iterator import (
     InvalidCuratedModuleConfigError,
@@ -22,6 +21,7 @@ from src.services.exit_order_iterator import (
     ValidatorExitIterator,
     WeightsNotUpdatedError,
 )
+from src.services.validator_state import InFlightWithdrawals
 from src.types import Gwei, NodeOperatorId, StakingModuleId
 from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
@@ -32,16 +32,12 @@ from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactor
 
 @pytest.fixture
 def iterator(web3):
-    it = ValidatorExitIterator(
-        web3,
-        ReferenceBlockStampFactory.build(),
-        ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
-    )
+    it = ValidatorExitIterator(web3, ReferenceBlockStampFactory.build())
     it.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[])
     it.w3.lido_validators.get_lido_node_operators = Mock(return_value=[])
     it.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={})
     it.w3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={})
-    it.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={})
+    it.lvs.get_in_flight_withdrawals = Mock(return_value=InFlightWithdrawals())
     it.w3.cc.get_validators_by_indexes = Mock(return_value={})
     it.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=Mock(max_balance_exit_requested_per_report_in_eth=100)
@@ -49,6 +45,7 @@ def iterator(web3):
     it.w3.lido_contracts.validators_exit_bus_oracle.get_max_validators_per_report = Mock(return_value=500)
     it.w3.eth.contract = Mock()
     it._reset_iterator_data()
+    it.in_flight = InFlightWithdrawals()
     it.max_exit_requests_per_report = 500
     return it
 
@@ -102,7 +99,6 @@ def test_eject_validator(iterator):
             ]
         }
     )
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()  # Skip contract calls
     iterator._calculate_sm_weights = Mock()  # Skip weight calculation
@@ -226,7 +222,6 @@ def test_next__request_limit_reached__stops_iteration(iterator):
             ]
         }
     )
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
     iterator._calculate_sm_weights = Mock()
@@ -263,7 +258,6 @@ def test_get_remaining_forced_validators__request_limit_reached__stops_early(ite
             ]
         }
     )
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
     iterator._calculate_sm_weights = Mock()
@@ -298,7 +292,6 @@ def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(
             ]
         }
     )
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
     iterator._calculate_sm_weights = Mock()
@@ -328,7 +321,6 @@ def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={gid11: [LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)]}
     )
-    iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(return_value={gid11: [-1]})
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
     iterator._calculate_sm_weights = Mock()
@@ -703,47 +695,36 @@ class TestEjectValidatorTotalStake:
 
 
 @pytest.mark.unit
-class TestMakeExitPredicate:
-    def test_make_exit_predicate__active_validator__is_exitable(self, iterator):
-        gid = (StakingModuleId(1), NodeOperatorId(1))
-        indexes = {gid: []}
-        filt = ValidatorExitIterator._make_exit_predicate(gid, indexes)
-
+class TestIsValidatorExitable:
+    def test_is_validator_exitable__active_validator__exitable(self, iterator):
         active_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
         )
-        assert filt(active_validator) is True
 
-    def test_make_exit_predicate__on_exit__not_exitable(self, iterator):
-        gid = (StakingModuleId(1), NodeOperatorId(1))
-        indexes = {gid: []}
-        filt = ValidatorExitIterator._make_exit_predicate(gid, indexes)
+        assert iterator._is_validator_exitable(active_validator) is True
 
+    def test_is_validator_exitable__on_exit__not_exitable(self, iterator):
         on_exit_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=100),
         )
-        assert filt(on_exit_validator) is False
 
-    def test_make_exit_predicate__recently_requested__not_exitable(self, iterator):
-        gid = (StakingModuleId(1), NodeOperatorId(1))
-        v = LidoValidatorFactory.build(
+        assert iterator._is_validator_exitable(on_exit_validator) is False
+
+    def test_is_validator_exitable__in_flight_fwr__not_exitable(self, iterator):
+        validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
         )
-        indexes = {gid: [v.index]}
-        filt = ValidatorExitIterator._make_exit_predicate(gid, indexes)
+        iterator.in_flight = InFlightWithdrawals(fwr_validators=frozenset({validator.index}))
 
-        assert filt(v) is False
+        assert iterator._is_validator_exitable(validator) is False
 
-    def test_make_exit_predicate__consolidating_as_source__not_exitable(self, iterator):
-        gid = (StakingModuleId(1), NodeOperatorId(1))
-        indexes = {gid: []}
-        filt = ValidatorExitIterator._make_exit_predicate(gid, indexes)
-
+    def test_is_validator_exitable__consolidating_as_source__not_exitable(self, iterator):
         consolidating_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
             consolidating_as_source=Mock(),
         )
-        assert filt(consolidating_validator) is False
+
+        assert iterator._is_validator_exitable(consolidating_validator) is False
 
 
 @pytest.mark.unit
@@ -1732,9 +1713,6 @@ class TestNextAndIterFull:
         )
         iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
             return_value={gids[name]: [validators[name]] for name in gids}
-        )
-        iterator.lvs.get_recently_requested_to_exit_validators_by_node_operator = Mock(
-            return_value={gid: [-1] for gid in gids.values()}
         )
         iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
         iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(

@@ -51,10 +51,6 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
-    def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier) -> int:
-        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS', block_identifier)
-
-    @lru_cache(maxsize=1)
     def slashing_reserve_we_left_shift(self, block_identifier: BlockIdentifier) -> int:
         return self._get('SLASHING_RESERVE_WE_LEFT_SHIFT', block_identifier)
 
