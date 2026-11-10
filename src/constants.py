@@ -7,6 +7,7 @@ from src.types import Gwei
 FAR_FUTURE_EPOCH = 2**64 - 1
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#time-parameters-1
 MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 2**8
+SHARD_COMMITTEE_PERIOD = 2**8
 MAX_SEED_LOOKAHEAD = 4
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#state-list-lengths
 EPOCHS_PER_SLASHINGS_VECTOR = 2**13

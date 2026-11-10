@@ -19,7 +19,7 @@ from src.metrics.prometheus.ejector import (
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
 from src.modules.oracles.common.oracle_module import OracleModule
-from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, WithdrawalRequest, encode_data
+from src.modules.oracles.ejector.data_encode import WithdrawalRequest, encode_data
 from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.providers.consensus.types import BeaconStateView, Validator
@@ -28,7 +28,7 @@ from src.providers.execution.contracts.hash_consensus import HashConsensusContra
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
 from src.services.validator_state import LidoValidatorStateService
-from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp
+from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
 from src.utils.validator_balance import (
@@ -140,24 +140,14 @@ class Ejector(OracleModule[Web3]):
         # For metrics only
         self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
 
-        validators: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = self.get_validators_to_eject(blockstamp)
+        requests = self.get_withdrawal_requests(blockstamp)
         logger.info(
             {
-                'msg': f'Calculate validators to eject. Count: {len(validators)}',
-                'value': [val[1].index for val in validators],
+                'msg': f'Calculate withdrawal requests. Count: {len(requests)}',
+                'full': sum(r.is_full for r in requests),
+                'partial': sum(not r.is_full for r in requests),
             },
         )
-
-        # The iterator still selects full exits only, so every request is an FWR for now.
-        requests = [
-            WithdrawalRequest(
-                module_id=module_id,
-                node_operator_id=node_operator_id,
-                key_index=validator.lido_id.index,
-                amount=FWR_AMOUNT,
-            )
-            for (module_id, node_operator_id), validator in validators
-        ]
 
         report_data = ReportData(
             consensus_version=self.get_consensus_version(blockstamp),
@@ -173,17 +163,15 @@ class Ejector(OracleModule[Web3]):
 
         return dataclasses.astuple(report_data)
 
-    def get_validators_to_eject(
-        self, blockstamp: ReferenceBlockStamp
-    ) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
+    def get_withdrawal_requests(self, blockstamp: ReferenceBlockStamp) -> list[WithdrawalRequest]:
         to_withdraw_amount = self.w3.lido_contracts.withdrawal_queue_nft.unfinalized_steth(blockstamp.block_hash)
         EJECTOR_TO_WITHDRAW_WEI_AMOUNT.set(to_withdraw_amount)
 
         # Get all balance available to use to fulfill on closes exit epoch
         predictable_el_balance = self._get_predicted_el_balance(Gwei(0), blockstamp)
 
-        validators_to_eject: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
-        total_balance_to_eject_gwei = Gwei(0)
+        # ETH the requests of this report bring in: PWR amounts, and the balance of FWR validators.
+        requested_gwei = Gwei(0)
         validators_iterator = iter(
             ValidatorExitIterator(
                 w3=self.w3,
@@ -191,36 +179,34 @@ class Ejector(OracleModule[Web3]):
             )
         )
 
+        # Phase 1: cover the WQ demand.
         if to_withdraw_amount != 0 and to_withdraw_amount > predictable_el_balance:
-            for gid, next_validator in validators_iterator:
-                validators_to_eject.append((gid, next_validator))
+            for step in validators_iterator:
+                requested_gwei = Gwei(requested_gwei + step.inbound)
+                predictable_el_balance = self._get_predicted_el_balance(requested_gwei, blockstamp)
 
-                val_balance = get_predictable_inbound_balance(next_validator)
-
-                total_balance_to_eject_gwei += val_balance
-
-                predictable_el_balance = self._get_predicted_el_balance(total_balance_to_eject_gwei, blockstamp)
-
-                if predictable_el_balance + gwei_to_wei(total_balance_to_eject_gwei) >= to_withdraw_amount:
+                if predictable_el_balance + gwei_to_wei(requested_gwei) >= to_withdraw_amount:
                     break
         else:
             logger.info({'msg': 'Predicted EL balance is enough to fulfill withdrawal queue.'})
 
-        forced_validators = validators_iterator.get_remaining_forced_validators()
-        if forced_validators:
-            logger.info({'msg': 'Eject forced to exit validators.', 'len': len(forced_validators)})
-            validators_to_eject.extend(forced_validators)
+        # Phase 2: forced exits not covered by Phase 1.
+        forced_steps = validators_iterator.allocate_forced_exits()
+        if forced_steps:
+            logger.info({'msg': 'Request forced exits.', 'len': len(forced_steps)})
+
+        requests = validators_iterator.get_requests()
 
         logger.info(
             {
-                'msg': 'Calculate validators to eject',
-                'total_balance_to_eject': gwei_to_wei(total_balance_to_eject_gwei),
+                'msg': 'Calculate withdrawal requests',
+                'requested': gwei_to_wei(requested_gwei),
                 'predictable_el_balance': predictable_el_balance,
-                'validators_to_eject_count': len(validators_to_eject),
+                'requests_count': len(requests),
             }
         )
 
-        return validators_to_eject
+        return requests
 
     def _get_predicted_el_balance(self, to_exit_gwei: Gwei, blockstamp: ReferenceBlockStamp) -> Wei:
         chain_config = self.get_chain_config(blockstamp)
