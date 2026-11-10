@@ -1,228 +1,40 @@
-import random
-import string
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 
 import pytest
 
 from src.modules.oracles.ejector.data_encode import (
+    AMOUNT_LENGTH,
+    FWR_AMOUNT,
     KEY_INDEX_LENGTH,
+    MAX_PWR_AMOUNT,
     MODULE_ID_LENGTH,
     NODE_OPERATOR_ID_LENGTH,
-    VALIDATOR_INDEX_LENGTH,
-    VALIDATOR_PUB_KEY_LENGTH,
+    RECORD_LENGTH,
+    InvalidWithdrawalRequestsError,
+    WithdrawalRequest,
     encode_data,
-    sort_validators_to_eject,
 )
-from src.types import NodeOperatorId, StakingModuleId
-from src.web3py.extensions.lido_validators import LidoValidator
-from tests.factory.no_registry import LidoValidatorFactory
+from src.types import Gwei, NodeOperatorId, StakingModuleId
 
 
-RECORD_LENGTH = sum(
-    [
-        MODULE_ID_LENGTH,
-        NODE_OPERATOR_ID_LENGTH,
-        VALIDATOR_INDEX_LENGTH,
-        KEY_INDEX_LENGTH,
-        VALIDATOR_PUB_KEY_LENGTH,
-    ]
-)
+# The WO limit from LIP-38. The contract sets it at deploy time, so the encoder takes it as an argument.
+MAX_REQUESTS = 400
 
 
-@pytest.fixture()
-def pubkey_factory() -> Callable:
-    def _factory():
-        symbols = string.hexdigits
-        length = VALIDATOR_PUB_KEY_LENGTH * 2  # 2 hex digits per byte
-        return "0x" + "".join(random.choice(symbols) for _ in range(length))
-
-    return _factory
-
-
-@pytest.fixture()
-def validator_factory(pubkey_factory: Callable[[], str]) -> Callable:
-    def _factory(index: int, pubkey: str | None = None):
-        v = LidoValidatorFactory.build(index=str(index))
-        v.validator.pubkey = pubkey or pubkey_factory()
-        return v
-
-    return _factory
-
-
-@pytest.mark.unit
-def test_encode_data(validator_factory: Callable[..., LidoValidator]) -> None:
-    data = [
-        ((StakingModuleId(0), NodeOperatorId(0)), validator_factory(2)),
-        ((StakingModuleId(8), NodeOperatorId(17)), validator_factory(1)),
-        ((StakingModuleId(42), NodeOperatorId(3)), validator_factory(0)),
-        (
-            (
-                StakingModuleId(_max_num_fits_bytes(MODULE_ID_LENGTH)),
-                NodeOperatorId(_max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH)),
-            ),
-            validator_factory(_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH)),
-        ),
-    ]
-
-    (result, _) = encode_data(data)
-    assert len(result) == len(data) * RECORD_LENGTH, "Unexpected length of encoded data"
-
-    offset = 0
-    while offset < len(result):
-        record = result[offset : offset + RECORD_LENGTH]
-        idx = offset // RECORD_LENGTH
-        offset += RECORD_LENGTH
-
-        (_module_id, _nop_id), _val = data[idx]
-
-        chunks = tuple(
-            _slice_bytes(
-                record,
-                MODULE_ID_LENGTH,
-                NODE_OPERATOR_ID_LENGTH,
-                VALIDATOR_INDEX_LENGTH,
-                KEY_INDEX_LENGTH,
-                VALIDATOR_PUB_KEY_LENGTH,
-            )
-        )
-
-        assert int.from_bytes(chunks[0]) == _module_id, "Module ID mismatch"
-        assert int.from_bytes(chunks[1]) == _nop_id, "Node operator ID mismatch"
-        assert int.from_bytes(chunks[2]) == _val.index, "Validator's index mismatch"
-        assert int.from_bytes(chunks[3]) == _val.lido_id.index, "Key index mismatch"
-        assert chunks[4] == bytes.fromhex(_val.validator.pubkey[2:]), "Pubkey mismatch"
-
-
-@pytest.mark.unit
-def test_encode_data_empty() -> None:
-    (result, _) = encode_data([])
-    assert len(result) == 0, "Unexpected length of encoded data"
-
-
-@pytest.mark.unit
-def test_encode_data_overflow(validator_factory: Callable[..., LidoValidator]) -> None:
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(_max_num_fits_bytes(MODULE_ID_LENGTH) + 1),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(0),
-                )
-            ]
-        )
-
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(_max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH) + 1),
-                    ),
-                    validator_factory(0),
-                )
-            ]
-        )
-
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(index=_max_num_fits_bytes(VALIDATOR_INDEX_LENGTH) + 1),
-                )
-            ]
-        )
-
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(-1),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(0),
-                )
-            ]
-        )
-
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(-1),
-                    ),
-                    validator_factory(0),
-                )
-            ]
-        )
-
-    with pytest.raises(OverflowError):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(index=-1),
-                )
-            ]
-        )
-
-
-@pytest.mark.unit
-def test_encode_broken_pubkey(validator_factory: Callable[..., LidoValidator]) -> None:
-    with pytest.raises(ValueError, match="Unexpected size of validator pub key"):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(index=0, pubkey="0x"),
-                )
-            ]
-        )
-
-    with pytest.raises(ValueError, match="non-hexadecimal number found"):
-        encode_data(
-            [
-                (
-                    (
-                        StakingModuleId(0),
-                        NodeOperatorId(0),
-                    ),
-                    validator_factory(
-                        index=0,
-                        pubkey="0xgggggggggggggggggggggggggggggggggggggggggggggggg",
-                    ),
-                )
-            ]
-        )
+def _request(module_id: int = 1, node_operator_id: int = 0, key_index: int = 0, amount: int = 0) -> WithdrawalRequest:
+    return WithdrawalRequest(
+        module_id=StakingModuleId(module_id),
+        node_operator_id=NodeOperatorId(node_operator_id),
+        key_index=key_index,
+        amount=Gwei(amount),
+    )
 
 
 def _max_num_fits_bytes(num_bytes: int) -> int:
     """
     >>> _max_num_fits_bytes(1)
     255
-    >>> _max_num_fits_bytes(-255)
-    Traceback (most recent call last):
-    ...
-    ValueError: _max_num_fits_bytes: num_bytes must be positive
     """
-    if num_bytes < 0:
-        raise ValueError("_max_num_fits_bytes: num_bytes must be positive")
     return (2**8) ** num_bytes - 1
 
 
@@ -238,45 +50,142 @@ def _slice_bytes(data: bytes, *segs: int) -> Iterable[bytes]:
     assert offset == len(data), "Unexpected length of data"
 
 
+def _decode(data: bytes) -> list[tuple[int, int, int, int]]:
+    assert len(data) % RECORD_LENGTH == 0, "Unexpected length of encoded data"
+    records = []
+    for offset in range(0, len(data), RECORD_LENGTH):
+        chunks = _slice_bytes(
+            data[offset : offset + RECORD_LENGTH],
+            MODULE_ID_LENGTH,
+            NODE_OPERATOR_ID_LENGTH,
+            KEY_INDEX_LENGTH,
+            AMOUNT_LENGTH,
+        )
+        records.append(tuple(int.from_bytes(c) for c in chunks))
+    return records
+
+
+@pytest.mark.unit
+def test_record_length_is_24_bytes() -> None:
+    assert RECORD_LENGTH == 24
+
+
+@pytest.mark.unit
+def test_encode_data_layout() -> None:
+    requests = [
+        _request(module_id=1, node_operator_id=2, key_index=3, amount=0),
+        _request(module_id=4, node_operator_id=5, key_index=6, amount=32 * 10**9),
+        _request(
+            module_id=_max_num_fits_bytes(MODULE_ID_LENGTH),
+            node_operator_id=_max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH),
+            key_index=_max_num_fits_bytes(KEY_INDEX_LENGTH),
+            amount=MAX_PWR_AMOUNT,
+        ),
+    ]
+
+    decoded = _decode(encode_data(requests, MAX_REQUESTS))
+
+    assert decoded == [(r.module_id, r.node_operator_id, r.key_index, r.amount) for r in requests]
+
+
+@pytest.mark.unit
+def test_encode_data_known_bytes() -> None:
+    # Fixed vector so a layout change cannot pass unnoticed: moduleId=1, nodeOpId=2, keyIndex=3, amount=1 ETH.
+    data = encode_data([_request(module_id=1, node_operator_id=2, key_index=3, amount=10**9)], MAX_REQUESTS)
+
+    assert data.hex() == '000001' + '0000000002' + '0000000000000003' + '000000003b9aca00'
+
+
+@pytest.mark.unit
+def test_encode_data_keeps_input_order() -> None:
+    # Report order is the FIFO execution order on-chain, so the encoder must not sort.
+    requests = [
+        _request(module_id=3, node_operator_id=9, key_index=50),
+        _request(module_id=1, node_operator_id=0, key_index=7, amount=10**9),
+        _request(module_id=2, node_operator_id=5, key_index=1),
+    ]
+
+    decoded = _decode(encode_data(requests, MAX_REQUESTS))
+
+    assert [d[0] for d in decoded] == [3, 1, 2]
+
+
+@pytest.mark.unit
+def test_encode_data_empty() -> None:
+    assert encode_data([], MAX_REQUESTS) == b''
+
+
+@pytest.mark.unit
+def test_fwr_is_zero_amount() -> None:
+    assert _request(amount=FWR_AMOUNT).is_full
+    assert not _request(amount=1).is_full
+
+
+@pytest.mark.unit
+def test_encode_data_max_requests() -> None:
+    requests = [_request(key_index=i) for i in range(MAX_REQUESTS)]
+
+    assert len(encode_data(requests, MAX_REQUESTS)) == MAX_REQUESTS * RECORD_LENGTH
+
+    with pytest.raises(InvalidWithdrawalRequestsError, match='Too many requests'):
+        encode_data([*requests, _request(key_index=MAX_REQUESTS)], MAX_REQUESTS)
+
+
+@pytest.mark.unit
+def test_encode_data__limit_from_caller__applied_instead_of_400() -> None:
+    requests = [_request(key_index=i) for i in range(3)]
+
+    encode_data(requests, 3)
+
+    with pytest.raises(InvalidWithdrawalRequestsError, match='Too many requests in report: 3 > 2'):
+        encode_data(requests, 2)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize('second_amount', [0, 10**9])
+def test_encode_data_rejects_duplicate_validator(second_amount: int) -> None:
+    with pytest.raises(InvalidWithdrawalRequestsError, match='Duplicate request'):
+        encode_data(
+            [
+                _request(module_id=1, node_operator_id=2, key_index=3, amount=10**9),
+                _request(module_id=1, node_operator_id=2, key_index=3, amount=second_amount),
+            ],
+            MAX_REQUESTS,
+        )
+
+
+@pytest.mark.unit
+def test_encode_data_same_key_index_in_other_operator_is_not_duplicate() -> None:
+    # Key indexes are per operator, so the same index under another operator is another validator.
+    encode_data([_request(node_operator_id=1, key_index=0), _request(node_operator_id=2, key_index=0)], MAX_REQUESTS)
+
+
+@pytest.mark.unit
+def test_encode_data_rejects_pwr_above_max() -> None:
+    encode_data([_request(amount=MAX_PWR_AMOUNT)], MAX_REQUESTS)
+
+    with pytest.raises(InvalidWithdrawalRequestsError, match='exceeds MAX_PWR_AMOUNT'):
+        encode_data([_request(amount=MAX_PWR_AMOUNT + 1)], MAX_REQUESTS)
+
+
+@pytest.mark.unit
+def test_max_pwr_amount_is_2016_eth() -> None:
+    assert MAX_PWR_AMOUNT == 2016 * 10**9
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "validators_to_eject",
+    'kwargs',
     [
-        [*zip([(0, 1)] * 10, LidoValidatorFactory.batch(10), strict=True)],
-        [
-            [(1, 0), LidoValidatorFactory.build(index=13)],
-            [(0, 1), LidoValidatorFactory.build(index=12)],
-            [(1, 0), LidoValidatorFactory.build(index=11)],
-            [(1, 0), LidoValidatorFactory.build(index=10)],
-            [(1, 0), LidoValidatorFactory.build(index=1)],
-            [(1, 0), LidoValidatorFactory.build(index=2)],
-            [(0, 1), LidoValidatorFactory.build(index=3)],
-            [(1, 0), LidoValidatorFactory.build(index=4)],
-            [(1, 0), LidoValidatorFactory.build(index=5)],
-            [(2, 1), LidoValidatorFactory.build(index=6)],
-            [(2, 0), LidoValidatorFactory.build(index=7)],
-            [(0, 0), LidoValidatorFactory.build(index=8)],
-            [(0, 1), LidoValidatorFactory.build(index=9)],
-        ],
+        {'module_id': _max_num_fits_bytes(MODULE_ID_LENGTH) + 1},
+        {'node_operator_id': _max_num_fits_bytes(NODE_OPERATOR_ID_LENGTH) + 1},
+        {'key_index': _max_num_fits_bytes(KEY_INDEX_LENGTH) + 1},
+        {'module_id': -1},
+        {'node_operator_id': -1},
+        {'key_index': -1},
+        {'amount': -1},
     ],
 )
-def test_validators_sorting_for_ejector_report(validators_to_eject):
-    validators = sort_validators_to_eject(validators_to_eject)
-
-    last_module_id = -1
-    last_no_id = -1
-    last_validator_index = -1
-    for global_index, validator in validators:
-        assert global_index[0] >= last_module_id
-        if global_index[0] > last_module_id:
-            last_module_id = global_index[0]
-            last_no_id = -1
-            last_validator_index = -1
-
-        assert global_index[1] >= last_no_id
-        if global_index[1] > last_no_id:
-            last_no_id = global_index[1]
-            last_validator_index = -1
-
-        assert validator.index > last_validator_index
-        last_validator_index = validator.index
+def test_encode_data_overflow(kwargs: dict) -> None:
+    with pytest.raises(OverflowError):
+        encode_data([_request(**kwargs)], MAX_REQUESTS)
