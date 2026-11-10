@@ -2065,6 +2065,27 @@ class TestPwrFwrSelection:
         assert step.validator is big
         assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(big.lido_id.index, 42 * ETH)]
 
+    def test_next__balances_above_max_pwr_headroom__smallest_balance_preferred(self, iterator):
+        # Both validators can give the full MAX_PWR_AMOUNT, so only the balance tells them apart.
+        larger, smaller = make_validator(1, 2049.5), make_validator(2, 2048.4)
+        setup_single_operator(iterator, [larger, smaller])
+
+        step = next(iterator)
+
+        assert step.validator is smaller
+        assert step.amount == Gwei(32 * ETH)
+
+    def test_next__in_flight_pwr__ranks_by_balance_after_it(self, iterator):
+        # 100 ETH with 60 ETH already requested has 40 ETH left, less than the 50 ETH validator.
+        drained, plain = make_validator(1, 100), make_validator(2, 50)
+        setup_single_operator(iterator, [drained, plain])
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={drained.index: Gwei(60 * ETH)})
+
+        step = next(iterator)
+
+        assert step.validator is drained
+        assert step.amount == Gwei(8 * ETH)
+
 
 @pytest.mark.unit
 class TestReportRecords:
