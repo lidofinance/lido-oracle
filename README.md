@@ -47,7 +47,7 @@ Or checkout [Oracle Operator Manual](https://docs.lido.fi/guides/oracle-operator
 Core oracle modules:
 
 - Accounting (`accounting`)
-- Validators Exit Bus (`ejector`)
+- Withdrawals Oracle, formerly Validators Exit Bus (`ejector`)
 - Community Staking Module (`csm`)
 - Community Staking Module 0x02 (`csm_0x02`)
 - Curated Module (`cm`)
@@ -73,15 +73,18 @@ Work is divided into frames (~24 hours / 225 epochs):
 
 ### Ejector module
 
-Initiates validator ejection requests to fund withdrawal requests using a specific order defined in `src/services/exit_order_iterator.py`.
+Reports withdrawal requests to the WithdrawalsOracle contract (LIP-38): a partial withdrawal (PWR) from a `0x02` validator when its module allows partial withdrawals and the validator keeps at least 33 ETH, a full withdrawal (FWR) otherwise. The order is defined in `src/services/exit_order_iterator.py`. The contract queues the requests in the `TriggerableWithdrawalsBus`, and they are executed from there.
 
 **Flow**
 
 Work is divided into frames (~5 hours / 45 epochs):
-- Calculates ETH required for withdrawals.
-- Estimates incoming ETH to protocol.
-- Determines next available validator exit.
-- Builds validators to exit queue and submits data to Execution Layer.
+- Calculates ETH required for withdrawals and estimates incoming ETH, counting what earlier reports already requested.
+- Phase 1 covers the withdrawal queue demand in `EXIT_ITERATION_CHUNK` steps, ranking operators each step.
+- Phase 2 adds the exits that force-exit limits still require.
+- Phase 3 (active rebalancing, Curated Module v2 only) withdraws from operators above their target stake. It is off unless `ACTIVE_REBALANCING_ENABLED` is set.
+- Submits the report through hash consensus. All phases share one per-report limit set by the `OracleReportSanityChecker`.
+
+The iterator reads its parameters from the `OracleDaemonConfig` contract at the report block: `EXIT_ITERATION_CHUNK` and the five `ACTIVE_REBALANCING_*` keys. The module needs the SR phase 2 contracts (WithdrawalsOracle contract version 4, consensus version 7).
 
 ### Staking Module Oracle
 
@@ -104,7 +107,7 @@ Services and responsibilities:
 - `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres. Also needs an Execution client (`EXECUTION_CLIENT_URI`): after EIP-7732 a blockstamp's execution anchor is an EL block hash that only the Execution client can resolve into a block.
 - `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
 - `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
-- `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
+- `ejector-oracle` - reports the withdrawal requests needed for withdrawal demand, forced exits and Curated Module v2 rebalancing.
 - `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` - staking-module reporters:
   - read EL/CL/Keys API data (`EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`)
   - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
@@ -403,7 +406,9 @@ Special metrics for ejector oracle:
 |-----------------------------------|------------------------------------------------------|--------|
 | ejector_withdrawal_wei_amount     | To withdraw amount                                   |        |
 | ejector_max_withdrawal_epoch      | Max withdrawal epoch among all Lido validators on CL |        |
-| ejector_validators_count_to_eject | Validators count to eject                            |        |
+| ejector_validators_count_to_eject | Validators with a withdrawal request in the report   |        |
+| ejector_withdrawal_requests       | Withdrawal requests in the report                    | type (`full`, `partial`) |
+| ejector_partial_withdrawal_gwei_amount | Total amount of the partial withdrawal requests, gwei |  |
 
 Special metrics for Staking Module oracle:
 
