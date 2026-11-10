@@ -61,3 +61,7 @@ class OracleDaemonConfigContract(ContractInterface):
     @lru_cache(maxsize=1)
     def slashing_reserve_we_right_shift(self, block_identifier: BlockIdentifier) -> int:
         return self._get('SLASHING_RESERVE_WE_RIGHT_SHIFT', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def exit_iteration_chunk_eth(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('EXIT_ITERATION_CHUNK', block_identifier)
