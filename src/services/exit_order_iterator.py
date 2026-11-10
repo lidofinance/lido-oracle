@@ -20,9 +20,16 @@ from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, MAX_PWR_AMOUNT, 
 from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
 from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
 from src.services.validator_state import InFlightWithdrawals, LidoValidatorStateService
-from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId, ValidatorIndex
+from src.types import (
+    EpochNumber,
+    Gwei,
+    NodeOperatorGlobalIndex,
+    ReferenceBlockStamp,
+    StakingModuleId,
+    ValidatorIndex,
+)
 from src.utils.validator_balance import get_predictable_inbound_balance
-from src.utils.validator_state import has_compounding_withdrawal_credential, is_on_exit
+from src.utils.validator_state import get_max_effective_balance, has_compounding_withdrawal_credential, is_on_exit
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
@@ -55,6 +62,16 @@ class WithdrawalStep:
     # ETH the step adds to what the report brings in. An FWR counts the validator's balance
     # minus the PWRs it replaces, because those were already counted.
     inbound: Gwei
+
+
+@dataclass(frozen=True)
+class ActiveRebalancingConfig:
+    """LIP-38 Phase 3 parameters from OracleDaemonConfig."""
+
+    rate_limit: Gwei
+    operator_excess_bp: int
+    module_excess_bp: int
+    grace_period_epochs: int
 
 
 @dataclass
@@ -128,7 +145,8 @@ class ValidatorExitIterator:
 
     Phase 1 (`__next__`) runs until the caller sees the WQ demand covered.
     Phase 2 (`allocate_forced_exits`) then covers what is left of the forced exits.
-    Both phases share one per-report exit limit and the cap on records per report.
+    Phase 3 (`allocate_active_rebalancing`) then moves CMv2 operators above their target stake back toward it.
+    All phases share one per-report exit limit and the cap on records per report.
 
     Within the selected operator:
     - an operator over its force-exit limit always gets an FWR;
@@ -184,6 +202,7 @@ class ValidatorExitIterator:
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
+        self.first_activation_epoch: dict[NodeOperatorGlobalIndex, EpochNumber] = {}
 
     def _prepare_data_structure(self):
         self._prepare_module_stats()
@@ -228,6 +247,13 @@ class ValidatorExitIterator:
                 filter(self._is_validator_exitable, validators_list),
                 key=lambda v: v.index,
             )
+            activation_epochs = [
+                v.validator.activation_epoch
+                for v in validators_list
+                if v.validator.activation_epoch <= self.blockstamp.ref_epoch
+            ]
+            if activation_epochs:
+                self.first_activation_epoch[gid] = EpochNumber(min(activation_epochs))
 
     def _calculate_lido_stats(self):
         # Calculate current stats on CL
@@ -494,6 +520,108 @@ class ValidatorExitIterator:
                 break
             else:
                 return steps
+
+    def allocate_active_rebalancing(self) -> list[WithdrawalStep]:
+        """
+        Phase 3: withdrawals from CMv2 operators above their target stake, while a trigger holds
+        and within ACTIVE_REBALANCING_RATE_LIMIT.
+        """
+        config = self._get_active_rebalancing_config()
+        if config is None:
+            return []
+
+        participants = self._get_rebalancing_participants(config)
+        in_flight_pwr = {
+            gid: sum(self.in_flight.pwr_amounts.get(v.index, Gwei(0)) for v in self.exitable_validators.get(gid, []))
+            for gid in participants
+        }
+
+        steps: list[WithdrawalStep] = []
+        rebalanced = Gwei(0)
+        while True:
+            for gid in self._get_over_target_operators(participants, in_flight_pwr, config):
+                pick = self._pick(gid, forced=False)
+                if pick is None:
+                    continue
+
+                validator, amount = pick
+                weight = (
+                    amount
+                    if amount != FWR_AMOUNT
+                    else min(validator.balance, get_max_effective_balance(validator.validator))
+                )
+                if rebalanced + weight > config.rate_limit:
+                    logger.info({'msg': 'Reached the active rebalancing rate limit.', 'limit': config.rate_limit})
+                    return steps
+
+                step = self._allocate(gid, validator, amount)
+                if step is None:
+                    return steps
+
+                rebalanced = Gwei(rebalanced + weight)
+                steps.append(step)
+                break
+            else:
+                return steps
+
+    def _get_active_rebalancing_config(self) -> ActiveRebalancingConfig | None:
+        daemon_config = self.w3.lido_contracts.oracle_daemon_config
+        block = self.blockstamp.block_hash
+        if not daemon_config.active_rebalancing_enabled(block):
+            return None
+        return ActiveRebalancingConfig(
+            rate_limit=Gwei(daemon_config.active_rebalancing_rate_limit_eth(block) * GWEI_PER_ETH),
+            operator_excess_bp=daemon_config.active_rebalancing_operator_excess_bp(block),
+            module_excess_bp=daemon_config.active_rebalancing_module_excess_bp(block),
+            grace_period_epochs=daemon_config.active_rebalancing_grace_period_epochs(block),
+        )
+
+    def _get_rebalancing_participants(self, config: ActiveRebalancingConfig) -> list[NodeOperatorGlobalIndex]:
+        """CMv2 operators outside the grace period: active for at least the grace period since the first activation."""
+        return [
+            gid
+            for gid in self.node_operators_stats
+            if gid[0] == self.cm_v2_id
+            and gid in self.first_activation_epoch
+            and self.blockstamp.ref_epoch - self.first_activation_epoch[gid] >= config.grace_period_epochs
+        ]
+
+    def _get_over_target_operators(
+        self,
+        participants: list[NodeOperatorGlobalIndex],
+        in_flight_pwr: dict[NodeOperatorGlobalIndex, int],
+        config: ActiveRebalancingConfig,
+    ) -> list[NodeOperatorGlobalIndex]:
+        """
+        Operators above their target stake, furthest above first. Empty while neither the operator-level
+        nor the module-level trigger holds.
+
+        currentStake already includes the external stake share and pending deposits, and drops
+        with every withdrawal allocated in this report.
+        """
+        current = {gid: self.node_operators_stats[gid].total_stake - in_flight_pwr[gid] for gid in participants}
+        module_stake = sum(current.values())
+        module_weight = sum(self.node_operators_stats[gid].weight for gid in participants)
+        if module_weight == 0:
+            return []
+
+        target = {gid: module_stake * self.node_operators_stats[gid].weight / module_weight for gid in participants}
+        excess = {gid: current[gid] - target[gid] for gid in participants}
+
+        operator_trigger = any(
+            current[gid] * TOTAL_BASIS_POINTS > target[gid] * (TOTAL_BASIS_POINTS + config.operator_excess_bp)
+            for gid in participants
+        )
+        module_trigger = (
+            sum(max(0, e) for e in excess.values()) * TOTAL_BASIS_POINTS > module_stake * config.module_excess_bp
+        )
+        if not operator_trigger and not module_trigger:
+            return []
+
+        return sorted(
+            (gid for gid in participants if excess[gid] > 0),
+            key=lambda gid: (-excess[gid], self._lowest_validator_index_predicate(self.node_operators_stats[gid]), gid),
+        )
 
     def get_requests(self) -> list[WithdrawalRequest]:
         """The report records, in report order."""
