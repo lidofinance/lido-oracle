@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 
 from web3.types import EventData, Wei
 
@@ -11,6 +12,12 @@ from src.web3py.types import Web3
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RewardsPerEpoch:
+    el: Wei
+    cl: Wei
 
 
 class RewardsPredictionService:
@@ -29,7 +36,7 @@ class RewardsPredictionService:
         self,
         blockstamp: ReferenceBlockStamp,
         chain_configs: ChainConfig,
-    ) -> Wei:
+    ) -> RewardsPerEpoch:
         prediction_duration_in_slots = self.w3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots(
             blockstamp.block_hash
         )
@@ -61,22 +68,20 @@ class RewardsPredictionService:
             raise InconsistentEvents(msg) from error
 
         if not events:
-            return Wei(0)
+            return RewardsPerEpoch(el=Wei(0), cl=Wei(0))
 
-        total_rewards = 0
+        el_rewards = 0
+        cl_rewards = 0
         time_spent = 0
         for event in events:
-            total_rewards += (
-                event['postCLBalance']
-                + event['withdrawalsWithdrawn']
-                - event['preCLBalance']
-                + event['executionLayerRewardsWithdrawn']
-            )
+            el_rewards += event['executionLayerRewardsWithdrawn']
+            cl_rewards += event['postCLBalance'] + event['withdrawalsWithdrawn'] - event['preCLBalance']
             time_spent += event['timeElapsed']
 
-        return max(
-            Wei(total_rewards * chain_configs.seconds_per_slot * chain_configs.slots_per_epoch // time_spent),
-            Wei(0),
+        seconds_per_epoch = chain_configs.seconds_per_slot * chain_configs.slots_per_epoch
+        return RewardsPerEpoch(
+            el=Wei(max(0, el_rewards * seconds_per_epoch // time_spent)),
+            cl=Wei(max(0, cl_rewards * seconds_per_epoch // time_spent)),
         )
 
     @staticmethod

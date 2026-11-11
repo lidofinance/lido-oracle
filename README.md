@@ -405,7 +405,7 @@ Special metrics for ejector oracle:
 | Metric name                       | Description                                          | Labels |
 |-----------------------------------|------------------------------------------------------|--------|
 | ejector_withdrawal_wei_amount     | To withdraw amount                                   |        |
-| ejector_max_withdrawal_epoch      | Max withdrawal epoch among all Lido validators on CL |        |
+| ejector_max_withdrawal_epoch      | Epoch the last requested withdrawal arrives at, used as the prediction horizon |        |
 | ejector_validators_count_to_eject | Validators with a withdrawal request in the report   |        |
 | ejector_withdrawal_requests       | Withdrawal requests in the report                    | type (`full`, `partial`) |
 | ejector_partial_withdrawal_gwei_amount | Total amount of the partial withdrawal requests, gwei |  |
