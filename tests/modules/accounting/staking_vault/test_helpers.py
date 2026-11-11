@@ -37,6 +37,25 @@ class TestPendingDepositHelpers:
         assert result[TestPubkeys.PUBKEY_0] == Gwei(3_000)
         assert result[TestPubkeys.PUBKEY_1] == Gwei(3_000)
 
+    def test_get_total_pending_amount_by_pubkey__builder_credentials__skipped(self):
+        # Setup
+        builder_wc = '0xb0' + WithdrawalCredentials.WC_0[4:]
+        pending = [
+            PendingDepositFactory.build(pubkey=TestPubkeys.PUBKEY_0, amount=Gwei(1_000)),
+            PendingDepositFactory.build(
+                pubkey=TestPubkeys.PUBKEY_0, withdrawal_credentials=builder_wc, amount=Gwei(32_000)
+            ),
+            PendingDepositFactory.build(
+                pubkey=TestPubkeys.PUBKEY_1, withdrawal_credentials=builder_wc, amount=Gwei(5_000)
+            ),
+        ]
+
+        # Act
+        result = StakingVaultsService._get_total_pending_amount_by_pubkey(pending)
+
+        # Assert
+        assert result == {TestPubkeys.PUBKEY_0: Gwei(1_000)}
+
 
 @pytest.mark.unit
 class TestValidatorFilteringHelpers:
