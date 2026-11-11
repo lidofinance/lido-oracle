@@ -10,7 +10,9 @@ from src.constants import (
     CURATED_V2_TYPE,
     FAR_FUTURE_EPOCH,
     MIN_ACTIVATION_BALANCE,
+    SHARD_COMMITTEE_PERIOD,
 )
+from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, MAX_PWR_AMOUNT
 from src.providers.execution.contracts.meta_registry import ExternalOperator, SubNodeOperator
 from src.services.exit_order_iterator import (
     InvalidCuratedModuleConfigError,
@@ -20,9 +22,10 @@ from src.services.exit_order_iterator import (
     StakingModuleStats,
     ValidatorExitIterator,
     WeightsNotUpdatedError,
+    WithdrawalStep,
 )
 from src.services.validator_state import InFlightWithdrawals
-from src.types import Gwei, NodeOperatorId, StakingModuleId
+from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId
 from src.utils.validator_balance import get_predictable_inbound_balance
 from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
 from tests.factory.blockstamp import ReferenceBlockStampFactory
@@ -40,17 +43,37 @@ def iterator(web3):
     it.lvs.get_in_flight_withdrawals = Mock(return_value=InFlightWithdrawals())
     it.w3.cc.get_validators_by_indexes = Mock(return_value={})
     it.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
-        return_value=Mock(max_balance_exit_requested_per_report_in_eth=100)
+        return_value=make_report_limits(max_balance_exit_requested_per_report_in_eth=100)
     )
     it.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report = Mock(return_value=500)
+    it.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth = Mock(return_value=32)
+    it.w3.lido_contracts.staking_router.is_partial_withdrawals_allowed = Mock(return_value=False)
+    it.w3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(return_value=[])
+    it.w3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
     it.w3.eth.contract = Mock()
     it._reset_iterator_data()
-    it.in_flight = InFlightWithdrawals()
     it.max_exit_requests_per_report = 500
+    it.exit_limit_in_gwei = Gwei(100_000 * 10**9)
+    it.fwr_weight_by_wc_type = {1: Gwei(32 * 10**9), 2: Gwei(2048 * 10**9)}
+    it.chunk = Gwei(32 * 10**9)
+    it.in_flight = InFlightWithdrawals()
     return it
 
 
-def make_staking_module(sm_id, threshold=10000, name="test"):
+def make_report_limits(max_balance_exit_requested_per_report_in_eth=100, wc_type01=32, wc_type02=2048):
+    return Mock(
+        max_balance_exit_requested_per_report_in_eth=max_balance_exit_requested_per_report_in_eth,
+        max_effective_balance_weight_wc_type01=wc_type01,
+        max_effective_balance_weight_wc_type02=wc_type02,
+    )
+
+
+def selectable_bound(iterator) -> int:
+    """Upper bound for `build_with_activation_epoch_bound` that keeps validators out of SHARD_COMMITTEE_PERIOD."""
+    return iterator.blockstamp.ref_epoch - SHARD_COMMITTEE_PERIOD + 1
+
+
+def make_staking_module(sm_id, threshold=10000, name="test", wc_type=1):
     return StakingModule(
         id=StakingModuleId(sm_id),
         staking_module_address="0x" + "1" * 40,
@@ -65,7 +88,7 @@ def make_staking_module(sm_id, threshold=10000, name="test"):
         priority_exit_share_threshold=threshold,
         max_deposits_per_block=0,
         min_deposit_block_distance=0,
-        withdrawal_credentials_type=0,
+        withdrawal_credentials_type=wc_type,
         validators_balance_gwei=Gwei(0),
     )
 
@@ -95,7 +118,7 @@ def test_eject_validator(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+                LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(3)
             ]
         }
     )
@@ -107,7 +130,7 @@ def test_eject_validator(iterator):
     iterator._calculate_lido_stats()
 
     assert iterator.node_operators_stats[gid11].predictable_validators == 3
-    iterator._eject_validator(gid11)
+    iterator._allocate(gid11, iterator.exitable_validators[gid11][0], FWR_AMOUNT)
     assert iterator.node_operators_stats[gid11].predictable_validators == 2
 
 
@@ -218,7 +241,7 @@ def test_next__request_limit_reached__stops_iteration(iterator):
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+                LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(3)
             ]
         }
     )
@@ -229,21 +252,19 @@ def test_next__request_limit_reached__stops_iteration(iterator):
     iterator._calculate_lido_stats()
     # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-    iterator.max_current_exit_balance = Gwei(0)
-    iterator.ejected_validators_count = 0
     iterator.max_exit_requests_per_report = 2
 
     ejected = [next(iterator), next(iterator)]
 
     assert len(ejected) == 2
-    assert iterator.ejected_validators_count == 2
+    assert len(iterator.get_requests()) == 2
     with pytest.raises(StopIteration):
         next(iterator)
 
 
 @pytest.mark.unit
-def test_get_remaining_forced_validators__request_limit_reached__stops_early(iterator):
-    """get_remaining_forced_validators returns only the room left under max_exit_requests_per_report."""
+def test_allocate_forced_exits__request_limit_reached__stops_early(iterator):
+    """allocate_forced_exits returns only the room left under max_exit_requests_per_report."""
     sm1 = make_staking_module(1)
     # force_exit_to=1, predictable_validators=4 → 3 forced candidates
     no1 = make_node_operator(1, sm1, total_dep=4, target=1, limit_mode=NodeOperatorLimitMode.FORCE)
@@ -254,7 +275,7 @@ def test_get_remaining_forced_validators__request_limit_reached__stops_early(ite
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(4)
+                LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(4)
             ]
         }
     )
@@ -265,20 +286,19 @@ def test_get_remaining_forced_validators__request_limit_reached__stops_early(ite
     iterator._calculate_lido_stats()
     # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-    iterator.max_current_exit_balance = Gwei(0)
-    # Simulate a demand loop that already ejected 1 validator with a total limit of 2
-    iterator.ejected_validators_count = 1
     iterator.max_exit_requests_per_report = 2
+    # The demand loop already requested 1 validator with a total limit of 2
+    next(iterator)
 
-    forced = iterator.get_remaining_forced_validators()
+    forced = iterator.allocate_forced_exits()
 
     assert len(forced) == 1, "Only 1 slot is left under the request limit"
-    assert iterator.ejected_validators_count == 2
+    assert len(iterator.get_requests()) == 2
 
 
 @pytest.mark.unit
-def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(iterator):
-    """Forced validators above their force exit target are returned by get_remaining_forced_validators."""
+def test_allocate_forced_exits__force_target_exceeded__returns_excess(iterator):
+    """Forced validators above their force exit target are returned by allocate_forced_exits."""
     sm1 = make_staking_module(1)
     no1 = make_node_operator(1, sm1, total_dep=3, target=1, limit_mode=NodeOperatorLimitMode.FORCE)
     gid11 = (sm1.id, no1.id)
@@ -288,7 +308,7 @@ def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
         return_value={
             gid11: [
-                LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+                LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(3)
             ]
         }
     )
@@ -299,17 +319,16 @@ def test_get_remaining_forced_validators__force_target_exceeded__returns_excess(
     iterator._calculate_lido_stats()
     # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-    iterator.max_current_exit_balance = Gwei(0)
 
     # force_exit_to=1, predictable_validators=3 → 2 validators should be forcefully ejected
-    forced = iterator.get_remaining_forced_validators()
+    forced = iterator.allocate_forced_exits()
 
     assert len(forced) == 2, "Expected 2 forced validators (3 validators, target 1)"
-    assert all(gid == gid11 for gid, _ in forced)
+    assert all(step.gid == gid11 and step.amount == FWR_AMOUNT for step in forced)
 
 
 @pytest.mark.unit
-def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
+def test_allocate_forced_exits__below_target__returns_empty(iterator):
     """When all validators are at or below their force exit target, returns empty list."""
     sm1 = make_staking_module(1)
     # 1 exitable validator, force_exit_to=2 → force_predicate=max(1-2,0)=0, no exit needed
@@ -319,7 +338,7 @@ def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
     iterator.w3.lido_contracts.staking_router.get_staking_modules = Mock(return_value=[sm1])
     iterator.w3.lido_validators.get_lido_node_operators_by_modules = Mock(return_value={sm1.id: [no1]})
     iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
-        return_value={gid11: [LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)]}
+        return_value={gid11: [LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))]}
     )
     iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
     iterator._finalize_cm_v1_and_cm_v2_stats = Mock()
@@ -328,9 +347,8 @@ def test_get_remaining_forced_validators__below_target__returns_empty(iterator):
     iterator._calculate_lido_stats()
     # These attributes are normally set by __iter__; set them manually for the test
     iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-    iterator.max_current_exit_balance = Gwei(0)
 
-    forced = iterator.get_remaining_forced_validators()
+    forced = iterator.allocate_forced_exits()
 
     assert forced == [], "No forced exits needed when validators are below target"
 
@@ -680,7 +698,7 @@ class TestEjectValidatorTotalStake:
             predictable_balance=initial_stake,
             total_stake=initial_stake,
         )
-        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
         iterator.module_stats = {sm.id: ms}
         iterator.node_operators_stats = {gid: nos}
         iterator.total_lido_predictable_balance = initial_stake
@@ -688,7 +706,7 @@ class TestEjectValidatorTotalStake:
 
         exit_balance = get_predictable_inbound_balance(validator)
 
-        iterator._eject_validator(gid)
+        iterator._allocate(gid, validator, FWR_AMOUNT)
 
         assert ms.total_stake == initial_stake - exit_balance
         assert nos.total_stake == initial_stake - exit_balance
@@ -709,14 +727,6 @@ class TestIsValidatorExitable:
         )
 
         assert iterator._is_validator_exitable(on_exit_validator) is False
-
-    def test_is_validator_exitable__in_flight_fwr__not_exitable(self, iterator):
-        validator = LidoValidatorFactory.build(
-            validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
-        )
-        iterator.in_flight = InFlightWithdrawals(fwr_validators=frozenset({validator.index}))
-
-        assert iterator._is_validator_exitable(validator) is False
 
     def test_is_validator_exitable__consolidating_as_source__not_exitable(self, iterator):
         consolidating_validator = LidoValidatorFactory.build(
@@ -1443,12 +1453,26 @@ class TestFinalizeAndReportLimits:
 
     def test_get_report_limits__sets_exit_limit_in_gwei(self, iterator):
         """_get_report_limits sets exit_limit_in_gwei from oracle report limits."""
-        iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits.return_value = Mock(
-            max_balance_exit_requested_per_report_in_eth=100
+        iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits.return_value = (
+            make_report_limits(max_balance_exit_requested_per_report_in_eth=100)
         )
         iterator._get_report_limits()
 
         assert iterator.exit_limit_in_gwei == Gwei(100 * 10**9)
+
+    def test_get_report_limits__fwr_weights_and_chunk__read_from_contracts(self, iterator):
+        iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits.return_value = (
+            make_report_limits(wc_type01=31, wc_type02=2000)
+        )
+        iterator.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth.return_value = 64
+
+        iterator._get_report_limits()
+
+        assert iterator.fwr_weight_by_wc_type == {1: Gwei(31 * 10**9), 2: Gwei(2000 * 10**9)}
+        assert iterator.chunk == Gwei(64 * 10**9)
+        iterator.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth.assert_called_once_with(
+            iterator.blockstamp.block_hash
+        )
 
     def test_get_report_limits__wo_value_set__uses_wo_value(self, iterator):
         vebo = iterator.w3.lido_contracts.validators_exit_bus_oracle
@@ -1518,7 +1542,7 @@ class TestNextAndIterFull:
             total_stake=Gwei(32 * 10**9),
             total_weight=weight,
         )
-        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
 
         nos = NodeOperatorStats(
             node_operator=no,
@@ -1533,13 +1557,13 @@ class TestNextAndIterFull:
         iterator.node_operators_stats = {gid: nos}
         iterator.exitable_validators = {gid: [validator]}
         iterator.total_lido_predictable_balance = Gwei(32 * 10**9)
-        iterator.max_current_exit_balance = Gwei(0)
         iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
 
-        result_gid, result_val = iterator.__next__()
+        step = iterator.__next__()
 
-        assert result_gid == gid
-        assert result_val is validator
+        assert step.gid == gid
+        assert step.validator is validator
+        assert step.amount == FWR_AMOUNT
 
     def test_next__exceeds_limit__raises_stop_iteration(self, iterator):
         """__next__ raises StopIteration when exit limit is exceeded."""
@@ -1553,7 +1577,7 @@ class TestNextAndIterFull:
             total_stake=Gwei(32 * 10**9),
             total_weight=weight,
         )
-        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
 
         nos = NodeOperatorStats(
             node_operator=no,
@@ -1568,7 +1592,6 @@ class TestNextAndIterFull:
         iterator.node_operators_stats = {gid: nos}
         iterator.exitable_validators = {gid: [validator]}
         iterator.total_lido_predictable_balance = Gwei(32 * 10**9)
-        iterator.max_current_exit_balance = Gwei(0)
         iterator.exit_limit_in_gwei = Gwei(0)  # limit already at 0, any exit exceeds it
 
         with pytest.raises(StopIteration):
@@ -1587,7 +1610,6 @@ class TestNextAndIterFull:
         iterator.node_operators_stats = {gid: nos}
         iterator.exitable_validators = {gid: []}
         iterator.total_lido_predictable_balance = Gwei(0)
-        iterator.max_current_exit_balance = Gwei(0)
         iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
 
         with pytest.raises(StopIteration):
@@ -1617,7 +1639,7 @@ class TestNextAndIterFull:
             total_stake=Gwei(96 * 10**9),
             weight=weight,
         )
-        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
         nos_populated = NodeOperatorStats(
             node_operator=no_populated,
             module_stats=ms,
@@ -1631,16 +1653,15 @@ class TestNextAndIterFull:
         iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
         iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
         iterator.total_lido_predictable_balance = Gwei(128 * 10**9)
-        iterator.max_current_exit_balance = Gwei(0)
         iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
 
-        gid, v = iterator.__next__()
+        step = iterator.__next__()
 
-        assert gid == gid_populated, "The populated operator must be selected"
-        assert v is validator, "The populated operator's validator must be returned"
+        assert step.gid == gid_populated, "The populated operator must be selected"
+        assert step.validator is validator, "The populated operator's validator must be returned"
 
     def test_iter__initializes_all_state(self, iterator):
-        """__iter__ sets up max_current_exit_balance=0 and returns self."""
+        """__iter__ prepares all state and returns self."""
         iterator._reset_iterator_data = Mock()
         iterator._prepare_data_structure = Mock()
         iterator._calculate_lido_stats = Mock()
@@ -1649,7 +1670,6 @@ class TestNextAndIterFull:
         result = iter(iterator)
 
         assert result is iterator
-        assert iterator.max_current_exit_balance == Gwei(0)
         iterator._reset_iterator_data.assert_called_once()
         iterator._prepare_data_structure.assert_called_once()
         iterator._calculate_lido_stats.assert_called_once()
@@ -1699,7 +1719,7 @@ class TestNextAndIterFull:
         }
         validators = {
             name: LidoValidatorFactory.build_with_activation_epoch_bound(
-                iterator.blockstamp.ref_epoch, balance=Gwei(balances_eth[name] * 10**9)
+                selectable_bound(iterator), balance=Gwei(balances_eth[name] * 10**9)
             )
             for name in gids
         }
@@ -1716,7 +1736,7 @@ class TestNextAndIterFull:
         )
         iterator.w3.lido_validators.get_pending_lido_validators = Mock(return_value={})
         iterator.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
-            return_value=Mock(max_balance_exit_requested_per_report_in_eth=100_000)
+            return_value=make_report_limits(max_balance_exit_requested_per_report_in_eth=100_000)
         )
 
         group_a = OperatorGroupFactory.build(
@@ -1761,7 +1781,6 @@ class TestNextAndIterFull:
         }
         iterator.w3.eth.contract = Mock(side_effect=lambda **kw: contracts_by_addr[kw['address']])
 
-        iterator.max_current_exit_balance = Gwei(0)
         iterator._prepare_data_structure()
         iterator._calculate_lido_stats()
         iterator._get_report_limits()
@@ -1807,13 +1826,13 @@ class TestNextAndIterFull:
         assert iterator.module_stats[sm_v2.id].total_weight == 0.0 + 0.0 + 4.0 + 6.0 + 3.0
 
         # --- Now drain the iterator for real and verify ejection completeness/module attribution ---
-        ejected: list[tuple] = []
+        ejected: list[WithdrawalStep] = []
         for _i in range(8):
             ejected.append(next(iterator))
 
         assert len(ejected) == 8
 
-        ejected_module_counts = Counter(gid[0] for gid, _ in ejected)
+        ejected_module_counts = Counter(step.gid[0] for step in ejected)
         assert ejected_module_counts[sm_v1.id] == 4  # ext1, ext2, ext3, ext4
         assert ejected_module_counts[sm_v2.id] == 4  # int1, int2, int3, int5
 
@@ -1837,7 +1856,7 @@ class TestGetRemainingForcedEdgeCases:
         gid = (sm.id, no.id)
         ms = StakingModuleStats(staking_module=sm, predictable_balance=Gwei(96 * 10**9), total_stake=Gwei(96 * 10**9))
         validators = [
-            LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch) for _ in range(3)
+            LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator)) for _ in range(3)
         ]
         nos = NodeOperatorStats(
             node_operator=no,
@@ -1856,12 +1875,11 @@ class TestGetRemainingForcedEdgeCases:
         # First validator: cumulative = 32e9, 32e9 > 32e9 is False → added to result.
         # Second validator: cumulative = 64e9, 64e9 > 32e9 is True → return with 1 item.
         iterator.exit_limit_in_gwei = MIN_ACTIVATION_BALANCE
-        iterator.max_current_exit_balance = Gwei(0)
 
-        result = iterator.get_remaining_forced_validators()
+        result = iterator.allocate_forced_exits()
 
         assert len(result) == 1, "Only the first validator fits within the limit"
-        assert result[0][0] == gid
+        assert result[0].gid == gid
 
     def test_no_exitable_validators__for_else_breaks(self, iterator):
         """When all NOs have forced exits needed but no exitable validators, loop exits via else:break."""
@@ -1881,13 +1899,12 @@ class TestGetRemainingForcedEdgeCases:
         iterator.node_operators_stats = {gid: nos}
         iterator.exitable_validators = {gid: []}  # No validators left to eject
         iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-        iterator.max_current_exit_balance = Gwei(0)
 
-        result = iterator.get_remaining_forced_validators()
+        result = iterator.allocate_forced_exits()
 
         assert result == [], "Empty list when no validators are available despite forced exit need"
 
-    def test_get_remaining_forced_validators__high_priority_no_empty_list__ejects_from_populated_no(self, iterator):
+    def test_allocate_forced_exits__high_priority_no_empty_list__ejects_from_populated_no(self, iterator):
         """A forced NO with an empty exitable list must be skipped without an IndexError, while the
         next forced NO that still has a validator is ejected."""
         sm = make_staking_module(1)
@@ -1902,7 +1919,7 @@ class TestGetRemainingForcedEdgeCases:
             predictable_validators=3,
             force_exit_to=0,
         )
-        validator = LidoValidatorFactory.build_with_activation_epoch_bound(iterator.blockstamp.ref_epoch)
+        validator = LidoValidatorFactory.build_with_activation_epoch_bound(selectable_bound(iterator))
         nos_populated = NodeOperatorStats(
             node_operator=no_populated,
             module_stats=ms,
@@ -1914,10 +1931,292 @@ class TestGetRemainingForcedEdgeCases:
         iterator.node_operators_stats = {gid_empty: nos_empty, gid_populated: nos_populated}
         iterator.exitable_validators = {gid_empty: [], gid_populated: [validator]}
         iterator.exit_limit_in_gwei = Gwei(100_000 * 10**9)
-        iterator.max_current_exit_balance = Gwei(0)
 
-        result = iterator.get_remaining_forced_validators()
+        result = iterator.allocate_forced_exits()
 
         assert len(result) == 1, "Only the populated operator yields a forced validator"
-        assert result[0][0] == gid_populated
-        assert result[0][1] is validator
+        assert result[0].gid == gid_populated
+        assert result[0].validator is validator
+
+
+ETH = 10**9
+COMPOUNDING_WC = '0x02' + '00' * 31
+ETH1_WC = '0x01' + '00' * 31
+
+
+def make_validator(index: int, balance_eth: float, wc: str = COMPOUNDING_WC, activation_epoch: int = 0):
+    return LidoValidatorFactory.build(
+        index=index,
+        balance=Gwei(int(balance_eth * ETH)),
+        validator=ValidatorStateFactory.build(
+            withdrawal_credentials=wc,
+            effective_balance=MIN_ACTIVATION_BALANCE,
+            activation_epoch=EpochNumber(activation_epoch),
+            exit_epoch=FAR_FUTURE_EPOCH,
+        ),
+    )
+
+
+def setup_single_operator(iterator, validators, *, partial_allowed=True, wc_type=2, force_exit_to=None):
+    """One module with one node operator, so the ranking never decides the outcome."""
+    sm = make_staking_module(1, wc_type=wc_type)
+    no = make_node_operator(1, sm)
+    gid = (sm.id, no.id)
+    total = Gwei(sum(get_predictable_inbound_balance(v) for v in validators))
+    ms = StakingModuleStats(
+        staking_module=sm,
+        partial_withdrawals_allowed=partial_allowed,
+        predictable_balance=total,
+        total_stake=total,
+        total_weight=1.0,
+    )
+    nos = NodeOperatorStats(
+        node_operator=no,
+        module_stats=ms,
+        predictable_validators=len(validators),
+        predictable_balance=total,
+        total_stake=total,
+        weight=1.0,
+        force_exit_to=force_exit_to,
+    )
+    iterator.module_stats = {sm.id: ms}
+    iterator.node_operators_stats = {gid: nos}
+    iterator.exitable_validators = {gid: sorted(validators, key=lambda v: v.index)}
+    iterator.total_lido_predictable_balance = total
+    return gid
+
+
+@pytest.mark.unit
+class TestPwrFwrSelection:
+    def test_next__eligible_compounding_validator__takes_one_chunk_pwr(self, iterator):
+        validator = make_validator(1, 100)
+        gid = setup_single_operator(iterator, [validator])
+
+        step = next(iterator)
+
+        assert step.gid == gid
+        assert step.validator is validator
+        assert step.amount == Gwei(32 * ETH)
+        assert step.inbound == Gwei(32 * ETH)
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(validator.lido_id.index, 32 * ETH)]
+
+    def test_next__in_flight_pwr__reduces_amount(self, iterator):
+        validator = make_validator(1, 50)
+        setup_single_operator(iterator, [validator])
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={validator.index: Gwei(10 * ETH)})
+
+        step = next(iterator)
+
+        # 50 ETH balance - 10 ETH in flight - 32 ETH MIN_ACTIVATION_BALANCE
+        assert step.amount == Gwei(8 * ETH)
+
+    @pytest.mark.parametrize(
+        ("balance_eth", "expected_amount"),
+        [
+            pytest.param(33, Gwei(1 * ETH), id="33_eth__pwr"),
+            pytest.param(32.9, FWR_AMOUNT, id="below_33_eth__fwr"),
+        ],
+    )
+    def test_next__pwr_eligibility_threshold__is_33_eth(self, iterator, balance_eth, expected_amount):
+        setup_single_operator(iterator, [make_validator(1, balance_eth)])
+
+        assert next(iterator).amount == expected_amount
+
+    def test_next__module_without_partial_withdrawals__fwr_lowest_index(self, iterator):
+        low, high = make_validator(3, 100), make_validator(7, 100)
+        setup_single_operator(iterator, [high, low], partial_allowed=False)
+
+        step = next(iterator)
+
+        assert step.amount == FWR_AMOUNT
+        assert step.validator is low
+
+    def test_next__eth1_validator_in_partial_module__fwr(self, iterator):
+        validator = make_validator(1, 100, wc=ETH1_WC)
+        setup_single_operator(iterator, [validator], wc_type=1)
+
+        assert next(iterator).amount == FWR_AMOUNT
+
+    def test_next__forced_operator__fwr_even_when_pwr_eligible(self, iterator):
+        validator = make_validator(1, 100)
+        setup_single_operator(iterator, [validator], force_exit_to=0)
+
+        step = next(iterator)
+
+        assert step.amount == FWR_AMOUNT
+        assert step.validator is validator
+
+    def test_next__smallest_eligible_validator__preferred(self, iterator):
+        big, small = make_validator(1, 200), make_validator(2, 50)
+        setup_single_operator(iterator, [big, small])
+
+        step = next(iterator)
+
+        assert step.validator is small
+        assert step.amount == Gwei(18 * ETH)
+
+    def test_next__validator_already_in_report__preferred_over_smaller(self, iterator):
+        big, small = make_validator(1, 200), make_validator(2, 50)
+        gid = setup_single_operator(iterator, [big, small])
+        iterator._allocate(gid, big, Gwei(10 * ETH))
+
+        step = next(iterator)
+
+        assert step.validator is big
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(big.lido_id.index, 42 * ETH)]
+
+    def test_next__balances_above_max_pwr_headroom__smallest_balance_preferred(self, iterator):
+        # Both validators can give the full MAX_PWR_AMOUNT, so only the balance tells them apart.
+        larger, smaller = make_validator(1, 2049.5), make_validator(2, 2048.4)
+        setup_single_operator(iterator, [larger, smaller])
+
+        step = next(iterator)
+
+        assert step.validator is smaller
+        assert step.amount == Gwei(32 * ETH)
+
+    def test_next__in_flight_pwr__ranks_by_balance_after_it(self, iterator):
+        # 100 ETH with 60 ETH already requested has 40 ETH left, less than the 50 ETH validator.
+        drained, plain = make_validator(1, 100), make_validator(2, 50)
+        setup_single_operator(iterator, [drained, plain])
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={drained.index: Gwei(60 * ETH)})
+
+        step = next(iterator)
+
+        assert step.validator is drained
+        assert step.amount == Gwei(8 * ETH)
+
+
+@pytest.mark.unit
+class TestReportRecords:
+    def test_steps_on_one_validator__merge_into_one_pwr__then_fwr_replaces_it(self, iterator):
+        validator = make_validator(1, 100)
+        setup_single_operator(iterator, [validator])
+
+        steps = [next(iterator) for _ in range(4)]
+
+        # 32 + 32 + 4 ETH of headroom above 32 ETH, then no PWR headroom is left.
+        assert [s.amount for s in steps] == [Gwei(32 * ETH), Gwei(32 * ETH), Gwei(4 * ETH), FWR_AMOUNT]
+        # The FWR counts the balance minus the PWRs it replaces.
+        assert steps[3].inbound == get_predictable_inbound_balance(validator) - Gwei(68 * ETH)
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(validator.lido_id.index, FWR_AMOUNT)]
+
+    def test_pwr__capped_at_max_pwr_amount(self, iterator):
+        validator = make_validator(1, 3000)
+        validator.validator.effective_balance = Gwei(2048 * ETH)
+        setup_single_operator(iterator, [validator])
+        iterator.chunk = Gwei(5000 * ETH)
+
+        first, second = next(iterator), next(iterator)
+
+        assert first.amount == MAX_PWR_AMOUNT
+        assert second.amount == FWR_AMOUNT, "No PWR headroom left under MAX_PWR_AMOUNT"
+
+    def test_fwr_after_in_report_pwr__replaces_it_in_place(self, iterator):
+        x, y = make_validator(1, 100), make_validator(2, 100)
+        gid = setup_single_operator(iterator, [x, y])
+        iterator._allocate(gid, x, Gwei(10 * ETH))
+        iterator._allocate(gid, y, Gwei(5 * ETH))
+
+        step = iterator._allocate(gid, x, FWR_AMOUNT)
+
+        assert step is not None
+        assert step.inbound == get_predictable_inbound_balance(x) - Gwei(10 * ETH)
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [
+            (x.lido_id.index, FWR_AMOUNT),
+            (y.lido_id.index, Gwei(5 * ETH)),
+        ], "The FWR keeps the PWR's position and the report keeps one record per validator"
+        assert iterator._pwr_total == Gwei(5 * ETH)
+        assert iterator._fwr_weight == Gwei(2048 * ETH)
+
+    def test_record_cap__counts_records_not_steps(self, iterator):
+        first, second = make_validator(1, 200), make_validator(2, 300)
+        setup_single_operator(iterator, [first, second])
+        iterator.max_exit_requests_per_report = 1
+
+        steps = [next(iterator) for _ in range(3)]
+
+        assert {s.validator.index for s in steps} == {first.index}
+        assert len(iterator.get_requests()) == 1
+
+
+@pytest.mark.unit
+class TestInFlightWithdrawals:
+    def test_next__in_flight_pwr__never_fwr(self, iterator):
+        blocked, free = make_validator(1, 32), make_validator(2, 32)
+        setup_single_operator(iterator, [blocked, free], partial_allowed=False)
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={blocked.index: Gwei(1 * ETH)})
+
+        assert next(iterator).validator is free
+
+    def test_next__only_validator_has_in_flight_pwr__stops(self, iterator):
+        blocked = make_validator(1, 32)
+        setup_single_operator(iterator, [blocked], partial_allowed=False)
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={blocked.index: Gwei(1 * ETH)})
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+
+    def test_is_validator_exitable__in_flight_fwr__not_exitable(self, iterator):
+        validator = make_validator(1, 32)
+        iterator.in_flight = InFlightWithdrawals(fwr_validators=frozenset({validator.index}))
+
+        assert iterator._is_validator_exitable(validator) is False
+
+
+@pytest.mark.unit
+class TestShardCommitteePeriod:
+    def test_recently_activated_validator__exitable_but_not_selected(self, iterator):
+        fresh = make_validator(1, 100, activation_epoch=iterator.blockstamp.ref_epoch - SHARD_COMMITTEE_PERIOD + 1)
+        setup_single_operator(iterator, [fresh])
+
+        # Still counted in stake accounting...
+        assert iterator._is_validator_exitable(fresh) is True
+        # ...but never selected for a withdrawal.
+        with pytest.raises(StopIteration):
+            next(iterator)
+
+    def test_validator_at_shard_committee_period_boundary__selected(self, iterator):
+        ready = make_validator(1, 100, activation_epoch=iterator.blockstamp.ref_epoch - SHARD_COMMITTEE_PERIOD)
+        setup_single_operator(iterator, [ready])
+
+        assert next(iterator).validator is ready
+
+
+@pytest.mark.unit
+class TestReportExitLimit:
+    @pytest.mark.parametrize(
+        ("pwr_total", "fwr_weight", "expected"),
+        [
+            pytest.param(Gwei(1), Gwei(0), Gwei(1 * ETH), id="dust_rounds_up"),
+            pytest.param(Gwei(32 * ETH + 1), Gwei(0), Gwei(33 * ETH), id="above_whole_eth_rounds_up"),
+            pytest.param(Gwei(32 * ETH), Gwei(2048 * ETH), Gwei(2080 * ETH), id="pwr_plus_fwr"),
+        ],
+    )
+    def test_get_exit_weight__pwr_rounded_up_to_whole_eth(self, pwr_total, fwr_weight, expected):
+        assert ValidatorExitIterator._get_exit_weight(pwr_total, fwr_weight) == expected
+
+    def test_pwr_limit__rounded_weight_fits__next_chunk_stops(self, iterator):
+        setup_single_operator(iterator, [make_validator(1, 200)])
+        iterator.chunk = Gwei(int(32.5 * ETH))
+        iterator.exit_limit_in_gwei = Gwei(33 * ETH)
+
+        assert next(iterator).amount == Gwei(int(32.5 * ETH))
+        with pytest.raises(StopIteration):
+            next(iterator)
+
+    @pytest.mark.parametrize(
+        ("wc_type", "fits"),
+        [pytest.param(1, True, id="0x01_module__32_eth_weight"), pytest.param(2, False, id="0x02_module__2048_eth")],
+    )
+    def test_fwr_weight__by_module_wc_type(self, iterator, wc_type, fits):
+        setup_single_operator(iterator, [make_validator(1, 32)], partial_allowed=False, wc_type=wc_type)
+        iterator.exit_limit_in_gwei = Gwei(100 * ETH)
+
+        if fits:
+            assert next(iterator).amount == FWR_AMOUNT
+            assert iterator._fwr_weight == Gwei(32 * ETH)
+        else:
+            with pytest.raises(StopIteration):
+                next(iterator)
+            assert iterator.get_requests() == []

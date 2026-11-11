@@ -1,4 +1,5 @@
 import logging
+import math
 from dataclasses import dataclass
 from typing import cast
 
@@ -10,15 +11,18 @@ from src.constants import (
     ETH1_ADDRESS_WITHDRAWAL_PREFIX,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+    SHARD_COMMITTEE_PERIOD,
     TOTAL_BASIS_POINTS,
 )
 from src.metrics.prometheus.duration_meter import duration_meter
+from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, MAX_PWR_AMOUNT, WithdrawalRequest
 from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
 from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
 from src.services.validator_state import InFlightWithdrawals, LidoValidatorStateService
-from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId
+from src.types import Gwei, NodeOperatorGlobalIndex, ReferenceBlockStamp, StakingModuleId, ValidatorIndex
 from src.utils.validator_balance import get_predictable_inbound_balance
-from src.utils.validator_state import get_max_effective_balance, is_on_exit
+from src.utils.validator_state import has_compounding_withdrawal_credential, is_on_exit
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
@@ -34,10 +38,36 @@ logger = logging.getLogger(__name__)
 type CMv1 = tuple[StakingModuleId, CuratedStakingModuleContract]
 type CMv2 = tuple[StakingModuleId, CuratedStakingModuleContract]
 
+# LIP-38: a validator is PWR-eligible while its balance is at least 1 ETH above MIN_ACTIVATION_BALANCE.
+MIN_PWR_HEADROOM = Gwei(10**9)
+
+GWEI_PER_ETH = 10**9
+
+
+@dataclass(frozen=True)
+class WithdrawalStep:
+    """One iterator step: a chunk of demand given to one validator."""
+
+    gid: NodeOperatorGlobalIndex
+    validator: LidoValidator
+    # PWR amount taken in this step, or FWR_AMOUNT for a full withdrawal.
+    amount: Gwei
+    # ETH the step adds to what the report brings in. An FWR counts the validator's balance
+    # minus the PWRs it replaces, because those were already counted.
+    inbound: Gwei
+
+
+@dataclass
+class _Allocation:
+    gid: NodeOperatorGlobalIndex
+    validator: LidoValidator
+    amount: Gwei
+
 
 @dataclass
 class StakingModuleStats:
     staking_module: StakingModule
+    partial_withdrawals_allowed: bool = False
     predictable_balance: Gwei = Gwei(0)
 
     total_stake: Gwei = Gwei(0)
@@ -93,11 +123,20 @@ class InvalidCuratedModuleConfigError(Exception):
 
 class ValidatorExitIterator:
     """
-    To determine which validators to request for exit, the VEBO selects one entry
-    from the sorted list of exitable Lido validators until the demand in WQ is covered by
-    the exiting validators and future rewards, or until the limit per report is reached.
+    Builds the VEBO report as withdrawal requests (LIP-38). Each step gives one EXIT_ITERATION_CHUNK
+    of demand to the highest-ranked node operator, then ranks again.
 
-    Staking Router v2.0 ejection order.
+    Phase 1 (`__next__`) runs until the caller sees the WQ demand covered.
+    Phase 2 (`allocate_forced_exits`) then covers what is left of the forced exits.
+    Both phases share one per-report exit limit and the cap on records per report.
+
+    Within the selected operator:
+    - an operator over its force-exit limit always gets an FWR;
+    - otherwise a PWR from a validator that already has a PWR in this report, while it stays eligible;
+    - otherwise a PWR from the PWR-eligible validator with the smallest balance;
+    - otherwise an FWR for the validator with the lowest index.
+
+    Node operator order:
 
     | Sorting | Staking Module                                                        | Node Operator                                         | Validator              |
     | ------- | --------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------- |
@@ -108,10 +147,10 @@ class ValidatorExitIterator:
     | V       |                                                                       |                                                       | Lowest validator index |
     """  # noqa: E501
 
-    max_current_exit_balance: Gwei
     exit_limit_in_gwei: Gwei
-    ejected_validators_count: int
     max_exit_requests_per_report: int
+    fwr_weight_by_wc_type: dict[int, Gwei]
+    chunk: Gwei
     in_flight: InFlightWithdrawals
     total_lido_predictable_balance: Gwei
     module_stats: dict[StakingModuleId, StakingModuleStats]
@@ -128,9 +167,6 @@ class ValidatorExitIterator:
     # --- Iterator initialization ---
     @duration_meter()
     def __iter__(self) -> ValidatorExitIterator:
-        # Sum of all max effective balances for validators going to exit. Required to make sure we pass a sanity check.
-        self.max_current_exit_balance = Gwei(0)
-
         self._reset_iterator_data()
         self._prepare_data_structure()
         self._calculate_lido_stats()
@@ -139,8 +175,12 @@ class ValidatorExitIterator:
         return self
 
     def _reset_iterator_data(self):
-        self.ejected_validators_count = 0
         self.total_lido_predictable_balance = Gwei(0)
+        # Report records by validator, in report order. A PWR merged with a later step or replaced
+        # by an FWR keeps its position.
+        self._allocations: dict[ValidatorIndex, _Allocation] = {}
+        self._pwr_total = Gwei(0)
+        self._fwr_weight = Gwei(0)
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
@@ -152,8 +192,14 @@ class ValidatorExitIterator:
 
     def _prepare_module_stats(self):
         modules = self.w3.lido_contracts.staking_router.get_staking_modules(self.blockstamp.block_hash)
+        staking_router = self.w3.lido_contracts.staking_router
         for module in modules:
-            self.module_stats[module.id] = StakingModuleStats(module)
+            self.module_stats[module.id] = StakingModuleStats(
+                module,
+                partial_withdrawals_allowed=staking_router.is_partial_withdrawals_allowed(
+                    module.id, self.blockstamp.block_hash
+                ),
+            )
 
     def _prepare_node_operator_stats(self):
         sm_node_operators = self.w3.lido_validators.get_lido_node_operators_by_modules(self.blockstamp)
@@ -379,11 +425,18 @@ class ValidatorExitIterator:
             self.module_stats[sm_id].total_weight += node_operator.weight
 
     def _get_report_limits(self) -> None:
-        self.exit_limit_in_gwei = Gwei(
-            self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
-                self.blockstamp.block_hash,
-            ).max_balance_exit_requested_per_report_in_eth
-            * 10**9
+        limits = self.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits(
+            self.blockstamp.block_hash,
+        )
+        self.exit_limit_in_gwei = Gwei(limits.max_balance_exit_requested_per_report_in_eth * GWEI_PER_ETH)
+        # VEBO weighs an FWR at the max-EB weight of its module's WC type, read from the sanity checker.
+        self.fwr_weight_by_wc_type = {
+            1: Gwei(limits.max_effective_balance_weight_wc_type01 * GWEI_PER_ETH),
+            2: Gwei(limits.max_effective_balance_weight_wc_type02 * GWEI_PER_ETH),
+        }
+        self.chunk = Gwei(
+            self.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth(self.blockstamp.block_hash)
+            * GWEI_PER_ETH
         )
         self.max_exit_requests_per_report = (
             self.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report(
@@ -393,8 +446,154 @@ class ValidatorExitIterator:
 
     # --- Iterator ---
     @duration_meter()
-    def __next__(self) -> tuple[NodeOperatorGlobalIndex, LidoValidator]:
-        if self.ejected_validators_count >= self.max_exit_requests_per_report:
+    def __next__(self) -> WithdrawalStep:
+        """Phase 1: the next chunk of WQ demand."""
+        for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
+            gid = (
+                node_operator.module_stats.staking_module.id,
+                node_operator.node_operator.id,
+            )
+            if not self.exitable_validators[gid]:
+                continue
+
+            pick = self._pick(gid, forced=self._no_force_predicate(node_operator) > 0)
+            if pick is None:
+                continue
+
+            step = self._allocate(gid, *pick)
+            if step is None:
+                raise StopIteration
+            return step
+
+        raise StopIteration
+
+    def allocate_forced_exits(self) -> list[WithdrawalStep]:
+        """
+        Phase 2: FWRs for node operators still over their force-exit limit after the WQ demand is covered.
+        """
+        steps: list[WithdrawalStep] = []
+
+        while True:
+            for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
+                if self._no_force_predicate(no_stats) == 0:
+                    # The current and all further NOs in the list have no forced validators to exit. Cycle done
+                    return steps
+
+                gid = (
+                    no_stats.node_operator.staking_module.id,
+                    no_stats.node_operator.id,
+                )
+                validator = self._pick_fwr_validator(gid)
+                if validator is None:
+                    continue
+
+                step = self._allocate(gid, validator, FWR_AMOUNT)
+                if step is None:
+                    return steps
+                steps.append(step)
+                break
+            else:
+                return steps
+
+    def get_requests(self) -> list[WithdrawalRequest]:
+        """The report records, in report order."""
+        return [
+            WithdrawalRequest(
+                module_id=allocation.gid[0],
+                node_operator_id=allocation.gid[1],
+                key_index=allocation.validator.lido_id.index,
+                amount=allocation.amount,
+            )
+            for allocation in self._allocations.values()
+        ]
+
+    # --- Selection ---
+    def _pick(self, gid: NodeOperatorGlobalIndex, forced: bool) -> tuple[LidoValidator, Gwei] | None:
+        """PWR preferred; an operator over its force-exit limit always gets an FWR."""
+        if not forced:
+            pwr = self._pick_pwr_validator(gid)
+            if pwr is not None:
+                return pwr
+
+        validator = self._pick_fwr_validator(gid)
+        if validator is None:
+            return None
+        return validator, FWR_AMOUNT
+
+    def _pick_pwr_validator(self, gid: NodeOperatorGlobalIndex) -> tuple[LidoValidator, Gwei] | None:
+        if not self.module_stats[gid[0]].partial_withdrawals_allowed:
+            return None
+
+        candidates = [
+            validator
+            for validator in self.exitable_validators[gid]
+            if self._is_selectable(validator) and self._pwr_headroom(validator) > 0
+        ]
+        if not candidates:
+            return None
+
+        # Keep taking from validators already in this report, then from the eligible one with the smallest balance.
+        validator = min(
+            candidates,
+            key=lambda v: (v.index not in self._allocations, self._remaining_balance(v), v.index),
+        )
+        return validator, Gwei(min(self.chunk, self._pwr_headroom(validator)))
+
+    def _pick_fwr_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator | None:
+        """
+        Lowest index first. A validator with a PWR from an earlier report is skipped: the CL rejects
+        an FWR while a PWR for the same validator is unprocessed.
+        """
+        for validator in self.exitable_validators[gid]:
+            if self._is_selectable(validator) and validator.index not in self.in_flight.pwr_amounts:
+                return validator
+        return None
+
+    def _is_selectable(self, validator: LidoValidator) -> bool:
+        """The CL drops withdrawal requests for validators active for less than SHARD_COMMITTEE_PERIOD."""
+        return validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= self.blockstamp.ref_epoch
+
+    def _pwr_headroom(self, validator: LidoValidator) -> Gwei:
+        """How much a PWR can still take from the validator in this report, 0 if it is not PWR-eligible."""
+        if not has_compounding_withdrawal_credential(validator.validator):
+            return Gwei(0)
+
+        remaining = self._remaining_balance(validator) - MIN_ACTIVATION_BALANCE
+        if remaining < MIN_PWR_HEADROOM:
+            return Gwei(0)
+        return Gwei(max(0, min(remaining, MAX_PWR_AMOUNT - self._report_pwr_amount(validator))))
+
+    def _remaining_balance(self, validator: LidoValidator) -> Gwei:
+        """Balance left after the PWRs requested in earlier reports and in this one."""
+        return Gwei(
+            validator.balance
+            - self.in_flight.pwr_amounts.get(validator.index, Gwei(0))
+            - self._report_pwr_amount(validator)
+        )
+
+    def _report_pwr_amount(self, validator: LidoValidator) -> Gwei:
+        allocation = self._allocations.get(validator.index)
+        return allocation.amount if allocation else Gwei(0)
+
+    # --- Allocation ---
+    def _allocate(self, gid: NodeOperatorGlobalIndex, validator: LidoValidator, amount: Gwei) -> WithdrawalStep | None:
+        """Adds the step to the report, or returns None if it does not fit the report limits."""
+        allocation = self._allocations.get(validator.index)
+        in_report_pwr = allocation.amount if allocation else Gwei(0)
+
+        if amount == FWR_AMOUNT:
+            pwr_total = Gwei(self._pwr_total - in_report_pwr)
+            fwr_weight = Gwei(self._fwr_weight + self._get_fwr_weight(gid))
+            new_amount = FWR_AMOUNT
+            inbound = Gwei(max(0, get_predictable_inbound_balance(validator) - in_report_pwr))
+        else:
+            pwr_total = Gwei(self._pwr_total + amount)
+            fwr_weight = self._fwr_weight
+            new_amount = Gwei(in_report_pwr + amount)
+            inbound = amount
+
+        records = len(self._allocations) + (0 if allocation else 1)
+        if records > self.max_exit_requests_per_report:
             logger.info(
                 {
                     'msg': 'Reached the max exit requests per report. '
@@ -402,55 +601,47 @@ class ValidatorExitIterator:
                     'limit': self.max_exit_requests_per_report,
                 }
             )
-            raise StopIteration
+            return None
 
-        for node_operator in sorted(self.node_operators_stats.values(), key=self._no_predicate):
-            gid = (
-                node_operator.module_stats.staking_module.id,
-                node_operator.node_operator.id,
-            )
-            # Check if there are exitable validators
-            # get the next node operator if yes
-            if not self.exitable_validators[gid]:
-                continue
+        if self._get_exit_weight(pwr_total, fwr_weight) > self.exit_limit_in_gwei:
+            return None
 
-            v: LidoValidator = self._eject_validator(gid)
-            self.max_current_exit_balance += get_max_effective_balance(v.validator)
+        self._pwr_total = pwr_total
+        self._fwr_weight = fwr_weight
+        if allocation:
+            allocation.amount = new_amount
+        else:
+            self._allocations[validator.index] = _Allocation(gid, validator, new_amount)
 
-            if self.max_current_exit_balance > self.exit_limit_in_gwei:
-                raise StopIteration
+        if new_amount == FWR_AMOUNT:
+            self.exitable_validators[gid].remove(validator)
+            self.node_operators_stats[gid].predictable_validators -= 1
 
-            self.ejected_validators_count += 1
-            return gid, v
+        self._decrease_predictable_balance(gid, inbound)
 
-        raise StopIteration
+        return WithdrawalStep(gid=gid, validator=validator, amount=amount, inbound=inbound)
 
-    def _is_validator_exitable(self, validator: LidoValidator) -> bool:
-        """Not on exit, no full withdrawal queued in EIP-7002 or the Bus, not a consolidation source."""
-        return (
-            not is_on_exit(validator)
-            and validator.index not in self.in_flight.fwr_validators
-            and validator.consolidating_as_source is None
-        )
+    @staticmethod
+    def _get_exit_weight(pwr_total: Gwei, fwr_weight: Gwei) -> Gwei:
+        """Same weighing as the VEBO sanity check: PWR amounts are summed and rounded up to whole ETH."""
+        return Gwei(math.ceil(pwr_total / GWEI_PER_ETH) * GWEI_PER_ETH + fwr_weight)
 
-    def _eject_validator(self, gid: NodeOperatorGlobalIndex) -> LidoValidator:
-        lido_validator = self.exitable_validators[gid].pop(0)
+    def _get_fwr_weight(self, gid: NodeOperatorGlobalIndex) -> Gwei:
+        wc_type = self.module_stats[gid[0]].staking_module.withdrawal_credentials_type
+        if wc_type not in self.fwr_weight_by_wc_type:
+            raise ValueError(f'Unknown withdrawal credentials type {wc_type} of staking module {gid[0]}.')
+        return self.fwr_weight_by_wc_type[wc_type]
 
-        exit_balance = get_predictable_inbound_balance(lido_validator)
-
-        # Change lido total
+    def _decrease_predictable_balance(self, gid: NodeOperatorGlobalIndex, exit_balance: Gwei) -> None:
         self.total_lido_predictable_balance -= exit_balance
-        # Change module total
         self.module_stats[gid[0]].predictable_balance -= exit_balance
-        # Change node operator stats
-        self.node_operators_stats[gid].predictable_validators -= 1
         self.node_operators_stats[gid].predictable_balance -= exit_balance
 
         self._decrease_affected_stake(gid, exit_balance)
 
         logger.debug(
             {
-                'msg': 'Iterator state change. Eject validator.',
+                'msg': 'Iterator state change. Allocate withdrawal.',
                 'total_lido_predictable_balance': self.total_lido_predictable_balance,
                 'no_gid': gid[0],
                 'module_stats': self.module_stats[gid[0]].predictable_balance,
@@ -458,7 +649,13 @@ class ValidatorExitIterator:
             }
         )
 
-        return lido_validator
+    def _is_validator_exitable(self, validator: LidoValidator) -> bool:
+        """Not on exit, no full withdrawal queued in the Bus, not a consolidation source."""
+        return (
+            not is_on_exit(validator)
+            and validator.index not in self.in_flight.fwr_validators
+            and validator.consolidating_as_source is None
+        )
 
     def _decrease_affected_stake(self, gid: NodeOperatorGlobalIndex, exit_balance: Gwei) -> None:
         self.module_stats[gid[0]].total_stake -= exit_balance
@@ -569,50 +766,6 @@ class ValidatorExitIterator:
         # all validators in exitable_validators are sorted
         # If NO doesn't have exitable validators - sorting by validator index doesn't matter
         return validators[0].index if validators else 0
-
-    def get_remaining_forced_validators(self) -> list[tuple[NodeOperatorGlobalIndex, LidoValidator]]:
-        """
-        Returns a list of validators from NOs that are requested for forced exit.
-        This includes an additional scenario where enough validators have been ejected
-        to fulfill the withdrawal requests, but forced ejections are still necessary.
-        """
-        result: list[tuple[NodeOperatorGlobalIndex, LidoValidator]] = []
-
-        while True:
-            if self.ejected_validators_count >= self.max_exit_requests_per_report:
-                logger.info(
-                    {
-                        'msg': 'Reached the max exit requests per report. '
-                        'Dropped requests will be reported in the following frames.',
-                        'limit': self.max_exit_requests_per_report,
-                    }
-                )
-                return result
-
-            for no_stats in sorted(self.node_operators_stats.values(), key=self.no_remaining_forced_predicate):
-                if self._no_force_predicate(no_stats) == 0:
-                    # The current and all further NOs in the list have no forced validators to exit. Cycle done
-                    return result
-
-                gid = (
-                    no_stats.node_operator.staking_module.id,
-                    no_stats.node_operator.id,
-                )
-
-                if self.exitable_validators[gid]:
-                    v = self._eject_validator(gid)
-                    self.max_current_exit_balance += get_max_effective_balance(v.validator)
-
-                    if self.max_current_exit_balance > self.exit_limit_in_gwei:
-                        return result
-
-                    self.ejected_validators_count += 1
-                    result.append((gid, v))
-                    break
-            else:
-                break
-
-        return result
 
     def no_remaining_forced_predicate(self, no: NodeOperatorStats) -> tuple:
         return (
