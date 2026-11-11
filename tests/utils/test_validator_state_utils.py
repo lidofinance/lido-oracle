@@ -22,9 +22,7 @@ from src.utils.validator_state import (
     has_far_future_activation_eligibility_epoch,
     is_active_validator,
     is_exited_validator,
-    is_fully_withdrawable_validator,
     is_on_exit,
-    is_partially_withdrawable_validator,
 )
 from tests.factory.no_registry import ValidatorFactory
 from tests.modules.accounting.bunker.test_bunker_abnormal_cl_rebase import (
@@ -213,54 +211,6 @@ def test_has_execution_withdrawal_credential(wc, expected):
     validator.validator.withdrawal_credentials = wc
 
     actual = has_execution_withdrawal_credential(validator.validator)
-    assert actual == expected
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "withdrawable_epoch, wc, balance, epoch, expected",
-    [
-        (176720, '0x01ba', 32 * (10**10), 176722, True),
-        (176722, '0x01ba', 32 * (10**10), 176722, True),
-        (176723, '0x01ba', 32 * (10**10), 176722, False),
-        (176722, '0x01ba', 0, 176722, False),
-        (176720, '0x02ba', 32 * (10**10), 176722, True),
-        (176722, '0x02ba', 32 * (10**10), 176722, True),
-        (176723, '0x02ba', 32 * (10**10), 176722, False),
-        (176722, '0x02ba', 0, 176722, False),
-    ],
-)
-def test_is_fully_withdrawable_validator(withdrawable_epoch, wc, balance, epoch, expected):
-    validator = ValidatorFactory.build()
-    validator.validator.withdrawable_epoch = withdrawable_epoch
-    validator.validator.withdrawal_credentials = wc
-    validator.balance = balance
-
-    actual = is_fully_withdrawable_validator(validator.validator, validator.balance, EpochNumber(epoch))
-    assert actual == expected
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "effective_balance, add_balance, withdrawal_credentials, expected",
-    [
-        (32 * 10**9, 1, '0x01ba', True),
-        (MAX_EFFECTIVE_BALANCE_ELECTRA, 1, '0x02ba', True),
-        (32 * 10**9, 1, '0x0', False),
-        (32 * 10**8, 0, '0x01ba', False),
-        (MAX_EFFECTIVE_BALANCE_ELECTRA, 0, '0x02ba', False),
-        (32 * 10**9, 0, '0x', False),
-        (0, 0, '0x01ba', False),
-        (0, 0, '0x02ba', False),
-    ],
-)
-def test_is_partially_withdrawable(effective_balance, add_balance, withdrawal_credentials, expected):
-    validator = ValidatorFactory.build()
-    validator.validator.withdrawal_credentials = withdrawal_credentials
-    validator.validator.effective_balance = effective_balance
-    validator.balance = effective_balance + add_balance
-
-    actual = is_partially_withdrawable_validator(validator.validator, validator.balance)
     assert actual == expected
 
 

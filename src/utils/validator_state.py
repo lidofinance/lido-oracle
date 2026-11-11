@@ -38,17 +38,6 @@ def is_on_exit(validator: Validator) -> bool:
     return validator.validator.exit_epoch != FAR_FUTURE_EPOCH
 
 
-def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei) -> bool:
-    """
-    Check if ``validator`` is partially withdrawable.
-    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator
-    """
-    max_effective_balance = get_max_effective_balance(validator)
-    has_max_effective_balance = validator.effective_balance == max_effective_balance
-    has_excess_balance = balance > max_effective_balance
-    return has_execution_withdrawal_credential(validator) and has_max_effective_balance and has_excess_balance
-
-
 def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bool:
     """
     Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
@@ -78,16 +67,6 @@ def has_execution_withdrawal_credential(validator: ValidatorState) -> bool:
     https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential
     """
     return has_compounding_withdrawal_credential(validator) or has_eth1_withdrawal_credential(validator)
-
-
-def is_fully_withdrawable_validator(validator: ValidatorState, balance: Gwei, epoch: EpochNumber) -> bool:
-    """
-    Check if `validator` is fully withdrawable
-    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator
-    """
-    return (
-        has_execution_withdrawal_credential(validator) and validator.withdrawable_epoch <= epoch and balance > Gwei(0)
-    )
 
 
 def calculate_total_active_effective_balance(all_validators: Sequence[Validator], ref_epoch: EpochNumber) -> Gwei:
