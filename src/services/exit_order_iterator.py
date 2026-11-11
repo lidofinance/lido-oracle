@@ -386,7 +386,7 @@ class ValidatorExitIterator:
             * 10**9
         )
         self.max_exit_requests_per_report = (
-            self.w3.lido_contracts.validators_exit_bus_oracle.get_max_validators_per_report(
+            self.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report(
                 self.blockstamp.block_hash,
             )
         )
