@@ -13,8 +13,10 @@ from src.metrics.prometheus.business import CONTRACT_ON_PAUSE
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.metrics.prometheus.ejector import (
     EJECTOR_MAX_WITHDRAWAL_EPOCH,
+    EJECTOR_PARTIAL_WITHDRAWAL_GWEI_AMOUNT,
     EJECTOR_TO_WITHDRAW_WEI_AMOUNT,
     EJECTOR_VALIDATORS_COUNT_TO_EJECT,
+    EJECTOR_WITHDRAWAL_REQUESTS,
 )
 from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
@@ -141,11 +143,14 @@ class Ejector(OracleModule[Web3]):
         self.w3.lido_contracts.get_ejector_last_processing_ref_slot(blockstamp)
 
         requests = self.get_withdrawal_requests(blockstamp)
+        full = sum(r.is_full for r in requests)
+        partial_amount = Gwei(sum(r.amount for r in requests))
         logger.info(
             {
                 'msg': f'Calculate withdrawal requests. Count: {len(requests)}',
-                'full': sum(r.is_full for r in requests),
-                'partial': sum(not r.is_full for r in requests),
+                'full': full,
+                'partial': len(requests) - full,
+                'partial_amount_gwei': partial_amount,
             },
         )
 
@@ -160,6 +165,9 @@ class Ejector(OracleModule[Web3]):
         )
 
         EJECTOR_VALIDATORS_COUNT_TO_EJECT.set(report_data.requests_count)
+        EJECTOR_WITHDRAWAL_REQUESTS.labels(type='full').set(full)
+        EJECTOR_WITHDRAWAL_REQUESTS.labels(type='partial').set(len(requests) - full)
+        EJECTOR_PARTIAL_WITHDRAWAL_GWEI_AMOUNT.set(partial_amount)
 
         return dataclasses.astuple(report_data)
 
