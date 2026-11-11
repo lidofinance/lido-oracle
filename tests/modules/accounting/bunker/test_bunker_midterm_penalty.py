@@ -358,7 +358,7 @@ def test_predict_midterm_penalty_in_frame(
     expected_result,
 ):
     result = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
-        report_ref_epoch=EpochNumber(ref_epoch),
+        state_epoch=EpochNumber(ref_epoch),
         total_balance=total_balance,
         slashings=slashings,
         midterm_penalized_validators_in_frame=validators_in_frame,
@@ -410,7 +410,7 @@ def test_get_validator_midterm_penalty(
         slashings=slashings,
         total_balance=Gwei(sum(v.validator.effective_balance for v in active_validators)),
         midterm_penalty_epoch=midterm_penalty_epoch,
-        report_ref_epoch=report_ref_epoch,
+        state_epoch=report_ref_epoch,
     )
 
     assert result == expected_penalty
@@ -883,3 +883,53 @@ class TestQueuedConsolidationsIntoSlashedTargets:
 
         # Assert
         assert result is expected_bunker
+
+
+@pytest.mark.unit
+class TestSlashingsReadAfterReferenceEpoch:
+    """
+    The reference epoch is 225; 50 slashed Lido validators are charged at epoch 4096.
+    Only bucket 226 holds slashings (1600 ETH). It is fresh when the state is read in epoch 226
+    (the first block after the reference slot) and stale (8192 epochs old) when read in epoch 225.
+    """
+
+    REF_EPOCH = 225
+    SLASHINGS = [*([0] * (REF_EPOCH + 1)), 32 * 10**9 * 50, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - REF_EPOCH - 2))]
+
+    @staticmethod
+    def blockstamp(state_slot: int) -> ReferenceBlockStamp:
+        ref_slot = (TestSlashingsReadAfterReferenceEpoch.REF_EPOCH + 1) * 32 - 1
+        return ReferenceBlockStamp(
+            f"0x{state_slot}", state_slot, '', state_slot, 0, state_slot // 32, ref_slot, ref_slot // 32
+        )
+
+    @pytest.mark.parametrize(
+        ("state_slot", "expected_result"),
+        [
+            ((REF_EPOCH + 1) * 32, True),
+            ((REF_EPOCH + 1) * 32 - 1, False),
+        ],
+    )
+    def test_is_high_midterm_slashing_penalty__bucket_after_reference_epoch__kept_only_when_state_is_there(
+        self, state_slot, expected_result
+    ):
+        # Arrange
+        web3_converter = Web3Converter(
+            ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            FrameConfig(initial_epoch=EpochNumber(0), epochs_per_frame=EpochNumber(225), fast_lane_length_slots=0),
+        )
+        lido_validators = simple_validators(1000, 1049, slashed=True)
+
+        # Act
+        result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
+            self.blockstamp(state_slot),
+            web3_converter,
+            [*simple_validators(0, 999), *lido_validators],
+            lido_validators,
+            self.SLASHINGS,
+            Gwei(199 * 10**9),
+            SlotNumber(0),
+        )
+
+        # Assert
+        assert result is expected_result

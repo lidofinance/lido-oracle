@@ -63,7 +63,7 @@ class MidtermSlashingPenalty:
 
         # Calculate sum of Lido midterm penalties in each future frame
         frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-            blockstamp.ref_epoch,
+            web3_converter.get_epoch_by_slot(blockstamp.slot_number),
             slashings,
             total_balance,
             future_frames_lido_validators,
@@ -155,7 +155,7 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_future_midterm_penalty_sum_in_frames(
-        ref_epoch: EpochNumber,
+        state_epoch: EpochNumber,
         slashings: list[Gwei],
         total_balance: Gwei,
         per_frame_validators: SlashedValidatorsFrameBuckets,
@@ -164,7 +164,7 @@ class MidtermSlashingPenalty:
         per_frame_midterm_penalty_sum: dict[FrameNumber, Gwei] = {}
         for frame_number, validators_in_future_frame in per_frame_validators.items():
             per_frame_midterm_penalty_sum[frame_number] = MidtermSlashingPenalty.predict_midterm_penalty_in_frame(
-                ref_epoch,
+                state_epoch,
                 slashings,
                 total_balance,
                 validators_in_future_frame,
@@ -174,7 +174,7 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def predict_midterm_penalty_in_frame(
-        report_ref_epoch: EpochNumber,
+        state_epoch: EpochNumber,
         slashings: list[Gwei],
         total_balance: Gwei,
         midterm_penalized_validators_in_frame: list[LidoValidator],
@@ -184,7 +184,7 @@ class MidtermSlashingPenalty:
         for validator in midterm_penalized_validators_in_frame:
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
             penalty_in_frame += MidtermSlashingPenalty.get_validator_midterm_penalty(
-                validator, slashings, total_balance, midterm_penalty_epoch, report_ref_epoch
+                validator, slashings, total_balance, midterm_penalty_epoch, state_epoch
             )
         return Gwei(penalty_in_frame)
 
@@ -194,7 +194,7 @@ class MidtermSlashingPenalty:
         slashings: list[Gwei],
         total_balance: Gwei,
         midterm_penalty_epoch: EpochNumber,
-        report_ref_epoch: EpochNumber,
+        state_epoch: EpochNumber,
     ) -> Gwei:
         """
         Calculate midterm penalty for particular validator
@@ -206,7 +206,7 @@ class MidtermSlashingPenalty:
         As a result, the `slashings` array does not get updated within the same `midterm_penalty_epoch`,
         meaning that slashing events from this epoch are excluded from the aggregated slashing sum.
         """
-        slashings_sum = sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, report_ref_epoch))
+        slashings_sum = sum(MidtermSlashingPenalty._cut_slashings(slashings, midterm_penalty_epoch, state_epoch))
         adjusted_total_slashing_balance = min(
             slashings_sum * PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX,
             total_balance,
@@ -253,7 +253,7 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def _cut_slashings(
-        slashings: list[Gwei], midterm_penalty_epoch: EpochNumber, report_ref_epoch: EpochNumber
+        slashings: list[Gwei], midterm_penalty_epoch: EpochNumber, state_epoch: EpochNumber
     ) -> list[Gwei]:
         """
         Filters out slashing values based on epochs within a midterm penalty epoch.
@@ -261,8 +261,11 @@ class MidtermSlashingPenalty:
         @see https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-slash_validator
         We want to filter out epochs in the past which will not be relevant at the time of midterm penalty epoch.
 
+        `state_epoch` is the epoch of the state `slashings` was read from. After Gloas it is past the reference
+        epoch: the report state is the first block after the reference slot, so its bucket already holds fresh data.
+
         Note: The epoch filtering logic handles circular buffer overwrites. We always start from
-        report_ref_epoch + 1 to preserve the report_ref_epoch bucket in the simulated slashing sum.
+        state_epoch + 1 to preserve the state_epoch bucket in the simulated slashing sum.
         When the prediction is more than a full cycle ahead (difference > EPOCHS_PER_SLASHINGS_VECTOR),
         all current slashing data will be overwritten by the time process_slashings() runs, so we
         return an empty array as no current data is relevant.
@@ -273,15 +276,15 @@ class MidtermSlashingPenalty:
         if len(slashings) != EPOCHS_PER_SLASHINGS_VECTOR:
             raise ValueError(f'Unexpected {len(slashings)=}: expected to be {EPOCHS_PER_SLASHINGS_VECTOR=}.')
 
-        if midterm_penalty_epoch - report_ref_epoch > EPOCHS_PER_SLASHINGS_VECTOR:
-            # Data from report_ref_epoch will be overwritten in circular buffer by midterm_penalty_epoch
-            # Use strict inequality: API returns post-state, so data from report_ref_epoch is still valid
+        if midterm_penalty_epoch - state_epoch > EPOCHS_PER_SLASHINGS_VECTOR:
+            # Data from state_epoch will be overwritten in circular buffer by midterm_penalty_epoch
+            # Use strict inequality: API returns post-state, so data from state_epoch is still valid
             # when difference equals EPOCHS_PER_SLASHINGS_VECTOR, only overwritten when difference
             # > EPOCHS_PER_SLASHINGS_VECTOR
             return []
 
-        # Data from report_ref_epoch will still be valid at midterm_penalty_epoch
-        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(report_ref_epoch + 1, midterm_penalty_epoch)}
+        # Data from state_epoch will still be valid at midterm_penalty_epoch
+        obsolete_indexes = {i % EPOCHS_PER_SLASHINGS_VECTOR for i in range(state_epoch + 1, midterm_penalty_epoch)}
         return [v for i, v in enumerate(slashings) if i not in obsolete_indexes]
 
     @staticmethod
