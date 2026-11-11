@@ -223,9 +223,10 @@ def fwr_step(gid, validator: LidoValidator) -> WithdrawalStep:
 class SimpleIterator:
     """Stands in for ValidatorExitIterator: yields FWR steps and reports the taken ones in order."""
 
-    def __init__(self, lst, forced=None):
+    def __init__(self, lst, forced=None, rebalancing=None):
         self.lst = lst
         self.forced = forced or []
+        self.rebalancing = rebalancing or []
         self.taken: list = []
 
     def __iter__(self):
@@ -240,6 +241,10 @@ class SimpleIterator:
     def allocate_forced_exits(self):
         self.taken.extend(self.forced)
         return [fwr_step(gid, validator) for gid, validator in self.forced]
+
+    def allocate_active_rebalancing(self):
+        self.taken.extend(self.rebalancing)
+        return [fwr_step(gid, validator) for gid, validator in self.rebalancing]
 
     def get_requests(self):
         return [fwr_request(gid, validator) for gid, validator in self.taken]
@@ -464,7 +469,7 @@ class TestGetWithdrawalRequests:
         )
 
     @pytest.mark.unit
-    def test_get_withdrawal_requests__demand_and_forced__concatenated_in_iterator_order(
+    def test_get_withdrawal_requests__all_phases__concatenated_in_phase_order(
         self,
         ejector: Ejector,
         ref_blockstamp: ReferenceBlockStamp,
@@ -478,7 +483,8 @@ class TestGetWithdrawalRequests:
 
         demand = [((StakingModuleId(0), NodeOperatorId(1)), build_extended_validator()) for _ in range(3)]
         forced = [((StakingModuleId(0), NodeOperatorId(2)), build_extended_validator()) for _ in range(2)]
-        simple_iterator = SimpleIterator(demand, forced=forced)
+        rebalancing = [((StakingModuleId(0), NodeOperatorId(3)), build_extended_validator())]
+        simple_iterator = SimpleIterator(demand, forced=forced, rebalancing=rebalancing)
 
         val_iter = iter(simple_iterator)
         with patch.object(ejector_module.ValidatorExitIterator, "__iter__", Mock(return_value=val_iter)):
@@ -486,7 +492,7 @@ class TestGetWithdrawalRequests:
             result = ejector.get_withdrawal_requests(ref_blockstamp)
 
         # Assert
-        assert result == [fwr_request(*pair) for pair in demand + forced], (
+        assert result == [fwr_request(*pair) for pair in demand + forced + rebalancing], (
             "The ejector must report the iterator output as is"
         )
 

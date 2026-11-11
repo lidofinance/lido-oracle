@@ -2220,3 +2220,317 @@ class TestReportExitLimit:
             with pytest.raises(StopIteration):
                 next(iterator)
             assert iterator.get_requests() == []
+
+
+CMV2_ID = StakingModuleId(2)
+
+
+def setup_cmv2_operators(iterator, operators, *, partial_allowed=True, first_activation_epoch=0):
+    """
+    CMv2 operators given as {no_id: (validators, weight)}. Each operator's stake is the sum of its
+    validator balances, with no external stake and no pending deposits.
+    """
+    sm = make_staking_module(CMV2_ID, wc_type=2)
+    total = Gwei(sum(int(v.balance) for validators, _ in operators.values() for v in validators))
+    ms = StakingModuleStats(
+        staking_module=sm,
+        partial_withdrawals_allowed=partial_allowed,
+        predictable_balance=total,
+        total_stake=total,
+        total_weight=float(sum(weight for _, weight in operators.values())),
+    )
+    iterator.module_stats = {sm.id: ms}
+    iterator.node_operators_stats = {}
+    iterator.exitable_validators = {}
+    iterator.first_activation_epoch = {}
+    for no_id, (validators, weight) in operators.items():
+        gid = (sm.id, NodeOperatorId(no_id))
+        stake = Gwei(sum(int(v.balance) for v in validators))
+        iterator.node_operators_stats[gid] = NodeOperatorStats(
+            node_operator=make_node_operator(no_id, sm),
+            module_stats=ms,
+            predictable_validators=len(validators),
+            predictable_balance=stake,
+            total_stake=stake,
+            weight=float(weight),
+        )
+        iterator.exitable_validators[gid] = sorted(validators, key=lambda v: v.index)
+        iterator.first_activation_epoch[gid] = EpochNumber(first_activation_epoch)
+    iterator.cm_v2_id = sm.id
+    iterator.total_lido_predictable_balance = total
+
+
+def enable_rebalancing(iterator, *, rate_limit_eth=10_000, operator_bp=1_000, module_bp=100_000, grace_epochs=0):
+    """module_bp=100_000 keeps the module-level trigger off: excess can never exceed 10x the module stake."""
+    daemon_config = iterator.w3.lido_contracts.oracle_daemon_config
+    daemon_config.active_rebalancing_enabled = Mock(return_value=True)
+    daemon_config.active_rebalancing_rate_limit_eth = Mock(return_value=rate_limit_eth)
+    daemon_config.active_rebalancing_operator_excess_bp = Mock(return_value=operator_bp)
+    daemon_config.active_rebalancing_module_excess_bp = Mock(return_value=module_bp)
+    daemon_config.active_rebalancing_grace_period_epochs = Mock(return_value=grace_epochs)
+
+
+def gid_of(no_id):
+    return (CMV2_ID, NodeOperatorId(no_id))
+
+
+@pytest.mark.unit
+class TestActiveRebalancing:
+    def test_allocate_active_rebalancing__disabled__no_requests_and_no_other_keys_read(self, iterator):
+        # Arrange
+        setup_cmv2_operators(iterator, {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1)})
+        enable_rebalancing(iterator)
+        daemon_config = iterator.w3.lido_contracts.oracle_daemon_config
+        daemon_config.active_rebalancing_enabled = Mock(return_value=False)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert steps == []
+        assert iterator.get_requests() == []
+        daemon_config.active_rebalancing_rate_limit_eth.assert_not_called()
+
+    def test_allocate_active_rebalancing__operator_trigger__pwr_until_within_threshold(self, iterator):
+        # Arrange: equal weights, stakes 400/100/100, target 200 each, operator threshold 10%.
+        # After k chunks of 32 ETH the trigger is 3 * (400 - 32k) > 1.1 * (600 - 32k), true for k <= 8.
+        validator = make_validator(1, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([validator], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        enable_rebalancing(iterator, operator_bp=1_000)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert len(steps) == 9
+        assert {step.gid for step in steps} == {gid_of(1)}
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(validator.lido_id.index, 288 * ETH)]
+
+    def test_allocate_active_rebalancing__module_trigger__pwr_until_within_threshold(self, iterator):
+        # Arrange: operator trigger off, module threshold 20%.
+        # Sum of excess (600 - 64k) / 3 > 0.2 * (600 - 32k) holds for k <= 5.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        enable_rebalancing(iterator, operator_bp=1_000_000, module_bp=2_000)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert len(steps) == 6
+        assert sum(step.amount for step in steps) == 192 * ETH
+
+    def test_allocate_active_rebalancing__small_deviation__dormant(self, iterator):
+        # Arrange: 210/200/200, target 203.33, excess 3.3% of target and 1.1% of the module.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 210)], 1), 2: ([make_validator(2, 200)], 1), 3: ([make_validator(3, 200)], 1)},
+        )
+        enable_rebalancing(iterator, operator_bp=1_000, module_bp=2_000)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+    def test_allocate_active_rebalancing__rate_limit__stops_before_exceeding(self, iterator):
+        # Arrange: three 32 ETH chunks fit into 100 ETH, the fourth does not.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        enable_rebalancing(iterator, rate_limit_eth=100)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert [step.amount for step in steps] == [Gwei(32 * ETH)] * 3
+
+    def test_allocate_active_rebalancing__fwr__weighs_validator_balance_against_rate_limit(self, iterator):
+        # Arrange: no PWRs in the module, so FWRs from the lowest index. One 200 ETH FWR fits into 399 ETH,
+        # a second one does not, although the operator is still above its target.
+        low, high = make_validator(3, 200), make_validator(5, 200)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([high, low], 1), 2: ([make_validator(6, 100)], 1), 3: ([make_validator(7, 100)], 1)},
+            partial_allowed=False,
+        )
+        enable_rebalancing(iterator, rate_limit_eth=399)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert [(step.validator, step.amount) for step in steps] == [(low, FWR_AMOUNT)]
+
+    def test_allocate_active_rebalancing__shared_report_limit__stops_phase(self, iterator):
+        # Arrange: the shared per-report limit leaves room for two 32 ETH chunks.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        enable_rebalancing(iterator)
+        iterator.exit_limit_in_gwei = Gwei(64 * ETH)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert len(steps) == 2
+
+    def test_allocate_active_rebalancing__in_flight_pwr__counted_out_of_current_stake(self, iterator):
+        # Arrange: 400 ETH minus 300 ETH already in flight leaves 100/100/100.
+        validator = make_validator(1, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([validator], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={validator.index: Gwei(300 * ETH)})
+        enable_rebalancing(iterator)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+    def test_allocate_active_rebalancing__operator_in_grace_period__excluded(self, iterator):
+        # Arrange: the 400 ETH operator activated 10 epochs ago, inside a 100-epoch grace period.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        iterator.first_activation_epoch[gid_of(1)] = EpochNumber(iterator.blockstamp.ref_epoch - 10)
+        enable_rebalancing(iterator, grace_epochs=100)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+    def test_allocate_active_rebalancing__grace_period_elapsed__operator_targeted(self, iterator):
+        # Arrange: exactly the grace period since the first activation.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        iterator.first_activation_epoch[gid_of(1)] = EpochNumber(iterator.blockstamp.ref_epoch - 100)
+        enable_rebalancing(iterator, grace_epochs=100)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert steps and {step.gid for step in steps} == {gid_of(1)}
+
+    def test_allocate_active_rebalancing__operator_without_activation__excluded(self, iterator):
+        # Arrange: an operator with no activated validator is in the grace period by definition.
+        setup_cmv2_operators(
+            iterator,
+            {1: ([make_validator(1, 400)], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        del iterator.first_activation_epoch[gid_of(1)]
+        enable_rebalancing(iterator)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+    def test_allocate_active_rebalancing__weights__target_follows_weight(self, iterator):
+        # Arrange: weights 3/1, stakes 300/100 are exactly on target; 200/200 puts operator 2 100 ETH above.
+        setup_cmv2_operators(iterator, {1: ([make_validator(1, 200)], 3), 2: ([make_validator(2, 200)], 1)})
+        enable_rebalancing(iterator)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert steps and {step.gid for step in steps} == {gid_of(2)}
+
+    def test_allocate_active_rebalancing__non_cmv2_operator__never_targeted(self, iterator):
+        # Arrange: a CMv1 operator far above any target is outside Phase 3.
+        setup_cmv2_operators(iterator, {1: ([make_validator(1, 100)], 1), 2: ([make_validator(2, 100)], 1)})
+        cm_v1 = make_staking_module(1, wc_type=2)
+        cm_v1_gid = (cm_v1.id, NodeOperatorId(9))
+        iterator.module_stats[cm_v1.id] = StakingModuleStats(staking_module=cm_v1, partial_withdrawals_allowed=True)
+        iterator.node_operators_stats[cm_v1_gid] = NodeOperatorStats(
+            node_operator=make_node_operator(9, cm_v1),
+            module_stats=iterator.module_stats[cm_v1.id],
+            total_stake=Gwei(1000 * ETH),
+        )
+        iterator.exitable_validators[cm_v1_gid] = [make_validator(9, 1000)]
+        iterator.first_activation_epoch[cm_v1_gid] = EpochNumber(0)
+        enable_rebalancing(iterator)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+
+@pytest.mark.unit
+class TestFirstActivationEpoch:
+    def test_prepare_validator_stats__mixed_activations__earliest_activated_epoch(self, iterator):
+        # Arrange
+        ref_epoch = iterator.blockstamp.ref_epoch
+        gid_active, gid_pending = (CMV2_ID, NodeOperatorId(1)), (CMV2_ID, NodeOperatorId(2))
+        iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+            return_value={
+                gid_active: [
+                    make_validator(1, 32, activation_epoch=ref_epoch - 10),
+                    make_validator(2, 32, activation_epoch=ref_epoch - 50),
+                    make_validator(3, 32, activation_epoch=FAR_FUTURE_EPOCH),
+                ],
+                gid_pending: [make_validator(4, 32, activation_epoch=FAR_FUTURE_EPOCH)],
+            }
+        )
+
+        # Act
+        iterator._prepare_validator_stats()
+
+        # Assert
+        assert iterator.first_activation_epoch == {gid_active: ref_epoch - 50}
+
+
+@pytest.mark.unit
+class TestPhasesShareReportLimit:
+    def test_all_phases__one_report_limit__phase_3_gets_what_phases_1_and_2_left(self, iterator):
+        # Arrange: CMv2 operators 400/100/100 ETH with equal weights (target 200 each).
+        a1 = make_validator(1, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([a1], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        # A 0x01 module operator that must exit both of its validators.
+        sm1 = make_staking_module(1, wc_type=1)
+        forced = make_node_operator(9, sm1)
+        f1, f2 = make_validator(11, 32, wc=ETH1_WC), make_validator(12, 32, wc=ETH1_WC)
+        forced_gid = (sm1.id, forced.id)
+        ms1 = StakingModuleStats(staking_module=sm1, predictable_balance=Gwei(64 * ETH))
+        iterator.module_stats[sm1.id] = ms1
+        iterator.node_operators_stats[forced_gid] = NodeOperatorStats(
+            node_operator=forced,
+            module_stats=ms1,
+            predictable_validators=2,
+            predictable_balance=Gwei(64 * ETH),
+            total_stake=Gwei(64 * ETH),
+            force_exit_to=0,
+        )
+        iterator.exitable_validators[forced_gid] = [f1, f2]
+        iterator.first_activation_epoch[forced_gid] = EpochNumber(0)
+        iterator.total_lido_predictable_balance = Gwei(iterator.total_lido_predictable_balance + 64 * ETH)
+        # FWR of a 0x01 module weighs 32 ETH, a PWR its amount: 160 ETH fits two FWRs and three 32 ETH PWRs.
+        iterator.exit_limit_in_gwei = Gwei(160 * ETH)
+        enable_rebalancing(iterator, operator_bp=1_000)
+
+        # Act
+        phase_1 = next(iterator)
+        phase_2 = iterator.allocate_forced_exits()
+        phase_3 = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert (phase_1.validator, phase_1.amount) == (f1, FWR_AMOUNT), "a forced operator ranks first in phase 1"
+        assert [(s.validator, s.amount) for s in phase_2] == [(f2, FWR_AMOUNT)]
+        # The trigger alone would allow 9 chunks; the 96 ETH left under the shared limit allow 3.
+        assert [(s.validator, s.amount) for s in phase_3] == [(a1, Gwei(32 * ETH))] * 3
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [
+            (f1.lido_id.index, FWR_AMOUNT),
+            (f2.lido_id.index, FWR_AMOUNT),
+            (a1.lido_id.index, 96 * ETH),
+        ]

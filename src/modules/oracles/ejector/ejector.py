@@ -195,6 +195,11 @@ class Ejector(OracleModule[Web3]):
         if forced_steps:
             logger.info({'msg': 'Request forced exits.', 'len': len(forced_steps)})
 
+        # Phase 3: active rebalancing within CMv2.
+        rebalancing_steps = validators_iterator.allocate_active_rebalancing()
+        if rebalancing_steps:
+            logger.info({'msg': 'Request active rebalancing withdrawals.', 'len': len(rebalancing_steps)})
+
         requests = validators_iterator.get_requests()
 
         logger.info(
