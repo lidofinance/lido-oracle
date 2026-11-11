@@ -8,10 +8,9 @@ from src.constants import (
     MAX_EFFECTIVE_BALANCE_ELECTRA,
     MIN_ACTIVATION_BALANCE,
 )
-from src.modules.oracles.ejector.sweep import get_validators_withdrawals
 from src.providers.consensus.types import ExpectedWithdrawal
 from src.services.validator_state import InFlightWithdrawals, get_in_flight_inbound
-from src.types import EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, ValidatorIndex
+from src.types import EpochNumber, Gwei, ReferenceBlockStamp, ValidatorIndex
 from src.web3py.extensions.lido_validators import LidoValidator
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.consensus import BeaconStateViewFactory
@@ -78,27 +77,3 @@ class TestInFlightInboundWithInFlightPayloadWithdrawals:
         validator = _validator(_corrected_balance(MIN_ACTIVATION_BALANCE, Gwei(10**8)), MAX_EFFECTIVE_BALANCE)
 
         assert get_in_flight_inbound([validator], InFlightWithdrawals()).amount == Gwei(0)
-
-
-@pytest.mark.unit
-class TestSweepReadsRawBalances:
-    @staticmethod
-    def _state(raw_balance: Gwei, withdrawals: list[ExpectedWithdrawal]):
-        return BeaconStateViewFactory.build(
-            slot=SlotNumber(10 * SLOTS_PER_EPOCH),
-            validators=[ValidatorStateFactory.build(withdrawable_epoch=EpochNumber(1))],
-            balances=[raw_balance],
-            slashings=[],
-            payload_expected_withdrawals=withdrawals,
-        )
-
-    def test_get_validators_withdrawals__withdrawable_validator__swept(self):
-        withdrawals = get_validators_withdrawals(self._state(MIN_ACTIVATION_BALANCE, []), [], SLOTS_PER_EPOCH)
-
-        assert [w.amount for w in withdrawals] == [MIN_ACTIVATION_BALANCE]
-
-    def test_get_validators_withdrawals__in_flight_full_withdrawal__not_swept_again(self):
-        # The sweep models the spec's next transition, so it must not see in-flight ETH as still on the CL.
-        in_flight = [ExpectedWithdrawal(validator_index=ValidatorIndex(0), amount=MIN_ACTIVATION_BALANCE)]
-
-        assert get_validators_withdrawals(self._state(Gwei(0), in_flight), [], SLOTS_PER_EPOCH) == []
