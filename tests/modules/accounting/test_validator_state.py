@@ -4,13 +4,18 @@ from unittest.mock import Mock
 import pytest
 from eth_typing import HexStr
 
-from src.constants import FAR_FUTURE_EPOCH
+from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX, FAR_FUTURE_EPOCH
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import PendingPartialWithdrawal, Validator, ValidatorState
 from src.providers.execution.contracts.triggerable_withdrawals_bus import WithdrawalIntent
 from src.providers.execution.withdrawal_request_queue import QueuedWithdrawalRequest
 from src.providers.keys.types import LidoKey
-from src.services.validator_state import LidoValidatorStateService
+from src.services.validator_state import (
+    InFlightInbound,
+    InFlightWithdrawals,
+    LidoValidatorStateService,
+    get_in_flight_inbound,
+)
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
@@ -189,45 +194,35 @@ def test_get_in_flight_withdrawals__cl_pending_and_bus_intents__aggregated_by_va
     # Assert
     assert in_flight.pwr_amounts == {1: Gwei(5 * 10**9), 8: Gwei(5 * 10**9)}
     assert in_flight.fwr_validators == frozenset({6})
+    assert in_flight.cl_pending_pwr_amounts == {1: Gwei(3 * 10**9)}
+    assert in_flight.cl_pending_withdrawable_epochs == {1: EpochNumber(0)}
 
 
 @pytest.mark.unit
-def test_get_requested_but_not_exiting_validators__bus_fwrs__only_not_on_exit(web3, validator_state, eip7002_queue):
-    # Arrange: FWRs for 1 (active), 2 (already exiting) and 6 (active); a PWR for 8 does not count.
-    web3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
-    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
-        return_value=[
-            WithdrawalIntent(pubkey=HexStr('0x1'), amount=Gwei(0)),
-            WithdrawalIntent(pubkey=HexStr('0x2'), amount=Gwei(0)),
-            WithdrawalIntent(pubkey=HexStr('0x6'), amount=Gwei(0)),
-            WithdrawalIntent(pubkey=HexStr('0x8'), amount=Gwei(10**9)),
-        ]
+def test_get_in_flight_withdrawals__several_cl_partials__latest_withdrawable_epoch_kept(
+    web3, validator_state, eip7002_queue
+):
+    # Arrange
+    web3.cc.get_state_view = Mock(
+        return_value=Mock(
+            pending_partial_withdrawals=[
+                PendingPartialWithdrawal(
+                    validator_index=ValidatorIndex(1), amount=Gwei(1 * 10**9), withdrawable_epoch=EpochNumber(300)
+                ),
+                PendingPartialWithdrawal(
+                    validator_index=ValidatorIndex(1), amount=Gwei(2 * 10**9), withdrawable_epoch=EpochNumber(200)
+                ),
+            ]
+        )
     )
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(return_value=[])
 
     # Act
-    requested = validator_state.get_requested_but_not_exiting_validators(blockstamp)
+    in_flight = validator_state.get_in_flight_withdrawals(blockstamp)
 
     # Assert
-    assert sorted(int(v.index) for v in requested) == [1, 6]
-
-
-@pytest.mark.unit
-def test_get_requested_but_not_exiting_validators__consolidating_source__excluded(web3, validator_state, eip7002_queue):
-    # Arrange
-    consolidating = LidoValidatorFactory.build(
-        validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
-        consolidating_as_source=Mock(),
-    )
-    web3.lido_validators.get_lido_validators_by_node_operators = Mock(
-        return_value={(StakingModuleId(1), NodeOperatorId(0)): [consolidating]}
-    )
-    web3.cc.get_state_view = Mock(return_value=Mock(pending_partial_withdrawals=[]))
-    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
-        return_value=[WithdrawalIntent(pubkey=HexStr(consolidating.validator.pubkey), amount=Gwei(0))]
-    )
-
-    # Act / Assert
-    assert validator_state.get_requested_but_not_exiting_validators(blockstamp) == []
+    assert in_flight.cl_pending_pwr_amounts == {1: Gwei(3 * 10**9)}
+    assert in_flight.cl_pending_withdrawable_epochs == {1: EpochNumber(300)}
 
 
 @pytest.mark.unit
@@ -261,3 +256,131 @@ def test_get_in_flight_withdrawals__eip7002_queue__lido_requests_merged_with_bus
     assert in_flight.pwr_amounts == {1: Gwei(9 * 10**9)}
     assert in_flight.fwr_validators == frozenset({6})
     eip7002_queue.assert_called_once_with(web3, blockstamp.block_hash)
+
+
+ETH = 10**9
+
+
+def _in_flight_validator(
+    index: int,
+    balance_eth: float,
+    *,
+    effective_balance_eth: int = 32,
+    exit_epoch: int = FAR_FUTURE_EPOCH,
+    withdrawable_epoch: int = FAR_FUTURE_EPOCH,
+    slashed: bool = False,
+    consolidating_as_source: Mock | None = None,
+) -> LidoValidator:
+    return LidoValidatorFactory.build(
+        index=ValidatorIndex(index),
+        balance=Gwei(int(balance_eth * ETH)),
+        validator=ValidatorStateFactory.build(
+            effective_balance=Gwei(effective_balance_eth * ETH),
+            withdrawal_credentials=(
+                COMPOUNDING_WITHDRAWAL_PREFIX if effective_balance_eth > 32 else ETH1_ADDRESS_WITHDRAWAL_PREFIX
+            ),
+            exit_epoch=EpochNumber(exit_epoch),
+            withdrawable_epoch=EpochNumber(withdrawable_epoch),
+            slashed=slashed,
+        ),
+        consolidating_as_source=consolidating_as_source,
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ('validator', 'in_flight', 'expected'),
+    [
+        pytest.param(
+            _in_flight_validator(1, 32, exit_epoch=10, withdrawable_epoch=266, consolidating_as_source=Mock()),
+            InFlightWithdrawals(),
+            InFlightInbound(),
+            id='consolidation_source__zero',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 31, exit_epoch=10, withdrawable_epoch=8202, slashed=True),
+            InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)})),
+            InFlightInbound(),
+            id='slashed__zero_and_no_horizon',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 32.5, exit_epoch=10, withdrawable_epoch=266),
+            InFlightWithdrawals(pwr_amounts={ValidatorIndex(1): Gwei(5 * ETH)}),
+            InFlightInbound(amount=Gwei(int(32.5 * ETH)), latest_cl_withdrawable_epoch=EpochNumber(266)),
+            id='exit_initiated__balance_and_partials_ignored',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 40, effective_balance_eth=40),
+            InFlightWithdrawals(
+                pwr_amounts={ValidatorIndex(1): Gwei(3 * ETH)}, fwr_validators=frozenset({ValidatorIndex(1)})
+            ),
+            InFlightInbound(amount=Gwei(40 * ETH), queued_churn=Gwei(40 * ETH)),
+            id='queued_fwr__balance_and_effective_balance_churn',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 50, effective_balance_eth=50),
+            InFlightWithdrawals(
+                pwr_amounts={ValidatorIndex(1): Gwei(5 * ETH)},
+                fwr_validators=frozenset({ValidatorIndex(1)}),
+                cl_pending_pwr_amounts={ValidatorIndex(1): Gwei(2 * ETH)},
+                cl_pending_withdrawable_epochs={ValidatorIndex(1): EpochNumber(300)},
+            ),
+            InFlightInbound(
+                amount=Gwei(5 * ETH), queued_churn=Gwei(3 * ETH), latest_cl_withdrawable_epoch=EpochNumber(300)
+            ),
+            id='queued_fwr_with_cl_partial__fwr_dropped_partials_count',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 35, effective_balance_eth=35),
+            InFlightWithdrawals(pwr_amounts={ValidatorIndex(1): Gwei(10 * ETH)}),
+            InFlightInbound(amount=Gwei(3 * ETH), queued_churn=Gwei(3 * ETH)),
+            id='partials__capped_at_balance_above_activation_balance',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 33, effective_balance_eth=33),
+            InFlightWithdrawals(
+                pwr_amounts={ValidatorIndex(1): Gwei(5 * ETH)},
+                cl_pending_pwr_amounts={ValidatorIndex(1): Gwei(2 * ETH)},
+                cl_pending_withdrawable_epochs={ValidatorIndex(1): EpochNumber(300)},
+            ),
+            InFlightInbound(amount=Gwei(1 * ETH), latest_cl_withdrawable_epoch=EpochNumber(300)),
+            id='cap_below_cl_partials__no_queued_churn',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 40, effective_balance_eth=32),
+            InFlightWithdrawals(),
+            InFlightInbound(),
+            id='nothing_requested__zero_even_above_cap',
+        ),
+    ],
+)
+def test_get_in_flight_inbound__single_validator__counted_by_first_matching_rule(validator, in_flight, expected):
+    assert get_in_flight_inbound([validator], in_flight) == expected
+
+
+@pytest.mark.unit
+def test_get_in_flight_inbound__several_validators__each_counted_once_and_summed():
+    # Arrange: an exiting validator (32.5 ETH, withdrawable at 266), a queued FWR (40 ETH),
+    # and a validator with a 2 ETH CL partial (withdrawable at 300) and a 3 ETH queued PWR.
+    validators = [
+        _in_flight_validator(1, 32.5, exit_epoch=10, withdrawable_epoch=266),
+        _in_flight_validator(2, 40, effective_balance_eth=40),
+        _in_flight_validator(3, 50, effective_balance_eth=50),
+        _in_flight_validator(4, 32),
+    ]
+    in_flight = InFlightWithdrawals(
+        pwr_amounts={ValidatorIndex(3): Gwei(5 * ETH)},
+        fwr_validators=frozenset({ValidatorIndex(2)}),
+        cl_pending_pwr_amounts={ValidatorIndex(3): Gwei(2 * ETH)},
+        cl_pending_withdrawable_epochs={ValidatorIndex(3): EpochNumber(300)},
+    )
+
+    # Act
+    result = get_in_flight_inbound(validators, in_flight)
+
+    # Assert
+    assert result == InFlightInbound(
+        amount=Gwei(int((32.5 + 40 + 5) * ETH)),
+        queued_churn=Gwei((40 + 3) * ETH),
+        latest_cl_withdrawable_epoch=EpochNumber(300),
+    )

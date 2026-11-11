@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ejector: the exit order runs in three phases: withdrawal queue demand, forced exits and Curated Module v2 active rebalancing.
 - Ejector: phase 1 ranks operators by the LIP-38 target stake. A Curated Module v1 operator in a meta group keeps the group weight but no longer counts the Curated Module v2 balance, so the v1 exit order changes.
 - Ejector: already requested withdrawals come from the CL pending partial withdrawals, the EIP-7002 request queue and the `TriggerableWithdrawalsBus`. `ValidatorExitRequest` events and `EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS` are no longer read.
+- Ejector: phase 1 predicts the ETH available by the last arrival of the requested withdrawals as LIP-38 defines it. CL rewards count only for validators the CL sweep skims (`0x01` and `0x02` at the effective-balance cap). Already requested PWRs count, capped at the balance above 32 ETH. Slashed validators count 0. The horizon no longer adds the sweep delay.
 
 ### Added
 - Ejector reads `EXIT_ITERATION_CHUNK` and `ACTIVE_REBALANCING_ENABLED`, `ACTIVE_REBALANCING_RATE_LIMIT`, `ACTIVE_REBALANCING_OPERATOR_EXCESS_BP`, `ACTIVE_REBALANCING_MODULE_EXCESS_BP`, `ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS` from `OracleDaemonConfig`.

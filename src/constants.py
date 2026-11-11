@@ -21,7 +21,6 @@ MIN_DEPOSIT_AMOUNT = Gwei(2**0 * 10**9)
 MAX_EFFECTIVE_BALANCE_ELECTRA = Gwei(2**11 * 10**9)
 MIN_ACTIVATION_BALANCE = Gwei(2**5 * 10**9)
 # https://github.com/ethereum/consensus-specs/blob/master/specs/capella/beacon-chain.md#execution
-MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#withdrawal-prefixes
 ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawal-prefixes
@@ -45,7 +44,6 @@ DOMAIN_DEPOSIT_TYPE = bytes.fromhex("03000000")  # 0x03000000
 GENESIS_FORK_VERSION = bytes.fromhex("00000000")
 
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawals-processing
-MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP = 2**3
 
 # Lido contracts constants
 PRECISION_E27 = 27
