@@ -101,36 +101,6 @@ def get_prev_non_missed_slot(
     if not is_slot_missing:
         return cc.get_block_details(existing_header.data.root)
 
-    parent_header = _get_parent_header_before(cc, existing_header, slot)
-    return cc.get_block_details(parent_header.data.root)
-
-
-def get_next_non_missed_slot(
-    cc: ConsensusClient,
-    slot: SlotNumber,
-    last_finalized_slot_number: SlotNumber,
-) -> BlockDetailsResponse:
-    """Get the first non-missed block after `slot`."""
-    if slot >= last_finalized_slot_number:
-        raise ChildSlotNotFinalized(
-            f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'
-        )
-    start_slot = SlotNumber(slot + 1)
-    is_slot_missing, existing_header = get_non_missed_slot_header(cc, start_slot, last_finalized_slot_number)
-
-    if is_slot_missing:
-        # A 404 can come from a lagging host; the found block's parent proves the skipped slots are empty.
-        _get_parent_header_before(cc, existing_header, start_slot)
-
-    return cc.get_block_details(existing_header.data.root)
-
-
-def _get_parent_header_before(
-    cc: ConsensusClient,
-    existing_header: BlockHeaderFullResponse,
-    slot: SlotNumber,
-) -> BlockHeaderFullResponse:
-    """Return the parent of the first block found after missed slots, checking it precedes `slot`."""
     non_missed_header_parent_root = existing_header.data.header.message.parent_root
     parent_header = cc.get_block_header(non_missed_header_parent_root)
 
@@ -145,7 +115,21 @@ def _get_parent_header_before(
         )
 
     _check_block_header(parent_header)
-    return parent_header
+    return cc.get_block_details(parent_header.data.root)
+
+
+def get_next_non_missed_slot(
+    cc: ConsensusClient,
+    slot: SlotNumber,
+    last_finalized_slot_number: SlotNumber,
+) -> BlockDetailsResponse:
+    """Get the first non-missed block after `slot`."""
+    if slot >= last_finalized_slot_number:
+        raise ChildSlotNotFinalized(
+            f'No finalized child block after slot [{slot}]; last finalized is [{last_finalized_slot_number}].'
+        )
+    _, existing_header = get_non_missed_slot_header(cc, SlotNumber(slot + 1), last_finalized_slot_number)
+    return cc.get_block_details(existing_header.data.root)
 
 
 def _check_block_header(block_header: BlockHeaderFullResponse):

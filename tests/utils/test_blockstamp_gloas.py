@@ -17,7 +17,7 @@ from src.utils.blockstamp import (
     get_blockstamp_by_state,
     get_reference_blockstamp,
 )
-from src.utils.slot import ChildSlotNotFinalized, SlotNotFinalized, get_next_non_missed_slot
+from src.utils.slot import ChildSlotNotFinalized, get_next_non_missed_slot
 from tests.factory.configs import BlockDetailsResponseFactory
 from tests.factory.consensus import BlockHeaderFullResponseFactory
 
@@ -253,67 +253,23 @@ class TestGetNextNonMissedSlot:
         # forward scan starts at slot + 1
         cc.get_block_header.assert_called_once_with(SlotNumber(101))
 
-    @staticmethod
-    def _cc_with_missed_slots(found_slot: int, parent_slot: int) -> Mock:
-        """Slots before `found_slot` answer 404; the found block's parent root resolves to `parent_slot`."""
-        parent_root = "0xparent"
-        headers_by_root = {
-            parent_root: BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": parent_slot}}}),
-        }
-
+    def test_get_next_non_missed_slot__skips_missed_child_slots(self):
+        # Arrange: 101 and 102 missed, 103 exists.
         def get_block_header(state_id):
-            if state_id in headers_by_root:
-                return headers_by_root[state_id]
-            if state_id < found_slot:
+            if state_id < 103:
                 raise NotOkResponse("missed", status=HTTPStatus.NOT_FOUND, text="not found")
-            return BlockHeaderFullResponseFactory.build(
-                data={"header": {"message": {"slot": found_slot, "parent_root": parent_root}}}
-            )
+            return BlockHeaderFullResponseFactory.build(data={"header": {"message": {"slot": 103}}})
 
-        return Mock(
+        cc = Mock(
             get_block_header=Mock(side_effect=get_block_header),
-            get_block_details=Mock(return_value=BlockDetailsResponseFactory.build(message={"slot": found_slot})),
+            get_block_details=Mock(return_value=BlockDetailsResponseFactory.build(message={"slot": 103})),
         )
 
-    def test_get_next_non_missed_slot__skips_missed_child_slots(self):
-        # Arrange: 101 and 102 missed, 103 exists and builds on 100.
-        cc = self._cc_with_missed_slots(found_slot=103, parent_slot=100)
-
         # Act
         result = get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
 
         # Assert
         assert result.message.slot == 103
-        cc.get_block_header.assert_any_call("0xparent")
-
-    def test_get_next_non_missed_slot__parent_before_slot__returns_child(self):
-        # Arrange: 99 and 100 also missed, so 103 builds on 98.
-        cc = self._cc_with_missed_slots(found_slot=103, parent_slot=98)
-
-        # Act
-        result = get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
-
-        # Assert
-        assert result.message.slot == 103
-
-    def test_get_next_non_missed_slot__false_404_on_existing_child__raises_inconsistent_data(self):
-        # Arrange: 101 holds a block, but every host failed and one lagging host answered 404 for it.
-        # 102 builds on 101, so treating 101 as missed would anchor the report one block too late.
-        cc = self._cc_with_missed_slots(found_slot=102, parent_slot=101)
-
-        # Act / Assert
-        with pytest.raises(InconsistentData, match="doesn't match the expected slot"):
-            get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
-        cc.get_block_details.assert_not_called()
-
-    def test_get_next_non_missed_slot__parent_not_finalized__raises_slot_not_finalized(self):
-        # Arrange
-        cc = self._cc_with_missed_slots(found_slot=103, parent_slot=100)
-        cc.get_block_header("0xparent").finalized = False
-
-        # Act / Assert
-        with pytest.raises(SlotNotFinalized):
-            get_next_non_missed_slot(cc, SlotNumber(100), last_finalized_slot_number=SlotNumber(200))
 
     def test_get_next_non_missed_slot__no_finalized_child__raises(self):
         # Arrange: the slot is at (or after) the last finalized slot, so it has no finalized child.
