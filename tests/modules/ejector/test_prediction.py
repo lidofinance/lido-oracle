@@ -6,7 +6,7 @@ from web3.types import Wei
 
 import src.services.prediction as prediction_module
 from src.modules.common.types import ChainConfig
-from src.services.prediction import RewardsPredictionService
+from src.services.prediction import RewardsPerEpoch, RewardsPredictionService
 from src.types import BlockNumber, SlotNumber
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 
@@ -260,7 +260,7 @@ def test_get_rewards_no_matching_events(web3):
 
     rewards = p.get_rewards_per_epoch(bp, cc)
 
-    assert rewards == Wei(0)
+    assert rewards == RewardsPerEpoch(el=Wei(0), cl=Wei(0))
 
 
 @pytest.mark.unit
@@ -315,7 +315,35 @@ def test_get_rewards_prediction(web3, monkeypatch: pytest.MonkeyPatch):
 
         p = RewardsPredictionService(web3)
         rewards = p.get_rewards_per_epoch(bp, cc)
-        assert rewards == Wei(576)
+        # 24 s elapsed in total, 384 s per epoch: CL 24 wei -> 384 per epoch, EL 12 wei -> 192 per epoch.
+        assert rewards == RewardsPerEpoch(el=Wei(192), cl=Wei(384))
+
+
+@pytest.mark.unit
+def test_get_rewards_per_epoch__cl_balance_dropped__cl_rate_zero_el_rate_kept(web3, monkeypatch: pytest.MonkeyPatch):
+    # Arrange
+    bp = ReferenceBlockStampFactory.build(block_number=BlockNumber(14), slot_number=14, block_hash=None)
+    cc = ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0)
+    web3.lido_contracts.oracle_daemon_config.prediction_duration_in_slots = Mock(return_value=12)
+    events = [
+        {
+            "postCLBalance": Wei(0),
+            "withdrawalsWithdrawn": Wei(0),
+            "preCLBalance": Wei(24),
+            "executionLayerRewardsWithdrawn": Wei(12),
+            "timeElapsed": 24,
+        },
+    ]
+
+    with monkeypatch.context() as m:
+        m.setattr(prediction_module, "get_events_in_past", MagicMock())
+        m.setattr(RewardsPredictionService, "_group_events_by_transaction_hash", MagicMock(return_value=events))
+
+        # Act
+        rewards = RewardsPredictionService(web3).get_rewards_per_epoch(bp, cc)
+
+    # Assert: a CL balance drop takes nothing from the EL, so it does not cancel the EL rewards.
+    assert rewards == RewardsPerEpoch(el=Wei(192), cl=Wei(0))
 
 
 @pytest.mark.unit

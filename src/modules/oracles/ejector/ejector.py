@@ -22,28 +22,24 @@ from src.modules.common.types import ZERO_HASH, ModuleExecuteDelay
 from src.modules.oracles.common.consensus import InitialEpochIsYetToArriveRevert
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.ejector.data_encode import WithdrawalRequest, encode_data
-from src.modules.oracles.ejector.sweep import get_sweep_delay_in_epochs
 from src.modules.oracles.ejector.types import EjectorProcessingState, ReportData
 from src.providers.consensus.types import BeaconStateView, Validator
 from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.services.exit_order_iterator import ValidatorExitIterator, WeightsNotUpdatedError
 from src.services.prediction import RewardsPredictionService
-from src.services.validator_state import LidoValidatorStateService
+from src.services.validator_state import InFlightInbound, LidoValidatorStateService
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.units import gwei_to_wei
-from src.utils.validator_balance import (
-    get_predictable_inbound_balance,
-)
 from src.utils.validator_state import (
     compute_activation_exit_epoch,
     get_activation_exit_churn_limit,
     get_exit_churn_limit,
+    get_max_effective_balance,
+    has_execution_withdrawal_credential,
     is_active_validator,
-    is_fully_withdrawable_validator,
 )
-from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
 
@@ -60,17 +56,15 @@ class Ejector(OracleModule[Web3]):
     2. Calculate ETH rewards prediction per epoch.
 
     Loop:
-        1. Calculate the withdrawal epoch for the last validator in the "to eject" list.
-        2. Calculate the predicted rewards that will be received until the last validator is withdrawn.
-        3. Check whether the sum of the following components will be enough to cover all WR:
-            - Exiting validators’ balances
-            - Validators’ balances in the "to eject" list
-            - Rewards expected to reach the EL until the last validator is withdrawn
-            - Staked ETH coming back from validators that finish exiting in the meantime
+        1. Calculate the epoch the last requested ETH arrives at, in-flight or in this report.
+        2. Check whether the sum of the following components will be enough to cover all WR:
             - Current balance on EL
+            - ETH requested in this report
+            - ETH requested in earlier reports and not withdrawn yet
+            - Rewards that reach the EL until that epoch
             - Minus the ETH we expect new deposits to consume over the same period
-        4. If the sum is already enough to cover WR, exit the loop.
-        5. Get the next validator to eject.
+        3. If the sum is already enough to cover WR, exit the loop.
+        4. Get the next withdrawal step.
 
     3. Decode lido validators into bytes and send report transaction
     """
@@ -222,78 +216,68 @@ class Ejector(OracleModule[Web3]):
         return requests
 
     def _get_predicted_el_balance(self, to_exit_gwei: Gwei, blockstamp: ReferenceBlockStamp) -> Wei:
-        chain_config = self.get_chain_config(blockstamp)
+        el_balance = self._get_total_el_balance(blockstamp)
+        in_flight = self.validators_state_service.get_in_flight_inbound(blockstamp)
 
-        total_available_balance = self._get_total_el_balance(blockstamp)
-        logger.info({'msg': 'Calculate el balance.', 'value': total_available_balance})
+        horizon_epoch = self._get_prediction_horizon(in_flight, to_exit_gwei, blockstamp)
+        EJECTOR_MAX_WITHDRAWAL_EPOCH.set(horizon_epoch)
+        epochs = horizon_epoch - blockstamp.ref_epoch
 
-        epochs_to_sweep = self._get_sweep_delay_in_epochs(blockstamp)
-        logger.info({'msg': 'Calculate epochs to sweep.', 'value': epochs_to_sweep})
+        liquid_rewards = self._get_liquid_rewards(epochs, blockstamp)
+        deposit_lock = self._get_deposit_lock_amount(epochs, blockstamp)
 
-        rewards_speed_per_epoch = self.prediction_service.get_rewards_per_epoch(blockstamp, chain_config)
-        logger.info({'msg': 'Calculate average rewards speed per epoch.', 'value': rewards_speed_per_epoch})
-
-        validators_going_to_exit = self.validators_state_service.get_requested_but_not_exiting_validators(blockstamp)
-
-        going_to_withdraw_balance_gwei = Gwei(
-            sum(
-                map(
-                    get_predictable_inbound_balance,
-                    validators_going_to_exit,
-                ),
-                Gwei(0),
-            )
+        logger.info(
+            {
+                'msg': 'Calculate predicted EL balance.',
+                'el_balance': el_balance,
+                'in_flight': gwei_to_wei(in_flight.amount),
+                'horizon_epoch': horizon_epoch,
+                'liquid_rewards': liquid_rewards,
+                'deposit_lock': deposit_lock,
+            }
         )
 
-        withdrawal_epoch = self._get_predicted_withdrawable_epoch(
-            going_to_withdraw_balance_gwei + to_exit_gwei,
-            blockstamp,
-        )
-        logger.info({'msg': 'Withdrawal epoch', 'value': withdrawal_epoch})
-        EJECTOR_MAX_WITHDRAWAL_EPOCH.set(withdrawal_epoch)
+        return Wei(el_balance + gwei_to_wei(in_flight.amount) + liquid_rewards - deposit_lock)
 
-        time_to_last_withdrawal_in_epoch = withdrawal_epoch + epochs_to_sweep - blockstamp.ref_epoch
+    def _get_prediction_horizon(
+        self,
+        in_flight: InFlightInbound,
+        to_exit_gwei: Gwei,
+        blockstamp: ReferenceBlockStamp,
+    ) -> EpochNumber:
+        """
+        The latest epoch the requested ETH arrives at. Queued requests and the requests of this report
+        take the exit churn in that order, so the last of them arrives with their sum. With nothing to
+        churn, this is the earliest a new request could arrive.
+        """
+        horizon = self._get_predicted_withdrawable_epoch(Gwei(in_flight.queued_churn + to_exit_gwei), blockstamp)
+        if in_flight.latest_cl_withdrawable_epoch is not None:
+            horizon = max(horizon, in_flight.latest_cl_withdrawable_epoch)
+        return horizon
 
-        future_rewards = time_to_last_withdrawal_in_epoch * rewards_speed_per_epoch
-        logger.info({'msg': 'Calculate future rewards.', 'value': future_rewards})
-
-        withdrawable_principal = self._get_withdrawable_principal(withdrawal_epoch, blockstamp)
-        logger.info({'msg': 'Calculate withdrawable principal.', 'value': withdrawable_principal})
-
-        deposit_lock = self._get_deposit_lock_amount(time_to_last_withdrawal_in_epoch, blockstamp)
-        logger.info({'msg': 'Calculate deposit lock.', 'value': deposit_lock})
-
-        return Wei(
-            future_rewards
-            + withdrawable_principal
-            + total_available_balance
-            + gwei_to_wei(going_to_withdraw_balance_gwei)
-            - deposit_lock,
-        )
+    def _get_liquid_rewards(self, epochs: int, blockstamp: ReferenceBlockStamp) -> Wei:
+        """EL rewards, and the CL rewards of the validators the CL sweep skims."""
+        rewards = self.prediction_service.get_rewards_per_epoch(blockstamp, self.get_chain_config(blockstamp))
+        lido_effective_balance, skimmed_effective_balance = self._get_lido_effective_balances(blockstamp)
+        cl_rewards = 0
+        if lido_effective_balance:
+            cl_rewards = rewards.cl * skimmed_effective_balance * epochs // lido_effective_balance
+        return Wei(rewards.el * epochs + cl_rewards)
 
     @lru_cache(maxsize=1)
-    def _sweepable_validators(self, blockstamp: BlockStamp) -> list[LidoValidator]:
-        return [
-            v
-            for v in self.w3.lido_validators.get_active_lido_validators(blockstamp=blockstamp)
-            if not v.consolidating_as_source
-        ]
-
-    @lru_cache(maxsize=1)
-    def _get_withdrawable_principal(self, on_epoch: EpochNumber, blockstamp: BlockStamp) -> Wei:
-        """
-        Staked ETH coming back from validators that become fully withdrawable by `on_epoch`.
-
-        Principal only. The balance above the effective-balance cap is not counted here: the
-        projected rewards already include it, so adding it again would double count it (#993).
-        """
-        result = Gwei(0)
-
-        for v in self._sweepable_validators(blockstamp):
-            if is_fully_withdrawable_validator(v.validator, v.balance, on_epoch):
-                result += get_predictable_inbound_balance(v)
-
-        return gwei_to_wei(result)
+    def _get_lido_effective_balances(self, blockstamp: ReferenceBlockStamp) -> tuple[Gwei, Gwei]:
+        """Effective balance of all active Lido validators, and of those whose rewards the CL sweep skims."""
+        total = Gwei(0)
+        skimmed = Gwei(0)
+        for v in self.w3.lido_validators.get_active_lido_validators(blockstamp):
+            if not is_active_validator(v, blockstamp.ref_epoch):
+                continue
+            total = Gwei(total + v.validator.effective_balance)
+            if has_execution_withdrawal_credential(v.validator) and v.validator.effective_balance == (
+                get_max_effective_balance(v.validator)
+            ):
+                skimmed = Gwei(skimmed + v.validator.effective_balance)
+        return total, skimmed
 
     @lru_cache(maxsize=1)
     def _get_total_el_balance(self, blockstamp: BlockStamp) -> Wei:
@@ -346,13 +330,6 @@ class Ejector(OracleModule[Web3]):
             earliest_exit_epoch += additional_epochs
 
         return EpochNumber(earliest_exit_epoch)
-
-    @lru_cache(maxsize=1)
-    def _get_sweep_delay_in_epochs(self, blockstamp: ReferenceBlockStamp) -> int:
-        """Returns the number of epochs that will take to sweep all validators in the chain."""
-        chain_config = self.get_chain_config(blockstamp)
-        state = self.w3.cc.get_state_view(blockstamp)
-        return get_sweep_delay_in_epochs(state, chain_config.slots_per_epoch, self._is_gloas(blockstamp))
 
     @lru_cache(maxsize=1)
     def _is_gloas(self, blockstamp: ReferenceBlockStamp) -> bool:
