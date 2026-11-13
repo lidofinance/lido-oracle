@@ -25,6 +25,8 @@ MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
 ETH1_ADDRESS_WITHDRAWAL_PREFIX = '0x01'
 # https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#withdrawal-prefixes
 COMPOUNDING_WITHDRAWAL_PREFIX = '0x02'
+# https://github.com/ethereum/consensus-specs/blob/master/specs/gloas/beacon-chain.md#withdrawal-prefixes
+BUILDER_WITHDRAWAL_PREFIX = '0xb0'
 # https://github.com/ethereum/consensus-specs/blob/master/specs/phase0/beacon-chain.md#validator-cycle
 MIN_PER_EPOCH_CHURN_LIMIT = 2**2
 CHURN_LIMIT_QUOTIENT = 2**16
