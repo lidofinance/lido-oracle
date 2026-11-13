@@ -302,6 +302,7 @@ def abnormal_case(web3, mock_get_validators, blockstamp) -> AbnormalClRebase:
         return BalanceStats(0, 0, len(lido_validators) * 32 * 10**18, 0)
 
     web3.cc.get_pending_deposits = Mock(return_value=[])
+    web3.cc.get_all_pending_deposits = Mock(return_value=[])
     web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
     web3.lido_validators.get_lido_wc_list = Mock(return_value=[])
     web3.lido_contracts.lido.get_balance_stats = Mock(side_effect=_get_balance_stats)

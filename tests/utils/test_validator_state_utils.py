@@ -21,6 +21,7 @@ from src.utils.validator_state import (
     has_execution_withdrawal_credential,
     has_far_future_activation_eligibility_epoch,
     is_active_validator,
+    is_builder_withdrawal_credential,
     is_exited_validator,
     is_fully_withdrawable_validator,
     is_on_exit,
@@ -410,3 +411,17 @@ def test_get_balance_churn_limit__raw_not_increment_aligned__trims_dust_down():
 def test_compute_exit_balance_churn_limit(total_active_balance: Gwei, expected_limit: Gwei):
     actual_limit = get_activation_exit_churn_limit(total_active_balance)
     assert actual_limit == expected_limit, "Unexpected exit churn limit"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "withdrawal_credentials, expected",
+    [
+        ('0xb0' + '00' * 11 + 'ff' * 20, True),
+        ('0x02' + '00' * 11 + 'ff' * 20, False),
+        ('0x01' + '00' * 11 + 'ff' * 20, False),
+        ('b0' + '00' * 11 + 'ff' * 20, False),
+    ],
+)
+def test_is_builder_withdrawal_credential(withdrawal_credentials, expected):
+    assert is_builder_withdrawal_credential(withdrawal_credentials) is expected

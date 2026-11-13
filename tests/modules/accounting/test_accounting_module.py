@@ -218,6 +218,7 @@ def test_get_cl_pending_validators_balance__real_provider_with_topups__matches_e
     accounting.w3.cc.get_validators = Mock(return_value=[topped_up, untouched])
     accounting.w3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
     accounting.w3.cc.get_pending_deposits = Mock(return_value=deposits)
+    accounting.w3.cc.get_all_pending_deposits = Mock(return_value=deposits)
     accounting.w3.cc.get_pending_consolidations = Mock(return_value=[])
     accounting.w3.cc.get_validators_by_indexes = Mock(return_value={})
     accounting.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x01020304'))

@@ -162,43 +162,6 @@ class TestGetVaultsTotalValues:
             pubkeys=ANY, block_identifier="latest", batch_size=ANY
         )
 
-    def test_get_vaults_total_values__builder_credential_deposit_for_vault_validator__not_counted(
-        self, web3, default_vaults_map
-    ):
-        # Arrange
-        validators = [
-            ValidatorFactory.build(
-                balance=Gwei(32_834_904_184),
-                validator=ValidatorStateFactory.build(
-                    pubkey=TestPubkeys.PUBKEY_0,
-                    withdrawal_credentials=WithdrawalCredentials.WC_0,
-                ),
-            ),
-        ]
-        pending_deposits = [
-            PendingDepositFactory.build(
-                pubkey=TestPubkeys.PUBKEY_0,
-                withdrawal_credentials='0xb0' + WithdrawalCredentials.WC_0[4:],
-                amount=Gwei(32_000_000_000),
-            ),
-            PendingDepositFactory.build(pubkey=TestPubkeys.PUBKEY_0, amount=Gwei(1_000_000_000)),
-        ]
-        configure_validator_statuses(web3, {})
-        service = StakingVaultsService(web3)
-
-        # Act
-        result = service.get_vaults_total_values(
-            vaults=default_vaults_map,
-            validators=validators,
-            pending_deposits=pending_deposits,
-            block_identifier="latest",
-        )
-
-        # Assert
-        assert (
-            result[VaultAddresses.VAULT_0] == 34_834_904_184_000_000_000
-        )  # 32.83 CL + 1 EL + 1 pending, no 32 builder
-
     def test_multiple_pending_deposits_for_same_validator(self, web3, default_vaults_map):
         # Setup
         validators = [

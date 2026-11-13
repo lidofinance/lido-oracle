@@ -11,7 +11,6 @@ from web3.types import BlockIdentifier, Wei
 
 from src import variables
 from src.constants import (
-    BUILDER_WITHDRAWAL_PREFIX,
     MIN_DEPOSIT_AMOUNT,
     SECONDS_IN_YEAR,
     TOTAL_BASIS_POINTS,
@@ -83,7 +82,7 @@ class StakingVaultsService:
         Calculates the Total Value (TV) across all staking vaults connected to the protocol.
 
         1. For each validator, if activation_eligibility_epoch != FAR_FUTURE_EPOCH
-            TV += validator.balance + pending_deposits (except builder-credential ones)
+            TV += validator.balance + pending_deposits
 
         2. For each validator, if activation_eligibility_epoch == FAR_FUTURE_EPOCH
             TV += (depending on PDG stage)
@@ -166,14 +165,9 @@ class StakingVaultsService:
     def _get_total_pending_amount_by_pubkey(pending_deposits: list[PendingDeposit]) -> dict[str, Gwei]:
         """
         Calculates the total pending amount for each pubkey.
-
-        Builder-credential deposits are skipped: the Gloas fork moves a validly signed one to a separate builder
-        even when a validator uses the same pubkey, so it is not vault capital.
         """
         deposits: defaultdict[str, int] = defaultdict(int)
         for deposit in pending_deposits:
-            if deposit.withdrawal_credentials[:4] == BUILDER_WITHDRAWAL_PREFIX:
-                continue
             deposits[deposit.pubkey] += int(deposit.amount)
 
         return {pubkey: Gwei(deposits[pubkey]) for pubkey in deposits}
