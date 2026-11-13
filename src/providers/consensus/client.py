@@ -300,14 +300,16 @@ class ConsensusClient(HTTPProvider):
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         """
-        Pending deposits without builder-credential ones: the Gloas fork moves a validly signed builder deposit
-        to a separate builder even when a validator uses the same pubkey, so it cannot be counted as stake.
+        Pending deposits that will reach validators.
+
+        Before Gloas, builder-credential deposits are left out: the fork moves a validly signed one to a separate
+        builder even when a validator uses the same pubkey. From the fork on, builders have their own deposit
+        contract, so every deposit in this queue goes to a validator.
         """
-        return [
-            deposit
-            for deposit in self.get_all_pending_deposits(blockstamp)
-            if not is_builder_withdrawal_credential(deposit.withdrawal_credentials)
-        ]
+        deposits = self.get_all_pending_deposits(blockstamp)
+        if self.is_gloas_slot(blockstamp.slot_number):
+            return deposits
+        return [deposit for deposit in deposits if not is_builder_withdrawal_credential(deposit.withdrawal_credentials)]
 
     def get_all_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
         """The full queue, for checks that must see builder-credential deposits too."""
