@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final
 from eth_typing import ChecksumAddress, HexStr
 from web3.module import Module
 
-from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
+from src.constants import BUILDER_WITHDRAWAL_PREFIX, COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX
 from src.providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
 from src.providers.keys.types import LidoKey
 from src.services.deposit_signature_verification import is_valid_deposit_signature
@@ -205,6 +205,9 @@ class LidoValidatorsProvider(Module):
         pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         deposits_by_pubkey: dict[str, list[PendingDeposit]] = {}
         for deposit in pending_deposits:
+            # The Gloas fork moves a validly signed builder-credential deposit to a separate builder.
+            if deposit.withdrawal_credentials[:4] == BUILDER_WITHDRAWAL_PREFIX:
+                continue
             deposits_by_pubkey.setdefault(deposit.pubkey, []).append(deposit)
         logger.info(
             {

@@ -672,7 +672,9 @@ def test_get_active_lido_validators__with_valid_data(web3):
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=(mock_validators, []))
     web3.lido_validators._get_pending_lido_validators = Mock(return_value={})
     web3.lido_validators._validate_total_validators_count = Mock()
-    web3.cc.get_pending_deposits = Mock(return_value=[Mock(pubkey=mock_validators[0].validator.pubkey, amount=1000)])
+    web3.cc.get_pending_deposits = Mock(
+        return_value=[Mock(pubkey=mock_validators[0].validator.pubkey, withdrawal_credentials=_LIDO_WC, amount=1000)]
+    )
     web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in mock_validators})
     web3.cc.get_pending_consolidations = Mock(return_value=[])
 
@@ -807,6 +809,26 @@ def test_get_active_lido_validators__topup_for_long_used_key__attached_to_that_v
     assert by_pubkey[validators[1].validator.pubkey].pending_topups == [topup]
     assert by_pubkey[validators[0].validator.pubkey].pending_topups == []
     assert by_pubkey[validators[2].validator.pubkey].pending_topups == []
+
+
+@pytest.mark.unit
+def test_get_active_lido_validators__builder_credential_topup__not_attached(web3):
+    # Arrange — a used Lido key has a regular top-up and a builder-credential deposit queued
+    validator = _used_validator('0x' + 'ab' * 48, index=7)
+    lido_keys = LidoKeyFactory.generate_for_validators([validator])
+    topup = PendingDepositFactory.build(pubkey=validator.validator.pubkey, amount=Gwei(1 * _GWEI))
+    builder_deposit = PendingDepositFactory.build(
+        pubkey=validator.validator.pubkey,
+        withdrawal_credentials='0xb0' + '00' * 11 + 'ff' * 20,
+        amount=Gwei(32 * _GWEI),
+    )
+    _setup_topup_scenario(web3, [validator], lido_keys, [topup, builder_deposit])
+
+    # Act
+    active = web3.lido_validators.get_active_lido_validators(ReferenceBlockStampFactory.build())
+
+    # Assert — only the regular top-up counts towards the validator
+    assert active[0].pending_topups == [topup]
 
 
 @pytest.mark.unit
