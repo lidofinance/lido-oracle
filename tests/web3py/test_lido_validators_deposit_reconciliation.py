@@ -199,6 +199,7 @@ def lido_protocol(web3):
 
     def set_pending_deposits(*deposits: PendingDeposit) -> None:
         web3.cc.get_pending_deposits = Mock(return_value=list(deposits))
+        web3.cc.get_all_pending_deposits = Mock(return_value=list(deposits))
 
     return Mock(
         web3=web3,

@@ -19,6 +19,7 @@ from src.types import EpochNumber, SlotNumber
 from src.utils.blockstamp import build_blockstamp
 from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import BlockStampFactory
+from tests.factory.no_registry import PendingDepositFactory
 
 
 @pytest.fixture
@@ -26,6 +27,37 @@ def consensus_client(request):
     params = getattr(request, 'param', {})
     rpc_endpoint = params.get('endpoint', variables.CONSENSUS_CLIENT_URI[0])
     return ConsensusClient([rpc_endpoint], 30)
+
+
+@pytest.mark.unit
+class TestPendingDeposits:
+    @pytest.fixture
+    def queue(self):
+        return [
+            PendingDepositFactory.build(withdrawal_credentials='0x01' + '00' * 11 + 'aa' * 20),
+            PendingDepositFactory.build(withdrawal_credentials='0xb0' + '00' * 11 + 'bb' * 20),
+            PendingDepositFactory.build(withdrawal_credentials='0x02' + '00' * 11 + 'cc' * 20),
+        ]
+
+    @pytest.fixture
+    def client(self, queue):
+        client = ConsensusClient(['http://localhost'], 30)
+        client.get_state_view = Mock(return_value=Mock(pending_deposits=queue))
+        return client
+
+    def test_get_pending_deposits__builder_credential_deposit__skipped(self, client, queue):
+        # Act
+        result = client.get_pending_deposits(BlockStampFactory.build())
+
+        # Assert
+        assert result == [queue[0], queue[2]]
+
+    def test_get_all_pending_deposits__builder_credential_deposit__kept(self, client, queue):
+        # Act
+        result = client.get_all_pending_deposits(BlockStampFactory.build())
+
+        # Assert
+        assert result == queue
 
 
 # --- Unit tests for HTTPSessionManagerProxy integration ---
