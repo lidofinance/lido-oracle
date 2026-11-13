@@ -339,7 +339,9 @@ class LidoValidatorsProvider(Module):
                 continue
 
             if d.pubkey in result:
-                result[d.pubkey].append(d)
+                # The Gloas fork moves a validly signed builder-credential deposit to a separate builder.
+                if d.withdrawal_credentials[:4] != BUILDER_WITHDRAWAL_PREFIX:
+                    result[d.pubkey].append(d)
                 continue
 
             if d.pubkey in frontruned_keys:

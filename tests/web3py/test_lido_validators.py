@@ -625,6 +625,23 @@ def test_get_pending_lido_validators_second_deposit_appended(web3):
 
 
 @pytest.mark.unit
+def test_get_pending_lido_validators__builder_credential_deposit_after_lido_deposit__skipped(web3):
+    # Arrange — a pending Lido key gets a valid Lido deposit, then a builder-credential one
+    lido_key = LidoKeyFactory.build(key=_PUBKEY)
+    lido_deposit = _make_deposit(wc=_LIDO_WC)
+    builder_deposit = _make_deposit(wc='0xb0' + '00' * 11 + 'ff' * 20)
+    _setup_pending_validators(web3, [lido_key], [lido_deposit, builder_deposit])
+
+    # Act
+    with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
+        result = web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
+
+    # Assert — only the Lido deposit counts towards the pending key
+    _, deposits = result[_PUBKEY]
+    assert deposits == [lido_deposit]
+
+
+@pytest.mark.unit
 def test_get_pending_lido_validators_second_deposit_for_invalid_key_skipped(web3):
     # First deposit is a frontrun (bad WC), second deposit for same key is skipped, still blocks reporting
     lido_key = LidoKeyFactory.build(key=_PUBKEY)
