@@ -64,6 +64,7 @@ from src.providers.execution.contracts.oracle_report_sanity_checker import Oracl
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
+from src.providers.execution.exceptions import InconsistentData
 from src.types import NodeOperatorId
 
 
@@ -344,6 +345,10 @@ class TestLazyOracleGetVaults:
 # ---------------------------------------------------------------------------
 
 
+def _fake_vault(n: int):
+    return MagicMock(spec=VaultInfo, vault=f"0x{n:040x}")
+
+
 @pytest.mark.unit
 class TestLazyOracleGetAllVaults:
     # get_all_vaults calls self.get_vaults_count() and self.get_vaults() —
@@ -363,7 +368,7 @@ class TestLazyOracleGetAllVaults:
         monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 2
-        fake_vaults = [MagicMock(spec=VaultInfo), MagicMock(spec=VaultInfo)]
+        fake_vaults = [_fake_vault(1), _fake_vault(2)]
         contract.get_vaults.return_value = fake_vaults
 
         result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
@@ -377,8 +382,8 @@ class TestLazyOracleGetAllVaults:
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 3
 
-        page1 = [MagicMock(spec=VaultInfo), MagicMock(spec=VaultInfo)]
-        page2 = [MagicMock(spec=VaultInfo)]
+        page1 = [_fake_vault(1), _fake_vault(2)]
+        page2 = [_fake_vault(3)]
         contract.get_vaults.side_effect = [page1, page2]
 
         result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
@@ -389,17 +394,43 @@ class TestLazyOracleGetAllVaults:
         contract.get_vaults.assert_any_call(block_identifier="latest", offset=0, limit=2)
         contract.get_vaults.assert_any_call(block_identifier="latest", offset=2, limit=2)
 
-    def test_stops_on_empty_batch(self, monkeypatch):
+    def test_get_all_vaults__empty_page__raises(self, monkeypatch):
         monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
         contract = _mock_contract()
         contract.get_vaults_count.return_value = 5
         contract.get_vaults.return_value = []
 
-        result = LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
+        with pytest.raises(InconsistentData):
+            LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
 
-        assert result == []
-        contract.get_vaults_count.assert_called_once_with("latest")
         contract.get_vaults.assert_called_once_with(block_identifier="latest", offset=0, limit=100)
+
+    def test_get_all_vaults__short_page__raises(self, monkeypatch):
+        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 2)
+        contract = _mock_contract()
+        contract.get_vaults_count.return_value = 5
+        contract.get_vaults.side_effect = [[_fake_vault(1), _fake_vault(2)], [_fake_vault(3)], [_fake_vault(5)]]
+
+        with pytest.raises(InconsistentData):
+            LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
+
+    def test_get_all_vaults__duplicate_vaults__raises(self, monkeypatch):
+        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 100)
+        contract = _mock_contract()
+        contract.get_vaults_count.return_value = 2
+        contract.get_vaults.return_value = [_fake_vault(1), _fake_vault(1)]
+
+        with pytest.raises(InconsistentData):
+            LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
+
+    def test_get_all_vaults__zero_limit__raises(self, monkeypatch):
+        monkeypatch.setattr("src.providers.execution.contracts.lazy_oracle.variables.VAULT_PAGINATION_LIMIT", 0)
+        contract = _mock_contract()
+        contract.get_vaults_count.return_value = 2
+        contract.get_vaults.return_value = []
+
+        with pytest.raises(InconsistentData):
+            LazyOracleContract.get_all_vaults(contract, block_identifier="latest")
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +485,16 @@ class TestLazyOracleGetValidatorStatuses:
         assert len(result) == 3
         assert contract.functions.batchValidatorStatuses.call_count == 2
         contract.functions.batchValidatorStatuses.return_value.call.assert_called_with(block_identifier="latest")
+
+    def test_get_validator_statuses__short_response__raises(self):
+        contract = _mock_contract()
+        pubkeys = [self._pubkey(1), self._pubkey(2)]
+        contract.functions.batchValidatorStatuses.return_value.call.return_value = [_make_status(3)]
+
+        with pytest.raises(InconsistentData):
+            LazyOracleContract.get_validator_statuses(
+                contract, pubkeys=pubkeys, batch_size=10, block_identifier="latest"
+            )
 
     def test_result_keyed_by_0x_pubkey(self):
         contract = _mock_contract()

@@ -1,5 +1,6 @@
 import pytest
 
+from src.providers.execution.exceptions import InconsistentData
 from src.services.staking_vaults import StakingVaultsService
 from tests.modules.accounting.staking_vault.conftest import (
     TestPubkeys,
@@ -114,6 +115,22 @@ class TestGetValidatorsByVault:
         assert len(result) == 1
         assert VaultAddresses.VAULT_0 in result
         assert all(validators[1] not in vault_validators for vault_validators in result.values())
+
+    def test_get_validators_by_vault__duplicate_pubkey__raises(self, default_vaults_map):
+        # Setup
+        validators = [
+            ValidatorFactory.build(
+                validator=ValidatorStateFactory.build(
+                    pubkey=TestPubkeys.PUBKEY_0,
+                    withdrawal_credentials=WithdrawalCredentials.WC_0,
+                ),
+            )
+            for _ in range(2)
+        ]
+
+        # Act & Assert
+        with pytest.raises(InconsistentData):
+            StakingVaultsService._get_validators_by_vault(validators, default_vaults_map)
 
     def test_empty_validators(self, default_vaults_map):
         result = StakingVaultsService._get_validators_by_vault([], default_vaults_map)
