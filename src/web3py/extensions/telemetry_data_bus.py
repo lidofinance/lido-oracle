@@ -16,7 +16,7 @@ from web3.module import Module
 from src import variables
 from src.metrics.prometheus.basic import TELEMETRY_ACCOUNT_BALANCE
 from src.providers.execution.contracts.data_bus import DataBusContract
-from src.utils.transaction import build_transaction_params, sign_and_send_transaction
+from src.utils.transaction import build_transaction_params, sign_and_send_transaction, tx_gas_cap
 from src.utils.version import get_oracle_version
 
 
@@ -138,7 +138,8 @@ class TelemetryDataBus(Module):
 
         while time.monotonic() < deadline:
             try:
-                params = build_transaction_params(w3, tx, account)
+                # The data bus lives on another chain; telemetry txs are small, so the lower cap is safe.
+                params = build_transaction_params(w3, tx, account, tx_gas_cap(is_glamsterdam=False))
 
                 # no new transactions yet
                 if tx_hash and params.get('nonce') == nonce:
