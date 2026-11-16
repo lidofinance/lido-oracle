@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from src.constants import (
+    BUILDER_WITHDRAWAL_PREFIX,
     CHURN_LIMIT_QUOTIENT,
     COMPOUNDING_WITHDRAWAL_PREFIX,
     EFFECTIVE_BALANCE_INCREMENT,
@@ -53,6 +54,14 @@ def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bo
     Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
     """
     return validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
+
+
+def is_builder_withdrawal_credential(withdrawal_credentials: str) -> bool:
+    """
+    Check if ``withdrawal_credentials`` has the 0xb0 builder prefix.
+    https://github.com/ethereum/consensus-specs/blob/master/specs/gloas/beacon-chain.md#new-is_builder_withdrawal_credential
+    """
+    return withdrawal_credentials[:4] == BUILDER_WITHDRAWAL_PREFIX
 
 
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:

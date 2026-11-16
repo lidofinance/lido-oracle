@@ -36,6 +36,7 @@ from src.types import BlockRoot, BlockStamp, EpochNumber, SlotNumber, StateRoot
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import list_of_dataclasses
 from src.utils.fingerprint import log_fingerprint
+from src.utils.validator_state import is_builder_withdrawal_credential
 
 
 logger = logging.getLogger(__name__)
@@ -279,6 +280,18 @@ class ConsensusClient(HTTPProvider):
         return state
 
     def get_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        """
+        Pending deposits without builder-credential ones: the Gloas fork moves a validly signed builder deposit
+        to a separate builder even when a validator uses the same pubkey, so it cannot be counted as stake.
+        """
+        return [
+            deposit
+            for deposit in self.get_all_pending_deposits(blockstamp)
+            if not is_builder_withdrawal_credential(deposit.withdrawal_credentials)
+        ]
+
+    def get_all_pending_deposits(self, blockstamp: BlockStamp) -> list[PendingDeposit]:
+        """The full queue, for checks that must see builder-credential deposits too."""
         return self.get_state_view(blockstamp).pending_deposits
 
     def get_pending_consolidations(self, blockstamp: BlockStamp) -> list[PendingConsolidation]:
