@@ -581,6 +581,7 @@ def test_calculate_injected_capital__v4__correct_wei_to_gwei_conversion(
     pending_at_prev = [make_deposit(old_pending_gwei)] if old_pending_gwei else []
     pending_at_ref = [make_deposit(current_pending_gwei)] if current_pending_gwei else []
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
+    abnormal_case.w3.cc.get_all_pending_deposits = Mock(side_effect=[pending_at_prev, pending_at_ref])
 
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
         side_effect=[
@@ -649,6 +650,7 @@ def test_calculate_injected_capital__v4__topup_to_indexed_validator__counted_wit
     )
     # Nothing queued at prev; the 32 ETH top-up is still queued at ref.
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[], [topup]])
+    abnormal_case.w3.cc.get_all_pending_deposits = Mock(side_effect=[[], [topup]])
     # get_balance_stats is read for ref first, then prev: 64 ETH deposited inside the window.
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
         side_effect=[BalanceStats(0, 0, 64 * 10**18, 0), BalanceStats(0, 0, 0, 0)]
@@ -694,6 +696,7 @@ def test_calculate_injected_capital__v4__topup_queued_at_prev_and_applied_by_ref
     topup = Mock(pubkey=lido_pubkey, withdrawal_credentials=_LIDO_WC, signature='0xsig', amount=32 * 10**9)
     # 32 ETH queued at prev, applied by ref; another 64 ETH deposited inside the window.
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[topup], []])
+    abnormal_case.w3.cc.get_all_pending_deposits = Mock(side_effect=[[topup], []])
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(
         side_effect=[BalanceStats(0, 0, 64 * 10**18, 0), BalanceStats(0, 0, 0, 0)]
     )
@@ -768,6 +771,7 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
     # Invalid deposit comes first in queue (by deposit index), valid one second.
     # With frontrun-detection logic: invalid sig → skipped; valid sig + correct WC → counted.
     abnormal_case.w3.cc.get_pending_deposits = Mock(side_effect=[[invalid_deposit, valid_deposit], []])
+    abnormal_case.w3.cc.get_all_pending_deposits = Mock(side_effect=[[invalid_deposit, valid_deposit], []])
     abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(return_value=BalanceStats(0, 0, 0, 0))
 
     result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])

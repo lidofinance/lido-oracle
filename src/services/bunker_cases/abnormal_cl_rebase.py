@@ -359,15 +359,14 @@ class AbnormalClRebase:
         _collect_valid_pending_deposits — only count keys whose first valid-signature
         deposit has Lido withdrawal credentials.
         """
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
         total = Gwei(0)
 
-        for d in pending_deposits:
+        for d in self.w3.cc.get_pending_deposits(blockstamp):
             if d.pubkey in existing_pubkeys:
                 total = Gwei(total + d.amount)
 
         valid = LidoValidatorsProvider._collect_valid_pending_deposits(
-            pending_deposits,
+            self.w3.cc.get_all_pending_deposits(blockstamp),
             filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys,
             lido_wc_list=lido_wc_list,
             genesis_fork_version=genesis_fork_version,
