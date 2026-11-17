@@ -348,16 +348,14 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
         'pending_consolidations',
     ],
 )
-def test_get_state_view_no_cache__electra_field_missing__raises_inconsistent_data(
-    consensus_client: ConsensusClient, field: str
-):
+def test_get_state_view_no_cache__electra_field_missing__raises(consensus_client: ConsensusClient, field: str):
     # Arrange
     data = _state_data()
     del data[field]
     _mock_state_response(consensus_client, data)
 
     # Act / Assert
-    with pytest.raises(InconsistentData, match=field):
+    with pytest.raises(TypeError, match=field):
         consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
 

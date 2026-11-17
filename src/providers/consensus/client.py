@@ -1,4 +1,3 @@
-from dataclasses import MISSING, fields
 from http import HTTPStatus
 from typing import Any, Literal, cast
 
@@ -283,7 +282,6 @@ class ConsensusClient(HTTPProvider):
             else:
                 raise
 
-        self._check_required_state_fields(data)
         state = BeaconStateView.from_response(**data)
         if state.slot != blockstamp.slot_number:
             raise InconsistentData(
@@ -293,16 +291,6 @@ class ConsensusClient(HTTPProvider):
         self._check_gloas_state_fields(blockstamp.slot_number, data)
         log_fingerprint(logger, 'Beacon state', state, state_root=blockstamp.state_root, slot=state.slot)
         return state
-
-    @staticmethod
-    def _check_required_state_fields(data: dict) -> None:
-        missing = [
-            f.name
-            for f in fields(BeaconStateView)
-            if f.default is MISSING and f.default_factory is MISSING and f.name not in data
-        ]
-        if missing:
-            raise InconsistentData(f'Beacon state response lacks required fields: {missing}.')
 
     def _check_gloas_state_fields(self, slot: SlotNumber, data: dict) -> None:
         # Missing in-flight withdrawals would silently under-report validator balances.
