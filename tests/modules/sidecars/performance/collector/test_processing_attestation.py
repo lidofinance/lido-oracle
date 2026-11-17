@@ -154,7 +154,7 @@ def test_process_attestations__one_of_committees_unknown__raises():
     committees = {(42, 20): [20000 + i for i in range(130)]}
     misses = set(committees[(42, 20)])
 
-    with pytest.raises(ValueError, match="references unknown committees"):
+    with pytest.raises(ValueError, match="261 aggregation bits, expected 130"):
         process_attestations([MULTI_COMMITTEE_ATTESTATION], committees, misses)  # type: ignore
 
 
