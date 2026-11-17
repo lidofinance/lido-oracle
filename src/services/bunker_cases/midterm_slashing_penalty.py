@@ -63,7 +63,7 @@ class MidtermSlashingPenalty:
 
         # Calculate sum of Lido midterm penalties in each future frame
         frames_lido_midterm_penalties = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
-            web3_converter.get_epoch_by_slot(blockstamp.slot_number),
+            blockstamp.epoch_number,
             slashings,
             total_balance,
             future_frames_lido_validators,
