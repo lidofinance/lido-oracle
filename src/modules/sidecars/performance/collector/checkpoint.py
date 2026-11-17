@@ -451,8 +451,13 @@ def process_attestations(
         committee_offset = 0
         att_bits = hex_bitlist_to_list(attestation.aggregation_bits)
         att_slot = attestation.data.slot
-        for committee_idx in get_committee_indices(attestation):
-            committee = committees.get((att_slot, committee_idx))
+        att_committees = [committees.get((att_slot, idx), []) for idx in get_committee_indices(attestation)]
+        expected_bits_len = sum(len(committee) for committee in att_committees)
+        if expected_bits_len and len(att_bits) != expected_bits_len:
+            raise ValueError(
+                f"Attestation at {att_slot=} has {len(att_bits)} aggregation bits, expected {expected_bits_len}"
+            )
+        for committee in att_committees:
             if not committee:
                 # It is attestation from prev or future epoch.
                 # We already checked that before or check in next epoch processing.
