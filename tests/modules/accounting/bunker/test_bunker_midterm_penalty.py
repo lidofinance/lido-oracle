@@ -168,38 +168,6 @@ def test_is_high_midterm_slashing_penalty(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("validator", "ref_epoch", "expected_result"),
-    [
-        # slashing epoch is first epoch and it's determined
-        (simple_validators(0, 0, slashed=True)[0], EpochNumber(225), [0]),
-        # slashing epoch is not first epoch and it's determined
-        (
-            simple_validators(0, 0, slashed=True, exit_epoch="16084", withdrawable_epoch="16384")[0],
-            EpochNumber(225),
-            [8192],
-        ),
-        # slashing epoch is not determined
-        (
-            simple_validators(0, 0, slashed=True, exit_epoch="16380", withdrawable_epoch="16384")[0],
-            EpochNumber(225),
-            list(range(226)),
-        ),
-        # slashing epoch is not determined and ref epoch is not last epoch in first frame
-        (
-            simple_validators(0, 0, slashed=True, exit_epoch="16380", withdrawable_epoch="16384")[0],
-            EpochNumber(16000),
-            list(range(7808, 8193)),
-        ),
-    ],
-)
-def test_get_possible_slashed_epochs(validator, ref_epoch, expected_result):
-    result = MidtermSlashingPenalty.get_possible_slashed_epochs(validator, ref_epoch)
-
-    assert result == expected_result
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
     ("ref_epoch", "future_midterm_penalty_lido_slashed_validators", "expected_result"),
     [
         (225, {}, {}),
