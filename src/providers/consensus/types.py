@@ -197,7 +197,7 @@ def _parse_optional[T: FromResponse](value: object, factory: type[T], name: str)
         return value
     if isinstance(value, dict):
         return factory.from_response(**value)
-    raise InconsistentData(f'Block body field `{name}` is neither an object nor null: {type(value).__name__}.')
+    raise InconsistentData(f'Block body field `{name}` is neither a dict nor null: {type(value).__name__}.')
 
 
 @dataclass
