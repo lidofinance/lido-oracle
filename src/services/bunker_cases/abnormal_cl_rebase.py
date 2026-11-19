@@ -377,6 +377,7 @@ class AbnormalClRebase:
             filter_pubkeys=cast(set[str], lido_pubkeys) - existing_pubkeys,
             lido_wc_list=lido_wc_list,
             genesis_fork_version=genesis_fork_version,
+            skip_builder_deposits=not self.w3.cc.is_gloas_slot(blockstamp.slot_number),
         )
         for deposits in valid.values():
             total = Gwei(total + sum(d.amount for d in deposits))

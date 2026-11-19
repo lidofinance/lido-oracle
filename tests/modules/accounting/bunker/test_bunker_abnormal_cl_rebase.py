@@ -720,6 +720,47 @@ def test_calculate_injected_capital__v4__invalid_signature_deposit_excluded(web3
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
+    ("is_gloas", "expected_old_pending"),
+    [
+        pytest.param(False, Gwei(32 * 10**9), id="before Gloas the fork moves the top-up to a builder"),
+        pytest.param(True, Gwei(33 * 10**9), id="after Gloas the top-up reaches the validator"),
+    ],
+)
+def test_calculate_injected_capital__builder_credential_top_up_of_pending_key__counted_only_after_gloas(
+    web3, monkeypatch, is_gloas, expected_old_pending
+):
+    # Arrange — a pending Lido key queued with a valid Lido deposit and a 0xb0 top-up, both applied by ref
+    prev_blockstamp = ReferenceBlockStampFactory.build(block_number=10)
+    ref_blockstamp = ReferenceBlockStampFactory.build(block_number=20)
+    abnormal_case = AbnormalClRebase(
+        web3, ChainConfigFactory.build(), BunkerConfigFactory.build(), FrameConfigFactory.build()
+    )
+    lido_pubkey = '0x' + 'ab' * 48
+    lido_wc = '0x010000000000000000000000aabbccddaabbccddaabbccddaabbccddaabbccdd'
+    abnormal_case.lido_keys = [simple_key(lido_pubkey)]
+    abnormal_case.lido_validators = []
+    abnormal_case.w3.lido_validators.get_lido_wc_list = Mock(return_value=[lido_wc])
+    abnormal_case.w3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version='0x00000000'))
+    abnormal_case.w3.cc.is_gloas_slot = Mock(return_value=is_gloas)
+    monkeypatch.setattr('src.web3py.extensions.lido_validators.is_valid_deposit_signature', Mock(return_value=True))
+
+    lido_deposit = Mock(pubkey=lido_pubkey, withdrawal_credentials=lido_wc, signature='0x00', amount=32 * 10**9)
+    builder_top_up = Mock(
+        pubkey=lido_pubkey, withdrawal_credentials='0xb0' + '00' * 11 + 'ff' * 20, signature='0x00', amount=10**9
+    )
+    abnormal_case.w3.cc.get_pending_deposits = Mock(return_value=[])
+    abnormal_case.w3.cc.get_all_pending_deposits = Mock(side_effect=[[lido_deposit, builder_top_up], []])
+    abnormal_case.w3.lido_contracts.lido.get_balance_stats = Mock(return_value=BalanceStats(0, 0, 0, 0))
+
+    # Act
+    result = abnormal_case._calculate_injected_capital(prev_blockstamp, ref_blockstamp, [])
+
+    # Assert — nothing was deposited in the window and nothing is pending at ref, so it is the old pending sum
+    assert result == expected_old_pending
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
     ("curr_validators", "last_report_validators", "expected_result"),
     [
         ([], [], 0),

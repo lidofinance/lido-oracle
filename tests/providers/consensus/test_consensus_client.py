@@ -56,14 +56,25 @@ class TestPendingDeposits:
     def client(self, queue):
         client = ConsensusClient(['http://localhost'], 30)
         client.get_state_view = Mock(return_value=Mock(pending_deposits=queue))
+        client.is_gloas_slot = Mock(return_value=False)
         return client
 
-    def test_get_pending_deposits__builder_credential_deposit__skipped(self, client, queue):
+    def test_get_pending_deposits__builder_credential_deposit_before_gloas__skipped(self, client, queue):
         # Act
         result = client.get_pending_deposits(BlockStampFactory.build())
 
         # Assert
         assert result == [queue[0], queue[2]]
+
+    def test_get_pending_deposits__builder_credential_deposit_after_gloas__kept(self, client, queue):
+        # Arrange
+        client.is_gloas_slot = Mock(return_value=True)
+
+        # Act
+        result = client.get_pending_deposits(BlockStampFactory.build())
+
+        # Assert
+        assert result == queue
 
     def test_get_all_pending_deposits__builder_credential_deposit__kept(self, client, queue):
         # Act
