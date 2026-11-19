@@ -719,6 +719,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_epoch,
                 exit_balance_to_consume=Gwei(0),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
 
