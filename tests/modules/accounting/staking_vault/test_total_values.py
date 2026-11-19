@@ -536,8 +536,9 @@ class TestGetVaultsTotalValuesEdgeCases:
         assert result[VaultAddresses.VAULT_0] == default_vaults_map[
             VaultAddresses.VAULT_0
         ].aggregated_balance + gwei_to_wei(Gwei(33_000_000_000))
-        requested_pubkeys = service.w3.lido_contracts.lazy_oracle.get_validator_statuses.call_args.kwargs['pubkeys']
-        assert pubkey not in requested_pubkeys
+        status_requests = service.w3.lido_contracts.lazy_oracle.get_validator_statuses.call_args_list
+        assert status_requests
+        assert all(pubkey not in request.kwargs['pubkeys'] for request in status_requests)
 
 
 @pytest.mark.unit
