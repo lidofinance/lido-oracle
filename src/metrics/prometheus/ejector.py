@@ -17,6 +17,19 @@ EJECTOR_MAX_WITHDRAWAL_EPOCH = Gauge(
 
 EJECTOR_VALIDATORS_COUNT_TO_EJECT = Gauge(
     "ejector_validators_count_to_eject",
-    "Reported validators count to eject",
+    "Validators with a withdrawal request (full or partial) in the report",
+    namespace=PROMETHEUS_PREFIX,
+)
+
+EJECTOR_WITHDRAWAL_REQUESTS = Gauge(
+    "ejector_withdrawal_requests",
+    "Withdrawal requests in the report by type",
+    ["type"],
+    namespace=PROMETHEUS_PREFIX,
+)
+
+EJECTOR_PARTIAL_WITHDRAWAL_GWEI_AMOUNT = Gauge(
+    "ejector_partial_withdrawal_gwei_amount",
+    "Total amount of the partial withdrawal requests in the report",
     namespace=PROMETHEUS_PREFIX,
 )

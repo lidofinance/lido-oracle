@@ -51,13 +51,33 @@ class OracleDaemonConfigContract(ContractInterface):
         return self._get('FINALIZATION_MAX_NEGATIVE_REBASE_EPOCH_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
-    def exit_events_lookback_window_in_slots(self, block_identifier: BlockIdentifier) -> int:
-        return self._get('EXIT_EVENTS_LOOKBACK_WINDOW_IN_SLOTS', block_identifier)
-
-    @lru_cache(maxsize=1)
     def slashing_reserve_we_left_shift(self, block_identifier: BlockIdentifier) -> int:
         return self._get('SLASHING_RESERVE_WE_LEFT_SHIFT', block_identifier)
 
     @lru_cache(maxsize=1)
     def slashing_reserve_we_right_shift(self, block_identifier: BlockIdentifier) -> int:
         return self._get('SLASHING_RESERVE_WE_RIGHT_SHIFT', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def exit_iteration_chunk_eth(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('EXIT_ITERATION_CHUNK', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_enabled(self, block_identifier: BlockIdentifier) -> bool:
+        return bool(self._get('ACTIVE_REBALANCING_ENABLED', block_identifier))
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_rate_limit_eth(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_RATE_LIMIT', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_operator_excess_bp(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_OPERATOR_EXCESS_BP', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_module_excess_bp(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_MODULE_EXCESS_BP', block_identifier)
+
+    @lru_cache(maxsize=1)
+    def active_rebalancing_grace_period_epochs(self, block_identifier: BlockIdentifier) -> int:
+        return self._get('ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS', block_identifier)
