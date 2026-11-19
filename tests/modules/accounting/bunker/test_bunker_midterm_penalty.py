@@ -168,7 +168,7 @@ def test_is_high_midterm_slashing_penalty(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    ("ref_epoch", "future_midterm_penalty_lido_slashed_validators", "expected_result"),
+    ("state_epoch", "future_midterm_penalty_lido_slashed_validators", "expected_result"),
     [
         (225, {}, {}),
         (
@@ -198,7 +198,7 @@ def test_is_high_midterm_slashing_penalty(
     ],
 )
 def test_get_per_frame_lido_validators_with_future_midterm_epoch(
-    ref_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
+    state_epoch, future_midterm_penalty_lido_slashed_validators, expected_result
 ):
     chain_config = ChainConfig(
         slots_per_epoch=32,
@@ -213,7 +213,7 @@ def test_get_per_frame_lido_validators_with_future_midterm_epoch(
     web3_converter = Web3Converter(chain_config, frame_config)
 
     result = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-        EpochNumber(ref_epoch),
+        EpochNumber(state_epoch),
         web3_converter,
         future_midterm_penalty_lido_slashed_validators,
     )
@@ -768,7 +768,7 @@ class TestQueuedConsolidationsIntoSlashedTargets:
     def predict_penalty(self, web3_converter, lido_validators) -> Gwei:
         blockstamp = simple_blockstamp(225 * 32)
         buckets = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-            blockstamp.ref_epoch, web3_converter, lido_validators
+            blockstamp.epoch_number, web3_converter, lido_validators
         )
         per_frame = MidtermSlashingPenalty.get_future_midterm_penalty_sum_in_frames(
             blockstamp.ref_epoch, self.SLASHINGS, Gwei(1050 * 32 * ETH), buckets
@@ -891,6 +891,59 @@ class TestSlashingsReadAfterReferenceEpoch:
         # Act
         result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
             self.blockstamp(state_slot),
+            web3_converter,
+            [*simple_validators(0, 999), *lido_validators],
+            lido_validators,
+            self.SLASHINGS,
+            Gwei(199 * 10**9),
+            SlotNumber(0),
+        )
+
+        # Assert
+        assert result is expected_result
+
+
+@pytest.mark.unit
+class TestChargesSettledByTheStateEpoch:
+    """
+    The reference epoch is 225; 50 slashed Lido validators are charged at `penalty_epoch`.
+    The state already holds the charge once it is read in a later epoch, so it must not be reserved again.
+    """
+
+    REF_EPOCH = 225
+    SLASHINGS = [32 * 10**9 * 50, *([0] * (EPOCHS_PER_SLASHINGS_VECTOR - 1))]
+
+    @staticmethod
+    def blockstamp(state_epoch: int) -> ReferenceBlockStamp:
+        ref_slot = (TestChargesSettledByTheStateEpoch.REF_EPOCH + 1) * 32 - 1
+        state_slot = ref_slot if state_epoch == TestChargesSettledByTheStateEpoch.REF_EPOCH else state_epoch * 32
+        return ReferenceBlockStamp(
+            f"0x{state_slot}", state_slot, '', state_slot, 0, state_epoch, ref_slot, ref_slot // 32
+        )
+
+    @pytest.mark.parametrize(
+        ("penalty_epoch", "state_epoch", "expected_result"),
+        [
+            pytest.param(REF_EPOCH, REF_EPOCH, True, id="state at the reference slot, charged at its epoch end"),
+            pytest.param(REF_EPOCH, REF_EPOCH + 1, False, id="first block after the reference slot"),
+            pytest.param(REF_EPOCH + 1, REF_EPOCH + 1, True, id="charged at the end of the state epoch"),
+            pytest.param(REF_EPOCH + 1, REF_EPOCH + 2, False, id="epoch after the reference slot has no blocks"),
+        ],
+    )
+    def test_is_high_midterm_slashing_penalty__charge_before_state_epoch__not_reserved(
+        self, penalty_epoch, state_epoch, expected_result
+    ):
+        # Arrange
+        web3_converter = Web3Converter(
+            ChainConfig(slots_per_epoch=32, seconds_per_slot=12, genesis_time=0),
+            FrameConfig(initial_epoch=EpochNumber(0), epochs_per_frame=EpochNumber(225), fast_lane_length_slots=0),
+        )
+        withdrawable_epoch = str(penalty_epoch + EPOCHS_PER_SLASHINGS_VECTOR // 2)
+        lido_validators = simple_validators(1000, 1049, slashed=True, withdrawable_epoch=withdrawable_epoch)
+
+        # Act
+        result = MidtermSlashingPenalty.is_high_midterm_slashing_penalty(
+            self.blockstamp(state_epoch),
             web3_converter,
             [*simple_validators(0, 999), *lido_validators],
             lido_validators,
