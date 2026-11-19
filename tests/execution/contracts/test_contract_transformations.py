@@ -55,12 +55,12 @@ from src.providers.execution.contracts.curated_staking_module import CuratedStak
 from src.providers.execution.contracts.data_bus import DataBusContract
 from src.providers.execution.contracts.delegation_contract import DelegationContract
 from src.providers.execution.contracts.deposit_contract import DepositContract
+from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContract
 from src.providers.execution.contracts.hash_consensus import HashConsensusContract
 from src.providers.execution.contracts.lazy_oracle import LazyOracleContract
 from src.providers.execution.contracts.lido import LidoContract
 from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.providers.execution.contracts.meta_registry import ExternalOperator, MetaRegistryContract
-from src.providers.execution.contracts.oracle_daemon_config import OracleDaemonConfigContract
 from src.providers.execution.contracts.oracle_report_sanity_checker import OracleReportSanityCheckerContract
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
@@ -1651,18 +1651,16 @@ class TestCuratedStakingModulePassThroughs:
 
 
 # ---------------------------------------------------------------------------
-# OracleDaemonConfigContract.max_validator_exit_requests_per_report
+# ExitBusOracleContract.get_max_validators_per_report
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_max_validator_exit_requests_per_report__value_set__returns_decoded_int():
+def test_get_max_validators_per_report__called__returns_contract_value():
     contract = _mock_contract()
-    contract._get = lambda param, bi: OracleDaemonConfigContract._get(contract, param, bi)
-    contract.functions.get.return_value.call = MagicMock(return_value=(600).to_bytes(32, 'big'))
+    contract.functions.getMaxValidatorsPerReport.return_value.call.return_value = 600
 
-    result = OracleDaemonConfigContract.max_validator_exit_requests_per_report(contract, "0xset")
+    result = ExitBusOracleContract.get_max_validators_per_report(contract, "0xset")
 
     assert result == 600
-    contract.functions.get.assert_called_once_with('MAX_VALIDATOR_EXIT_REQUESTS_PER_REPORT')
-    contract.functions.get.return_value.call.assert_called_once_with(block_identifier="0xset")
+    contract.functions.getMaxValidatorsPerReport.return_value.call.assert_called_once_with(block_identifier="0xset")
