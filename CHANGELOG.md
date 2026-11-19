@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ejector reads `EXIT_ITERATION_CHUNK` and `ACTIVE_REBALANCING_ENABLED`, `ACTIVE_REBALANCING_RATE_LIMIT`, `ACTIVE_REBALANCING_OPERATOR_EXCESS_BP`, `ACTIVE_REBALANCING_MODULE_EXCESS_BP`, `ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS` from `OracleDaemonConfig`.
 - Metrics `ejector_withdrawal_requests{type}` and `ejector_partial_withdrawal_gwei_amount`.
 
+## [8.3.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.3.0) - 2026-11
+
+### Fixed
+- Pending deposits with builder withdrawal credentials (`0xb0`) are no longer counted towards Lido validator balances or staking vault total value. At the Gloas fork such a deposit becomes a separate builder even when a validator already uses its pubkey, so its funds never reach the validator.
+
 ## [8.2.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.2.0) - 2026-10
 
 ### Added
