@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## [8.3.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.3.0) - 2026-11
+
+### Fixed
+- Pending deposits with builder withdrawal credentials (`0xb0`) are no longer counted towards Lido validator balances or staking vault total value. At the Gloas fork such a deposit becomes a separate builder even when a validator already uses its pubkey, so its funds never reach the validator.
+
 ## [8.2.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.2.0) - 2026-10
 
 ### Added
