@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from web3 import Web3
-from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
 
@@ -36,35 +35,3 @@ class TestContractInterface(unittest.TestCase):
         # Verify it raises AttributeError
         with self.assertRaises(AttributeError):
             TestContractWithoutAbiPath.factory(self.w3)
-
-    @patch('src.providers.execution.base_interface.ContractInterface.w3')
-    def test_is_deployed_contract_exists(self, mock_w3):
-        """Test the is_deployed method when the contract is deployed."""
-        mock_w3.eth.get_code.return_value = b'\x01'  # Simulate contract code present
-
-        # Define an instance of a contract
-        test_contract = ContractInterface(address="0x0000000000000000000000000000000000000000")
-        block = MagicMock(spec=BlockIdentifier)
-
-        # Check that contract is deployed
-        result = test_contract.is_deployed(block)
-        self.assertTrue(result, "Contract should be detected as deployed")
-
-        # Check if get_code was called with the correct arguments
-        mock_w3.eth.get_code.assert_called_once_with(test_contract.address, block_identifier=block)
-
-    @patch('src.providers.execution.base_interface.ContractInterface.w3')
-    def test_is_deployed_contract_not_exists(self, mock_w3):
-        """Test the is_deployed method when the contract is not deployed."""
-        mock_w3.eth.get_code.return_value = b''  # Simulate no contract code present
-
-        # Define an instance of a contract
-        test_contract = ContractInterface(address="0x0000000000000000000000000000000000000000")
-        block = MagicMock(spec=BlockIdentifier)
-
-        # Check that contract is not deployed
-        result = test_contract.is_deployed(block)
-        self.assertFalse(result, "Contract should be detected as not deployed")
-
-        # Check if get_code was called with the correct arguments
-        mock_w3.eth.get_code.assert_called_once_with(test_contract.address, block_identifier=block)

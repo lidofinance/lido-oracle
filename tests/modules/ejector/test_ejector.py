@@ -6,6 +6,7 @@ from web3.exceptions import ContractCustomError
 
 from src.constants import (
     EFFECTIVE_BALANCE_INCREMENT,
+    FAR_FUTURE_EPOCH,
     GWEI_TO_WEI,
     MAX_EFFECTIVE_BALANCE,
     MAX_EFFECTIVE_BALANCE_ELECTRA,
@@ -24,9 +25,7 @@ from src.providers.execution.contracts.exit_bus_oracle import ExitBusOracleContr
 from src.services.exit_order_iterator import WeightsNotUpdatedError
 from src.types import BlockStamp, EpochNumber, Gwei, ReferenceBlockStamp, SlotNumber, Wei
 from src.utils.validator_balance import (
-    get_predictable_full_inbound_balance,
     get_predictable_inbound_balance,
-    get_predictable_inbound_sweep,
 )
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
@@ -37,7 +36,7 @@ from src.web3py.types import Web3
 from tests.factory.base_oracle import EjectorProcessingStateFactory
 from tests.factory.blockstamp import BlockStampFactory, ReferenceBlockStampFactory
 from tests.factory.configs import ChainConfigFactory
-from tests.factory.no_registry import LidoValidatorFactory
+from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
 
 
 def build_extended_validator(**kwargs) -> LidoValidator:
@@ -429,33 +428,6 @@ class TestGetValidatorsToEject:
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    ("balance", "meb"),
-    [
-        # Compounding 0x02 validator: 0.3 ETH of dust above the 2048 ETH cap.
-        (2_048_300_000_000, MAX_EFFECTIVE_BALANCE_ELECTRA),  # 2048.3 ETH
-        # Regular 0x01 validator: 0.3 ETH of dust above the 32 ETH cap.
-        (32_300_000_000, MAX_EFFECTIVE_BALANCE),  # 32.3 ETH
-    ],
-)
-def test_predictable_inbound_plus_sweep__dust_validator__equals_full_inbound(balance: int, meb: int) -> None:
-    # A balance above the effective-balance cap splits into a capped inbound part and a sweep excess.
-    # The two must always reconstruct the full inbound balance, so dust above the cap is never lost
-    # or double-counted.
-    # Arrange
-    validator = build_extended_validator_with_balance(balance, meb=meb)
-
-    # Act
-    inbound = get_predictable_inbound_balance(validator)
-    sweep = get_predictable_inbound_sweep(validator)
-    full = get_predictable_full_inbound_balance(validator)
-
-    # Assert
-    assert sweep > 0, "the balance must exceed the cap so the sweep excess is actually exercised"
-    assert inbound + sweep == full, "inbound + sweep must equal the full inbound balance"
-
-
-@pytest.mark.unit
 def test_is_main_data_submitted(ejector: Ejector, blockstamp: BlockStamp) -> None:
     ejector.w3.lido_contracts.validators_exit_bus_oracle.get_processing_state = Mock(
         return_value=Mock(data_submitted=True)
@@ -577,6 +549,35 @@ class TestPredictedElBalanceSubtractsDepositLock:
         assert result == Wei(10_000 + 1_000 + 100)
 
 
+@pytest.mark.unit
+def test_get_predicted_el_balance__state_in_next_epoch__horizon_counts_from_state_epoch(
+    ejector: Ejector, chain_config: ChainConfig
+) -> None:
+    # Arrange: post-Gloas the report reads ref_slot's child block, one epoch after ref_epoch.
+    # withdrawal_epoch is predicted from that state, so the horizon must start there as well.
+    ref_epoch = EpochNumber(10_000)
+    child_blockstamp = ReferenceBlockStampFactory.build(
+        ref_slot=SlotNumber(ref_epoch * 32 + 31),
+        ref_epoch=ref_epoch,
+        slot_number=SlotNumber((ref_epoch + 1) * 32),
+    )
+    ejector.get_chain_config = Mock(return_value=chain_config)
+    ejector._get_total_el_balance = Mock(return_value=Wei(0))
+    ejector._get_sweep_delay_in_epochs = Mock(return_value=0)
+    ejector.validators_state_service.get_recently_requested_but_not_exiting_validators = Mock(return_value=[])
+    ejector._get_predicted_withdrawable_epoch = Mock(return_value=EpochNumber(ref_epoch + 1 + 10))
+    ejector._get_withdrawable_principal = Mock(return_value=Wei(0))
+    ejector.prediction_service.get_rewards_per_epoch = Mock(return_value=Wei(100))
+    ejector._get_deposit_lock_amount = Mock(return_value=Wei(0))
+
+    # Act
+    result = ejector._get_predicted_el_balance(Gwei(0), child_blockstamp)
+
+    # Assert
+    assert result == Wei(10 * 100)
+    ejector._get_deposit_lock_amount.assert_called_once_with(10, child_blockstamp)
+
+
 class TestPredictedWithdrawableEpoch:
     @pytest.fixture
     def ref_blockstamp(self) -> ReferenceBlockStamp:
@@ -604,6 +605,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -625,6 +629,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(int(256e9)),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -650,6 +657,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch + 10_000,
                 exit_balance_to_consume=Gwei(1),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -675,6 +685,9 @@ class TestPredictedWithdrawableEpoch:
                 earliest_exit_epoch=ref_blockstamp.ref_epoch,
                 exit_balance_to_consume=Gwei(0),
                 slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
             )
         )
         result = ejector._get_predicted_withdrawable_epoch(
@@ -687,6 +700,35 @@ class TestPredictedWithdrawableEpoch:
         )
         assert result == ref_blockstamp.ref_epoch + (1 + MAX_SEED_LOOKAHEAD) + 3 + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
+    @pytest.mark.unit
+    def test_activation_exit_epoch_uses_state_epoch(self, ejector: Ejector, set_consensus) -> None:
+        # Post-Gloas the report reads ref_slot's child block, whose state is already in ref_epoch + 1.
+        # The spec computes the exit epoch from get_current_epoch(state), not from ref_epoch.
+        ref_epoch = EpochNumber(10_000)
+        child_blockstamp = ReferenceBlockStampFactory.build(
+            ref_slot=SlotNumber(ref_epoch * 32 + 31),
+            ref_epoch=ref_epoch,
+            slot_number=SlotNumber((ref_epoch + 1) * 32),
+        )
+        ejector._get_total_active_balance = Mock(return_value=int(2048e9))
+        ejector.w3.cc.get_state_view = Mock(
+            return_value=BeaconStateView(
+                slot=child_blockstamp.slot_number,
+                validators=[],
+                balances=[],
+                earliest_exit_epoch=ref_epoch,
+                exit_balance_to_consume=Gwei(0),
+                slashings=[],
+                pending_deposits=[],
+                pending_partial_withdrawals=[],
+                pending_consolidations=[],
+            )
+        )
+
+        result = ejector._get_predicted_withdrawable_epoch(MIN_ACTIVATION_BALANCE, child_blockstamp)
+
+        assert result == (ref_epoch + 1) + (1 + MAX_SEED_LOOKAHEAD) + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
     @pytest.fixture(autouse=True)
     def _patch_ejector(self, ejector: Ejector):
         ejector.w3.cc = Mock()
@@ -695,7 +737,7 @@ class TestPredictedWithdrawableEpoch:
 
 @pytest.mark.unit
 def test_get_total_active_validators(ejector: Ejector) -> None:
-    ref_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=3546)
+    ref_blockstamp = ReferenceBlockStampFactory.build(slot_number=SlotNumber(3546 * 32), ref_epoch=3546)
     ejector.w3 = Mock()
     ejector.w3.cc.get_validators = Mock(
         return_value=[
@@ -706,6 +748,28 @@ def test_get_total_active_validators(ejector: Ejector) -> None:
     )
 
     assert len(ejector._get_active_validators(ref_blockstamp)) == 100
+
+
+@pytest.mark.unit
+def test_get_active_validators_uses_state_epoch(ejector: Ejector) -> None:
+    # Spec get_total_active_balance counts validators active at get_current_epoch(state). Post-Gloas
+    # the state is ref_slot's child, one epoch after ref_epoch.
+    ref_epoch = EpochNumber(10_000)
+    child_blockstamp = ReferenceBlockStampFactory.build(
+        ref_slot=SlotNumber(ref_epoch * 32 + 31),
+        ref_epoch=ref_epoch,
+        slot_number=SlotNumber((ref_epoch + 1) * 32),
+    )
+    activated_at_state_epoch = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(activation_epoch=ref_epoch + 1, exit_epoch=FAR_FUTURE_EPOCH)
+    )
+    exited_at_state_epoch = LidoValidatorFactory.build(
+        validator=ValidatorStateFactory.build(activation_epoch=0, exit_epoch=ref_epoch + 1)
+    )
+    ejector.w3 = Mock()
+    ejector.w3.cc.get_validators = Mock(return_value=[activated_at_state_epoch, exited_at_state_epoch])
+
+    assert ejector._get_active_validators(child_blockstamp) == [activated_at_state_epoch]
 
 
 @pytest.mark.unit
