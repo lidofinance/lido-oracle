@@ -189,6 +189,26 @@ def test_calculate_finalization_batches__budget_spent_to_the_wei__lock_fits_avai
 
 
 @pytest.mark.unit
+def test_calculate_finalization_batches__all_batch_slots_taken__splits_mixed_batch(subject: Withdrawal):
+    # Arrange — the dust-bridged mixed batch comes first, then report periods alternate sides until the batch
+    # array is full; the queue still debits the next request before it finds no slot for it
+    queue = _discounted_then_nominal_queue(dust_request=True)
+    for report in range(MAX_BATCHES_LENGTH):
+        queue.on_oracle_report(3 + report)
+        queue.request(1000 * 10**18, *(ALICE_RATE if report % 2 == 0 else BOB_RATE))
+    subject.w3.lido_contracts.withdrawal_queue_nft = queue
+
+    # Act
+    batches = subject._calculate_finalization_batches(SIMULATED_SHARE_RATE, LARGE_BUDGET, 0)
+
+    # Assert
+    assert len(batches) == MAX_BATCHES_LENGTH
+    assert batches[:2] == [3, 9]
+    locked = queue.prefinalize(batches, SIMULATED_SHARE_RATE, None)
+    assert locked - _total_claims(queue, batches[-1], SIMULATED_SHARE_RATE) <= 2 * batches[-1]
+
+
+@pytest.mark.unit
 def test_split_mixed_batches__more_batches_than_the_queue_accepts__keeps_the_first_ones(subject: Withdrawal):
     # Arrange — discounted and nominal requests alternate within one report period, so each one is its own batch
     queue = WithdrawalQueueModel()

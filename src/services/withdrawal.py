@@ -122,19 +122,22 @@ class Withdrawal:
         if not batches:
             return []
 
-        claims = budget - state.remaining_eth_budget
-        eth_to_lock = withdrawal_queue.prefinalize(batches, share_rate, block_hash)
-        if eth_to_lock - claims <= ROUNDING_WEI_PER_REQUEST * (batches[-1] - last_finalized_id):
-            return batches
+        # With all batch slots taken the queue debits the next request before it finds no room for it,
+        # so the debited budget covers a request outside the batches and cannot tell whether they are mixed.
+        if state.batches_length < max_length:
+            claims = budget - state.remaining_eth_budget
+            eth_to_lock = withdrawal_queue.prefinalize(batches, share_rate, block_hash)
+            if eth_to_lock - claims <= ROUNDING_WEI_PER_REQUEST * (batches[-1] - last_finalized_id):
+                return batches
 
-        logger.warning(
-            {
-                'msg': 'Finalization batches lock more ether than their requests can claim. Splitting mixed batches.',
-                'batches': batches,
-                'eth_to_lock': eth_to_lock,
-                'claims': claims,
-            }
-        )
+            logger.warning(
+                {
+                    'msg': 'Finalization batches lock more than their requests claim. Splitting mixed batches.',
+                    'batches': batches,
+                    'eth_to_lock': eth_to_lock,
+                    'claims': claims,
+                }
+            )
         return self._split_mixed_batches(batches, share_rate, last_finalized_id, max_length)
 
     def _split_mixed_batches(
