@@ -500,6 +500,45 @@ class TestGetVaultsTotalValuesEdgeCases:
             pubkeys=ANY, block_identifier="latest", batch_size=ANY
         )
 
+    def test_get_vaults_total_values__effective_balance_reached_before_eligibility_epoch__counts_full_balance(
+        self, web3, default_vaults_map
+    ):
+        # Setup
+        pubkey = '0x862d53d9e4313374d202f2b28e6ffe64efb0312f9c2663f2eef67b72345faa8932b27f9b9bb7b476d9b5e418fea99010'
+
+        validators = [
+            ValidatorFactory.build(
+                balance=Gwei(32_000_000_000),
+                validator=ValidatorStateFactory.build_not_eligible_for_activation(
+                    pubkey=pubkey,
+                    withdrawal_credentials=WithdrawalCredentials.WC_0,
+                    effective_balance=Gwei(32_000_000_000),
+                ),
+            ),
+        ]
+        pending_deposits = [
+            PendingDepositFactory.build(
+                pubkey=pubkey,
+                withdrawal_credentials=WithdrawalCredentials.WC_0,
+                amount=Gwei(1_000_000_000),
+            ),
+        ]
+
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+
+        # Act
+        result = service.get_vaults_total_values(
+            default_vaults_map, validators, pending_deposits, block_identifier="latest"
+        )
+
+        # Assert
+        assert result[VaultAddresses.VAULT_0] == default_vaults_map[
+            VaultAddresses.VAULT_0
+        ].aggregated_balance + gwei_to_wei(Gwei(33_000_000_000))
+        requested_pubkeys = service.w3.lido_contracts.lazy_oracle.get_validator_statuses.call_args.kwargs['pubkeys']
+        assert pubkey not in requested_pubkeys
+
 
 @pytest.mark.unit
 class TestGetVaultsTotalValuesDefaults:

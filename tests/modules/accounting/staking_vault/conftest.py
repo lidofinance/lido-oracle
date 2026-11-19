@@ -119,6 +119,7 @@ class ValidatorStateFactory(Web3DataclassFactory[ValidatorState]):
     @classmethod
     def build_not_eligible_for_activation(cls, **kwargs: Any) -> ValidatorState:
         """Build a validator that is not yet eligible for activation (FAR_FUTURE_EPOCH)."""
+        kwargs.setdefault('effective_balance', DEFAULT_NOT_ELIGIBLE_BALANCE)
         return cls.build(
             activation_eligibility_epoch=FAR_FUTURE_EPOCH,
             activation_epoch=FAR_FUTURE_EPOCH,

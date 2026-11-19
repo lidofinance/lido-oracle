@@ -19,11 +19,11 @@ from src.utils.validator_state import (
     has_compounding_withdrawal_credential,
     has_eth1_withdrawal_credential,
     has_execution_withdrawal_credential,
-    has_far_future_activation_eligibility_epoch,
     is_active_validator,
     is_exited_validator,
     is_fully_withdrawable_validator,
     is_on_exit,
+    is_or_becomes_eligible_for_activation,
     is_partially_withdrawable_validator,
 )
 from tests.factory.no_registry import ValidatorFactory
@@ -144,17 +144,20 @@ def test_is_on_exit(exit_epoch, expected):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "activation_eligibility_epoch, expected",
+    "activation_eligibility_epoch, effective_balance, expected",
     [
-        (176720, False),
-        (FAR_FUTURE_EPOCH, True),
+        (176720, Gwei(1_000_000_000), True),
+        (FAR_FUTURE_EPOCH, MIN_ACTIVATION_BALANCE, True),
+        (FAR_FUTURE_EPOCH, Gwei(MIN_ACTIVATION_BALANCE + 1_000_000_000), True),
+        (FAR_FUTURE_EPOCH, Gwei(MIN_ACTIVATION_BALANCE - 1_000_000_000), False),
     ],
 )
-def test_has_far_future_activation_eligibility_epoch(activation_eligibility_epoch, expected):
+def test_is_or_becomes_eligible_for_activation(activation_eligibility_epoch, effective_balance, expected):
     validator = ValidatorFactory.build()
     validator.validator.activation_eligibility_epoch = activation_eligibility_epoch
+    validator.validator.effective_balance = effective_balance
 
-    actual = has_far_future_activation_eligibility_epoch(validator.validator)
+    actual = is_or_becomes_eligible_for_activation(validator.validator)
     assert actual == expected
 
 

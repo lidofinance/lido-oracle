@@ -52,7 +52,7 @@ from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
 from src.utils.blockstamp import get_blockstamp
 from src.utils.units import gwei_to_wei
-from src.utils.validator_state import has_far_future_activation_eligibility_epoch
+from src.utils.validator_state import is_or_becomes_eligible_for_activation
 from src.web3py.types import Web3
 
 
@@ -182,7 +182,7 @@ class StakingVaultsService:
         return {
             v.validator.pubkey
             for v in validators
-            if has_far_future_activation_eligibility_epoch(v.validator)
+            if not is_or_becomes_eligible_for_activation(v.validator)
             and v.validator.withdrawal_credentials in vault_wcs
         }
 
@@ -247,7 +247,8 @@ class StakingVaultsService:
             │                         │        │                         │        │  DEPOSITS               │
             │  activation_elig ≠      │        │  activation_elig =      │        │                         │
             │  FAR_FUTURE_EPOCH       │        │  FAR_FUTURE_EPOCH       │        │  (pubkey not in any     │
-            │                         │        │                         │        │    vault validator)     │
+            │  or effective balance   │        │  and effective balance  │        │    vault validator)     │
+            │  ≥ 32 ETH               │        │  < 32 ETH               │        │                         │
             └─────────────────────────┘        └─────────────────────────┘        └─────────────────────────┘
                      │                                    │                                    │
                      │                                    │                                    │
@@ -282,9 +283,9 @@ class StakingVaultsService:
             validator_pending_amount = total_pending_amount_by_pubkey.get(validator_pubkey, Gwei(0))
             total_validator_balance = gwei_to_wei(Gwei(validator.balance + validator_pending_amount))
 
-            # Include validator balance and all pending deposits in TV when validator is eligible for activation or
-            # has already passed activation
-            if not has_far_future_activation_eligibility_epoch(validator.validator):
+            # Include validator balance and all pending deposits in TV when validator is eligible for activation,
+            # becomes eligible at the next epoch processing or has already passed activation
+            if is_or_becomes_eligible_for_activation(validator.validator):
                 vault_total += int(total_validator_balance)
 
             # For not-yet-eligible validators, use PDG stages:

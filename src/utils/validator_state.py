@@ -49,11 +49,18 @@ def is_partially_withdrawable_validator(validator: ValidatorState, balance: Gwei
     return has_execution_withdrawal_credential(validator) and has_max_effective_balance and has_excess_balance
 
 
-def has_far_future_activation_eligibility_epoch(validator: ValidatorState) -> bool:
+def is_or_becomes_eligible_for_activation(validator: ValidatorState) -> bool:
     """
-    Check if ``validator`` has a FAR_FUTURE_EPOCH activation eligibility epoch.
+    Check if ``validator`` has an activation eligibility epoch or gets one at the next epoch processing.
+
+    ``process_registry_updates`` runs before ``process_pending_deposits``, so a validator whose effective balance
+    reached MIN_ACTIVATION_BALANCE keeps a FAR_FUTURE_EPOCH eligibility epoch for one more epoch.
+    https://github.com/ethereum/consensus-specs/blob/master/specs/electra/beacon-chain.md#modified-is_eligible_for_activation_queue
     """
-    return validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH
+    return (
+        validator.activation_eligibility_epoch != FAR_FUTURE_EPOCH
+        or validator.effective_balance >= MIN_ACTIVATION_BALANCE
+    )
 
 
 def has_compounding_withdrawal_credential(validator: ValidatorState) -> bool:
