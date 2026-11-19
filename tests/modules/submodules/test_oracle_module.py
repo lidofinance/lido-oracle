@@ -25,6 +25,7 @@ from src.modules.oracles.common.runtime import run_oracle_module
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
 from src.types import BlockStamp
+from src.utils.blockstamp import MissingExecutionAnchor
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
@@ -145,6 +146,7 @@ def test_run_as_daemon(oracle):
         NoSlotsAvailable("Fake exception"),
         SlotNotFinalized("Fake exception"),
         InconsistentData("Fake exception"),
+        MissingExecutionAnchor("Fake exception"),
         KeysOutdatedException("Fake exception"),
     ],
     ids=lambda param: f"{type(param).__name__}",

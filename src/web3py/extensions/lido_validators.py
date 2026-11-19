@@ -11,11 +11,11 @@ from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL
 from src.providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
 from src.providers.keys.types import LidoKey
 from src.services.deposit_signature_verification import is_valid_deposit_signature
-from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
+from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
-from src.utils.validator_state import get_max_effective_balance
+from src.utils.validator_state import get_max_effective_balance, is_builder_withdrawal_credential
 
 
 class _Uninitialized:
@@ -171,6 +171,8 @@ class LidoValidator(Validator):
 @dataclass
 class ConsolidationRequest(PendingConsolidation):
     amount: Gwei
+    # The balance moves to the target in the epoch processing that precedes this epoch.
+    source_withdrawable_epoch: EpochNumber
 
 
 class CountOfKeysDiffersException(Exception):
@@ -232,6 +234,7 @@ class LidoValidatorsProvider(Module):
                 target_index=consolidation.target_index,
                 # only 0x01 validators will be consolidated, so all incoming excess balances will be swept
                 amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
+                source_withdrawable_epoch=source_validator.validator.withdrawable_epoch,
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
@@ -284,7 +287,7 @@ class LidoValidatorsProvider(Module):
         """
         lido_wc_list = self.get_lido_wc_list(blockstamp)
         genesis_config = self.w3.cc.get_genesis()
-        pending_deposits = self.w3.cc.get_pending_deposits(blockstamp)
+        pending_deposits = self.w3.cc.get_all_pending_deposits(blockstamp)
         (_, pending_lido_keys) = self._get_lido_validators_with_keys(blockstamp)
         pending_keys: dict[str, LidoKey] = {key.key: key for key in pending_lido_keys}
         logger.info(
@@ -324,6 +327,8 @@ class LidoValidatorsProvider(Module):
         Returns pending deposits grouped by pubkey, only for pubkeys in filter_pubkeys.
         A key whose first valid-signature deposit uses non-Lido WC is treated as a
         frontrun and excluded entirely along with any subsequent deposits for that key.
+
+        Takes the full queue, builder-credential deposits included, so a front-run with them is caught.
         """
         result: dict[str, list[PendingDeposit]] = {}
         frontruned_keys: set[str] = set()
@@ -333,7 +338,9 @@ class LidoValidatorsProvider(Module):
                 continue
 
             if d.pubkey in result:
-                result[d.pubkey].append(d)
+                # Builder-credential deposits are seen here only to catch a front-run, never counted as the key's stake.
+                if not is_builder_withdrawal_credential(d.withdrawal_credentials):
+                    result[d.pubkey].append(d)
                 continue
 
             if d.pubkey in frontruned_keys:

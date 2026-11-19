@@ -3,8 +3,11 @@ from typing import cast
 from unittest.mock import Mock, call, patch
 
 import pytest
+from web3.exceptions import BlockNotFound
+from web3_multi_provider import NoActiveProviderError
 
 import src.modules.sidecars.performance.collector.collector as collector_module
+from src.metrics.prometheus.performance_collector import PERFORMANCE_COLLECTOR_ERRORS_TOTAL
 from src.modules.common.types import ModuleExecuteDelay
 from src.modules.sidecars.performance.collector.checkpoint import FrameCheckpointsIterator
 from src.modules.sidecars.performance.collector.collector import PerformanceCollector
@@ -481,3 +484,28 @@ class TestHasEpochsDemandChanged:
         mock_db.demands_count.return_value = 0
 
         assert performance_collector._has_epochs_demand_changed() is False
+
+
+@pytest.mark.unit
+class TestExceptionHandler:
+    @pytest.mark.parametrize(
+        ("error", "error_type"),
+        [
+            (NoActiveProviderError("All providers failed", [RuntimeError("provider 1 error")]), "no_active_provider"),
+            (BlockNotFound("Block with id: '0x01' not found."), "web3"),
+        ],
+    )
+    def test_exception_handler__execution_client_failure__swallowed_and_counted(
+        self, performance_collector: PerformanceCollector, error: Exception, error_type: str
+    ):
+        counter = PERFORMANCE_COLLECTOR_ERRORS_TOTAL.labels(type=error_type)
+        before = counter._value.get()
+
+        with performance_collector.exception_handler():
+            raise error
+
+        assert counter._value.get() == before + 1
+
+    def test_exception_handler__unknown_error__reraised(self, performance_collector: PerformanceCollector):
+        with pytest.raises(RuntimeError, match="boom"), performance_collector.exception_handler():
+            raise RuntimeError("boom")

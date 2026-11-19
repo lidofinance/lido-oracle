@@ -30,15 +30,3 @@ def get_predictable_inbound_balance(validator: LidoValidator) -> Gwei:
     max_effective_balance = get_max_effective_balance(validator.validator)
     predictable_full_balance = get_predictable_full_inbound_balance(validator)
     return min(predictable_full_balance, max_effective_balance)
-
-
-def get_predictable_inbound_sweep(validator: LidoValidator) -> Gwei:
-    """
-    Computes the expected sweep payout for a validator, based on the excess balance above the effective balance.
-    """
-    predictable_full_balance = get_predictable_full_inbound_balance(validator)
-    max_effective_balance = get_max_effective_balance(validator.validator)
-
-    effective_balance = min(predictable_full_balance, max_effective_balance)
-
-    return Gwei(predictable_full_balance - effective_balance)
