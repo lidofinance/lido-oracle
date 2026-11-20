@@ -86,6 +86,37 @@ class WithdrawalQueueNftContract(ContractInterface):
         )
         return response
 
+    def get_withdrawal_statuses(
+        self, request_ids: list[int], block_identifier: BlockIdentifier
+    ) -> list[WithdrawalRequestStatus]:
+        response = self.functions.getWithdrawalStatus(request_ids).call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': f'Call `getWithdrawalStatus()` for requests {request_ids[0]}..{request_ids[-1]}.',
+                'value': len(response),
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return [named_tuple_to_dataclass(status, WithdrawalRequestStatus) for status in response]
+
+    def prefinalize(self, batches: list[int], max_share_rate: int, block_identifier: BlockIdentifier) -> Wei:
+        """
+        Returns the ether the report locks on the queue for the given finalization batches.
+        """
+        eth_to_lock, _ = self.functions.prefinalize(batches, max_share_rate).call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': f'Call `prefinalize({batches}, {max_share_rate})`.',
+                'value': eth_to_lock,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return Wei(eth_to_lock)
+
     @lru_cache(maxsize=1)
     def get_last_request_id(self, block_identifier: BlockIdentifier) -> int:
         """

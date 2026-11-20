@@ -14,6 +14,7 @@ def test_withdrawal_queue(withdrawal_queue_nft_contract, caplog):
             ('bunker_mode_since_timestamp', ('latest',), make_checker(int)),
             ('get_last_finalized_request_id', ('latest',), make_checker(int)),
             ('get_withdrawal_status', (1, 'latest'), make_checker(WithdrawalRequestStatus)),
+            ('get_withdrawal_statuses', ([1, 2], 'latest'), make_checker(list)),
             ('get_last_request_id', ('latest',), make_checker(int)),
             ('is_paused', ('latest',), make_checker(bool)),
             ('max_steth_withdrawal_amount', ('latest',), make_checker(int)),
