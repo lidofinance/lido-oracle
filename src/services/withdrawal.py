@@ -100,9 +100,6 @@ class Withdrawal:
         last_finalized_id = withdrawal_queue.get_last_finalized_request_id(block_hash)
         unfinalized_count = withdrawal_queue.get_last_request_id(block_hash) - last_finalized_id
         budget = available_eth - ROUNDING_WEI_PER_REQUEST * unfinalized_count
-        if budget <= 0:
-            return []
-
         max_length = withdrawal_queue.max_batches_length(block_hash)
 
         state = BatchState(
@@ -146,7 +143,7 @@ class Withdrawal:
         """Ends a batch also wherever neighbouring requests fall on different sides of the share rate."""
         request_ids = range(last_finalized_id + 1, batches[-1] + 1)
         discounted = [
-            _is_discounted(status.amount_of_st_eth, status.amount_of_shares, share_rate)
+            status.amount_of_st_eth * SHARE_RATE_PRECISION_E27 // status.amount_of_shares > share_rate
             for status in self._get_withdrawal_statuses(list(request_ids))
         ]
         batch_ends = set(batches)
@@ -165,7 +162,3 @@ class Withdrawal:
                 list(chunk), self.blockstamp.block_hash
             )
         ]
-
-
-def _is_discounted(steth: int, shares: int, share_rate: int) -> bool:
-    return steth * SHARE_RATE_PRECISION_E27 // shares > share_rate

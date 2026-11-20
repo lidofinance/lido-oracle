@@ -103,6 +103,7 @@ def test__calculate_finalization_batches__budget_within_rounding_reserve__does_n
     wq = subject.w3.lido_contracts.withdrawal_queue_nft
     wq.get_last_finalized_request_id = Mock(return_value=0)
     wq.get_last_request_id = Mock(return_value=3)
+    wq.max_batches_length = Mock(return_value=36)
     wq.calculate_finalization_batches = Mock()
 
     result = subject._calculate_finalization_batches(1, 6, past_blockstamp.block_timestamp)
