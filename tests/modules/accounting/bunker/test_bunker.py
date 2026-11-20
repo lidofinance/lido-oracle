@@ -2,7 +2,6 @@ from collections.abc import Iterable, Sequence
 from unittest.mock import Mock
 
 import pytest
-from web3.types import Wei
 
 from src.modules.oracles.accounting.types import ReportSimulationFeeDistribution, ReportSimulationResults
 from src.providers.consensus.types import BeaconStateView
@@ -217,13 +216,10 @@ def test_get_cl_rebase_for_frame(
 
     blockstamp = simple_ref_blockstamp(0)
     simulated_cl_rebase = ReportSimulationResults(
-        withdrawals_vault_transfer=Wei(0),
-        el_rewards_vault_transfer=Wei(0),
         post_total_pooled_ether=simulated_post_total_pooled_ether,
         post_total_shares=0,
         ether_to_finalize_wq=0,
         shares_to_finalize_wq=0,
-        shares_to_burn_for_withdrawals=0,
         total_shares_to_burn=0,
         shares_to_mint_as_fees=0,
         fee_distribution=ReportSimulationFeeDistribution(

@@ -27,13 +27,13 @@ class FrameConfigFactory(Web3DataclassFactory[FrameConfig]):
 class OracleReportLimitsFactory(Web3DataclassFactory[OracleReportLimits]):
     churn_validators_per_day_limit = 0
     appeared_validators_per_day_limit = 0
-    annual_balance_increase_bp_limit = 0
+    annual_cl_rebase_increase_soft_bp_limit = 0
     simulated_share_rate_deviation_bp_limit = 0
     max_validator_exit_requests_per_report = 0
     max_items_per_extra_data_transaction = 0
     max_node_operators_per_extra_data_item = 0
     request_timestamp_margin = 0
-    max_positive_token_rebase = 0
+    annual_cl_rebase_increase_hard_bp_limit = 0
 
 
 class BunkerConfigFactory(Web3DataclassFactory[BunkerConfig]):  # noqa: E701
