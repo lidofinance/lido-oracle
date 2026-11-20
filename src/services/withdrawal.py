@@ -143,38 +143,18 @@ class Withdrawal:
     def _split_mixed_batches(
         self, batches: list[int], share_rate: int, last_finalized_id: int, max_length: int
     ) -> list[int]:
-        request_ids = list(range(last_finalized_id + 1, batches[-1] + 1))
-        requests = dict(zip(request_ids, self._get_withdrawal_statuses(request_ids), strict=True))
-
-        result: list[int] = []
-        batch_start = last_finalized_id + 1
-        for batch_end in batches:
-            ids = range(batch_start, batch_end + 1)
-            batch_eth = _eth_to_lock(
-                sum(requests[i].amount_of_st_eth for i in ids),
-                sum(requests[i].amount_of_shares for i in ids),
-                share_rate,
-            )
-            claims = sum(
-                _eth_to_lock(requests[i].amount_of_st_eth, requests[i].amount_of_shares, share_rate) for i in ids
-            )
-
-            if batch_eth - claims <= ROUNDING_WEI_PER_REQUEST * len(ids):
-                result.append(batch_end)
-            else:
-                result.extend(
-                    request_id
-                    for request_id in ids
-                    if request_id == batch_end
-                    or _is_discounted(
-                        requests[request_id].amount_of_st_eth, requests[request_id].amount_of_shares, share_rate
-                    )
-                    != _is_discounted(
-                        requests[request_id + 1].amount_of_st_eth, requests[request_id + 1].amount_of_shares, share_rate
-                    )
-                )
-            batch_start = batch_end + 1
-
+        """Ends a batch also wherever neighbouring requests fall on different sides of the share rate."""
+        request_ids = range(last_finalized_id + 1, batches[-1] + 1)
+        discounted = [
+            _is_discounted(status.amount_of_st_eth, status.amount_of_shares, share_rate)
+            for status in self._get_withdrawal_statuses(list(request_ids))
+        ]
+        batch_ends = set(batches)
+        result = [
+            request_id
+            for index, request_id in enumerate(request_ids)
+            if request_id in batch_ends or discounted[index] != discounted[index + 1]
+        ]
         return result[:max_length]
 
     def _get_withdrawal_statuses(self, request_ids: list[int]) -> list[WithdrawalRequestStatus]:
@@ -189,10 +169,3 @@ class Withdrawal:
 
 def _is_discounted(steth: int, shares: int, share_rate: int) -> bool:
     return steth * SHARE_RATE_PRECISION_E27 // shares > share_rate
-
-
-def _eth_to_lock(steth: int, shares: int, share_rate: int) -> int:
-    """Mirrors the queue: discounted requests are paid by shares at `share_rate`, the rest by their stETH."""
-    if _is_discounted(steth, shares, share_rate):
-        return shares * share_rate // SHARE_RATE_PRECISION_E27
-    return steth
