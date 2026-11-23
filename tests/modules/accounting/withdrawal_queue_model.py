@@ -5,7 +5,7 @@ The tests check batches against what the contract locks and pays out, not agains
 
 from dataclasses import dataclass
 
-from src.modules.oracles.accounting.types import BatchState
+from src.modules.oracles.accounting.types import BatchState, WithdrawalRequestStatus
 
 
 E27 = 10**27
@@ -104,3 +104,10 @@ class WithdrawalQueueModel:
     def claimable(self, request_id: int, max_share_rate: int) -> int:
         rate, eth, shares = self._calc_batch(self.queue[request_id - 1], self.queue[request_id])
         return shares * max_share_rate // E27 if rate > max_share_rate else eth
+
+    def get_withdrawal_statuses(self, request_ids, _block) -> list[WithdrawalRequestStatus]:
+        statuses = []
+        for request_id in request_ids:
+            _, steth, shares = self._calc_batch(self.queue[request_id - 1], self.queue[request_id])
+            statuses.append(WithdrawalRequestStatus(steth, shares, '0x0', 0, False, False))
+        return statuses
