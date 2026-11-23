@@ -258,6 +258,22 @@ def test_get_in_flight_withdrawals__eip7002_queue__lido_requests_merged_with_bus
     eip7002_queue.assert_called_once_with(web3, blockstamp.block_hash)
 
 
+@pytest.mark.unit
+def test_get_in_flight_inbound__same_blockstamp__computed_once(web3, validator_state):
+    # Arrange
+    validator_state.get_in_flight_withdrawals = Mock(return_value=InFlightWithdrawals())
+    by_operator = web3.lido_validators.get_lido_validators_by_node_operators
+    calls_before = by_operator.call_count
+
+    # Act
+    first = validator_state.get_in_flight_inbound(blockstamp)
+    second = validator_state.get_in_flight_inbound(blockstamp)
+
+    # Assert
+    assert first is second
+    assert by_operator.call_count == calls_before + 1
+
+
 ETH = 10**9
 
 

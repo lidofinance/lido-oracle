@@ -161,6 +161,7 @@ class LidoValidatorStateService:
             cl_pending_withdrawable_epochs=cl_pending_epochs,
         )
 
+    @lru_cache(maxsize=1)
     def get_in_flight_inbound(self, blockstamp: ReferenceBlockStamp) -> InFlightInbound:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         return get_in_flight_inbound(
