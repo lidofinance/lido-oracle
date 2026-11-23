@@ -8,6 +8,7 @@ from tests.integration.contracts.contract_utils import check_contract, check_val
 
 @pytest.mark.mainnet
 @pytest.mark.integration
+@pytest.mark.sr_phase_2
 def test_base_oracle_via_vebo(validators_exit_bus_oracle_contract, caplog):
     """Tests BaseOracleContract methods via ValidatorsExitBusOracle (mainnet)."""
     role = validators_exit_bus_oracle_contract.submit_data_role('latest')

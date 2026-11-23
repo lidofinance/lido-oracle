@@ -15,6 +15,7 @@ from src.utils.blockstamp import get_blockstamp
 
 @pytest.mark.testnet
 @pytest.mark.integration
+@pytest.mark.sr_phase_2
 class TestIpfsReportSmoke:
     def test_ipfs_report_valid(self, web3_integration):
         # Setup
