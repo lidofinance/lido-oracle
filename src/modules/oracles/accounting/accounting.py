@@ -345,11 +345,12 @@ class Accounting(OracleModule[Web3]):
         logger.info({'msg': 'Calculate shares rate.', 'value': share_rate})
 
         withdrawal_service = Withdrawal(self.w3, blockstamp, chain_config, frame_config)
+        # Accounting settles the reported vault balances in full, so they all reach the buffer
         batches = withdrawal_service.get_finalization_batches(
             is_bunker,
             share_rate,
-            simulation.withdrawals_vault_transfer,
-            simulation.el_rewards_vault_transfer,
+            self.w3.lido_contracts.get_withdrawal_balance(blockstamp),
+            self.w3.lido_contracts.get_el_vault_balance(blockstamp),
         )
 
         logger.info({'msg': 'Calculate last withdrawal id to finalize.', 'value': batches})
