@@ -2069,6 +2069,7 @@ class TestReportExitLimit:
             pytest.param(Gwei(1), Gwei(0), Gwei(1 * ETH), id="dust_rounds_up"),
             pytest.param(Gwei(32 * ETH + 1), Gwei(0), Gwei(33 * ETH), id="above_whole_eth_rounds_up"),
             pytest.param(Gwei(32 * ETH), Gwei(2048 * ETH), Gwei(2080 * ETH), id="pwr_plus_fwr"),
+            pytest.param(Gwei(2**24 * ETH + 1), Gwei(0), Gwei((2**24 + 1) * ETH), id="exact_beyond_float_precision"),
         ],
     )
     def test_get_exit_weight__pwr_rounded_up_to_whole_eth(self, pwr_total, fwr_weight, expected):

@@ -796,7 +796,7 @@ class ValidatorExitIterator:
     @staticmethod
     def _get_exit_weight(pwr_total: Gwei, fwr_weight: Gwei) -> Gwei:
         """Same weighing as the VEBO sanity check: PWR amounts are summed and rounded up to whole ETH."""
-        return Gwei(math.ceil(pwr_total / GWEI_PER_ETH) * GWEI_PER_ETH + fwr_weight)
+        return Gwei(-(-pwr_total // GWEI_PER_ETH) * GWEI_PER_ETH + fwr_weight)
 
     def _get_fwr_weight(self, gid: NodeOperatorGlobalIndex) -> Gwei:
         wc_type = self.module_stats[gid[0]].staking_module.withdrawal_credentials_type
