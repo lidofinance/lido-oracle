@@ -1356,6 +1356,14 @@ class TestFinalizeAndReportLimits:
             iterator.blockstamp.block_hash
         )
 
+    def test_get_report_limits__zero_chunk__raises(self, iterator):
+        # Arrange: a zero-amount record is an FWR, so a zero chunk would turn every PWR into a full exit
+        iterator.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth.return_value = 0
+
+        # Act / Assert
+        with pytest.raises(ValueError, match='EXIT_ITERATION_CHUNK'):
+            iterator._get_report_limits()
+
     def test_get_report_limits__wo_value_set__uses_wo_value(self, iterator):
         vebo = iterator.w3.lido_contracts.validators_exit_bus_oracle
         vebo.get_max_requests_per_report.return_value = 300

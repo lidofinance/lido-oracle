@@ -452,6 +452,9 @@ class ValidatorExitIterator:
             self.w3.lido_contracts.oracle_daemon_config.exit_iteration_chunk_eth(self.blockstamp.block_hash)
             * GWEI_PER_ETH
         )
+        if not self.chunk:
+            # A zero-amount record is an FWR, so every PWR step would become a full withdrawal
+            raise ValueError('EXIT_ITERATION_CHUNK must be positive.')
         self.max_exit_requests_per_report = (
             self.w3.lido_contracts.validators_exit_bus_oracle.get_max_requests_per_report(
                 self.blockstamp.block_hash,
