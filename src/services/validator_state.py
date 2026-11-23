@@ -5,12 +5,13 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import reduce
 
-from src.constants import MIN_ACTIVATION_BALANCE
+from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
 from src.metrics.prometheus.accounting import ACCOUNTING_EXITED_VALIDATORS
+from src.providers.consensus.types import BeaconStateView
 from src.providers.execution.withdrawal_request_queue import get_queued_withdrawal_requests
 from src.types import EpochNumber, Gwei, OperatorsValidatorCount, ReferenceBlockStamp, ValidatorIndex
 from src.utils.cache import global_lru_cache as lru_cache
-from src.utils.validator_state import is_exited_validator, is_on_exit
+from src.utils.validator_state import has_compounding_withdrawal_credential, is_exited_validator, is_on_exit
 from src.web3py.extensions.lido_validators import LidoValidator
 from src.web3py.types import Web3
 
@@ -27,6 +28,8 @@ class InFlightWithdrawals:
     # The part of `pwr_amounts` already on the CL, and the latest epoch it becomes withdrawable.
     cl_pending_pwr_amounts: dict[ValidatorIndex, Gwei] = field(default_factory=dict)
     cl_pending_withdrawable_epochs: dict[ValidatorIndex, EpochNumber] = field(default_factory=dict)
+    # The part of `pwr_amounts` the CL already took off the balance for the next execution payload (Gloas).
+    payload_pwr_amounts: dict[ValidatorIndex, Gwei] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,8 @@ def get_in_flight_inbound(validators: Iterable[LidoValidator], in_flight: InFlig
             Gwei(max(0, validator.balance - MIN_ACTIVATION_BALANCE)),
         )
         amount = Gwei(amount + pwr_amount)
-        queued_churn = Gwei(queued_churn + max(0, pwr_amount - cl_pending))
+        payload_pending = in_flight.payload_pwr_amounts.get(validator.index, Gwei(0))
+        queued_churn = Gwei(queued_churn + max(0, pwr_amount - cl_pending - payload_pending))
         if cl_pending:
             withdrawable_epochs.append(in_flight.cl_pending_withdrawable_epochs[validator.index])
 
@@ -78,6 +82,31 @@ def get_in_flight_inbound(validators: Iterable[LidoValidator], in_flight: InFlig
         queued_churn=queued_churn,
         latest_cl_withdrawable_epoch=max(withdrawable_epochs, default=None),
     )
+
+
+def get_payload_pwr_amounts(state: BeaconStateView, indexes: set[ValidatorIndex]) -> dict[ValidatorIndex, Gwei]:
+    """
+    Gloas: pending partials the CL already paid out of the balance, still owed by the next execution payload.
+
+    The payload pays pending partials before the validator sweep, and a sweep skim leaves a compounding
+    validator at exactly its max effective balance, so the last entry of such a validator is the skim.
+    A full withdrawal needs an initiated exit, and the CL pays no partials then.
+    """
+    entries: defaultdict[ValidatorIndex, list[Gwei]] = defaultdict(list)
+    for withdrawal in state.payload_expected_withdrawals:
+        if withdrawal.validator_index in indexes:
+            entries[ValidatorIndex(withdrawal.validator_index)].append(withdrawal.amount)
+
+    amounts: dict[ValidatorIndex, Gwei] = {}
+    for index, payouts in entries.items():
+        validator = state.validators[index]
+        if not has_compounding_withdrawal_credential(validator) or validator.exit_epoch != FAR_FUTURE_EPOCH:
+            continue
+        if state.balances[index] == MAX_EFFECTIVE_BALANCE_ELECTRA:
+            payouts = payouts[:-1]
+        if payouts:
+            amounts[index] = Gwei(sum(payouts))
+    return amounts
 
 
 class LidoValidatorStateService:
@@ -119,7 +148,7 @@ class LidoValidatorStateService:
     @lru_cache(maxsize=1)
     def get_in_flight_withdrawals(self, blockstamp: ReferenceBlockStamp) -> InFlightWithdrawals:
         """
-        PWRs pending on the CL, Lido requests queued in the EIP-7002 system contract,
+        PWRs pending on the CL or its next execution payload, Lido requests queued in the EIP-7002 system contract,
         and intents queued in the TriggerableWithdrawalsBus.
         """
         pwr_amounts: dict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
@@ -127,12 +156,19 @@ class LidoValidatorStateService:
         cl_pending_amounts: dict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
         cl_pending_epochs: dict[ValidatorIndex, EpochNumber] = {}
 
+        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
+        index_by_pubkey = {v.validator.pubkey: v.index for vs in lido_validators.values() for v in vs}
+
         state = self.w3.cc.get_state_view(blockstamp)
         for pending in state.pending_partial_withdrawals:
             index = ValidatorIndex(pending.validator_index)
             pwr_amounts[index] += pending.amount
             cl_pending_amounts[index] += pending.amount
             cl_pending_epochs[index] = max(cl_pending_epochs.get(index, EpochNumber(0)), pending.withdrawable_epoch)
+
+        payload_amounts = get_payload_pwr_amounts(state, set(index_by_pubkey.values()))
+        for index, amount in payload_amounts.items():
+            pwr_amounts[index] += amount
 
         withdrawal_vault = self.w3.lido_contracts.lido_locator.withdrawal_vault(blockstamp.block_hash)
         queued = [
@@ -142,8 +178,6 @@ class LidoValidatorStateService:
         ]
         intents = self.w3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents(blockstamp.block_hash)
 
-        lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
-        index_by_pubkey = {v.validator.pubkey: v.index for vs in lido_validators.values() for v in vs}
         for request in [*queued, *intents]:
             index = index_by_pubkey.get(request.pubkey)
             if index is None:
@@ -159,6 +193,7 @@ class LidoValidatorStateService:
             fwr_validators=frozenset(fwr_validators),
             cl_pending_pwr_amounts=dict(cl_pending_amounts),
             cl_pending_withdrawable_epochs=cl_pending_epochs,
+            payload_pwr_amounts=payload_amounts,
         )
 
     @lru_cache(maxsize=1)

@@ -6,7 +6,7 @@ from eth_typing import HexStr
 
 from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX, FAR_FUTURE_EPOCH
 from src.modules.common.types import ChainConfig
-from src.providers.consensus.types import PendingPartialWithdrawal, Validator, ValidatorState
+from src.providers.consensus.types import ExpectedWithdrawal, PendingPartialWithdrawal, Validator, ValidatorState
 from src.providers.execution.contracts.triggerable_withdrawals_bus import WithdrawalIntent
 from src.providers.execution.withdrawal_request_queue import QueuedWithdrawalRequest
 from src.providers.keys.types import LidoKey
@@ -15,6 +15,7 @@ from src.services.validator_state import (
     InFlightWithdrawals,
     LidoValidatorStateService,
     get_in_flight_inbound,
+    get_payload_pwr_amounts,
 )
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId, ValidatorIndex
 from src.web3py.extensions.lido_validators import (
@@ -172,11 +173,12 @@ def test_get_in_flight_withdrawals__cl_pending_and_bus_intents__aggregated_by_va
     # validator 6 an FWR. One intent targets a key outside Lido.
     web3.cc.get_state_view = Mock(
         return_value=Mock(
+            payload_expected_withdrawals=[],
             pending_partial_withdrawals=[
                 PendingPartialWithdrawal(
                     validator_index=ValidatorIndex(1), amount=Gwei(3 * 10**9), withdrawable_epoch=EpochNumber(0)
                 )
-            ]
+            ],
         )
     )
     web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
@@ -205,6 +207,7 @@ def test_get_in_flight_withdrawals__several_cl_partials__latest_withdrawable_epo
     # Arrange
     web3.cc.get_state_view = Mock(
         return_value=Mock(
+            payload_expected_withdrawals=[],
             pending_partial_withdrawals=[
                 PendingPartialWithdrawal(
                     validator_index=ValidatorIndex(1), amount=Gwei(1 * 10**9), withdrawable_epoch=EpochNumber(300)
@@ -212,7 +215,7 @@ def test_get_in_flight_withdrawals__several_cl_partials__latest_withdrawable_epo
                 PendingPartialWithdrawal(
                     validator_index=ValidatorIndex(1), amount=Gwei(2 * 10**9), withdrawable_epoch=EpochNumber(200)
                 ),
-            ]
+            ],
         )
     )
     web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(return_value=[])
@@ -233,11 +236,12 @@ def test_get_in_flight_withdrawals__eip7002_queue__lido_requests_merged_with_bus
     # in the Bus; validator 6 has an FWR in the EIP-7002 queue; validator 8 has a PWR queued by someone else.
     web3.cc.get_state_view = Mock(
         return_value=Mock(
+            payload_expected_withdrawals=[],
             pending_partial_withdrawals=[
                 PendingPartialWithdrawal(
                     validator_index=ValidatorIndex(1), amount=Gwei(3 * 10**9), withdrawable_epoch=EpochNumber(0)
                 )
-            ]
+            ],
         )
     )
     eip7002_queue.return_value = [
@@ -272,6 +276,67 @@ def test_get_in_flight_inbound__same_blockstamp__computed_once(web3, validator_s
     # Assert
     assert first is second
     assert by_operator.call_count == calls_before + 1
+
+
+def _state_with_payload(validators: list[ValidatorState], balances: list[int], payouts: list[tuple[int, int]]) -> Mock:
+    return Mock(
+        validators=validators,
+        balances=[Gwei(b * 10**9) for b in balances],
+        pending_partial_withdrawals=[],
+        payload_expected_withdrawals=[
+            ExpectedWithdrawal(validator_index=ValidatorIndex(i), amount=Gwei(a * 10**9)) for i, a in payouts
+        ],
+    )
+
+
+def _compounding(**kwargs) -> ValidatorState:
+    return ValidatorStateFactory.build(withdrawal_credentials=COMPOUNDING_WITHDRAWAL_PREFIX, **kwargs)
+
+
+@pytest.mark.unit
+def test_get_payload_pwr_amounts__partials_skims_and_full_withdrawals__only_lido_partials_counted():
+    # Arrange: raw balances are already reduced by the payouts.
+    state = _state_with_payload(
+        validators=[
+            _compounding(),  # 0: 3 ETH partial
+            _compounding(),  # 1: 4 ETH partial, then a 6 ETH skim down to 2048
+            _compounding(),  # 2: skim only
+            ValidatorStateFactory.build(withdrawal_credentials=ETH1_ADDRESS_WITHDRAWAL_PREFIX),  # 3: 0x01 skim
+            _compounding(exit_epoch=EpochNumber(10)),  # 4: full withdrawal
+            _compounding(),  # 5: 7 ETH partial, not a Lido validator
+        ],
+        balances=[40, 2048, 2048, 32, 0, 50],
+        payouts=[(0, 3), (1, 4), (5, 7), (1, 6), (2, 1), (3, 1), (4, 33)],
+    )
+
+    # Act
+    result = get_payload_pwr_amounts(state, {ValidatorIndex(i) for i in range(5)})
+
+    # Assert
+    assert result == {0: Gwei(3 * 10**9), 1: Gwei(4 * 10**9)}
+
+
+@pytest.mark.unit
+def test_get_in_flight_withdrawals__partial_in_payload__counted_as_pwr_outside_cl_pending(
+    web3, validator_state, eip7002_queue
+):
+    # Arrange: validator 1 has a 3 ETH partial already in the payload and a 2 ETH PWR in the Bus.
+    validators = [ValidatorStateFactory.build() for _ in range(9)]
+    validators[1] = _compounding()
+    web3.cc.get_state_view = Mock(
+        return_value=_state_with_payload(validators, balances=[32] * 9, payouts=[(1, 3)]),
+    )
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
+        return_value=[WithdrawalIntent(pubkey=HexStr('0x1'), amount=Gwei(2 * 10**9))]
+    )
+
+    # Act
+    in_flight = validator_state.get_in_flight_withdrawals(blockstamp)
+
+    # Assert
+    assert in_flight.pwr_amounts == {1: Gwei(5 * 10**9)}
+    assert in_flight.payload_pwr_amounts == {1: Gwei(3 * 10**9)}
+    assert in_flight.cl_pending_pwr_amounts == {}
 
 
 ETH = 10**9
@@ -372,6 +437,22 @@ def _in_flight_validator(
 )
 def test_get_in_flight_inbound__single_validator__counted_by_first_matching_rule(validator, in_flight, expected):
     assert get_in_flight_inbound([validator], in_flight) == expected
+
+
+@pytest.mark.unit
+def test_get_in_flight_inbound__partial_in_payload__counted_without_churn():
+    # Arrange: the balance already has the 3 ETH payload partial added back; 2 ETH more is queued.
+    validators = [_in_flight_validator(1, 40, effective_balance_eth=37)]
+    in_flight = InFlightWithdrawals(
+        pwr_amounts={ValidatorIndex(1): Gwei(5 * ETH)},
+        payload_pwr_amounts={ValidatorIndex(1): Gwei(3 * ETH)},
+    )
+
+    # Act
+    result = get_in_flight_inbound(validators, in_flight)
+
+    # Assert
+    assert result == InFlightInbound(amount=Gwei(5 * ETH), queued_churn=Gwei(2 * ETH))
 
 
 @pytest.mark.unit
