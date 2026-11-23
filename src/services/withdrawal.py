@@ -9,6 +9,12 @@ from src.variables import FINALIZATION_BATCH_MAX_REQUEST_COUNT
 from src.web3py.types import Web3
 
 
+# The queue locks a batch at its aggregate share rate and pays each claim at the request's own rate, so even
+# a well-formed batch locks a few wei more than its claims: floor(sum(shares) * rate) against
+# sum(floor(shares_i * rate)), or a request one rounding step above the rate in a nominal batch.
+ROUNDING_WEI_PER_REQUEST = 2
+
+
 class Withdrawal:
     """
     Service calculates which withdrawal requests should be finalized using the next factors:
@@ -76,19 +82,30 @@ class Withdrawal:
         return Wei(withdrawal_vault_balance + el_rewards_vault_balance + reserved_withdrawals_eth)
 
     def _calculate_finalization_batches(self, share_rate: int, available_eth: int, until_timestamp: int) -> list[int]:
-        max_length = self.w3.lido_contracts.withdrawal_queue_nft.max_batches_length(self.blockstamp.block_hash)
+        """
+        `calculateFinalizationBatches` debits the budget per request, while `prefinalize` locks each batch at its
+        aggregate rate. The budget is cut by the worst-case rounding so the lock never exceeds the ether the
+        report has.
+        """
+        withdrawal_queue = self.w3.lido_contracts.withdrawal_queue_nft
+        block_hash = self.blockstamp.block_hash
+
+        last_finalized_id = withdrawal_queue.get_last_finalized_request_id(block_hash)
+        unfinalized_count = withdrawal_queue.get_last_request_id(block_hash) - last_finalized_id
+        budget = available_eth - ROUNDING_WEI_PER_REQUEST * unfinalized_count
+        max_length = withdrawal_queue.max_batches_length(block_hash)
 
         state = BatchState(
-            remaining_eth_budget=available_eth, finished=False, batches=list([0] * max_length), batches_length=0
+            remaining_eth_budget=budget, finished=False, batches=list([0] * max_length), batches_length=0
         )
 
         while not state.finished and state.remaining_eth_budget > 0:
-            state = self.w3.lido_contracts.withdrawal_queue_nft.calculate_finalization_batches(
+            state = withdrawal_queue.calculate_finalization_batches(
                 share_rate,
                 until_timestamp,
                 FINALIZATION_BATCH_MAX_REQUEST_COUNT,
                 state.as_tuple(),
-                self.blockstamp.block_hash,
+                block_hash,
             )
 
         return list(filter(lambda value: value > 0, state.batches))
