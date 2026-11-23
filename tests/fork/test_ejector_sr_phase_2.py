@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from eth_typing import HexStr
+from web3 import Web3
 from web3.types import RPCEndpoint, TxParams, TxReceipt
 
 from src.modules.common.types import FrameConfig
@@ -35,6 +36,14 @@ REPORT_BALANCE_LIMIT_ETH = 3_200
 # Large enough that the predicted EL balance cannot cover it, so phase 1 has to request withdrawals.
 WITHDRAWAL_DEMAND_STETH = 200_000 * 10**18
 MAX_STETH_PER_WITHDRAWAL_REQUEST = 1_000 * 10**18
+# The vote leaves phase 3 off. A tiny module threshold makes it run on any imbalance, bounded by the rate limit.
+ACTIVE_REBALANCING_CONFIG = {
+    'ACTIVE_REBALANCING_ENABLED': 1,
+    'ACTIVE_REBALANCING_RATE_LIMIT': 320,
+    'ACTIVE_REBALANCING_OPERATOR_EXCESS_BP': 100,
+    'ACTIVE_REBALANCING_MODULE_EXCESS_BP': 1,
+    'ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS': 0,
+}
 
 VOTE_SCRIPT_ABI = [
     {
@@ -244,6 +253,28 @@ def report_balance_limit(web3):
 
 
 @pytest.fixture()
+def withdrawal_demand_covered(web3):
+    """Phase 1 ranks the whole CMv1 module first (priority exit share 0), so it would spend the report on its FWRs."""
+    vault = web3.lido_contracts.lido_locator.withdrawal_vault('latest')
+    web3.provider.make_request(RPCEndpoint('anvil_setBalance'), [vault, hex(10_000_000 * 10**18)])
+
+
+@pytest.fixture()
+def active_rebalancing(web3):
+    config = web3.lido_contracts.oracle_daemon_config
+    admin = config.functions.getRoleMember(config.functions.DEFAULT_ADMIN_ROLE().call(), 0).call()
+    _send(
+        web3,
+        admin,
+        config.address,
+        config.encode_abi('grantRole', [config.functions.CONFIG_MANAGER_ROLE().call(), admin]),
+    )
+    for key, value in ACTIVE_REBALANCING_CONFIG.items():
+        if Web3.to_int(config.functions.get(key).call()) != value:
+            _send(web3, admin, config.address, config.encode_abi('update', [key, value.to_bytes(32, 'big')]))
+
+
+@pytest.fixture()
 def hash_consensus_bin():
     with open('tests/fork/contracts/lido/HashConsensus_bin') as f:
         yield f.read()
@@ -286,6 +317,38 @@ def _pubkeys(w3, blockstamp: ReferenceBlockStamp, requests: list[WithdrawalReque
     return [keys[((request.module_id, request.node_operator_id), request.key_index)] for request in requests]
 
 
+def _run_report_frame(module, members, running_finalized_slots, account_from, signer_from):
+    report_frame = None
+    switch_finalized, _ = running_finalized_slots
+    while switch_finalized():
+        for _, private_key in members:
+            with account_from(private_key) as account, signer_from(account):
+                module.cycle_handler()
+        report_frame = module.get_initial_or_current_frame(
+            module._receive_last_finalized_slot()  # pylint: disable=protected-access
+        )
+    assert report_frame is not None
+    return report_frame
+
+
+def _assert_report_queued_in_bus(w3, report_frame, reported_requests) -> list[WithdrawalRequest]:
+    contracts = w3.lido_contracts
+    block = w3.eth.block_number
+    assert contracts.validators_exit_bus_oracle.get_last_processing_ref_slot(block) == report_frame.ref_slot
+    assert contracts.validators_exit_bus_oracle.get_processing_state(block).data_submitted
+
+    blockstamp, requests = reported_requests[-1]
+    assert blockstamp.ref_slot == report_frame.ref_slot
+    logger.info(
+        f'TESTRUN Reported {len(requests)} requests, {sum(r.is_full for r in requests)} of them full withdrawals'
+    )
+    intents = contracts.triggerable_withdrawals_bus.get_unprocessed_intents(block)
+    assert [(intent.pubkey.lower(), intent.amount) for intent in intents] == list(
+        zip(_pubkeys(w3, blockstamp, requests), [request.amount for request in requests], strict=True)
+    )
+    return requests
+
+
 @pytest.mark.fork
 @pytest.mark.mainnet
 @pytest.mark.integration
@@ -313,29 +376,43 @@ def test_ejector_report__sr_phase_2_contracts__withdrawal_requests_queued_in_bus
     members = set_oracle_members(count=2)
 
     # Act
-    report_frame = None
-    switch_finalized, _ = running_finalized_slots
-    while switch_finalized():
-        for _, private_key in members:
-            with account_from(private_key) as account, signer_from(account):
-                module.cycle_handler()
-        report_frame = module.get_initial_or_current_frame(
-            module._receive_last_finalized_slot()  # pylint: disable=protected-access
-        )
+    report_frame = _run_report_frame(module, members, running_finalized_slots, account_from, signer_from)
 
     # Assert
-    assert report_frame is not None
-    block = w3.eth.block_number
-    assert contracts.validators_exit_bus_oracle.get_last_processing_ref_slot(block) == report_frame.ref_slot
-    assert contracts.validators_exit_bus_oracle.get_processing_state(block).data_submitted
-
-    blockstamp, requests = reported_requests[-1]
-    assert blockstamp.ref_slot == report_frame.ref_slot
+    requests = _assert_report_queued_in_bus(w3, report_frame, reported_requests)
     assert requests, 'The withdrawal queue demand must produce withdrawal requests'
-    logger.info(
-        f'TESTRUN Reported {len(requests)} requests, {sum(r.is_full for r in requests)} of them full withdrawals'
-    )
-    intents = contracts.triggerable_withdrawals_bus.get_unprocessed_intents(block)
-    assert [(intent.pubkey.lower(), intent.amount) for intent in intents] == list(
-        zip(_pubkeys(w3, blockstamp, requests), [request.amount for request in requests], strict=True)
-    )
+
+
+@pytest.mark.fork
+@pytest.mark.mainnet
+@pytest.mark.integration
+@pytest.mark.parametrize('blockstamp_for_forking', [-16], indirect=True)
+@pytest.mark.parametrize(
+    ('module', 'running_finalized_slots'),
+    [(ejector_module, start_before_initial_epoch)],
+    indirect=True,
+)
+def test_ejector_report__active_rebalancing__cmv2_partial_withdrawals_queued_in_bus(  # pylint: disable=too-many-positional-arguments
+    module,
+    report_balance_limit,
+    withdrawal_demand_covered,
+    active_rebalancing,
+    set_oracle_members,
+    running_finalized_slots,
+    reported_requests,
+    account_from,
+    signer_from,
+):
+    # Arrange
+    w3 = module.w3
+    members = set_oracle_members(count=2)
+
+    # Act
+    report_frame = _run_report_frame(module, members, running_finalized_slots, account_from, signer_from)
+
+    # Assert: the WO accepted PWRs, which it allows only for modules with partialWithdrawalsAllowed
+    requests = _assert_report_queued_in_bus(w3, report_frame, reported_requests)
+    partials = [request for request in requests if not request.is_full]
+    assert partials, 'Phase 3 must take PWRs from CMv2 0x02 validators'
+    block = w3.eth.block_number
+    assert all(w3.lido_contracts.staking_router.is_partial_withdrawals_allowed(r.module_id, block) for r in partials)
