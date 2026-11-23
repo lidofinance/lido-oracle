@@ -12,6 +12,7 @@ from src.web3py.types import Web3
 # The queue locks a batch at its aggregate share rate and pays each claim at the request's own rate, so even
 # a well-formed batch locks a few wei more than its claims: floor(sum(shares) * rate) against
 # sum(floor(shares_i * rate)), or a request one rounding step above the rate in a nominal batch.
+# The second excess is under one share plus 1 wei, so 2 wei suffices while the share rate stays below 2.
 ROUNDING_WEI_PER_REQUEST = 2
 
 
