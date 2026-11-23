@@ -7,7 +7,7 @@ from src.modules.oracles.accounting.types import BatchState
 from src.services.withdrawal import Withdrawal
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.configs import OracleReportLimitsFactory
-from tests.modules.accounting.withdrawal_queue_model import WithdrawalQueueModel
+from tests.modules.accounting.withdrawal_queue_model import MAX_BATCHES_LENGTH, WithdrawalQueueModel
 
 
 @pytest.fixture
@@ -89,6 +89,7 @@ def test_calculate_finalization_batches(subject: Withdrawal, past_blockstamp):
     state_final = BatchState(remaining_eth_budget=100, finished=True, batches=[2] + [0] * 35, batches_length=2)
     wq.calculate_finalization_batches = Mock(side_effect=[state_initial, state_final])
     wq.max_batches_length = Mock(return_value=36)
+    wq.prefinalize = Mock(return_value=1000 - 4 - 100)
 
     result = subject._calculate_finalization_batches(1, 1000, past_blockstamp.block_timestamp)
 
@@ -111,8 +112,60 @@ def test__calculate_finalization_batches__budget_within_rounding_reserve__does_n
     assert result == []
 
 
+ALICE_RATE = (1_273_762_593, 1_000_000_000)
+BOB_RATE = (1_273_558_902, 1_000_000_000)
+SIMULATED_SHARE_RATE = 1_273_660_747 * 10**18
+LARGE_BUDGET = 10**24
+
+
 def _total_claims(queue: WithdrawalQueueModel, last_id: int, share_rate: int) -> int:
     return sum(queue.claimable(request_id, share_rate) for request_id in range(1, last_id + 1))
+
+
+def _discounted_then_nominal_queue(dust_request: bool) -> WithdrawalQueueModel:
+    queue = WithdrawalQueueModel()
+    queue.on_oracle_report(1)
+    for _ in range(2):
+        queue.request(1000 * 10**18, *ALICE_RATE)
+    # The share rate drops with this report: Alice's requests end up above the next simulated rate, Bob's below it.
+    queue.on_oracle_report(2)
+    if dust_request:
+        queue.request(100, *BOB_RATE)
+    for _ in range(6):
+        queue.request(1000 * 10**18, *BOB_RATE)
+    return queue
+
+
+@pytest.mark.unit
+def test_calculate_finalization_batches__discounted_and_nominal_periods__keeps_view_batches(subject: Withdrawal):
+    # Arrange
+    queue = _discounted_then_nominal_queue(dust_request=False)
+    subject.w3.lido_contracts.withdrawal_queue_nft = queue
+
+    # Act
+    batches = subject._calculate_finalization_batches(SIMULATED_SHARE_RATE, LARGE_BUDGET, 0)
+
+    # Assert
+    assert batches == [2, 8]
+    assert queue.prefinalize(batches, SIMULATED_SHARE_RATE, None) - _total_claims(queue, 8, SIMULATED_SHARE_RATE) <= 1
+
+
+@pytest.mark.unit
+def test_calculate_finalization_batches__dust_request_bridges_discounted_and_nominal__splits_mixed_batch(
+    subject: Withdrawal,
+):
+    # Arrange — the 100 wei request is above the rate by its own rounding, so the view joins it to Alice's
+    # discounted requests and, by report timestamp, to Bob's nominal ones
+    queue = _discounted_then_nominal_queue(dust_request=True)
+    subject.w3.lido_contracts.withdrawal_queue_nft = queue
+    assert queue.prefinalize([9], SIMULATED_SHARE_RATE, None) - _total_claims(queue, 9, SIMULATED_SHARE_RATE) > 10**17
+
+    # Act
+    batches = subject._calculate_finalization_batches(SIMULATED_SHARE_RATE, LARGE_BUDGET, 0)
+
+    # Assert — every request is still finalized, and the lock matches what the claims pay out
+    assert batches == [3, 9]
+    assert queue.prefinalize(batches, SIMULATED_SHARE_RATE, None) - _total_claims(queue, 9, SIMULATED_SHARE_RATE) <= 2
 
 
 @pytest.mark.unit
@@ -134,3 +187,39 @@ def test_calculate_finalization_batches__budget_spent_to_the_wei__lock_fits_avai
     # Assert
     assert batches
     assert queue.prefinalize(batches, share_rate, None) <= available_eth
+
+
+@pytest.mark.unit
+def test_calculate_finalization_batches__all_batch_slots_taken__splits_mixed_batch(subject: Withdrawal):
+    # Arrange — the dust-bridged mixed batch comes first, then report periods alternate sides until the batch
+    # array is full; the queue still debits the next request before it finds no slot for it
+    queue = _discounted_then_nominal_queue(dust_request=True)
+    for report in range(MAX_BATCHES_LENGTH):
+        queue.on_oracle_report(3 + report)
+        queue.request(1000 * 10**18, *(ALICE_RATE if report % 2 == 0 else BOB_RATE))
+    subject.w3.lido_contracts.withdrawal_queue_nft = queue
+
+    # Act
+    batches = subject._calculate_finalization_batches(SIMULATED_SHARE_RATE, LARGE_BUDGET, 0)
+
+    # Assert
+    assert len(batches) == MAX_BATCHES_LENGTH
+    assert batches[:2] == [3, 9]
+    locked = queue.prefinalize(batches, SIMULATED_SHARE_RATE, None)
+    assert locked - _total_claims(queue, batches[-1], SIMULATED_SHARE_RATE) <= 2 * batches[-1]
+
+
+@pytest.mark.unit
+def test_split_mixed_batches__more_batches_than_the_queue_accepts__keeps_the_first_ones(subject: Withdrawal):
+    # Arrange — discounted and nominal requests alternate within one report period, so each one is its own batch
+    queue = WithdrawalQueueModel()
+    for _ in range(40):
+        queue.request(1000 * 10**18, *ALICE_RATE)
+        queue.request(1000 * 10**18, *BOB_RATE)
+    subject.w3.lido_contracts.withdrawal_queue_nft = queue
+
+    # Act
+    batches = subject._split_mixed_batches([80], SIMULATED_SHARE_RATE, 0, MAX_BATCHES_LENGTH)
+
+    # Assert
+    assert batches == list(range(1, MAX_BATCHES_LENGTH + 1))
