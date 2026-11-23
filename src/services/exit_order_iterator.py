@@ -525,7 +525,7 @@ class ValidatorExitIterator:
         rebalanced = Gwei(0)
         while True:
             for gid in self._get_over_target_operators(config):
-                pick = self._pick(gid, forced=False)
+                pick = self._pick(gid, forced=self._no_force_predicate(self.node_operators_stats[gid]) > 0)
                 if pick is None:
                     continue
 
@@ -533,7 +533,12 @@ class ValidatorExitIterator:
                 weight = (
                     amount
                     if amount != FWR_AMOUNT
-                    else min(validator.balance, get_max_effective_balance(validator.validator))
+                    # The FWR replaces this report's PWRs for the validator, already counted
+                    else max(
+                        0,
+                        min(validator.balance, get_max_effective_balance(validator.validator))
+                        - self._report_pwr_amount(validator),
+                    )
                 )
                 if rebalanced + weight > config.rate_limit:
                     logger.info({'msg': 'Reached the active rebalancing rate limit.', 'limit': config.rate_limit})
@@ -632,10 +637,19 @@ class ValidatorExitIterator:
         if self._in_flight_pwr_by_gid is None:
             # Stable for the whole report: an FWR never goes to a validator with an in-flight PWR.
             self._in_flight_pwr_by_gid = {
-                no_gid: Gwei(sum(self.in_flight.pwr_amounts.get(v.index, Gwei(0)) for v in validators))
+                no_gid: Gwei(sum(self._in_flight_pwr_amount(v) for v in validators))
                 for no_gid, validators in self.exitable_validators.items()
             }
         return self.node_operators_stats[gid].total_stake - self._in_flight_pwr_by_gid.get(gid, Gwei(0))
+
+    def _in_flight_pwr_amount(self, validator: LidoValidator) -> Gwei:
+        """The CL applies partials against the balance left above the activation balance."""
+        return Gwei(
+            min(
+                self.in_flight.pwr_amounts.get(validator.index, Gwei(0)),
+                max(0, validator.balance - MIN_ACTIVATION_BALANCE),
+            )
+        )
 
     def _get_cm_v2_participants(self) -> list[NodeOperatorGlobalIndex]:
         """CMv2 operators active for at least ACTIVE_REBALANCING_GRACE_PERIOD_EPOCHS since their first activation."""

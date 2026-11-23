@@ -2236,6 +2236,61 @@ class TestActiveRebalancing:
         # Assert
         assert [(step.validator, step.amount) for step in steps] == [(low, FWR_AMOUNT)]
 
+    def test_allocate_active_rebalancing__fwr_replaces_report_pwrs__counts_only_the_rest(self, iterator):
+        # Arrange: operator 1 has one 100 ETH validator, operators 2 and 3 no stake. PWRs of 32 + 32 + 4 ETH
+        # empty it to 32 ETH, then an FWR replaces them: 100 ETH of rebalancing in total, within 120.
+        validator = make_validator(1, 100)
+        setup_cmv2_operators(iterator, {1: ([validator], 1), 2: ([], 1), 3: ([], 1)})
+        enable_rebalancing(iterator, rate_limit_eth=120)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert [step.amount for step in steps] == [32 * ETH, 32 * ETH, 4 * ETH, FWR_AMOUNT]
+        assert [(r.key_index, r.amount) for r in iterator.get_requests()] == [(validator.lido_id.index, FWR_AMOUNT)]
+
+    def test_allocate_active_rebalancing__operator_over_force_exit_limit__fwr_not_pwr(self, iterator):
+        # Arrange: operator 1 must exit one of its two 400 ETH validators; it gets an FWR on the lowest index.
+        low, high = make_validator(3, 400), make_validator(5, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([high, low], 1), 2: ([make_validator(6, 100)], 1), 3: ([make_validator(7, 100)], 1)},
+        )
+        iterator.node_operators_stats[gid_of(1)].force_exit_to = 1
+        enable_rebalancing(iterator, rate_limit_eth=400)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert (steps[0].validator, steps[0].amount) == (low, FWR_AMOUNT)
+
+    def test_allocate_active_rebalancing__forced_operator_with_in_flight_pwr__waits(self, iterator):
+        # Arrange: operator 1 must exit its only validator, which has a PWR in flight.
+        validator = make_validator(1, 400)
+        setup_cmv2_operators(
+            iterator,
+            {1: ([validator], 1), 2: ([make_validator(2, 100)], 1), 3: ([make_validator(3, 100)], 1)},
+        )
+        iterator.node_operators_stats[gid_of(1)].force_exit_to = 0
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={validator.index: Gwei(10 * ETH)})
+        enable_rebalancing(iterator)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
+    def test_allocate_active_rebalancing__in_flight_pwr_above_balance__capped_per_validator(self, iterator):
+        # Arrange: a 100 ETH PWR in flight on a 40 ETH validator brings in only 8 ETH, so operator 1 holds
+        # 432 ETH against 440 ETH: within a 10% threshold. Uncapped, 340 vs 440 would trigger operator 2.
+        small = make_validator(2, 40)
+        setup_cmv2_operators(iterator, {1: ([make_validator(1, 400), small], 1), 2: ([make_validator(3, 440)], 1)})
+        iterator.in_flight = InFlightWithdrawals(pwr_amounts={small.index: Gwei(100 * ETH)})
+        enable_rebalancing(iterator, operator_bp=1_000)
+
+        # Act / Assert
+        assert iterator.allocate_active_rebalancing() == []
+
     def test_allocate_active_rebalancing__shared_report_limit__stops_phase(self, iterator):
         # Arrange: the shared per-report limit leaves room for two 32 ETH chunks.
         setup_cmv2_operators(
