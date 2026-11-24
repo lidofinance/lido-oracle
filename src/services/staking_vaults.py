@@ -397,9 +397,8 @@ class StakingVaultsService:
         return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), MERKLE_TREE_VAULTS_FILENAME)
 
     def get_tree_timestamp(self, bs: ReferenceBlockStamp, chain_config: ChainConfig) -> int:
-        if self.w3.cc.is_gloas_slot(bs.ref_slot):
-            return self._get_report_timestamp(bs.ref_slot, chain_config)
-        return chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot
+        slot = bs.ref_slot if self.w3.cc.is_gloas_slot(bs.ref_slot) else bs.slot_number
+        return self._get_report_timestamp(slot, chain_config)
 
     @staticmethod
     def get_dumped_tree(
@@ -549,9 +548,9 @@ class StakingVaultsService:
         return liability_shares + shares_delta, new_fee  # type: ignore[return-value]
 
     @staticmethod
-    def _get_report_timestamp(ref_slot: SlotNumber, chain_config: ChainConfig) -> int:
-        """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
-        return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
+    def _get_report_timestamp(slot: SlotNumber, chain_config: ChainConfig) -> int:
+        """Convert a slot to a report timestamp (start of slot, in seconds)."""
+        return chain_config.genesis_time + int(slot) * chain_config.seconds_per_slot
 
     @staticmethod
     def _calculate_liquidity_fee_by_events(
