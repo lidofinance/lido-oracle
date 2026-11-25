@@ -18,10 +18,10 @@ def duration_meter[T]():
                 try:
                     logger.debug({"msg": f"Function '{full_name}' started"})
                     result = func(*args, **kwargs)
-                    t.labels(name=full_name, status=Status.SUCCESS)
+                    t.labels(name=full_name, status=Status.SUCCESS.value)
                     return result
                 except Exception as e:
-                    t.labels(name=full_name, status=Status.FAILURE)
+                    t.labels(name=full_name, status=Status.FAILURE.value)
                     raise e
                 finally:
                     stop = perf_counter()
