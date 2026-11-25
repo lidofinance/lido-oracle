@@ -20,6 +20,13 @@ class OracleModuleName(StrEnum):
 STAKING_MODULE_ORACLES: Final = frozenset({OracleModuleName.CSM, OracleModuleName.CSM_0X02, OracleModuleName.CM})
 
 
+class KeysSource(StrEnum):
+    # Keys API service, KEYS_API_URI.
+    KEYS_API = 'keys_api'
+    # Staking module contracts, read through EXECUTION_CLIENT_URI.
+    ONCHAIN = 'onchain'
+
+
 EpochNumber = NewType('EpochNumber', int)
 FrameNumber = NewType('FrameNumber', int)
 StateRoot = NewType('StateRoot', HexStr)
