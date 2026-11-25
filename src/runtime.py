@@ -1,3 +1,4 @@
+from logmask import masked_config
 from prometheus_client import start_http_server
 
 from src import variables
@@ -18,7 +19,7 @@ def log_startup(module_name: str) -> None:
             'variables': {
                 **build_info,
                 'module': module_name,
-                **variables.PUBLIC_ENV_VARS,
+                **masked_config(variables.PUBLIC_ENV_VARS, variables.PRIVATE_ENV_VARS),
             },
         }
     )
