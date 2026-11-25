@@ -1,0 +1,25 @@
+name: "[K8S] Build and push lido-oracle to dev"
+
+run-name: "[K8S] Build and push lido-oracle:dev to dev"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - '.github/**'
+      - 'tests/**'
+      - '**.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    uses: lidofinance/actions/.github/workflows/k8s-build-push-harbor.yml@04ea1810b5a3b52cc4ca815a9ad1aae80efb5601  # main
+    with:
+      target: dev
+      harbor_project: team-staking-core
+      image: lido-oracle
+    secrets: inherit
