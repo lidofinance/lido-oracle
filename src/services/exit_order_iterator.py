@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import cast
 
 from src.constants import (
@@ -378,7 +378,13 @@ class ValidatorExitIterator:
             ),
         )
 
+        cm_v1_id, _ = cm_v1
+        cm_v1_allowed = meta_registry.is_external_module_allowed(cm_v1_id, self.blockstamp.block_hash)
+
         for group in meta_registry.get_all_groups(self.blockstamp.block_hash):
+            if not cm_v1_allowed:
+                # MetaRegistry keeps the entries of a disallowed module in groups but counts no stake for them.
+                group = replace(group, external_operators=[])
             self._process_group(group, cm_v1, cm_v2)
 
     def _process_group(self, group: OperatorGroup, cm_v1: CMv1, cm_v2: CMv2) -> None:

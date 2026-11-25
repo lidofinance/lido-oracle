@@ -904,6 +904,49 @@ class TestSetupMetaConnections:
         iterator._process_group.assert_any_call(group1, cm_v1, cm_v2)
         iterator._process_group.assert_any_call(group2, cm_v1, cm_v2)
 
+    @pytest.mark.parametrize(
+        ('cm_v1_allowed', 'cm_v2_external_stake', 'cm_v1_weight', 'cm_v1_grouped'),
+        [
+            pytest.param(True, Gwei(64 * 10**9), 6.0, True, id='allowed'),
+            pytest.param(False, Gwei(0), NodeOperatorStats.weight, False, id='disallowed'),
+        ],
+    )
+    def test_setup_meta_connections__cm_v1_allowlist__external_stake_counted_only_when_allowed(
+        self, iterator, cm_v1_allowed, cm_v2_external_stake, cm_v1_weight, cm_v1_grouped
+    ):
+        # Arrange
+        sm_v1 = make_staking_module(1)
+        sm_v2 = make_staking_module(2)
+        ms_v1 = StakingModuleStats(staking_module=sm_v1)
+        ms_v2 = StakingModuleStats(staking_module=sm_v2)
+        nos_int = NodeOperatorStats(node_operator=make_node_operator(10, sm_v2), module_stats=ms_v2, weight=6.0)
+        nos_ext = NodeOperatorStats(
+            node_operator=make_node_operator(20, sm_v1),
+            module_stats=ms_v1,
+            predictable_balance=Gwei(64 * 10**9),
+        )
+        iterator.node_operators_stats = {(sm_v2.id, 10): nos_int, (sm_v1.id, 20): nos_ext}
+        group = OperatorGroupFactory.build(
+            sub_node_operators=[SubNodeOperator(node_operator_id=NodeOperatorId(10), share=10000)],
+            external_operators=[ExternalOperator(data=bytes([0, sm_v1.id]) + (20).to_bytes(8, byteorder='big'))],
+        )
+        cm_v2_contract = Mock()
+        cm_v2_contract.get_meta_registry_address.return_value = "0x" + "a" * 40
+        meta_registry = Mock()
+        meta_registry.is_external_module_allowed.return_value = cm_v1_allowed
+        meta_registry.get_all_groups.return_value = [group]
+        iterator.w3.eth.contract = Mock(return_value=meta_registry)
+
+        # Act
+        iterator._setup_meta_connections((sm_v1.id, Mock()), (sm_v2.id, cm_v2_contract))
+
+        # Assert
+        meta_registry.is_external_module_allowed.assert_called_once_with(sm_v1.id, iterator.blockstamp.block_hash)
+        assert nos_int.total_stake == cm_v2_external_stake
+        assert nos_ext.weight == cm_v1_weight
+        assert (nos_ext.external_operator_group is not None) == cm_v1_grouped
+        assert nos_int.internal_operator_group is not None
+
 
 @pytest.mark.unit
 class TestProcessGroupExternalNotInCMv1:
