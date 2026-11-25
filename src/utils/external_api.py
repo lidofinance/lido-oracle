@@ -6,7 +6,7 @@ from requests import Response
 from src.metrics.prometheus.basic import EXTERNAL_API_REQUESTS_DURATION
 
 
-def observe_external_api_request[**P](
+def send_external_api_request[**P](
     service: str,
     method: str,
     send: Callable[P, Response],

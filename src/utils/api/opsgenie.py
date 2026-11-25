@@ -5,7 +5,7 @@ from enum import Enum
 import requests
 
 from src import variables
-from src.utils.external_api import observe_external_api_request
+from src.utils.external_api import send_external_api_request
 
 
 class OpsGenieAPI:
@@ -45,7 +45,7 @@ class OpsGenieAPI:
         }
 
         try:
-            response = observe_external_api_request(
+            response = send_external_api_request(
                 type(self).__name__,
                 'POST',
                 requests.post,

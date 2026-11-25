@@ -14,6 +14,7 @@ from src.providers.ipfs.lido_ipfs import LidoIPFS
 from src.providers.ipfs.pinata import Pinata
 from src.providers.ipfs.types import FetchError
 from src.utils.api.opsgenie import OpsGenieAPI
+from src.utils.external_api import send_external_api_request
 
 
 TEST_CID = CID("QmXvrr3gPtddcNrisH7i2nan9rY7v7RcxVQ9jjRreoWwRS")
@@ -30,6 +31,38 @@ def requests_count(service: str, method: str, code: int) -> float:
         {'service': service, 'method': method, 'code': str(code)},
     )
     return value or 0
+
+
+@pytest.mark.unit
+class TestSendExternalApiRequest:
+    def test_send_external_api_request__response__returns_it_and_counts_status_code(self):
+        response = Mock(spec=requests.Response, status_code=201)
+        send = Mock(return_value=response)
+        before = requests_count('test_service', 'GET', 201)
+
+        result = send_external_api_request('test_service', 'GET', send, 'http://url', timeout=1)
+
+        assert result is response
+        send.assert_called_once_with('http://url', timeout=1)
+        assert requests_count('test_service', 'GET', 201) == before + 1
+
+    def test_send_external_api_request__no_response__reraises_and_counts_code_zero(self):
+        send = Mock(side_effect=requests.ConnectionError('Network error'))
+        before = requests_count('test_service', 'GET', 0)
+
+        with pytest.raises(requests.ConnectionError):
+            send_external_api_request('test_service', 'GET', send, 'http://url')
+
+        assert requests_count('test_service', 'GET', 0) == before + 1
+
+    def test_send_external_api_request__process_interrupted__original_exception_and_code_zero(self):
+        send = Mock(side_effect=KeyboardInterrupt)
+        before = requests_count('test_service', 'GET', 0)
+
+        with pytest.raises(KeyboardInterrupt):
+            send_external_api_request('test_service', 'GET', send, 'http://url')
+
+        assert requests_count('test_service', 'GET', 0) == before + 1
 
 
 @pytest.mark.unit
