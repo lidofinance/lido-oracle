@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `<NAME>_FILE` variants for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_TOKEN`, `OPSGENIE_API_KEY` and `PERFORMANCE_DB_PASSWORD`: the value is read from a file. Nothing changes for a start with the variables themselves.
-- Metric `<PROMETHEUS_PREFIX>_external_api_requests_duration` (by default `lido_oracle_external_api_requests_duration`) with the labels `service`, `endpoint` and `code` for the requests to the IPFS providers and to OpsGenie.
+- Metric `<PROMETHEUS_PREFIX>_external_api_requests_duration` (by default `lido_oracle_external_api_requests_duration`) with the labels `service` (the class of the client), `method` and `code` for the requests to the IPFS providers and to OpsGenie.
 - Process, platform and GC metrics on `/metrics` of the performance web server.
 
 ### Changed

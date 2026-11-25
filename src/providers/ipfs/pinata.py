@@ -6,7 +6,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from src.metrics.prometheus.basic import observe_external_api_request
 from src.utils.jwt import validate_jwt
 
 from .cid import CID
@@ -57,16 +56,14 @@ class Pinata(IPFSProvider):
 
     def _fetch_from_dedicated_gateway(self, cid: CID) -> bytes:
         url = urljoin(self.dedicated_gateway_url, f"/ipfs/{cid}")
-        resp = observe_external_api_request(
-            "pinata", "fetch_dedicated", self.dedicated_session.get, url, timeout=self.timeout
-        )
+        resp = self._get(url, session=self.dedicated_session, timeout=self.timeout)
         resp.raise_for_status()
         return resp.content
 
     def _fetch_from_public_gateway(self, cid: CID) -> bytes:
         url = urljoin(self.PUBLIC_GATEWAY, f'/ipfs/{cid}')
         try:
-            resp = observe_external_api_request("pinata", "fetch_public", requests.get, url, timeout=self.timeout)
+            resp = self._get(url, timeout=self.timeout)
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
@@ -78,9 +75,7 @@ class Pinata(IPFSProvider):
         url = urljoin(self.API_ENDPOINT, '/pinning/pinFileToIPFS')
         try:
             with self.session as s:
-                resp = observe_external_api_request(
-                    "pinata", "upload", s.post, url, files={"file": content}, timeout=self.timeout
-                )
+                resp = self._post(url, session=s, files={"file": content}, timeout=self.timeout)
                 resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})

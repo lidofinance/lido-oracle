@@ -25,10 +25,10 @@ MOCK_JWT = (
 )
 
 
-def requests_count(service: str, endpoint: str, code: int) -> float:
+def requests_count(service: str, method: str, code: int) -> float:
     value = REGISTRY.get_sample_value(
         f'{variables.PROMETHEUS_PREFIX}_external_api_requests_duration_count',
-        {'service': service, 'endpoint': endpoint, 'code': str(code)},
+        {'service': service, 'method': method, 'code': str(code)},
     )
     return value or 0
 
@@ -38,31 +38,31 @@ class TestObserveExternalApiRequest:
     def test_observe_external_api_request__response__returns_it_and_counts_status_code(self):
         response = Mock(spec=requests.Response, status_code=201)
         send = Mock(return_value=response)
-        before = requests_count('test_service', 'test_endpoint', 201)
+        before = requests_count('test_service', 'GET', 201)
 
-        result = observe_external_api_request('test_service', 'test_endpoint', send, 'http://url', timeout=1)
+        result = observe_external_api_request('test_service', 'GET', send, 'http://url', timeout=1)
 
         assert result is response
         send.assert_called_once_with('http://url', timeout=1)
-        assert requests_count('test_service', 'test_endpoint', 201) == before + 1
+        assert requests_count('test_service', 'GET', 201) == before + 1
 
     def test_observe_external_api_request__no_response__reraises_and_counts_code_zero(self):
         send = Mock(side_effect=requests.ConnectionError('Network error'))
-        before = requests_count('test_service', 'test_endpoint', 0)
+        before = requests_count('test_service', 'GET', 0)
 
         with pytest.raises(requests.ConnectionError):
-            observe_external_api_request('test_service', 'test_endpoint', send, 'http://url')
+            observe_external_api_request('test_service', 'GET', send, 'http://url')
 
-        assert requests_count('test_service', 'test_endpoint', 0) == before + 1
+        assert requests_count('test_service', 'GET', 0) == before + 1
 
     def test_observe_external_api_request__process_interrupted__original_exception_and_code_zero(self):
         send = Mock(side_effect=KeyboardInterrupt)
-        before = requests_count('test_service', 'test_endpoint', 0)
+        before = requests_count('test_service', 'GET', 0)
 
         with pytest.raises(KeyboardInterrupt):
-            observe_external_api_request('test_service', 'test_endpoint', send, 'http://url')
+            observe_external_api_request('test_service', 'GET', send, 'http://url')
 
-        assert requests_count('test_service', 'test_endpoint', 0) == before + 1
+        assert requests_count('test_service', 'GET', 0) == before + 1
 
 
 @pytest.mark.unit
@@ -71,32 +71,32 @@ class TestProvidersRequestMetrics:
     def test_lido_ipfs_fetch__ok__request_counted(self):
         provider = LidoIPFS(host="https://ipfs-test.lido.fi", token="test_bearer_token", timeout=30)
         responses.add(responses.GET, f"https://ipfs-test.lido.fi/ipfs/{TEST_CID}", body=b"content", status=200)
-        before = requests_count('lido_ipfs', 'fetch', 200)
+        before = requests_count('LidoIPFS', 'GET', 200)
 
         provider._fetch(TEST_CID)
 
-        assert requests_count('lido_ipfs', 'fetch', 200) == before + 1
+        assert requests_count('LidoIPFS', 'GET', 200) == before + 1
 
     @responses.activate
     def test_lido_ipfs_fetch__server_error__error_code_counted(self):
         provider = LidoIPFS(host="https://ipfs-test.lido.fi", token="test_bearer_token", timeout=30)
         responses.add(responses.GET, f"https://ipfs-test.lido.fi/ipfs/{TEST_CID}", status=500)
-        before = requests_count('lido_ipfs', 'fetch', 500)
+        before = requests_count('LidoIPFS', 'GET', 500)
 
         with pytest.raises(FetchError):
             provider._fetch(TEST_CID)
 
-        assert requests_count('lido_ipfs', 'fetch', 500) == before + 1
+        assert requests_count('LidoIPFS', 'GET', 500) == before + 1
 
     @responses.activate
     def test_lido_ipfs_upload__ok__request_counted(self):
         provider = LidoIPFS(host="https://ipfs-test.lido.fi", token="test_bearer_token", timeout=30)
         responses.add(responses.POST, "https://ipfs-test.lido.fi/add", json={"cid": str(TEST_CID)}, status=200)
-        before = requests_count('lido_ipfs', 'upload', 200)
+        before = requests_count('LidoIPFS', 'POST', 200)
 
         provider._upload(b"content")
 
-        assert requests_count('lido_ipfs', 'upload', 200) == before + 1
+        assert requests_count('LidoIPFS', 'POST', 200) == before + 1
 
     @responses.activate
     def test_pinata_fetch__dedicated_gateway_ok__request_counted(self):
@@ -107,11 +107,11 @@ class TestProvidersRequestMetrics:
             dedicated_gateway_token="dedicated_token_123",
         )
         responses.add(responses.GET, f"https://dedicated.gateway.com/ipfs/{TEST_CID}", body=b"content", status=200)
-        before = requests_count('pinata', 'fetch_dedicated', 200)
+        before = requests_count('Pinata', 'GET', 200)
 
         provider._fetch(TEST_CID)
 
-        assert requests_count('pinata', 'fetch_dedicated', 200) == before + 1
+        assert requests_count('Pinata', 'GET', 200) == before + 1
 
     @responses.activate
     def test_pinata_upload__ok__request_counted(self):
@@ -124,11 +124,11 @@ class TestProvidersRequestMetrics:
         responses.add(
             responses.POST, "https://api.pinata.cloud/pinning/pinFileToIPFS", json={"IpfsHash": str(TEST_CID)}
         )
-        before = requests_count('pinata', 'upload', 200)
+        before = requests_count('Pinata', 'POST', 200)
 
         provider._upload(b"content")
 
-        assert requests_count('pinata', 'upload', 200) == before + 1
+        assert requests_count('Pinata', 'POST', 200) == before + 1
 
     @responses.activate
     def test_kubo_fetch__no_response__code_zero_counted(self):
@@ -136,32 +136,32 @@ class TestProvidersRequestMetrics:
         responses.add(
             responses.POST, "http://localhost:5001/api/v0/cat", body=requests.ConnectionError("Network error")
         )
-        before = requests_count('kubo', 'fetch', 0)
+        before = requests_count('Kubo', 'POST', 0)
 
         with pytest.raises(FetchError):
             provider._fetch(TEST_CID)
 
-        assert requests_count('kubo', 'fetch', 0) == before + 1
+        assert requests_count('Kubo', 'POST', 0) == before + 1
 
     @responses.activate
     def test_kubo_pin__ok__request_counted(self):
         provider = Kubo(host="http://localhost", rpc_port=5001, timeout=30)
         responses.add(responses.POST, "http://localhost:5001/api/v0/pin/add", json={"Pins": [str(TEST_CID)]})
-        before = requests_count('kubo', 'pin', 200)
+        before = requests_count('Kubo', 'POST', 200)
 
         provider.pin(TEST_CID)
 
-        assert requests_count('kubo', 'pin', 200) == before + 1
+        assert requests_count('Kubo', 'POST', 200) == before + 1
 
     @responses.activate
-    def test_filebase_upload__ok__counted_under_its_own_service(self):
+    def test_filebase_upload__ok__counted_under_its_own_class_name(self):
         provider = Filebase(host="https://rpc.filebase.test", rpc_port=443, timeout=30, token="test_bearer_token")
         responses.add(responses.POST, "https://rpc.filebase.test:443/api/v0/add", json={"Hash": str(TEST_CID)})
-        before = requests_count('filebase', 'upload', 200)
+        before = requests_count('Filebase', 'POST', 200)
 
         provider._upload(b"content")
 
-        assert requests_count('filebase', 'upload', 200) == before + 1
+        assert requests_count('Filebase', 'POST', 200) == before + 1
 
     @responses.activate
     def test_opsgenie_alert__ok__request_counted(self):
@@ -169,8 +169,8 @@ class TestProvidersRequestMetrics:
             api_key='test', api_url='https://api.testopsgenie.com', logger=Mock(spec=logging.Logger)
         )
         responses.post('https://api.testopsgenie.com/v2/alerts', status=200)
-        before = requests_count('opsgenie', 'create_alert', 200)
+        before = requests_count('OpsGenieAPI', 'POST', 200)
 
         opsgenie_api.send_opsgenie_alert({})
 
-        assert requests_count('opsgenie', 'create_alert', 200) == before + 1
+        assert requests_count('OpsGenieAPI', 'POST', 200) == before + 1

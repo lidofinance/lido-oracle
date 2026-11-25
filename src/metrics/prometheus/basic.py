@@ -114,11 +114,11 @@ KEYS_API_REQUESTS_DURATION = Histogram(
     buckets=requests_buckets,
 )
 
-# Some hosts of these services are private settings, so the service name is the label instead of the domain.
+# Some hosts of these services are private settings, so the class of the client is the label instead of the domain.
 EXTERNAL_API_REQUESTS_DURATION = Histogram(
     'external_api_requests_duration',
     'Duration of requests to external APIs (IPFS providers, OpsGenie)',
-    ['service', 'endpoint', 'code'],
+    ['service', 'method', 'code'],
     namespace=PROMETHEUS_PREFIX,
     buckets=requests_buckets,
 )
@@ -126,7 +126,7 @@ EXTERNAL_API_REQUESTS_DURATION = Histogram(
 
 def observe_external_api_request[**P](
     service: str,
-    endpoint: str,
+    method: str,
     send: Callable[P, Response],
     *args: P.args,
     **kwargs: P.kwargs,
@@ -142,7 +142,7 @@ def observe_external_api_request[**P](
         code = response.status_code
         return response
     finally:
-        EXTERNAL_API_REQUESTS_DURATION.labels(service=service, endpoint=endpoint, code=code).observe(
+        EXTERNAL_API_REQUESTS_DURATION.labels(service=service, method=method, code=code).observe(
             time.perf_counter() - start
         )
 

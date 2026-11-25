@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 import multiformats
+import requests
 
 from src import variables
+from src.metrics.prometheus.basic import observe_external_api_request
 from src.utils.car import CARConverter
 
 from .cid import CID, CIDv0
@@ -77,6 +80,14 @@ class IPFSProvider(ABC):
     @abstractmethod
     def _fetch(self, cid: CID) -> bytes:
         pass
+
+    def _get(self, url: str, *, session: requests.Session | None = None, **kwargs: Any) -> requests.Response:
+        """GET request to the provider, counted in the request metrics under the name of the provider class."""
+        return observe_external_api_request(type(self).__name__, 'GET', (session or requests).get, url, **kwargs)
+
+    def _post(self, url: str, *, session: requests.Session | None = None, **kwargs: Any) -> requests.Response:
+        """POST request to the provider, counted in the request metrics under the name of the provider class."""
+        return observe_external_api_request(type(self).__name__, 'POST', (session or requests).post, url, **kwargs)
 
     def publish(self, content: bytes, name: str | None = None) -> CID:
         cid = self.upload(content, name)

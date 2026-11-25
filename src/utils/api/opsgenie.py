@@ -46,8 +46,8 @@ class OpsGenieAPI:
 
         try:
             response = observe_external_api_request(
-                'opsgenie',
-                'create_alert',
+                type(self).__name__,
+                'POST',
                 requests.post,
                 f'{self.api_url}/v2/alerts',
                 json=payload,
