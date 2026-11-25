@@ -48,14 +48,14 @@ class ExitBusOracleContract(BaseOracleContract):
         return response
 
     @lru_cache(maxsize=1)
-    def get_max_validators_per_report(self, block_identifier: BlockIdentifier) -> int:
+    def get_max_requests_per_report(self, block_identifier: BlockIdentifier) -> int:
         """
-        Returns the maximum number of validator exit requests allowed in a single report.
+        Returns the maximum number of records in a single report; a larger report reverts.
         """
-        response = self.functions.getMaxValidatorsPerReport().call(block_identifier=block_identifier)
+        response = self.functions.MAX_REQUESTS_PER_REPORT().call(block_identifier=block_identifier)
         logger.info(
             {
-                'msg': 'Call `getMaxValidatorsPerReport()`.',
+                'msg': 'Call `MAX_REQUESTS_PER_REPORT()`.',
                 'value': response,
                 'block_identifier': repr(block_identifier),
                 'to': self.address,

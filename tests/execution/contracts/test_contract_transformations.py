@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, Hash32
 from hexbytes import HexBytes
+from web3.constants import ADDRESS_ZERO
+from web3.exceptions import ContractLogicError
 from web3.types import EventData, Wei
 
 from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
@@ -65,7 +67,7 @@ from src.providers.execution.contracts.oracle_report_sanity_checker import Oracl
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import NodeOperatorId
+from src.types import NodeOperatorId, StakingModuleId
 
 
 DUMMY_ADDRESS = cast(ChecksumAddress, "0x0000000000000000000000000000000000000000")
@@ -843,6 +845,40 @@ class TestVaultHubContractEventMethods:
 
 
 # ---------------------------------------------------------------------------
+# MetaRegistryContract.is_external_module_allowed — allowlist with pre-allowlist fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMetaRegistryIsExternalModuleAllowed:
+    @pytest.mark.parametrize(
+        ('module_address', 'expected'),
+        [
+            pytest.param("0x" + "1" * 40, True, id='allowed'),
+            pytest.param(ADDRESS_ZERO, False, id='disallowed'),
+        ],
+    )
+    def test_is_external_module_allowed__module_address__allowed_unless_zero(self, module_address, expected):
+        contract = _mock_contract()
+        contract.functions.getExternalModuleAddress.return_value.call.return_value = module_address
+
+        result = MetaRegistryContract.is_external_module_allowed(contract, StakingModuleId(1), "latest")
+
+        assert result is expected
+        contract.functions.getExternalModuleAddress.assert_called_once_with(1)
+
+    def test_is_external_module_allowed__registry_without_allowlist__allowed(self):
+        contract = _mock_contract()
+        contract.functions.getExternalModuleAddress.return_value.call.side_effect = ContractLogicError(
+            "execution reverted"
+        )
+
+        result = MetaRegistryContract.is_external_module_allowed(contract, StakingModuleId(1), "latest")
+
+        assert result is True
+
+
+# ---------------------------------------------------------------------------
 # MetaRegistryContract.get_all_groups — pagination over group count
 # ---------------------------------------------------------------------------
 
@@ -927,8 +963,8 @@ _DUMMY_FEE_DIST = MagicMock()
 
 
 def _make_simulation_response():
-    """15-element tuple matching ReportSimulationResults field order."""
-    return (1, 2, 3, 4, 5, 6, 7, _DUMMY_FEE_DIST, 8, 9, 10, 11, 12, 13, 14)
+    """12-element tuple matching ReportSimulationResults field order."""
+    return (1, 2, 3, 4, _DUMMY_FEE_DIST, 5, 6, 7, 8, 9, 10, 11)
 
 
 @pytest.mark.unit
@@ -964,9 +1000,10 @@ class TestAccountingSimulateOracleReport:
         result = AccountingContract.simulate_oracle_report(contract, payload, block_identifier="latest")
 
         assert isinstance(result, ReportSimulationResults)
-        assert result.withdrawals_vault_transfer == 1
-        assert result.el_rewards_vault_transfer == 2
-        assert result.post_total_pooled_ether == 14
+        assert result.ether_to_finalize_wq == 1
+        assert result.shares_to_mint_as_fees == 4
+        assert result.fee_distribution is _DUMMY_FEE_DIST
+        assert result.post_total_pooled_ether == 11
         contract.functions.simulateOracleReport.return_value.call.assert_called_with(block_identifier="latest")
 
 
@@ -1064,7 +1101,7 @@ _OracleReportLimitsTuple = namedtuple(
     [
         "exitedEthAmountPerDayLimit",
         "appearedEthAmountPerDayLimit",
-        "annualBalanceIncreaseBpLimit",
+        "annualCLRebaseIncreaseSoftBPLimit",
         "simulatedShareRateDeviationBpLimit",
         "maxBalanceExitRequestedPerReportInEth",
         "maxEffectiveBalanceWeightWCType01",
@@ -1072,11 +1109,13 @@ _OracleReportLimitsTuple = namedtuple(
         "maxItemsPerExtraDataTransaction",
         "maxNodeOperatorsPerExtraDataItem",
         "requestTimestampMargin",
-        "maxPositiveTokenRebase",
-        "maxClBalanceDecreaseBp",
-        "clBalanceOraclesErrorUpperBpLimit",
+        "annualCLRebaseIncreaseHardBPLimit",
+        "clRebaseDecreaseSoftBPLimit",
+        "clRebaseDecreaseHardBPLimit",
         "consolidationEthAmountPerDayLimit",
         "exitedValidatorEthAmountLimit",
+        "externalPendingBalanceCapEth",
+        "dailyCLRebaseDecreaseHardBPLimit",
     ],
 )
 
@@ -1256,12 +1295,18 @@ class TestBurnerContract:
 class TestOracleReportSanityCheckerContract:
     def test_get_oracle_report_limits(self):
         contract = _mock_contract()
-        raw = _OracleReportLimitsTuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+        raw = _OracleReportLimitsTuple(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)
         contract.functions.getOracleReportLimits.return_value.call.return_value = raw
         result = OracleReportSanityCheckerContract.get_oracle_report_limits(contract, block_identifier="latest")
         assert isinstance(result, OracleReportLimits)
         assert result.exited_eth_amount_per_day_limit == 1
+        assert result.annual_cl_rebase_increase_soft_bp_limit == 3
+        assert result.request_timestamp_margin == 10
+        assert result.annual_cl_rebase_increase_hard_bp_limit == 11
+        assert result.cl_rebase_decrease_soft_bp_limit == 12
+        assert result.cl_rebase_decrease_hard_bp_limit == 13
         assert result.exited_validator_eth_amount_limit == 15
+        assert result.daily_cl_rebase_decrease_hard_bp_limit == 17
         contract.functions.getOracleReportLimits.return_value.call.assert_called_with(block_identifier="latest")
 
 
@@ -1651,16 +1696,16 @@ class TestCuratedStakingModulePassThroughs:
 
 
 # ---------------------------------------------------------------------------
-# ExitBusOracleContract.get_max_validators_per_report
+# ExitBusOracleContract.get_max_requests_per_report
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_get_max_validators_per_report__called__returns_contract_value():
+def test_get_max_requests_per_report__called__returns_contract_value():
     contract = _mock_contract()
-    contract.functions.getMaxValidatorsPerReport.return_value.call.return_value = 600
+    contract.functions.MAX_REQUESTS_PER_REPORT.return_value.call.return_value = 400
 
-    result = ExitBusOracleContract.get_max_validators_per_report(contract, "0xset")
+    result = ExitBusOracleContract.get_max_requests_per_report(contract, "0xset")
 
-    assert result == 600
-    contract.functions.getMaxValidatorsPerReport.return_value.call.assert_called_once_with(block_identifier="0xset")
+    assert result == 400
+    contract.functions.MAX_REQUESTS_PER_REPORT.return_value.call.assert_called_once_with(block_identifier="0xset")

@@ -1,17 +1,20 @@
 import os
 import socket
 from collections.abc import Generator
+from functools import cache
 from typing import Final
 from unittest.mock import Mock, patch
 
 import pytest
 from eth_tester import EthereumTester
 from eth_tester.backends.mock import MockBackend
-from web3 import EthereumTesterProvider
+from web3 import EthereumTesterProvider, HTTPProvider, Web3 as BaseWeb3
+from web3.exceptions import ContractLogicError
 
 from src import variables
 from src.modules.oracles.common.runtime import ipfs_providers
 from src.providers.execution.base_interface import ContractInterface
+from src.providers.execution.contracts.lido_locator import LidoLocatorContract
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
     IPFS,
@@ -32,6 +35,7 @@ INTEGRATION_MARKER = 'integration'
 MAINNET_MARKER = 'mainnet'
 TESTNET_MARKER = 'testnet'
 FORK_MARKER = 'fork'
+SR_PHASE_2_MARKER = 'sr_phase_2'
 
 INTEGRATION_TESTS_MODIFICATORS_MARKERS = {
     MAINNET_MARKER,
@@ -197,6 +201,28 @@ def web3(monkeypatch) -> Generator[Web3]:
     )
 
     yield w3
+
+
+@cache
+def _has_sr_phase_2_contracts(execution_client_uri: str, locator_address: str) -> bool:
+    w3 = BaseWeb3(HTTPProvider(execution_client_uri))
+    locator = w3.eth.contract(
+        address=BaseWeb3.to_checksum_address(locator_address),
+        abi=LidoLocatorContract.load_abi(LidoLocatorContract.abi_path),
+    )
+    try:
+        locator.functions.triggerableWithdrawalsBus().call()
+    except ContractLogicError:
+        return False
+    return True
+
+
+@pytest.fixture(autouse=True)
+def skip_until_sr_phase_2(request, configure_mainnet_tests, configure_testnet_tests):
+    if request.node.get_closest_marker(SR_PHASE_2_MARKER) and not _has_sr_phase_2_contracts(
+        variables.EXECUTION_CLIENT_URI[0], variables.LIDO_LOCATOR_ADDRESS
+    ):
+        pytest.skip('The SR phase 2 contracts are not on chain: LidoLocator has no triggerableWithdrawalsBus()')
 
 
 @pytest.fixture()

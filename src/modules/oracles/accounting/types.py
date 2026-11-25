@@ -96,7 +96,7 @@ class AccountingProcessingState:
 class OracleReportLimits:
     exited_eth_amount_per_day_limit: int
     appeared_eth_amount_per_day_limit: int
-    annual_balance_increase_bp_limit: int
+    annual_cl_rebase_increase_soft_bp_limit: int
     simulated_share_rate_deviation_bp_limit: int
     max_balance_exit_requested_per_report_in_eth: int
     max_effective_balance_weight_wc_type01: int
@@ -104,11 +104,13 @@ class OracleReportLimits:
     max_items_per_extra_data_transaction: int
     max_node_operators_per_extra_data_item: int
     request_timestamp_margin: int
-    max_positive_token_rebase: int
-    max_cl_balance_decrease_bp: int
-    cl_balance_oracles_error_upper_bp_limit: int
+    annual_cl_rebase_increase_hard_bp_limit: int
+    cl_rebase_decrease_soft_bp_limit: int
+    cl_rebase_decrease_hard_bp_limit: int
     consolidation_eth_amount_per_day_limit: int
     exited_validator_eth_amount_limit: int
+    external_pending_balance_cap_eth: int
+    daily_cl_rebase_decrease_hard_bp_limit: int
 
 
 type GenericExtraData = tuple[OperatorsValidatorCount, OracleReportLimits]
@@ -204,11 +206,8 @@ class ReportSimulationFeeDistribution:
 
 @dataclass(frozen=True)
 class ReportSimulationResults:
-    withdrawals_vault_transfer: Wei
-    el_rewards_vault_transfer: Wei
     ether_to_finalize_wq: Wei
     shares_to_finalize_wq: Shares
-    shares_to_burn_for_withdrawals: Shares
     total_shares_to_burn: Shares
     shares_to_mint_as_fees: Shares
     fee_distribution: ReportSimulationFeeDistribution

@@ -60,7 +60,13 @@ class TestIntegrationMainCycleSmoke:
 
     @pytest.mark.parametrize(
         "module_name",
-        [OracleModuleName.ACCOUNTING, OracleModuleName.EJECTOR, OracleModuleName.CSM, OracleModuleName.CM],
+        [
+            # Both load the TriggerableWithdrawalsBus through the LidoLocator
+            pytest.param(OracleModuleName.ACCOUNTING, marks=pytest.mark.sr_phase_2),
+            pytest.param(OracleModuleName.EJECTOR, marks=pytest.mark.sr_phase_2),
+            OracleModuleName.CSM,
+            OracleModuleName.CM,
+        ],
     )
     def test_main_cycle_smoke__oracle_module__cycle_runs_successfully(self, caplog, module_name: OracleModuleName):
         ctx = multiprocessing.get_context('fork')
