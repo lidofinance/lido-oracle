@@ -77,6 +77,12 @@ def get_db() -> DutiesDB:
 DBDep = Annotated[DutiesDB, Depends(get_db)]
 
 
+@app.get("/livez", response_model=HealthCheckResp, response_model_exclude_none=True)
+async def livez():
+    """Liveness: the process answers. No dependency checks here: a database outage must not restart the server."""
+    return {"status": "ok"}
+
+
 @app.get("/health", response_model=HealthCheckResp, response_model_exclude_none=True)
 def health(db: DBDep):
     try:

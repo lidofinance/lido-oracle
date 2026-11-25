@@ -22,7 +22,7 @@ def attach_metrics(app: FastAPI):
     BUILD_INFO.info(build_info)
 
     instrumentator = Instrumentator(
-        excluded_handlers=["/health", "/metrics"],
+        excluded_handlers=["/health", "/livez", "/metrics"],
         registry=CUSTOM_REGISTRY,
     )
     instrumentator.add(

@@ -11,7 +11,13 @@ from src.variables import MAX_CYCLE_LIFETIME_IN_SECONDS
 
 
 _last_pulse = datetime.now()
+_ready = threading.Event()
 logger = logging.getLogger(__name__)
+
+
+def mark_ready() -> None:
+    """The module finished its initialization: `/ready` answers 200 from now on."""
+    _ready.set()
 
 
 def pulse():
@@ -23,10 +29,14 @@ def pulse():
 
 
 class PulseRequestHandler(SimpleHTTPRequestHandler):
-    """Request handler for Docker HEALTHCHECK"""
+    """Request handler for the Docker HEALTHCHECK (answers by the pulse age) and for the `/ready` readiness path"""
 
     def do_GET(self):
         global _last_pulse
+
+        if self.path.rstrip('/') == '/ready':
+            self._respond_readiness()
+            return
 
         if self.path == '/pulse/':
             _last_pulse = datetime.now()
@@ -39,6 +49,13 @@ class PulseRequestHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'{"metrics": "ok", "reason": "ok"}\n')
+
+    def _respond_readiness(self):
+        """Readiness for an orchestrator: 503 while the module starts, 200 after. The pulse age is liveness only."""
+        ready = _ready.is_set()
+        self.send_response(200 if ready else 503)
+        self.end_headers()
+        self.wfile.write(b'{"ready": true}\n' if ready else b'{"ready": false}\n')
 
     def log_request(self, *args, **kwargs):
         # Disable non-error logs
