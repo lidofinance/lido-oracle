@@ -112,7 +112,6 @@ KEYS_API_REQUESTS_DURATION = Histogram(
     buckets=requests_buckets,
 )
 
-# Some hosts of these services are private settings, so the class of the client is the label instead of the domain.
 EXTERNAL_API_REQUESTS_DURATION = Histogram(
     'external_api_requests_duration',
     'Duration of requests to external APIs (IPFS providers, OpsGenie)',
