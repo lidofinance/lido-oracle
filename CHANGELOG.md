@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `<NAME>_FILE` variants for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_TOKEN`, `OPSGENIE_API_KEY` and `PERFORMANCE_DB_PASSWORD`: the value is read from a file. Nothing changes for a start with the variables themselves.
 - Metric `<PROMETHEUS_PREFIX>_external_api_requests_duration` (by default `lido_oracle_external_api_requests_duration`) with the labels `service` (the class of the client), `method` and `code` for the requests to the IPFS providers and to OpsGenie.
 - Process, platform and GC metrics on `/metrics` of the performance web server.
+- The performance web server logs the startup line with its settings, like the other modules. Private values are masked.
+- `GET /livez` on the performance web server: it answers without a database query, for a liveness probe. `GET /health` still checks the database.
+- `/ready` on the healthcheck server of the oracle modules and the performance collector: 503 until the module finishes its initialization, 200 after (daemon mode only). The other paths still answer by the age of the last pulse.
 
 ### Changed
 - The Docker image is built on Docker Hardened Images (Python 3.14, Debian 13). A local build needs `docker login dhi.io`. The runtime image has no shell and no package manager. The user is still uid 33.

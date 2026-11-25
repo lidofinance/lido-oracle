@@ -110,6 +110,11 @@ Services and responsibilities:
   - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
   - publish report artifacts to IPFS (`LIDO_IPFS_*`, Pinata, Filebase or Kubo)
 
+Health endpoints:
+
+- The oracle modules and `performance-collector` serve them on `localhost:HEALTHCHECK_SERVER_PORT`, so a probe must run inside the container (`python3 -m src.scripts.healthcheck <url>`). `/healthcheck` answers 200 while the last pulse of the cycle is fresh (liveness). `/ready` answers 503 until the module finishes its initialization and 200 after (daemon mode only).
+- `performance-web` serves them on `PERFORMANCE_WEB_SERVER_API_PORT`. `/livez` answers without a database query (liveness). `/health` checks the database (readiness).
+
 Data flow (simplified):
 
 `Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` → `IPFS / chain`
@@ -374,6 +379,7 @@ The oracle exposes the following basic metrics:
 | functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                                       |
 | cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                             |
 | keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                             |
+| external_api_requests_duration | Histogram metric with duration of each request to the IPFS providers and OpsGenie | service (class of the client), method, code (0 - no response) |
 | keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                                    |
 | transactions_count          | Total count of transactions. Success or failure                 | status                                                                                                                                             |
 | member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                                                   |
