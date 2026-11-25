@@ -18,15 +18,15 @@ KEYS_API_URI: Final = _uri_list_from_file_or_env('KEYS_API_URI')
 PERFORMANCE_COLLECTOR_URI: Final = os.getenv('PERFORMANCE_COLLECTOR_URI', '').split(',')
 
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
-PINATA_DEDICATED_GATEWAY_URL: Final = os.getenv('PINATA_DEDICATED_GATEWAY_URL')
+PINATA_DEDICATED_GATEWAY_URL: Final = from_file_or_env('PINATA_DEDICATED_GATEWAY_URL')
 PINATA_DEDICATED_GATEWAY_TOKEN: Final = from_file_or_env('PINATA_DEDICATED_GATEWAY_TOKEN')
-KUBO_HOST: Final = os.getenv('KUBO_HOST')
+KUBO_HOST: Final = from_file_or_env('KUBO_HOST')
 KUBO_RPC_PORT: Final = int(os.getenv('KUBO_RPC_PORT', 5001))
 
-LIDO_IPFS_HOST: Final = os.getenv('LIDO_IPFS_HOST') or None
+LIDO_IPFS_HOST: Final = from_file_or_env('LIDO_IPFS_HOST') or None
 LIDO_IPFS_TOKEN: Final = from_file_or_env('LIDO_IPFS_TOKEN')
 
-FILEBASE_IPFS_HOST: Final = os.getenv('FILEBASE_IPFS_HOST')
+FILEBASE_IPFS_HOST: Final = from_file_or_env('FILEBASE_IPFS_HOST')
 FILEBASE_IPFS_TOKEN: Final = from_file_or_env('FILEBASE_IPFS_TOKEN')
 
 # - Account -
@@ -144,8 +144,7 @@ PERFORMANCE_DB_HOST: Final = os.getenv('PERFORMANCE_DB_HOST', 'localhost')
 PERFORMANCE_DB_PORT: Final = int(os.getenv('PERFORMANCE_DB_PORT', 5432))
 PERFORMANCE_DB_NAME: Final = os.getenv('PERFORMANCE_DB_NAME', 'performance')
 PERFORMANCE_DB_USER: Final = os.getenv('PERFORMANCE_DB_USER', 'performance')
-PERFORMANCE_DB_DEFAULT_PASSWORD: Final = 'performance'
-PERFORMANCE_DB_PASSWORD: Final = from_file_or_env('PERFORMANCE_DB_PASSWORD', PERFORMANCE_DB_DEFAULT_PASSWORD)
+PERFORMANCE_DB_PASSWORD: Final = from_file_or_env('PERFORMANCE_DB_PASSWORD', 'performance')
 PERFORMANCE_DB_POOL_SIZE: Final = int(os.getenv('PERFORMANCE_DB_POOL_SIZE', 10))
 PERFORMANCE_DB_MAX_OVERFLOW: Final = int(os.getenv('PERFORMANCE_DB_MAX_OVERFLOW', 20))
 PERFORMANCE_DB_POOL_RECYCLE_SECONDS: Final = int(os.getenv('PERFORMANCE_DB_POOL_RECYCLE_SECONDS', 3600))
@@ -312,12 +311,3 @@ PRIVATE_ENV_VARS = {
 }
 
 assert not set(PRIVATE_ENV_VARS.keys()).intersection(set(PUBLIC_ENV_VARS.keys()))
-
-# Values to mask in the logs. The default database password is a common word:
-# masking it would replace this word in every log line (module names, paths).
-LOG_SECRETS = {
-    **PRIVATE_ENV_VARS,
-    'PERFORMANCE_DB_PASSWORD': (
-        None if PERFORMANCE_DB_PASSWORD == PERFORMANCE_DB_DEFAULT_PASSWORD else PERFORMANCE_DB_PASSWORD
-    ),
-}

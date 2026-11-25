@@ -9,7 +9,11 @@ import src.variables as variables
 DUMMY_MEMBER_PRIV_KEY = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 SECRETS_FROM_FILE = [
+    'PINATA_DEDICATED_GATEWAY_URL',
+    'KUBO_HOST',
+    'LIDO_IPFS_HOST',
     'LIDO_IPFS_TOKEN',
+    'FILEBASE_IPFS_HOST',
     'FILEBASE_IPFS_TOKEN',
     'OPSGENIE_API_KEY',
     'PERFORMANCE_DB_PASSWORD',
@@ -110,37 +114,10 @@ class TestVariablesFromFile:
         assert reloaded.EXECUTION_CLIENT_URI == ['']
         assert reloaded.TELEMETRY_DATA_BUS_RPC == ''
         assert reloaded.OPSGENIE_API_KEY == ''
+        assert reloaded.PINATA_DEDICATED_GATEWAY_URL is None
+        assert reloaded.KUBO_HOST is None
+        assert reloaded.LIDO_IPFS_HOST is None
         assert reloaded.LIDO_IPFS_TOKEN is None
+        assert reloaded.FILEBASE_IPFS_HOST is None
         assert reloaded.FILEBASE_IPFS_TOKEN is None
         assert reloaded.PERFORMANCE_DB_PASSWORD == 'performance'
-
-
-@pytest.mark.unit
-class TestLogSecrets:
-    @pytest.fixture()
-    def reload_variables(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv('PERFORMANCE_DB_PASSWORD', raising=False)
-        monkeypatch.delenv('PERFORMANCE_DB_PASSWORD_FILE', raising=False)
-
-        def _reload():
-            return importlib.reload(variables)
-
-        yield _reload
-
-        monkeypatch.undo()
-        importlib.reload(variables)
-
-    def test_log_secrets__default_db_password__not_masked(self, reload_variables):
-        reloaded = reload_variables()
-
-        assert reloaded.LOG_SECRETS['PERFORMANCE_DB_PASSWORD'] is None
-
-    def test_log_secrets__custom_db_password__masked(self, monkeypatch, reload_variables):
-        monkeypatch.setenv('PERFORMANCE_DB_PASSWORD', 'custom-db-password')
-
-        reloaded = reload_variables()
-
-        assert reloaded.LOG_SECRETS['PERFORMANCE_DB_PASSWORD'] == 'custom-db-password'
-
-    def test_log_secrets__all_private_variables__present(self):
-        assert set(variables.LOG_SECRETS) == set(variables.PRIVATE_ENV_VARS)

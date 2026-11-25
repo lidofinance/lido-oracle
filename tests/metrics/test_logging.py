@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 RPC_URL = 'https://rpc.example.com/v3/a1b2c3d4e5f6a7b8'
 IPFS_TOKEN = 'tok_9f8e7d6c5b4a3210'
 SECRETS = {
-    **variables.LOG_SECRETS,
+    **variables.PRIVATE_ENV_VARS,
     'EXECUTION_CLIENT_URI': [RPC_URL],
     'LIDO_IPFS_TOKEN': IPFS_TOKEN,
 }
@@ -204,16 +204,6 @@ class TestSecretsMasking:
 
         assert 'ConnectionError' in line['exc_info']
         assert 'a1b2c3d4e5f6a7b8' not in line['exc_info']
-
-    def test_format__default_db_password_out_of_the_mask__common_word_stays_in_the_line(self):
-        secrets = {**variables.LOG_SECRETS, 'PERFORMANCE_DB_PASSWORD': None}
-        record = make_record('Starting Performance Web Server')
-        record.name = 'src.modules.sidecars.performance.web.entrypoint'
-
-        line = format_record(record, secrets=secrets)
-
-        assert line['name'] == 'src.modules.sidecars.performance.web.entrypoint'
-        assert line['msg'] == 'Starting Performance Web Server'
 
 
 @dataclasses.dataclass

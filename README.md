@@ -257,8 +257,9 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 A secret can be read from a file instead of the variable itself: set `<NAME>_FILE` to the path of a file with the
 value. The file takes precedence over the variable, and an empty file means that the value is not set. This works for
 the variables that have a `_FILE` row in the table and for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`,
-`KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `PINATA_DEDICATED_GATEWAY_TOKEN`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_TOKEN`,
-`OPSGENIE_API_KEY` and `PERFORMANCE_DB_PASSWORD`.
+`KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `PINATA_DEDICATED_GATEWAY_URL`, `PINATA_DEDICATED_GATEWAY_TOKEN`,
+`LIDO_IPFS_HOST`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_HOST`, `FILEBASE_IPFS_TOKEN`, `KUBO_HOST`, `OPSGENIE_API_KEY` and
+`PERFORMANCE_DB_PASSWORD`.
 
 | Name                                                     | Description                                                                                                                                                                 | Required            | Example value                                |
 |----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|----------------------------------------------|

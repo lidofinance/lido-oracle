@@ -23,7 +23,13 @@ def convert_bytes_to_hex(data: Any) -> Any:
 
 
 class ValueAsStringFilter(logging.Filter):
-    """Log consumers get the `value` field of a dict message as a string, whatever its type is."""
+    """Keeps the `value` field of a dict message a string, as the formatter of the oracle did before `logmask`.
+
+    The `logmask` formatter writes a value in its own JSON type: a number, a list or an object. The oracle logs
+    contract responses in `value`, so without this filter the type of the field would change from line to line,
+    and a uint256 would become a JSON number, which many log tools round to a float. The filter runs on the
+    handler before the formatter and changes only this field; masking and the JSON line stay with `logmask`.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.msg, dict) and 'value' in record.msg:
@@ -39,7 +45,7 @@ class ValueAsStringFilter(logging.Filter):
 
 
 # JSON lines to stderr; every line, traceback and warning goes through the masker of the secrets.
-setup_logging(variables.LOG_SECRETS, level=logging.INFO)
+setup_logging(variables.PRIVATE_ENV_VARS, level=logging.INFO)
 
 for handler in logging.getLogger().handlers:
     handler.addFilter(ValueAsStringFilter())

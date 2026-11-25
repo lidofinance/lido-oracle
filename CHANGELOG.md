@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased](https://github.com/lidofinance/lido-oracle)
 
 ### Added
-- `<NAME>_FILE` variants for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_TOKEN`, `OPSGENIE_API_KEY` and `PERFORMANCE_DB_PASSWORD`: the value is read from a file. Nothing changes for a start with the variables themselves.
+- `<NAME>_FILE` variants for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`, `KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `PINATA_DEDICATED_GATEWAY_URL`, `LIDO_IPFS_HOST`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_HOST`, `FILEBASE_IPFS_TOKEN`, `KUBO_HOST`, `OPSGENIE_API_KEY` and `PERFORMANCE_DB_PASSWORD`: the value is read from a file. Nothing changes for a start with the variables themselves.
 - Metric `<PROMETHEUS_PREFIX>_external_api_requests_duration` (by default `lido_oracle_external_api_requests_duration`) with the labels `service` (the class of the client), `method` and `code` for the requests to the IPFS providers and to OpsGenie.
 - Process, platform and GC metrics on `/metrics` of the performance web server.
 - The performance web server logs the startup line with its settings, like the other modules. Private values are masked.
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The Docker image is built on Docker Hardened Images (Python 3.14, Debian 13). A local build needs `docker login dhi.io`. The runtime image has no shell and no package manager. The user is still uid 33.
-- Secrets are masked in every log line, traceback and warning. The startup line lists the private variables with masked values. An unhandled exception is logged as one JSON line. The order of the fields in a log line changed. A message key equal to a field of the log record is written as `msg_<key>`: the DataBus telemetry line now has `msg_module` for the oracle module. A secret with non-ASCII characters stops the start with an error.
+- Secrets are masked in every log line, traceback and warning. The startup line lists the private variables with masked values. An unhandled exception is logged as one JSON line. The order of the fields in a log line changed. A message key equal to a field of the log record is written as `msg_<key>`: the DataBus telemetry line now has `msg_module` for the oracle module. A secret with non-ASCII characters stops the start with an error. With the default `PERFORMANCE_DB_PASSWORD` the word `performance` is masked in every log line, set your own password to avoid it.
 - The Docker `HEALTHCHECK` takes the port from `HEALTHCHECK_SERVER_PORT` inside the probe script.
 - An empty `<NAME>_FILE` file means that the value is not set: an empty key file gives dry mode, an empty file of a variable with a default gives the default.
 - The Docker build takes the `blst` sources by the commit of the `vendor/blst` submodule, so it works from a build context without submodules.
