@@ -234,6 +234,34 @@ def test_get_in_flight_withdrawals__several_cl_partials__latest_withdrawable_epo
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    ('queued', 'intents', 'fwr_after_pwr'),
+    [
+        pytest.param([Gwei(4 * 10**9), Gwei(0)], [], frozenset({1}), id='pwr_then_fwr_in_eip7002_queue'),
+        pytest.param([Gwei(4 * 10**9)], [Gwei(0)], frozenset({1}), id='pwr_in_eip7002_queue_then_fwr_in_bus'),
+        pytest.param([Gwei(0), Gwei(4 * 10**9)], [], frozenset(), id='fwr_then_pwr_in_eip7002_queue'),
+        pytest.param([Gwei(0)], [Gwei(4 * 10**9)], frozenset(), id='fwr_in_eip7002_queue_then_pwr_in_bus'),
+    ],
+)
+def test_get_in_flight_withdrawals__queued_pwr_and_fwr__fwr_behind_pwr_marked(
+    web3, validator_state, eip7002_queue, queued, intents, fwr_after_pwr
+):
+    # Arrange: the CL processes the EIP-7002 queue first and the Bus intents after it.
+    web3.cc.get_state_view = Mock(return_value=Mock(payload_expected_withdrawals=[], pending_partial_withdrawals=[]))
+    eip7002_queue.return_value = [QueuedWithdrawalRequest(WITHDRAWAL_VAULT, HexStr('0x1'), a) for a in queued]
+    web3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents = Mock(
+        return_value=[WithdrawalIntent(pubkey=HexStr('0x1'), amount=a) for a in intents]
+    )
+
+    # Act
+    in_flight = validator_state.get_in_flight_withdrawals(blockstamp)
+
+    # Assert
+    assert in_flight.fwr_validators == frozenset({1})
+    assert in_flight.fwr_after_pwr_validators == fwr_after_pwr
+
+
+@pytest.mark.unit
 def test_get_in_flight_withdrawals__eip7002_queue__lido_requests_merged_with_bus_and_cl(
     web3, validator_state, eip7002_queue
 ):
@@ -435,6 +463,16 @@ def _in_flight_validator(
             InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)})),
             InFlightInbound(),
             id='queued_fwr_before_shard_committee_period__dropped_by_cl',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 1000, effective_balance_eth=1000),
+            InFlightWithdrawals(
+                pwr_amounts={ValidatorIndex(1): Gwei(128 * ETH)},
+                fwr_validators=frozenset({ValidatorIndex(1)}),
+                fwr_after_pwr_validators=frozenset({ValidatorIndex(1)}),
+            ),
+            InFlightInbound(amount=Gwei(128 * ETH), queued_churn=Gwei(128 * ETH)),
+            id='queued_fwr_behind_queued_pwr__skipped_by_cl_partials_count',
         ),
         pytest.param(
             _in_flight_validator(1, 32, activation_epoch=FAR_FUTURE_EPOCH),

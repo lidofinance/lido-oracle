@@ -30,6 +30,8 @@ class InFlightWithdrawals:
 
     pwr_amounts: dict[ValidatorIndex, Gwei] = field(default_factory=dict)
     fwr_validators: frozenset[ValidatorIndex] = frozenset()
+    # Queued FWRs behind a queued PWR of the same validator: the PWR becomes a CL pending partial first.
+    fwr_after_pwr_validators: frozenset[ValidatorIndex] = frozenset()
     # The part of `pwr_amounts` already on the CL, and the latest epoch it becomes withdrawable.
     cl_pending_pwr_amounts: dict[ValidatorIndex, Gwei] = field(default_factory=dict)
     cl_pending_withdrawable_epochs: dict[ValidatorIndex, EpochNumber] = field(default_factory=dict)
@@ -50,11 +52,13 @@ class InFlightInbound:
 def is_queued_fwr_effective(validator: LidoValidator, in_flight: InFlightWithdrawals, state_epoch: EpochNumber) -> bool:
     """
     Whether the CL exits the validator by its queued full withdrawal. The CL skips the request while the validator
-    has pending partials, and drops it for a validator active for less than SHARD_COMMITTEE_PERIOD. It processes
-    the queues no earlier than `state_epoch`, the epoch of the state they are read at.
+    has pending partials, including those of PWRs queued ahead of it, and drops it for a validator active for less
+    than SHARD_COMMITTEE_PERIOD. It processes the queues no earlier than `state_epoch`, the epoch of the state
+    they are read at.
     """
     return (
         validator.index in in_flight.fwr_validators
+        and validator.index not in in_flight.fwr_after_pwr_validators
         and not in_flight.cl_pending_pwr_amounts.get(validator.index)
         and validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= state_epoch
     )
@@ -173,6 +177,8 @@ class LidoValidatorStateService:
         """
         pwr_amounts: dict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
         fwr_validators: set[ValidatorIndex] = set()
+        fwr_after_pwr_validators: set[ValidatorIndex] = set()
+        queued_pwr_validators: set[ValidatorIndex] = set()
         cl_pending_amounts: dict[ValidatorIndex, Gwei] = defaultdict(lambda: Gwei(0))
         cl_pending_epochs: dict[ValidatorIndex, EpochNumber] = {}
 
@@ -198,19 +204,24 @@ class LidoValidatorStateService:
         ]
         intents = self.w3.lido_contracts.triggerable_withdrawals_bus.get_unprocessed_intents(blockstamp.block_hash)
 
+        # The Bus sends its intents to the EIP-7002 queue, so the CL processes all of them in this order.
         for request in [*queued, *intents]:
             index = index_by_pubkey.get(request.pubkey)
             if index is None:
                 logger.warning({'msg': 'Queued withdrawal request for an unknown validator.', 'pubkey': request.pubkey})
                 continue
             if request.is_full:
+                if index not in fwr_validators and index in queued_pwr_validators:
+                    fwr_after_pwr_validators.add(index)
                 fwr_validators.add(index)
             else:
                 pwr_amounts[index] += request.amount
+                queued_pwr_validators.add(index)
 
         return InFlightWithdrawals(
             pwr_amounts=dict(pwr_amounts),
             fwr_validators=frozenset(fwr_validators),
+            fwr_after_pwr_validators=frozenset(fwr_after_pwr_validators),
             cl_pending_pwr_amounts=dict(cl_pending_amounts),
             cl_pending_withdrawable_epochs=cl_pending_epochs,
             payload_pwr_amounts=payload_amounts,
