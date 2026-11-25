@@ -5,7 +5,7 @@ from enum import Enum
 import requests
 
 from src import variables
-from src.metrics.prometheus.basic import observe_external_api_request
+from src.utils.external_api import observe_external_api_request
 
 
 class OpsGenieAPI:
