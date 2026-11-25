@@ -47,10 +47,22 @@ class InFlightInbound:
     latest_cl_withdrawable_epoch: EpochNumber | None = None
 
 
+def is_queued_fwr_effective(validator: LidoValidator, in_flight: InFlightWithdrawals, state_epoch: EpochNumber) -> bool:
+    """
+    Whether the CL exits the validator by its queued full withdrawal. The CL skips the request while the validator
+    has pending partials, and drops it for a validator active for less than SHARD_COMMITTEE_PERIOD. It processes
+    the queues no earlier than `state_epoch`, the epoch of the state they are read at.
+    """
+    return (
+        validator.index in in_flight.fwr_validators
+        and not in_flight.cl_pending_pwr_amounts.get(validator.index)
+        and validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= state_epoch
+    )
+
+
 def get_in_flight_inbound(
     validators: Iterable[LidoValidator], in_flight: InFlightWithdrawals, state_epoch: EpochNumber
 ) -> InFlightInbound:
-    """`state_epoch` is the epoch of the state the queues are read at; the CL processes them no earlier."""
     amount = Gwei(0)
     queued_churn = Gwei(0)
     withdrawable_epochs: list[EpochNumber] = []
@@ -67,16 +79,14 @@ def get_in_flight_inbound(
             withdrawable_epochs.append(validator.validator.withdrawable_epoch)
             continue
 
-        cl_pending = in_flight.cl_pending_pwr_amounts.get(validator.index, Gwei(0))
-        # The CL skips a full exit request while the validator has pending partials.
-        if validator.index in in_flight.fwr_validators and not cl_pending:
-            # The CL drops the request of a validator active for less than SHARD_COMMITTEE_PERIOD.
-            if validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= state_epoch:
-                amount = Gwei(amount + validator.balance)
-                queued_churn = Gwei(queued_churn + validator.validator.effective_balance)
+        if is_queued_fwr_effective(validator, in_flight, state_epoch):
+            amount = Gwei(amount + validator.balance)
+            queued_churn = Gwei(queued_churn + validator.validator.effective_balance)
             continue
 
+        # An ineffective queued FWR adds nothing.
         # The CL applies partials one by one against the balance left above the activation balance.
+        cl_pending = in_flight.cl_pending_pwr_amounts.get(validator.index, Gwei(0))
         pwr_amount = min(
             in_flight.pwr_amounts.get(validator.index, Gwei(0)),
             Gwei(max(0, validator.balance - MIN_ACTIVATION_BALANCE)),
