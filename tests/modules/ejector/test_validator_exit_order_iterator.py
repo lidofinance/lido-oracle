@@ -1885,7 +1885,9 @@ def make_validator(index: int, balance_eth: float, wc: str = COMPOUNDING_WC, act
     )
 
 
-def setup_single_operator(iterator, validators, *, partial_allowed=True, wc_type=2, force_exit_to=None):
+def setup_single_operator(
+    iterator, validators, *, partial_allowed=True, wc_type=2, force_exit_to=None, soft_exit_to=None
+):
     """One module with one node operator, so the ranking never decides the outcome."""
     sm = make_staking_module(1, wc_type=wc_type)
     no = make_node_operator(1, sm)
@@ -1904,6 +1906,7 @@ def setup_single_operator(iterator, validators, *, partial_allowed=True, wc_type
         total_stake=total,
         weight=1.0,
         force_exit_to=force_exit_to,
+        soft_exit_to=soft_exit_to,
     )
     iterator.module_stats = {sm.id: ms}
     iterator.node_operators_stats = {gid: nos}
@@ -1914,6 +1917,21 @@ def setup_single_operator(iterator, validators, *, partial_allowed=True, wc_type
 
 @pytest.mark.unit
 class TestPwrFwrSelection:
+    def test_next__operator_over_soft_exit_limit__fwrs_down_to_limit_then_pwrs(self, iterator):
+        # Arrange: 10 validators of 2048 ETH with a soft exit limit of 6. The limit counts validators,
+        # so the operator gets FWRs until it holds 6, and only then PWRs.
+        validators = [make_validator(index, 2048) for index in range(1, 11)]
+        gid = setup_single_operator(iterator, validators, soft_exit_to=6)
+        iterator.exit_limit_in_gwei = Gwei(100_000 * ETH)
+
+        # Act
+        steps = [next(iterator) for _ in range(5)]
+
+        # Assert
+        assert [(step.validator, step.amount) for step in steps[:4]] == [(v, FWR_AMOUNT) for v in validators[:4]]
+        assert steps[4].amount == Gwei(32 * ETH)
+        assert iterator.node_operators_stats[gid].predictable_validators == 6
+
     def test_next__eligible_compounding_validator__takes_one_chunk_pwr(self, iterator):
         validator = make_validator(1, 100)
         gid = setup_single_operator(iterator, [validator])

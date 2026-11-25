@@ -73,7 +73,7 @@ Work is divided into frames (~24 hours / 225 epochs):
 
 ### Ejector module
 
-Reports withdrawal requests to the WithdrawalsOracle contract (LIP-38): a partial withdrawal (PWR) from a `0x02` validator when its module allows partial withdrawals and the validator keeps at least 33 ETH, a full withdrawal (FWR) otherwise. The order is defined in `src/services/exit_order_iterator.py`. The contract queues the requests in the `TriggerableWithdrawalsBus`, and they are executed from there.
+Reports withdrawal requests to the WithdrawalsOracle contract (LIP-38): a partial withdrawal (PWR) from a `0x02` validator when its module allows partial withdrawals and the validator keeps at least 33 ETH, a full withdrawal (FWR) otherwise. An operator over its target limit gets FWRs only, because the limit counts validators. The order is defined in `src/services/exit_order_iterator.py`. The contract queues the requests in the `TriggerableWithdrawalsBus`, and they are executed from there.
 
 **Flow**
 
