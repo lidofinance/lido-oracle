@@ -303,6 +303,7 @@ class LidoValidatorsProvider(Module):
             set(pending_keys.keys()),
             lido_wc_list,
             hex_str_to_bytes(genesis_config.genesis_fork_version),
+            skip_builder_deposits=not self.w3.cc.is_gloas_slot(blockstamp.slot_number),
         )
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
         logger.info(
@@ -321,6 +322,8 @@ class LidoValidatorsProvider(Module):
         filter_pubkeys: set[str],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
+        *,
+        skip_builder_deposits: bool,
     ) -> dict[str, list[PendingDeposit]]:
         """Core frontrun-detection loop.
 
@@ -329,6 +332,8 @@ class LidoValidatorsProvider(Module):
         frontrun and excluded entirely along with any subsequent deposits for that key.
 
         Takes the full queue, builder-credential deposits included, so a front-run with them is caught.
+        `skip_builder_deposits` leaves them out of the key's stake: before Gloas the fork moves a validly signed one
+        to a separate builder, after it they top up the validator like any other deposit.
         """
         result: dict[str, list[PendingDeposit]] = {}
         frontruned_keys: set[str] = set()
@@ -338,8 +343,7 @@ class LidoValidatorsProvider(Module):
                 continue
 
             if d.pubkey in result:
-                # Builder-credential deposits are seen here only to catch a front-run, never counted as the key's stake.
-                if not is_builder_withdrawal_credential(d.withdrawal_credentials):
+                if not (skip_builder_deposits and is_builder_withdrawal_credential(d.withdrawal_credentials)):
                     result[d.pubkey].append(d)
                 continue
 

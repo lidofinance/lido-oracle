@@ -46,7 +46,7 @@ class MidtermSlashingPenalty:
 
         # Put all Lido slashed validators to future frames by midterm penalty epoch
         future_frames_lido_validators = MidtermSlashingPenalty.get_lido_validators_with_future_midterm_epoch(
-            blockstamp.ref_epoch,
+            blockstamp.epoch_number,
             web3_converter,
             lido_validators,
         )
@@ -106,12 +106,16 @@ class MidtermSlashingPenalty:
 
     @staticmethod
     def get_lido_validators_with_future_midterm_epoch(
-        ref_epoch: EpochNumber,
+        state_epoch: EpochNumber,
         web3_converter: Web3Converter,
         lido_validators: Sequence[LidoValidator],
     ) -> SlashedValidatorsFrameBuckets:
         """
         Put validators to frame buckets by their midterm penalty epoch to calculate penalties impact in each frame
+
+        `process_slashings` charges the penalty of epoch M during the processing of epoch M, so a state read in
+        `state_epoch` already holds every charge with M < state_epoch. After Gloas the state can be more than one
+        epoch past the reference epoch when the epochs right after the reference slot have no blocks.
         """
         buckets: SlashedValidatorsFrameBuckets = defaultdict(list[LidoValidator])
         for validator in lido_validators:
@@ -119,8 +123,8 @@ class MidtermSlashingPenalty:
                 # We need only slashed validators
                 continue
             midterm_penalty_epoch = MidtermSlashingPenalty.get_midterm_penalty_epoch(validator)
-            if midterm_penalty_epoch <= ref_epoch:
-                # We need midterm penalties only from future frames
+            if midterm_penalty_epoch < state_epoch:
+                # Already charged in the balances of the state
                 continue
             frame_number = web3_converter.get_frame_by_epoch(midterm_penalty_epoch)
             buckets[frame_number].append(validator)
