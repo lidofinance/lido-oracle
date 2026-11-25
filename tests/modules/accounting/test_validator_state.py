@@ -4,7 +4,12 @@ from unittest.mock import Mock
 import pytest
 from eth_typing import HexStr
 
-from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL_PREFIX, FAR_FUTURE_EPOCH
+from src.constants import (
+    COMPOUNDING_WITHDRAWAL_PREFIX,
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX,
+    FAR_FUTURE_EPOCH,
+    SHARD_COMMITTEE_PERIOD,
+)
 from src.modules.common.types import ChainConfig
 from src.providers.consensus.types import ExpectedWithdrawal, PendingPartialWithdrawal, Validator, ValidatorState
 from src.providers.execution.contracts.triggerable_withdrawals_bus import WithdrawalIntent
@@ -278,6 +283,24 @@ def test_get_in_flight_inbound__same_blockstamp__computed_once(web3, validator_s
     assert by_operator.call_count == calls_before + 1
 
 
+@pytest.mark.unit
+def test_get_in_flight_inbound__missed_epoch_after_ref_slot__eligibility_at_state_epoch(web3, validator_state):
+    # Arrange: the state is two epochs past the reference epoch, where the queued FWR's validator
+    # completes SHARD_COMMITTEE_PERIOD; the CL processes the queue no earlier than that state.
+    state_blockstamp = ReferenceBlockStampFactory.build(ref_epoch=EpochNumber(1000), epoch_number=EpochNumber(1002))
+    validator = _in_flight_validator(1, 32, activation_epoch=1002 - SHARD_COMMITTEE_PERIOD)
+    web3.lido_validators.get_lido_validators_by_node_operators = Mock(return_value={(1, 1): [validator]})
+    validator_state.get_in_flight_withdrawals = Mock(
+        return_value=InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)}))
+    )
+
+    # Act
+    result = validator_state.get_in_flight_inbound(state_blockstamp)
+
+    # Assert
+    assert result.amount == Gwei(32 * ETH)
+
+
 def _state_with_payload(validators: list[ValidatorState], balances: list[int], payouts: list[tuple[int, int]]) -> Mock:
     return Mock(
         validators=validators,
@@ -340,6 +363,7 @@ def test_get_in_flight_withdrawals__partial_in_payload__counted_as_pwr_outside_c
 
 
 ETH = 10**9
+STATE_EPOCH = EpochNumber(1000)
 
 
 def _in_flight_validator(
@@ -351,6 +375,7 @@ def _in_flight_validator(
     withdrawable_epoch: int = FAR_FUTURE_EPOCH,
     slashed: bool = False,
     consolidating_as_source: Mock | None = None,
+    activation_epoch: int = 0,
 ) -> LidoValidator:
     return LidoValidatorFactory.build(
         index=ValidatorIndex(index),
@@ -360,6 +385,7 @@ def _in_flight_validator(
             withdrawal_credentials=(
                 COMPOUNDING_WITHDRAWAL_PREFIX if effective_balance_eth > 32 else ETH1_ADDRESS_WITHDRAWAL_PREFIX
             ),
+            activation_epoch=EpochNumber(activation_epoch),
             exit_epoch=EpochNumber(exit_epoch),
             withdrawable_epoch=EpochNumber(withdrawable_epoch),
             slashed=slashed,
@@ -399,6 +425,24 @@ def _in_flight_validator(
             id='queued_fwr__balance_and_effective_balance_churn',
         ),
         pytest.param(
+            _in_flight_validator(1, 32, activation_epoch=STATE_EPOCH - SHARD_COMMITTEE_PERIOD),
+            InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)})),
+            InFlightInbound(amount=Gwei(32 * ETH), queued_churn=Gwei(32 * ETH)),
+            id='queued_fwr_at_shard_committee_period__counted',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 32, activation_epoch=STATE_EPOCH - SHARD_COMMITTEE_PERIOD + 1),
+            InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)})),
+            InFlightInbound(),
+            id='queued_fwr_before_shard_committee_period__dropped_by_cl',
+        ),
+        pytest.param(
+            _in_flight_validator(1, 32, activation_epoch=FAR_FUTURE_EPOCH),
+            InFlightWithdrawals(fwr_validators=frozenset({ValidatorIndex(1)})),
+            InFlightInbound(),
+            id='queued_fwr_not_activated__dropped_by_cl',
+        ),
+        pytest.param(
             _in_flight_validator(1, 50, effective_balance_eth=50),
             InFlightWithdrawals(
                 pwr_amounts={ValidatorIndex(1): Gwei(5 * ETH)},
@@ -436,7 +480,7 @@ def _in_flight_validator(
     ],
 )
 def test_get_in_flight_inbound__single_validator__counted_by_first_matching_rule(validator, in_flight, expected):
-    assert get_in_flight_inbound([validator], in_flight) == expected
+    assert get_in_flight_inbound([validator], in_flight, STATE_EPOCH) == expected
 
 
 @pytest.mark.unit
@@ -449,7 +493,7 @@ def test_get_in_flight_inbound__partial_in_payload__counted_without_churn():
     )
 
     # Act
-    result = get_in_flight_inbound(validators, in_flight)
+    result = get_in_flight_inbound(validators, in_flight, STATE_EPOCH)
 
     # Assert
     assert result == InFlightInbound(amount=Gwei(5 * ETH), queued_churn=Gwei(2 * ETH))
@@ -473,7 +517,7 @@ def test_get_in_flight_inbound__several_validators__each_counted_once_and_summed
     )
 
     # Act
-    result = get_in_flight_inbound(validators, in_flight)
+    result = get_in_flight_inbound(validators, in_flight, STATE_EPOCH)
 
     # Assert
     assert result == InFlightInbound(

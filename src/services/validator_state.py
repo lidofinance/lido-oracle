@@ -5,7 +5,12 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import reduce
 
-from src.constants import FAR_FUTURE_EPOCH, MAX_EFFECTIVE_BALANCE_ELECTRA, MIN_ACTIVATION_BALANCE
+from src.constants import (
+    FAR_FUTURE_EPOCH,
+    MAX_EFFECTIVE_BALANCE_ELECTRA,
+    MIN_ACTIVATION_BALANCE,
+    SHARD_COMMITTEE_PERIOD,
+)
 from src.metrics.prometheus.accounting import ACCOUNTING_EXITED_VALIDATORS
 from src.providers.consensus.types import BeaconStateView
 from src.providers.execution.withdrawal_request_queue import get_queued_withdrawal_requests
@@ -42,7 +47,10 @@ class InFlightInbound:
     latest_cl_withdrawable_epoch: EpochNumber | None = None
 
 
-def get_in_flight_inbound(validators: Iterable[LidoValidator], in_flight: InFlightWithdrawals) -> InFlightInbound:
+def get_in_flight_inbound(
+    validators: Iterable[LidoValidator], in_flight: InFlightWithdrawals, state_epoch: EpochNumber
+) -> InFlightInbound:
+    """`state_epoch` is the epoch of the state the queues are read at; the CL processes them no earlier."""
     amount = Gwei(0)
     queued_churn = Gwei(0)
     withdrawable_epochs: list[EpochNumber] = []
@@ -62,8 +70,10 @@ def get_in_flight_inbound(validators: Iterable[LidoValidator], in_flight: InFlig
         cl_pending = in_flight.cl_pending_pwr_amounts.get(validator.index, Gwei(0))
         # The CL skips a full exit request while the validator has pending partials.
         if validator.index in in_flight.fwr_validators and not cl_pending:
-            amount = Gwei(amount + validator.balance)
-            queued_churn = Gwei(queued_churn + validator.validator.effective_balance)
+            # The CL drops the request of a validator active for less than SHARD_COMMITTEE_PERIOD.
+            if validator.validator.activation_epoch + SHARD_COMMITTEE_PERIOD <= state_epoch:
+                amount = Gwei(amount + validator.balance)
+                queued_churn = Gwei(queued_churn + validator.validator.effective_balance)
             continue
 
         # The CL applies partials one by one against the balance left above the activation balance.
@@ -202,4 +212,5 @@ class LidoValidatorStateService:
         return get_in_flight_inbound(
             (validator for validators in lido_validators.values() for validator in validators),
             self.get_in_flight_withdrawals(blockstamp),
+            blockstamp.epoch_number,
         )
