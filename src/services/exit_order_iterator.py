@@ -482,7 +482,9 @@ class ValidatorExitIterator:
             if not self.exitable_validators[gid]:
                 continue
 
-            pick = self._pick(gid, forced=self._no_force_predicate(node_operator) > 0)
+            # Exit limits count validators, and only an FWR lowers the count.
+            over_limit = self._no_force_predicate(node_operator) > 0 or self._no_soft_predicate(node_operator) > 0
+            pick = self._pick(gid, forced=over_limit)
             if pick is None:
                 continue
 
