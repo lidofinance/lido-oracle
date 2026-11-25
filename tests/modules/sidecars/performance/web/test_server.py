@@ -1,3 +1,4 @@
+import sys
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, Mock, patch
 
@@ -52,6 +53,21 @@ class TestHealth:
         response = client.get("/health")
         assert response.status_code == 503
         assert response.json() == {"detail": "Database connection failed: some error"}
+
+
+class TestMetrics:
+    def test_metrics__runtime_collectors__exposed(self, client):
+        response = client.get("/metrics")
+
+        assert response.status_code == 200
+        assert "python_info" in response.text
+        assert "python_gc_objects_collected_total" in response.text
+
+    @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="The process collector reads /proc.")
+    def test_metrics__process_collector__exposed(self, client):
+        response = client.get("/metrics")
+
+        assert "process_cpu_seconds_total" in response.text
 
 
 class TestCheckEpochs:

@@ -5,6 +5,7 @@ from enum import Enum
 import requests
 
 from src import variables
+from src.metrics.prometheus.basic import observe_external_api_request
 
 
 class OpsGenieAPI:
@@ -44,7 +45,10 @@ class OpsGenieAPI:
         }
 
         try:
-            response = requests.post(
+            response = observe_external_api_request(
+                'opsgenie',
+                'create_alert',
+                requests.post,
                 f'{self.api_url}/v2/alerts',
                 json=payload,
                 headers=headers,

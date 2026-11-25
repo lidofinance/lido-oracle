@@ -5,6 +5,7 @@ from json import JSONDecodeError
 
 import requests
 
+from ...metrics.prometheus.basic import observe_external_api_request
 from .cid import CID
 from .types import FetchError, IPFSProvider, PinError, UploadError
 
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 class Kubo(IPFSProvider):
     """Client for [Kubo](https://github.com/ipfs/kubo) IPFS"""
+
+    METRICS_SERVICE = "kubo"
 
     # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-add
     RPC_UNIXFS_ADD_ARGS: dict[str, int | str] = {
@@ -39,7 +42,15 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
         url = f"{self.endpoint}/api/v0/cat"
         try:
-            resp = requests.post(url, timeout=self.timeout, params={"arg": str(cid)}, headers=self._headers())
+            resp = observe_external_api_request(
+                self.METRICS_SERVICE,
+                "fetch",
+                requests.post,
+                url,
+                timeout=self.timeout,
+                params={"arg": str(cid)},
+                headers=self._headers(),
+            )
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
@@ -52,7 +63,10 @@ class Kubo(IPFSProvider):
         name = name or "file"  # The name doesn't make any difference.
 
         try:
-            resp = requests.post(
+            resp = observe_external_api_request(
+                self.METRICS_SERVICE,
+                "upload",
+                requests.post,
                 url,
                 files={name: (name, content, "application/octet-stream")},
                 params=self.RPC_UNIXFS_ADD_ARGS,
@@ -75,7 +89,15 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-pin-add
         url = f"{self.endpoint}/api/v0/pin/add"
         try:
-            resp = requests.post(url, params={"arg": str(cid)}, headers=self._headers(), timeout=self.timeout)
+            resp = observe_external_api_request(
+                self.METRICS_SERVICE,
+                "pin",
+                requests.post,
+                url,
+                params={"arg": str(cid)},
+                headers=self._headers(),
+                timeout=self.timeout,
+            )
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})

@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 
 import requests
 
+from ...metrics.prometheus.basic import observe_external_api_request
 from ...utils.version import get_oracle_version
 from .cid import CID
 from .types import FetchError, IPFSProvider, UploadError
@@ -39,7 +40,9 @@ class LidoIPFS(IPFSProvider):
         """
         url = urljoin(self.host, f"/ipfs/{cid}")
         try:
-            resp = requests.get(url, headers=self._get_headers(), timeout=self.timeout)
+            resp = observe_external_api_request(
+                "lido_ipfs", "fetch", requests.get, url, headers=self._get_headers(), timeout=self.timeout
+            )
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
@@ -59,8 +62,15 @@ class LidoIPFS(IPFSProvider):
         }
 
         try:
-            response = requests.post(
-                url, files={"file": content}, params=params, headers=self._get_headers(), timeout=self.timeout
+            response = observe_external_api_request(
+                "lido_ipfs",
+                "upload",
+                requests.post,
+                url,
+                files={"file": content},
+                params=params,
+                headers=self._get_headers(),
+                timeout=self.timeout,
             )
             response.raise_for_status()
         except requests.RequestException as ex:
