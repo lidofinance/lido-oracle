@@ -1,3 +1,4 @@
+import os
 import sys
 
 import requests
@@ -20,13 +21,21 @@ def probe(url: str, timeout: float = DEFAULT_TIMEOUT) -> int:
     return 0
 
 
+def default_url() -> str:
+    """The healthcheck server of this container.
+
+    The Docker HEALTHCHECK runs without a shell, so it cannot put the port variable into the URL itself.
+    """
+    return f"http://localhost:{os.getenv('HEALTHCHECK_SERVER_PORT', '9010')}/healthcheck"
+
+
 if __name__ == "__main__":
-    if len(sys.argv) not in (2, 3):
-        print("usage: healthcheck.py <url> [timeout]", file=sys.stderr)
+    if len(sys.argv) > 3:
+        print("usage: healthcheck.py [url] [timeout]", file=sys.stderr)
         sys.exit(2)
     try:
         timeout = float(sys.argv[2]) if len(sys.argv) == 3 else DEFAULT_TIMEOUT
     except ValueError:
         print(f"invalid timeout: {sys.argv[2]}", file=sys.stderr)
         sys.exit(2)
-    sys.exit(probe(sys.argv[1], timeout))
+    sys.exit(probe(sys.argv[1] if len(sys.argv) > 1 else default_url(), timeout))

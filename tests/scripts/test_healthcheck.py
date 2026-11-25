@@ -4,10 +4,23 @@ import pytest
 import requests
 import responses
 
-from src.scripts.healthcheck import probe
+from src.scripts.healthcheck import default_url, probe
 
 
 URL = "http://localhost:9010/healthcheck"
+
+
+@pytest.mark.unit
+class TestDefaultUrl:
+    def test_default_url__port_not_set__uses_default_port(self, monkeypatch):
+        monkeypatch.delenv("HEALTHCHECK_SERVER_PORT", raising=False)
+
+        assert default_url() == URL
+
+    def test_default_url__port_set__uses_it(self, monkeypatch):
+        monkeypatch.setenv("HEALTHCHECK_SERVER_PORT", "9999")
+
+        assert default_url() == "http://localhost:9999/healthcheck"
 
 
 @pytest.mark.unit
