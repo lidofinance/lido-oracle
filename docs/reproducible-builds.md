@@ -56,7 +56,14 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    git submodule update --recursive
    ```
 
-5. **Perform the Build**
+5. **Log in to the registry of the base images**
+
+   The base images are Docker Hardened Images, and `dhi.io` gives them only to a logged-in user.
+   ```bash
+   docker login dhi.io
+   ```
+
+6. **Perform the Build**
    ```bash
    make reproducible-build-oracle
    ```
@@ -71,7 +78,7 @@ its configuration (e.g., BuildKit features, Docker storage driver) can lead to v
    ⚠️ Note: The `build-info.json` file is automatically generated and included in `.gitignore`.
    You do not need to manually create or manage this file.
 
-6. **Compare with an Image from Docker Registry**
+7. **Compare with an Image from Docker Registry**
    ```bash
    # Pull the image from the registry (replace <registry> and <tag> as needed)
    docker pull lidofinance/oracle:<tag>
