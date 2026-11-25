@@ -6,7 +6,7 @@ import requests
 
 from src import variables
 from src.utils.car import CARConverter
-from src.utils.external_api import send_external_api_request
+from src.utils.http_utils import send_external_api_request
 
 from .cid import CID, CIDv0
 

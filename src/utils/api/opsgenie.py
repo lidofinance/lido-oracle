@@ -5,7 +5,7 @@ from enum import Enum
 import requests
 
 from src import variables
-from src.utils.external_api import send_external_api_request
+from src.utils.http_utils import send_external_api_request
 
 
 class OpsGenieAPI:

@@ -14,7 +14,7 @@ from src.providers.ipfs.lido_ipfs import LidoIPFS
 from src.providers.ipfs.pinata import Pinata
 from src.providers.ipfs.types import FetchError
 from src.utils.api.opsgenie import OpsGenieAPI
-from src.utils.external_api import send_external_api_request
+from src.utils.http_utils import send_external_api_request
 
 
 TEST_CID = CID("QmXvrr3gPtddcNrisH7i2nan9rY7v7RcxVQ9jjRreoWwRS")
