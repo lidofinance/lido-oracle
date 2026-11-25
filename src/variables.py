@@ -7,10 +7,14 @@ from src.types import STAKING_MODULE_ORACLES, OracleModuleName
 from src.utils.env import from_file_or_env
 
 
+def _uri_list_from_file_or_env(env_name: str) -> list[str]:
+    return (from_file_or_env(env_name) or '').split(',')
+
+
 # - Providers-
-EXECUTION_CLIENT_URI: Final = os.getenv('EXECUTION_CLIENT_URI', '').split(',')
-CONSENSUS_CLIENT_URI: Final = os.getenv('CONSENSUS_CLIENT_URI', '').split(',')
-KEYS_API_URI: Final = os.getenv('KEYS_API_URI', '').split(',')
+EXECUTION_CLIENT_URI: Final = _uri_list_from_file_or_env('EXECUTION_CLIENT_URI')
+CONSENSUS_CLIENT_URI: Final = _uri_list_from_file_or_env('CONSENSUS_CLIENT_URI')
+KEYS_API_URI: Final = _uri_list_from_file_or_env('KEYS_API_URI')
 PERFORMANCE_COLLECTOR_URI: Final = os.getenv('PERFORMANCE_COLLECTOR_URI', '').split(',')
 
 PINATA_JWT: Final = from_file_or_env('PINATA_JWT')
@@ -20,10 +24,10 @@ KUBO_HOST: Final = os.getenv('KUBO_HOST')
 KUBO_RPC_PORT: Final = int(os.getenv('KUBO_RPC_PORT', 5001))
 
 LIDO_IPFS_HOST: Final = os.getenv('LIDO_IPFS_HOST') or None
-LIDO_IPFS_TOKEN: Final = os.getenv('LIDO_IPFS_TOKEN')
+LIDO_IPFS_TOKEN: Final = from_file_or_env('LIDO_IPFS_TOKEN')
 
 FILEBASE_IPFS_HOST: Final = os.getenv('FILEBASE_IPFS_HOST')
-FILEBASE_IPFS_TOKEN: Final = os.getenv('FILEBASE_IPFS_TOKEN')
+FILEBASE_IPFS_TOKEN: Final = from_file_or_env('FILEBASE_IPFS_TOKEN')
 
 # - Account -
 MEMBER_PRIV_KEY = from_file_or_env('MEMBER_PRIV_KEY')
@@ -106,7 +110,7 @@ PROMETHEUS_PORT: Final = int(os.getenv('PROMETHEUS_PORT', 9000))
 PROMETHEUS_PREFIX: Final = os.getenv("PROMETHEUS_PREFIX", "lido_oracle")
 
 # - OpsGenie -
-OPSGENIE_API_KEY: Final[str] = os.getenv('OPSGENIE_API_KEY', '')
+OPSGENIE_API_KEY: Final[str] = from_file_or_env('OPSGENIE_API_KEY', '')
 OPSGENIE_API_URL: Final[str] = os.getenv('OPSGENIE_API_URL', '')
 
 HEALTHCHECK_SERVER_PORT: Final = int(os.getenv('HEALTHCHECK_SERVER_PORT', 9010))
@@ -140,7 +144,8 @@ PERFORMANCE_DB_HOST: Final = os.getenv('PERFORMANCE_DB_HOST', 'localhost')
 PERFORMANCE_DB_PORT: Final = int(os.getenv('PERFORMANCE_DB_PORT', 5432))
 PERFORMANCE_DB_NAME: Final = os.getenv('PERFORMANCE_DB_NAME', 'performance')
 PERFORMANCE_DB_USER: Final = os.getenv('PERFORMANCE_DB_USER', 'performance')
-PERFORMANCE_DB_PASSWORD: Final = os.getenv('PERFORMANCE_DB_PASSWORD', 'performance')
+PERFORMANCE_DB_DEFAULT_PASSWORD: Final = 'performance'
+PERFORMANCE_DB_PASSWORD: Final = from_file_or_env('PERFORMANCE_DB_PASSWORD', PERFORMANCE_DB_DEFAULT_PASSWORD)
 PERFORMANCE_DB_POOL_SIZE: Final = int(os.getenv('PERFORMANCE_DB_POOL_SIZE', 10))
 PERFORMANCE_DB_MAX_OVERFLOW: Final = int(os.getenv('PERFORMANCE_DB_MAX_OVERFLOW', 20))
 PERFORMANCE_DB_POOL_RECYCLE_SECONDS: Final = int(os.getenv('PERFORMANCE_DB_POOL_RECYCLE_SECONDS', 3600))
@@ -157,7 +162,7 @@ VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STAT
 # Trade-off: higher value = fewer RPC round-trips but more data per call.
 BLOCK_BATCH_SIZE_LIMIT: Final = int(os.getenv("BLOCK_BATCH_SIZE_LIMIT", 10))
 
-TELEMETRY_DATA_BUS_RPC: Final = os.getenv('TELEMETRY_DATA_BUS_RPC', '')
+TELEMETRY_DATA_BUS_RPC: Final = from_file_or_env('TELEMETRY_DATA_BUS_RPC', '')
 DATA_BUS_ADDRESS: Final = os.getenv('DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS: Final = int(os.getenv('TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS', 3600))
 TELEMETRY_TX_SEND_TIMEOUT_SECONDS: Final = int(os.getenv('TELEMETRY_TX_SEND_TIMEOUT_SECONDS', 4 * 60))
@@ -307,3 +312,12 @@ PRIVATE_ENV_VARS = {
 }
 
 assert not set(PRIVATE_ENV_VARS.keys()).intersection(set(PUBLIC_ENV_VARS.keys()))
+
+# Values to mask in the logs. The default database password is a common word:
+# masking it would replace this word in every log line (module names, paths).
+LOG_SECRETS = {
+    **PRIVATE_ENV_VARS,
+    'PERFORMANCE_DB_PASSWORD': (
+        None if PERFORMANCE_DB_PASSWORD == PERFORMANCE_DB_DEFAULT_PASSWORD else PERFORMANCE_DB_PASSWORD
+    ),
+}
