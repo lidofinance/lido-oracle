@@ -24,7 +24,7 @@ from src.modules.oracles.common.oracle_module import OracleModule
 from src.modules.oracles.common.runtime import run_oracle_module
 from src.providers.http_provider import NotOkResponse
 from src.providers.keys.client import KeysOutdatedException
-from src.types import BlockStamp
+from src.types import BlockStamp, KeysSource
 from src.utils.slot import InconsistentData, NoSlotsAvailable, SlotNotFinalized
 from src.web3py.extensions.lido_validators import CountOfKeysDiffersException, FrontRunAttackError
 from src.web3py.extensions.telemetry_data_bus import TelemetryEventId
@@ -255,3 +255,17 @@ def test_run_oracle_module__kapi_available__sends_version_in_startup_telemetry()
     event_id, startup_data = module.w3.telemetry_data_bus.send_telemetry.call_args[0]
     assert event_id == TelemetryEventId.ORACLE_STARTUP
     assert startup_data['kapi_version'] == '4.0.4'
+
+
+@pytest.mark.unit
+@patch.object(variables, 'DAEMON', False)
+@patch.object(variables, 'KEYS_SOURCE', KeysSource.ONCHAIN)
+def test_run_oracle_module__onchain_keys__sends_no_kapi_version_in_startup_telemetry():
+    module = Mock()
+
+    run_oracle_module(module)
+
+    module.w3.kac.get_status.assert_not_called()
+    _, startup_data = module.w3.telemetry_data_bus.send_telemetry.call_args[0]
+    assert startup_data['keys_source'] == 'onchain'
+    assert startup_data['kapi_version'] is None

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [comment]: <> (## [Unreleased]&#40;https://github.com/lidofinance/lido-oracle&#41; - 2021-09-15)
 
+## Unreleased
+
+### Added
+- `KEYS_SOURCE=onchain`: read used validator keys straight from the staking module contracts through `EXECUTION_CLIENT_URI` instead of Keys API. `KEYS_API_URI` is not required then. Reads run in parallel (`ONCHAIN_KEYS_WORKERS`) and are packed into Multicall3 calls (`ONCHAIN_KEYS_USE_MULTICALL`, `MULTICALL3_ADDRESS`), sized by `ONCHAIN_KEYS_CALL_GAS_LIMIT` and `ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT`. Keys API stays the default.
+
 ## [8.3.0](https://github.com/lidofinance/lido-oracle/releases/tag/8.3.0) - 2026-11
 
 ### Fixed

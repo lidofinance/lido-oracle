@@ -9,6 +9,7 @@ from src.metrics.logging import logging
 from src.metrics.prometheus.basic import init_basic_metrics
 from src.modules.oracles.common.oracle_module import OracleModule
 from src.providers.ipfs import Filebase, IPFSProvider, Kubo, LidoIPFS, Pinata
+from src.types import KeysSource
 from src.utils.exception import IncompatibleException
 from src.web3py.contract_tweak import tweak_w3_contracts
 from src.web3py.extensions import (
@@ -18,6 +19,7 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    OnchainKeysModule,
     SignerModule,
     TelemetryDataBus,
     TelemetryEventId,
@@ -57,14 +59,21 @@ def _build_web3_base[W3: Web3Base](web3_cls: type[W3], module_name: str) -> W3:
     logger.info({'msg': 'Initialize consensus client.'})
     cc = ConsensusClientModule(variables.CONSENSUS_CLIENT_URI, web3)
 
-    logger.info({'msg': 'Initialize keys api client.'})
-    kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
+    kac: KeysAPIClientModule | OnchainKeysModule
+    if variables.KEYS_SOURCE is KeysSource.ONCHAIN:
+        logger.info({'msg': 'Initialize onchain keys provider.'})
+        kac = OnchainKeysModule(web3)
+        logger.info({'msg': 'Check configured providers.'})
+        check_providers_chain_ids(web3, cc, None)
+    else:
+        logger.info({'msg': 'Initialize keys api client.'})
+        kac = KeysAPIClientModule(variables.KEYS_API_URI, web3)
 
-    logger.info({'msg': 'Check configured providers.'})
-    if Version(kac.get_status().app_version) < constants.ALLOWED_KAPI_VERSION:
-        raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
+        logger.info({'msg': 'Check configured providers.'})
+        if Version(kac.get_status().app_version) < constants.ALLOWED_KAPI_VERSION:
+            raise IncompatibleException(f'Incompatible KAPI version. Required >= {constants.ALLOWED_KAPI_VERSION}.')
 
-    check_providers_chain_ids(web3, cc, kac)
+        check_providers_chain_ids(web3, cc, kac)
 
     logger.info({'msg': 'Initialize signer module.'})
     signer = SignerModule(
@@ -135,7 +144,12 @@ def run_oracle_module(module: OracleModule):
 
     startup_data = {
         'delegation_contract_address': variables.DELEGATION_CONTRACT_ADDRESS or None,
-        'kapi_version': module.w3.kac.get_status().app_version,
+        'keys_source': variables.KEYS_SOURCE.value,
+        'kapi_version': (
+            cast(KeysAPIClientModule, module.w3.kac).get_status().app_version
+            if variables.KEYS_SOURCE is KeysSource.KEYS_API
+            else None
+        ),
     }
 
     try:
@@ -149,10 +163,11 @@ def run_oracle_module(module: OracleModule):
         module.cycle_handler()
 
 
-def check_providers_chain_ids(web3: Web3Base, cc: ConsensusClientModule, kac: KeysAPIClientModule):
-    keys_api_chain_id = kac.check_providers_consistency()
+def check_providers_chain_ids(web3: Web3Base, cc: ConsensusClientModule, kac: KeysAPIClientModule | None):
     consensus_chain_id = cc.check_providers_consistency()
     execution_chain_id = cast(FallbackProviderModule, web3.provider).check_providers_consistency()
+    # Onchain keys come from the execution client itself.
+    keys_api_chain_id = kac.check_providers_consistency() if kac is not None else execution_chain_id
 
     if execution_chain_id == consensus_chain_id == keys_api_chain_id:
         return

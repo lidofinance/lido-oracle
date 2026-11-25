@@ -7,6 +7,7 @@ from src.web3py.extensions import (
     KeysAPIClientModule,
     LidoContracts,
     LidoValidatorsProvider,
+    OnchainKeysModule,
     SignerModule,
     StakingModuleContracts,
     TelemetryDataBus,
@@ -17,7 +18,8 @@ from src.web3py.extensions import (
 class Web3Base(_Web3):
     transaction: TransactionUtils
     cc: ConsensusClientModule
-    kac: KeysAPIClientModule
+    # Used keys source, see KEYS_SOURCE.
+    kac: KeysAPIClientModule | OnchainKeysModule
     telemetry_data_bus: TelemetryDataBus
     signer: SignerModule
 

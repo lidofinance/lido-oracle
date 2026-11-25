@@ -1,0 +1,121 @@
+[
+  {
+    "type": "function",
+    "name": "getType",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getNodeOperatorsCount",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getNodeOperatorSummary",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_nodeOperatorId",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "targetLimitMode",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "targetValidatorsCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stuckValidatorsCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "refundedValidatorsCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stuckPenaltyEndTimestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalExitedValidators",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalDepositedValidators",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "depositableValidatorsCount",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getSigningKeys",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_nodeOperatorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_limit",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "bytes",
+        "name": "pubkeys",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signatures",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "used",
+        "type": "bool[]"
+      }
+    ]
+  }
+]

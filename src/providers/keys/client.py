@@ -1,6 +1,6 @@
 import logging
 from time import sleep
-from typing import TypedDict, cast
+from typing import NotRequired, TypedDict, cast
 
 from src.metrics.prometheus.basic import KEYS_API_LATEST_BLOCKNUMBER, KEYS_API_REQUESTS_DURATION
 from src.providers.http_provider import HTTPProvider, NotOkResponse, data_is_dict
@@ -26,7 +26,8 @@ class KAPIInconsistentData(Exception):
 
 
 class KAPIModule(TypedDict):
-    id: int
+    # Not known when keys are read onchain from the module contract.
+    id: NotRequired[int]
     stakingModuleAddress: str
 
 

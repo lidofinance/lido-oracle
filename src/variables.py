@@ -3,7 +3,7 @@ from typing import Final
 
 from eth_account import Account
 
-from src.types import STAKING_MODULE_ORACLES, OracleModuleName
+from src.types import STAKING_MODULE_ORACLES, KeysSource, OracleModuleName
 from src.utils.env import from_file_or_env
 
 
@@ -157,6 +157,22 @@ VAULT_VALIDATOR_STATUSES_BATCH_SIZE: Final = int(os.getenv("VAULT_VALIDATOR_STAT
 # Trade-off: higher value = fewer RPC round-trips but more data per call.
 BLOCK_BATCH_SIZE_LIMIT: Final = int(os.getenv("BLOCK_BATCH_SIZE_LIMIT", 10))
 
+# - Used keys source -
+# `keys_api` reads keys from Keys API (KEYS_API_URI), `onchain` reads them from the staking module contracts.
+KEYS_SOURCE: Final = KeysSource(os.getenv('KEYS_SOURCE', KeysSource.KEYS_API))
+# Parallel eth_call requests while reading keys onchain.
+ONCHAIN_KEYS_WORKERS: Final = int(os.getenv('ONCHAIN_KEYS_WORKERS', 16))
+assert ONCHAIN_KEYS_WORKERS > 0, "ONCHAIN_KEYS_WORKERS must be more than 0"
+# Pack key reads into Multicall3 `aggregate3` calls.
+ONCHAIN_KEYS_USE_MULTICALL: Final = os.getenv('ONCHAIN_KEYS_USE_MULTICALL', 'True').lower() == 'true'
+MULTICALL3_ADDRESS: Final = os.getenv('MULTICALL3_ADDRESS', '0xcA11bde05977b3631167028862bE2a173976CA11')
+# Gas and return data budget of a single eth_call. The gas budget is half of the lowest default eth_call gas cap
+# (50M in Geth, Erigon and Reth). A call the node rejects is retried in halves, so lower node limits only slow it down.
+ONCHAIN_KEYS_CALL_GAS_LIMIT: Final = int(os.getenv('ONCHAIN_KEYS_CALL_GAS_LIMIT', 25_000_000))
+assert ONCHAIN_KEYS_CALL_GAS_LIMIT > 0, "ONCHAIN_KEYS_CALL_GAS_LIMIT must be more than 0"
+ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT: Final = int(os.getenv('ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT', 100_000))
+assert ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT > 0, "ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT must be more than 0"
+
 TELEMETRY_DATA_BUS_RPC: Final = os.getenv('TELEMETRY_DATA_BUS_RPC', '')
 DATA_BUS_ADDRESS: Final = os.getenv('DATA_BUS_ADDRESS', '0x37De961D6bb5865867aDd416be07189D2Dd960e6')
 TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS: Final = int(os.getenv('TELEMETRY_DIAGNOSTIC_INTERVAL_SECONDS', 3600))
@@ -178,8 +194,9 @@ def check_uri_required_variables():
     required_uris = {
         'EXECUTION_CLIENT_URI': EXECUTION_CLIENT_URI,
         'CONSENSUS_CLIENT_URI': CONSENSUS_CLIENT_URI,
-        'KEYS_API_URI': KEYS_API_URI,
     }
+    if KEYS_SOURCE is KeysSource.KEYS_API:
+        required_uris['KEYS_API_URI'] = KEYS_API_URI
     return [name for name, uri in required_uris.items() if '' in uri]
 
 
@@ -281,6 +298,12 @@ PUBLIC_ENV_VARS = {
         'VAULT_PAGINATION_LIMIT': VAULT_PAGINATION_LIMIT,
         'VAULT_VALIDATOR_STATUSES_BATCH_SIZE': VAULT_VALIDATOR_STATUSES_BATCH_SIZE,
         'BLOCK_BATCH_SIZE_LIMIT': BLOCK_BATCH_SIZE_LIMIT,
+        'KEYS_SOURCE': KEYS_SOURCE,
+        'ONCHAIN_KEYS_WORKERS': ONCHAIN_KEYS_WORKERS,
+        'ONCHAIN_KEYS_USE_MULTICALL': ONCHAIN_KEYS_USE_MULTICALL,
+        'MULTICALL3_ADDRESS': MULTICALL3_ADDRESS,
+        'ONCHAIN_KEYS_CALL_GAS_LIMIT': ONCHAIN_KEYS_CALL_GAS_LIMIT,
+        'ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT': ONCHAIN_KEYS_CALL_RETURN_BYTES_LIMIT,
         'DATA_BUS_ADDRESS': DATA_BUS_ADDRESS,
         'TELEMETRY_TX_SEND_TIMEOUT_SECONDS': TELEMETRY_TX_SEND_TIMEOUT_SECONDS,
     }.items()
