@@ -13,6 +13,7 @@ def test_meta_registry_contract(meta_registry_contract, caplog):
         [
             ('get_operator_groups_count', ('latest',), lambda r: check_value_type(r, int)),
             ('get_all_groups', ('latest',), lambda r: check_value_type(r, list)),
+            ('is_external_module_allowed', (1, 'latest'), lambda r: check_value_type(r, bool)),
         ],
         caplog,
     )
