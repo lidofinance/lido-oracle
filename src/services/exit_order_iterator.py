@@ -30,7 +30,7 @@ from src.types import (
     ValidatorIndex,
 )
 from src.utils.validator_balance import get_predictable_inbound_balance
-from src.utils.validator_state import get_max_effective_balance, has_compounding_withdrawal_credential, is_on_exit
+from src.utils.validator_state import has_compounding_withdrawal_credential, is_on_exit
 from src.web3py.extensions.lido_validators import (
     LidoValidator,
     NodeOperator,
@@ -539,16 +539,8 @@ class ValidatorExitIterator:
                     continue
 
                 validator, amount = pick
-                weight = (
-                    amount
-                    if amount != FWR_AMOUNT
-                    # The FWR replaces this report's PWRs for the validator, already counted
-                    else max(
-                        0,
-                        min(validator.balance, get_max_effective_balance(validator.validator))
-                        - self._report_pwr_amount(validator),
-                    )
-                )
+                # The stake the step removes; an FWR also takes the validator's incoming balance with it
+                weight = amount if amount != FWR_AMOUNT else self._fwr_stake_removed(validator)
                 if rebalanced + weight > config.rate_limit:
                     logger.info({'msg': 'Reached the active rebalancing rate limit.', 'limit': config.rate_limit})
                     return steps
@@ -753,6 +745,10 @@ class ValidatorExitIterator:
         allocation = self._allocations.get(validator.index)
         return allocation.amount if allocation else Gwei(0)
 
+    def _fwr_stake_removed(self, validator: LidoValidator) -> Gwei:
+        """This report's PWRs for the validator are already removed; the FWR replaces them."""
+        return Gwei(max(0, get_predictable_inbound_balance(validator) - self._report_pwr_amount(validator)))
+
     # --- Allocation ---
     def _allocate(self, gid: NodeOperatorGlobalIndex, validator: LidoValidator, amount: Gwei) -> WithdrawalStep | None:
         """Adds the step to the report, or returns None if it does not fit the report limits."""
@@ -763,7 +759,7 @@ class ValidatorExitIterator:
             pwr_total = Gwei(self._pwr_total - in_report_pwr)
             fwr_weight = Gwei(self._fwr_weight + self._get_fwr_weight(gid))
             new_amount = FWR_AMOUNT
-            inbound = Gwei(max(0, get_predictable_inbound_balance(validator) - in_report_pwr))
+            inbound = self._fwr_stake_removed(validator)
         else:
             pwr_total = Gwei(self._pwr_total + amount)
             fwr_weight = self._fwr_weight

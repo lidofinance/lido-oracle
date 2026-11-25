@@ -28,7 +28,12 @@ from src.services.exit_order_iterator import (
 from src.services.validator_state import InFlightWithdrawals
 from src.types import EpochNumber, Gwei, NodeOperatorId, StakingModuleId
 from src.utils.validator_balance import get_predictable_inbound_balance
-from src.web3py.extensions.lido_validators import NodeOperator, NodeOperatorLimitMode, StakingModule
+from src.web3py.extensions.lido_validators import (
+    ConsolidationRequest,
+    NodeOperator,
+    NodeOperatorLimitMode,
+    StakingModule,
+)
 from tests.factory.blockstamp import ReferenceBlockStampFactory
 from tests.factory.meta_registry import OperatorGroupFactory
 from tests.factory.no_registry import LidoValidatorFactory, ValidatorStateFactory
@@ -2287,6 +2292,46 @@ class TestActiveRebalancing:
 
         # Assert
         assert [(step.validator, step.amount) for step in steps] == [(low, FWR_AMOUNT)]
+
+    @pytest.mark.parametrize(
+        ("rate_limit_eth", "expected_fwrs"),
+        [
+            pytest.param(320, 0, id="incoming_balance_above_limit"),
+            pytest.param(3000, 1, id="second_fwr_above_limit"),
+        ],
+    )
+    def test_allocate_active_rebalancing__fwr_with_incoming_consolidation__weighs_stake_it_removes(
+        self, iterator, rate_limit_eth, expected_fwrs
+    ):
+        # Arrange: operator 1 holds two 32 ETH validators, each the target of a 2016 ETH consolidation.
+        # Neither has PWR headroom, and an FWR exits the incoming balance too: 2048 ETH of stake each.
+        validators = [
+            LidoValidatorFactory.build(
+                index=index,
+                balance=Gwei(32 * ETH),
+                validator=make_validator(index, 32).validator,
+                consolidating_as_target=[
+                    ConsolidationRequest(
+                        source_index=100 + index,
+                        target_index=index,
+                        amount=Gwei(2016 * ETH),
+                        source_withdrawable_epoch=EpochNumber(0),
+                    )
+                ],
+            )
+            for index in (3, 5)
+        ]
+        setup_cmv2_operators(iterator, {1: (validators, 1), 2: ([], 1), 3: ([], 1)})
+        stake = Gwei(2 * 2048 * ETH)
+        iterator.node_operators_stats[gid_of(1)].total_stake = stake
+        iterator.node_operators_stats[gid_of(1)].predictable_balance = stake
+        enable_rebalancing(iterator, rate_limit_eth=rate_limit_eth)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert [(step.validator, step.amount) for step in steps] == [(validators[0], FWR_AMOUNT)] * expected_fwrs
 
     def test_allocate_active_rebalancing__fwr_replaces_report_pwrs__counts_only_the_rest(self, iterator):
         # Arrange: operator 1 has one 100 ETH validator, operators 2 and 3 no stake. PWRs of 32 + 32 + 4 ETH
