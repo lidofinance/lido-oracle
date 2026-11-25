@@ -85,6 +85,21 @@ class StakingRouterContract(ContractInterface):
         )
         return response
 
+    @lru_cache(maxsize=32)
+    def is_partial_withdrawals_allowed(self, module_id: int, block_identifier: BlockIdentifier) -> bool:
+        """Whether the VEBO accepts partial withdrawal requests (PWRs) for the module's validators."""
+        response = self.functions.getStakingModuleStateConfig(module_id).call(block_identifier=block_identifier)
+
+        logger.info(
+            {
+                'msg': f'Call `getStakingModuleStateConfig({module_id})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return response.partialWithdrawalsAllowed
+
     def get_staking_modules_by_address(self, block_identifier: BlockIdentifier) -> dict[ChecksumAddress, StakingModule]:
         staking_modules = self.get_staking_modules(block_identifier)
         return {module.staking_module_address: module for module in staking_modules}

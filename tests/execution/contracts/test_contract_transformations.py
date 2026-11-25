@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from eth_typing import BlockNumber, ChecksumAddress, Hash32
 from hexbytes import HexBytes
+from web3.constants import ADDRESS_ZERO
+from web3.exceptions import ContractLogicError
 from web3.types import EventData, Wei
 
 from src.modules.common.types import ChainConfig, CurrentFrame, FrameConfig
@@ -65,7 +67,7 @@ from src.providers.execution.contracts.oracle_report_sanity_checker import Oracl
 from src.providers.execution.contracts.staking_router import StakingRouterContract
 from src.providers.execution.contracts.vault_hub import VaultHubContract
 from src.providers.execution.contracts.withdrawal_queue_nft import WithdrawalQueueNftContract
-from src.types import NodeOperatorId
+from src.types import NodeOperatorId, StakingModuleId
 
 
 DUMMY_ADDRESS = cast(ChecksumAddress, "0x0000000000000000000000000000000000000000")
@@ -840,6 +842,40 @@ class TestVaultHubContractEventMethods:
         result = VaultHubContract.get_minted_events(contract, _FROM_BLOCK, _TO_BLOCK)
 
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# MetaRegistryContract.is_external_module_allowed — allowlist with pre-allowlist fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMetaRegistryIsExternalModuleAllowed:
+    @pytest.mark.parametrize(
+        ('module_address', 'expected'),
+        [
+            pytest.param("0x" + "1" * 40, True, id='allowed'),
+            pytest.param(ADDRESS_ZERO, False, id='disallowed'),
+        ],
+    )
+    def test_is_external_module_allowed__module_address__allowed_unless_zero(self, module_address, expected):
+        contract = _mock_contract()
+        contract.functions.getExternalModuleAddress.return_value.call.return_value = module_address
+
+        result = MetaRegistryContract.is_external_module_allowed(contract, StakingModuleId(1), "latest")
+
+        assert result is expected
+        contract.functions.getExternalModuleAddress.assert_called_once_with(1)
+
+    def test_is_external_module_allowed__registry_without_allowlist__allowed(self):
+        contract = _mock_contract()
+        contract.functions.getExternalModuleAddress.return_value.call.side_effect = ContractLogicError(
+            "execution reverted"
+        )
+
+        result = MetaRegistryContract.is_external_module_allowed(contract, StakingModuleId(1), "latest")
+
+        assert result is True
 
 
 # ---------------------------------------------------------------------------
@@ -1651,16 +1687,16 @@ class TestCuratedStakingModulePassThroughs:
 
 
 # ---------------------------------------------------------------------------
-# ExitBusOracleContract.get_max_validators_per_report
+# ExitBusOracleContract.get_max_requests_per_report
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_get_max_validators_per_report__called__returns_contract_value():
+def test_get_max_requests_per_report__called__returns_contract_value():
     contract = _mock_contract()
-    contract.functions.getMaxValidatorsPerReport.return_value.call.return_value = 600
+    contract.functions.MAX_REQUESTS_PER_REPORT.return_value.call.return_value = 400
 
-    result = ExitBusOracleContract.get_max_validators_per_report(contract, "0xset")
+    result = ExitBusOracleContract.get_max_requests_per_report(contract, "0xset")
 
-    assert result == 600
-    contract.functions.getMaxValidatorsPerReport.return_value.call.assert_called_once_with(block_identifier="0xset")
+    assert result == 400
+    contract.functions.MAX_REQUESTS_PER_REPORT.return_value.call.assert_called_once_with(block_identifier="0xset")

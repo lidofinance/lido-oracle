@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
 
+from web3.constants import ADDRESS_ZERO
+from web3.exceptions import ContractLogicError
 from web3.types import BlockIdentifier
 
 from src.providers.execution.base_interface import ContractInterface
@@ -73,6 +75,28 @@ class MetaRegistryContract(ContractInterface):
             }
         )
         return response
+
+    def is_external_module_allowed(self, staking_module_id: StakingModuleId, block_identifier: BlockIdentifier) -> bool:
+        """
+        Whether the stake of the module's operators counts as external stake of their groups.
+        A MetaRegistry without the module allowlist counts every external module.
+        """
+        try:
+            response = self.functions.getExternalModuleAddress(staking_module_id).call(
+                block_identifier=block_identifier
+            )
+        except ContractLogicError:
+            response = None
+
+        logger.info(
+            {
+                'msg': f'Call `getExternalModuleAddress({staking_module_id})`.',
+                'value': response,
+                'block_identifier': repr(block_identifier),
+                'to': self.address,
+            }
+        )
+        return response != ADDRESS_ZERO
 
     def get_operator_group(self, group_id: int, block_identifier: BlockIdentifier) -> OperatorGroup:
         """

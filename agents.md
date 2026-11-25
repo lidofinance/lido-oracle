@@ -9,7 +9,7 @@ Five oracle modules, each with its own reporting frame:
 | Module       | Command                                    | Frame                   | Purpose                                                 |
 |--------------|--------------------------------------------|-------------------------|---------------------------------------------------------|
 | `accounting` | `make run-module ORACLE_MODULE=accounting` | ~24h / 225 epochs       | TVL updates, validator status, withdrawals, bunker mode |
-| `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs         | Validator exit requests to fund withdrawals             |
+| `ejector`    | `make run-module ORACLE_MODULE=ejector`    | ~5h / 45 epochs         | Withdrawal requests (PWR/FWR) to fund withdrawals       |
 | `csm`        | `make run-module ORACLE_MODULE=csm`        | ~28 days / 6300 epoches | Community Staking Module oracle                         |
 | `csm_0x02`   | `make run-module ORACLE_MODULE=csm_0x02`   | ~28 days / 6300 epoches | Community Staking Module 0x02 oracle                    |
 | `cm`         | `make run-module ORACLE_MODULE=cm`         | ~14 days / 3150 epochs  | Curated Module V2 oracle                                |
@@ -33,7 +33,7 @@ src/
 │   │   ├── common/          # ConsensusModule, OracleModule, exceptions, runtime
 │   │   ├── accounting/      # Accounting oracle
 │   │   │   └── third_phase/ # Extra-data encoding (extra_data.py, types.py)
-│   │   ├── ejector/         # Exit Bus oracle
+│   │   ├── ejector/         # Withdrawals Oracle (LIP-38)
 │   │   └── staking_modules/ # CSM + CM oracles
 │   │       ├── common/      # Shared state, distribution, tree, log helpers
 │   │       ├── community_staking/  # CSM oracle (csm.py, entrypoint.py)

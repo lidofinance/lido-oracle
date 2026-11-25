@@ -9,13 +9,14 @@ from tests.integration.contracts.contract_utils import (
 
 @pytest.mark.mainnet
 @pytest.mark.integration
+@pytest.mark.sr_phase_2
 def test_vebo(validators_exit_bus_oracle_contract, caplog):
     check_contract(
         validators_exit_bus_oracle_contract,
         [
             ('is_paused', ('latest',), make_checker(bool)),
             ('get_processing_state', ('latest',), make_checker(EjectorProcessingState)),
-            ('get_max_validators_per_report', ('latest',), make_checker(int)),
+            ('get_max_requests_per_report', ('latest',), make_checker(int)),
         ],
         caplog,
     )
