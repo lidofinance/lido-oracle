@@ -35,6 +35,7 @@ def _validator(balance: Gwei, max_effective_balance: int, withdrawable_epoch: in
     built = LidoValidatorFactory.build_with_balance(balance, max_effective_balance)
     built.validator.withdrawable_epoch = withdrawable_epoch
     built.validator.slashed = False
+    built.validator.activation_epoch = EpochNumber(0)
     return LidoValidator(
         index=ValidatorIndex(1),
         balance=balance,
@@ -58,7 +59,7 @@ class TestInFlightInboundWithInFlightPayloadWithdrawals:
         validator = _validator(balance, MAX_EFFECTIVE_BALANCE, withdrawable_epoch=blockstamp.ref_epoch - 1)
         validator.validator.exit_epoch = EpochNumber(blockstamp.ref_epoch - 257)
 
-        result = get_in_flight_inbound([validator], InFlightWithdrawals())
+        result = get_in_flight_inbound([validator], InFlightWithdrawals(), EpochNumber(1000))
 
         assert result.amount == MIN_ACTIVATION_BALANCE
 
@@ -67,7 +68,9 @@ class TestInFlightInboundWithInFlightPayloadWithdrawals:
         balance = _corrected_balance(Gwei(MAX_EFFECTIVE_BALANCE_ELECTRA - in_flight), in_flight)
         validator = _validator(balance, MAX_EFFECTIVE_BALANCE_ELECTRA)
 
-        result = get_in_flight_inbound([validator], InFlightWithdrawals(fwr_validators=frozenset({validator.index})))
+        result = get_in_flight_inbound(
+            [validator], InFlightWithdrawals(fwr_validators=frozenset({validator.index})), EpochNumber(1000)
+        )
 
         assert result.amount == MAX_EFFECTIVE_BALANCE_ELECTRA
 
@@ -76,4 +79,4 @@ class TestInFlightInboundWithInFlightPayloadWithdrawals:
         # balance term until the payload credits it on the EL.
         validator = _validator(_corrected_balance(MIN_ACTIVATION_BALANCE, Gwei(10**8)), MAX_EFFECTIVE_BALANCE)
 
-        assert get_in_flight_inbound([validator], InFlightWithdrawals()).amount == Gwei(0)
+        assert get_in_flight_inbound([validator], InFlightWithdrawals(), EpochNumber(1000)).amount == Gwei(0)
