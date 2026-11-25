@@ -436,6 +436,7 @@ class TestTargetStakeDeviations:
         sm_id = set_operators(iterator, 2, {1: (400, 1), 2: (100, 1)}, is_cm_v2=True)
         validator = make_validator(1, 400)
         iterator.exitable_validators[(sm_id, 1)] = [validator]
+        iterator.staked_validators[(sm_id, 1)] = [validator]
         iterator.in_flight = InFlightWithdrawals(pwr_amounts={validator.index: Gwei(300 * 10**9)})
 
         # Act / Assert
@@ -726,28 +727,28 @@ class TestEjectValidatorTotalStake:
 
 
 @pytest.mark.unit
-class TestIsValidatorExitable:
-    def test_is_validator_exitable__active_validator__exitable(self, iterator):
+class TestIsValidatorStaked:
+    def test_is_validator_staked__active_validator__staked(self, iterator):
         active_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
         )
 
-        assert iterator._is_validator_exitable(active_validator) is True
+        assert iterator._is_validator_staked(active_validator) is True
 
-    def test_is_validator_exitable__on_exit__not_exitable(self, iterator):
+    def test_is_validator_staked__on_exit__not_staked(self, iterator):
         on_exit_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=100),
         )
 
-        assert iterator._is_validator_exitable(on_exit_validator) is False
+        assert iterator._is_validator_staked(on_exit_validator) is False
 
-    def test_is_validator_exitable__consolidating_as_source__not_exitable(self, iterator):
+    def test_is_validator_staked__consolidating_as_source__not_staked(self, iterator):
         consolidating_validator = LidoValidatorFactory.build(
             validator=ValidatorStateFactory.build(exit_epoch=FAR_FUTURE_EPOCH),
             consolidating_as_source=Mock(),
         )
 
-        assert iterator._is_validator_exitable(consolidating_validator) is False
+        assert iterator._is_validator_staked(consolidating_validator) is False
 
 
 @pytest.mark.unit
@@ -1911,6 +1912,7 @@ def setup_single_operator(
     iterator.module_stats = {sm.id: ms}
     iterator.node_operators_stats = {gid: nos}
     iterator.exitable_validators = {gid: sorted(validators, key=lambda v: v.index)}
+    iterator.staked_validators = {gid: list(iterator.exitable_validators[gid])}
     iterator.total_lido_predictable_balance = total
     return gid
 
@@ -2101,11 +2103,25 @@ class TestInFlightWithdrawals:
         with pytest.raises(StopIteration):
             next(iterator)
 
-    def test_is_validator_exitable__in_flight_fwr__not_exitable(self, iterator):
-        validator = make_validator(1, 32)
-        iterator.in_flight = InFlightWithdrawals(fwr_validators=frozenset({validator.index}))
+    @pytest.mark.parametrize(
+        ("cl_pending", "activation_offset", "staked"),
+        [
+            pytest.param(0, 0, False, id="effective_fwr__leaves_stake"),
+            pytest.param(5, 0, True, id="cl_partial_pending__cl_skips_fwr"),
+            pytest.param(0, 1, True, id="young_validator__cl_drops_fwr"),
+        ],
+    )
+    def test_is_validator_staked__queued_fwr__staked_unless_the_cl_processes_it(
+        self, iterator, cl_pending, activation_offset, staked
+    ):
+        state_epoch = iterator.blockstamp.epoch_number
+        validator = make_validator(1, 100, activation_epoch=state_epoch - SHARD_COMMITTEE_PERIOD + activation_offset)
+        iterator.in_flight = InFlightWithdrawals(
+            fwr_validators=frozenset({validator.index}),
+            cl_pending_pwr_amounts={validator.index: Gwei(cl_pending * ETH)} if cl_pending else {},
+        )
 
-        assert iterator._is_validator_exitable(validator) is False
+        assert iterator._is_validator_staked(validator) is staked
 
 
 @pytest.mark.unit
@@ -2115,7 +2131,7 @@ class TestShardCommitteePeriod:
         setup_single_operator(iterator, [fresh])
 
         # Still counted in stake accounting...
-        assert iterator._is_validator_exitable(fresh) is True
+        assert iterator._is_validator_staked(fresh) is True
         # ...but never selected for a withdrawal.
         with pytest.raises(StopIteration):
             next(iterator)
@@ -2186,6 +2202,7 @@ def setup_cmv2_operators(iterator, operators, *, partial_allowed=True, first_act
     iterator.module_stats = {sm.id: ms}
     iterator.node_operators_stats = {}
     iterator.exitable_validators = {}
+    iterator.staked_validators = {}
     iterator.first_activation_epoch = {}
     for no_id, (validators, weight) in operators.items():
         gid = (sm.id, NodeOperatorId(no_id))
@@ -2199,6 +2216,7 @@ def setup_cmv2_operators(iterator, operators, *, partial_allowed=True, first_act
             weight=float(weight),
         )
         iterator.exitable_validators[gid] = sorted(validators, key=lambda v: v.index)
+        iterator.staked_validators[gid] = list(iterator.exitable_validators[gid])
         iterator.first_activation_epoch[gid] = EpochNumber(first_activation_epoch)
     iterator.cm_v2_id = sm.id
     iterator.total_lido_predictable_balance = total
@@ -2350,6 +2368,34 @@ class TestActiveRebalancing:
 
         # Assert
         assert [(step.validator, step.amount) for step in steps] == [(validators[0], FWR_AMOUNT)] * expected_fwrs
+
+    def test_allocate_active_rebalancing__fwr_skipped_by_cl_partial__validator_stays_in_stake(self, iterator):
+        # Arrange: A's 1000 ETH validator has a 100 ETH CL partial pending and a queued FWR, which the CL
+        # skips while the partial is pending. A and B both hold 900 ETH of stake, so neither is over target.
+        a, b = make_validator(1, 1000), make_validator(2, 900)
+        setup_cmv2_operators(iterator, {1: ([], 1), 2: ([], 1)})
+        iterator.w3.lido_validators.get_lido_validators_by_node_operators = Mock(
+            return_value={gid_of(1): [a], gid_of(2): [b]}
+        )
+        iterator.lvs.get_in_flight_withdrawals = Mock(
+            return_value=InFlightWithdrawals(
+                pwr_amounts={a.index: Gwei(100 * ETH)},
+                fwr_validators=frozenset({a.index}),
+                cl_pending_pwr_amounts={a.index: Gwei(100 * ETH)},
+                cl_pending_withdrawable_epochs={a.index: EpochNumber(300)},
+            )
+        )
+        iterator._prepare_validator_stats()
+        iterator._calculate_current_cl_balance()
+        enable_rebalancing(iterator, rate_limit_eth=320, operator_bp=100)
+
+        # Act
+        steps = iterator.allocate_active_rebalancing()
+
+        # Assert
+        assert steps == []
+        assert iterator._get_current_stake(gid_of(1)) == Gwei(900 * ETH)
+        assert iterator.exitable_validators[gid_of(1)] == []
 
     def test_allocate_active_rebalancing__fwr_replaces_report_pwrs__counts_only_the_rest(self, iterator):
         # Arrange: operator 1 has one 100 ETH validator, operators 2 and 3 no stake. PWRs of 32 + 32 + 4 ETH

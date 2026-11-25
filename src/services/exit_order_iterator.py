@@ -20,7 +20,7 @@ from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.ejector.data_encode import FWR_AMOUNT, MAX_PWR_AMOUNT, WithdrawalRequest
 from src.providers.execution.contracts.curated_staking_module import CuratedStakingModuleContract
 from src.providers.execution.contracts.meta_registry import MetaRegistryContract, OperatorGroup
-from src.services.validator_state import InFlightWithdrawals, LidoValidatorStateService
+from src.services.validator_state import InFlightWithdrawals, LidoValidatorStateService, is_queued_fwr_effective
 from src.types import (
     EpochNumber,
     Gwei,
@@ -173,6 +173,7 @@ class ValidatorExitIterator:
     module_stats: dict[StakingModuleId, StakingModuleStats]
     node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats]
     exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]]
+    staked_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]]
 
     cm_v2_id: StakingModuleId
 
@@ -201,6 +202,7 @@ class ValidatorExitIterator:
         self.module_stats: dict[StakingModuleId, StakingModuleStats] = {}
         self.node_operators_stats: dict[NodeOperatorGlobalIndex, NodeOperatorStats] = {}
         self.exitable_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
+        self.staked_validators: dict[NodeOperatorGlobalIndex, list[LidoValidator]] = {}
         self.first_activation_epoch: dict[NodeOperatorGlobalIndex, EpochNumber] = {}
         self._in_flight_pwr_by_gid: dict[NodeOperatorGlobalIndex, Gwei] | None = None
 
@@ -243,10 +245,12 @@ class ValidatorExitIterator:
         lido_validators = self.w3.lido_validators.get_lido_validators_by_node_operators(self.blockstamp)
         self.in_flight = self.lvs.get_in_flight_withdrawals(self.blockstamp)
         for gid, validators_list in lido_validators.items():
-            self.exitable_validators[gid] = sorted(
-                filter(self._is_validator_exitable, validators_list),
-                key=lambda v: v.index,
+            self.staked_validators[gid] = sorted(
+                filter(self._is_validator_staked, validators_list), key=lambda v: v.index
             )
+            self.exitable_validators[gid] = [
+                v for v in self.staked_validators[gid] if v.index not in self.in_flight.fwr_validators
+            ]
             activation_epochs = [
                 v.validator.activation_epoch
                 for v in validators_list
@@ -262,7 +266,7 @@ class ValidatorExitIterator:
         self._finalize_cm_v1_and_cm_v2_stats()
 
     def _calculate_current_cl_balance(self):
-        for gid, validators in self.exitable_validators.items():
+        for gid, validators in self.staked_validators.items():
             self.node_operators_stats[gid].predictable_validators += len(validators)
 
             # Calculate predictable effective balance by each NO
@@ -641,7 +645,7 @@ class ValidatorExitIterator:
             # Stable for the whole report: an FWR never goes to a validator with an in-flight PWR.
             self._in_flight_pwr_by_gid = {
                 no_gid: Gwei(sum(self._in_flight_pwr_amount(v) for v in validators))
-                for no_gid, validators in self.exitable_validators.items()
+                for no_gid, validators in self.staked_validators.items()
             }
         return self.node_operators_stats[gid].total_stake - self._in_flight_pwr_by_gid.get(gid, Gwei(0))
 
@@ -825,12 +829,12 @@ class ValidatorExitIterator:
             }
         )
 
-    def _is_validator_exitable(self, validator: LidoValidator) -> bool:
-        """Not on exit, no full withdrawal queued in the Bus, not a consolidation source."""
+    def _is_validator_staked(self, validator: LidoValidator) -> bool:
+        """Stays in the operator's stake: not on exit, not a consolidation source, no queued FWR the CL processes."""
         return (
             not is_on_exit(validator)
-            and validator.index not in self.in_flight.fwr_validators
             and validator.consolidating_as_source is None
+            and not is_queued_fwr_effective(validator, self.in_flight, self.blockstamp.epoch_number)
         )
 
     def _decrease_affected_stake(self, gid: NodeOperatorGlobalIndex, exit_balance: Gwei) -> None:
