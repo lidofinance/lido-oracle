@@ -30,6 +30,12 @@ ALL_FILE_VARIABLES = [
 
 
 @pytest.mark.unit
+class TestPrivateEnvVars:
+    def test_private_env_vars__pinata_dedicated_gateway_url__is_private(self):
+        assert 'PINATA_DEDICATED_GATEWAY_URL' in variables.PRIVATE_ENV_VARS
+
+
+@pytest.mark.unit
 class TestVariablesFromFile:
     @pytest.fixture()
     def reload_variables(self, monkeypatch: pytest.MonkeyPatch):
