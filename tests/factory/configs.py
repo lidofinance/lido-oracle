@@ -6,6 +6,7 @@ from src.providers.consensus.types import (
     BlockAttestationResponse,
     BlockDetailsResponse,
     Checkpoint,
+    ExecutionPayload,
     SlotAttestationCommittee,
 )
 from src.services.bunker_cases.types import BunkerConfig
@@ -44,6 +45,8 @@ class BeaconSpecResponseFactory(Web3DataclassFactory[BeaconSpecResponse]):
     SECONDS_PER_SLOT = 12
     SLOTS_PER_EPOCH = 32
     SLOTS_PER_HISTORICAL_ROOT = 8192
+    # Default to "Gloas never active" so factory-built specs are pre-fork unless a test sets it.
+    GLOAS_FORK_EPOCH = 2**64 - 1
 
 
 class SlotAttestationCommitteeFactory(Web3DataclassFactory[SlotAttestationCommittee]):
@@ -68,5 +71,17 @@ class BlockDetailsResponseFactory(Web3DataclassFactory[BlockDetailsResponse]):
     @classmethod
     def build(cls, **kwargs) -> BlockDetailsResponse:
         instance = super().build(**kwargs)
-        instance.message.body.execution_payload.block_hash = "0x0000000000000000000000000000000000000000"
+        # Default to a pre-EIP-7732 block shape: execution_payload embedded in the body.
+        # (Post-fork blocks carry signed_execution_payload_bid instead; tests that need that
+        # shape set it explicitly.) execution_payload is now Optional, so polyfactory may leave
+        # it None — populate it here so existing tests keep getting a pre-fork block.
+        if instance.message.body.execution_payload is None:
+            instance.message.body.execution_payload = ExecutionPayload(
+                parent_hash="0x",
+                block_number=1,
+                timestamp=1,
+                block_hash="0x0000000000000000000000000000000000000000",
+            )
+        else:
+            instance.message.body.execution_payload.block_hash = "0x0000000000000000000000000000000000000000"
         return instance

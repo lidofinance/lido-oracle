@@ -12,14 +12,27 @@ from prometheus_client.exposition import generate_latest
 from web3_multi_provider import metrics as w3_metrics
 
 from src import variables
+from src.constants import FAR_FUTURE_EPOCH
 from src.providers.consensus.client import ConsensusClient
 from src.providers.consensus.types import Validator
+from src.providers.execution.exceptions import InconsistentData
 from src.providers.http_provider import NotOkResponse
-from src.types import EpochNumber, SlotNumber
-from src.utils.blockstamp import build_blockstamp
+from src.types import BlockStamp, EpochNumber, SlotNumber
 from src.utils.fingerprint import digest_of
 from tests.factory.blockstamp import BlockStampFactory
 from tests.factory.no_registry import PendingDepositFactory
+
+
+def _cl_blockstamp(block_details) -> BlockStamp:
+    """A blockstamp addressing the given block's CL state.
+
+    These tests only query CL state, so the EL fields are irrelevant and no execution client is
+    needed to fill them in.
+    """
+    return BlockStampFactory.build(
+        state_root=block_details.message.state_root,
+        slot_number=block_details.message.slot,
+    )
 
 
 @pytest.fixture
@@ -43,14 +56,25 @@ class TestPendingDeposits:
     def client(self, queue):
         client = ConsensusClient(['http://localhost'], 30)
         client.get_state_view = Mock(return_value=Mock(pending_deposits=queue))
+        client.is_gloas_slot = Mock(return_value=False)
         return client
 
-    def test_get_pending_deposits__builder_credential_deposit__skipped(self, client, queue):
+    def test_get_pending_deposits__builder_credential_deposit_before_gloas__skipped(self, client, queue):
         # Act
         result = client.get_pending_deposits(BlockStampFactory.build())
 
         # Assert
         assert result == [queue[0], queue[2]]
+
+    def test_get_pending_deposits__builder_credential_deposit_after_gloas__kept(self, client, queue):
+        # Arrange
+        client.is_gloas_slot = Mock(return_value=True)
+
+        # Act
+        result = client.get_pending_deposits(BlockStampFactory.build())
+
+        # Assert
+        assert result == queue
 
     def test_get_all_pending_deposits__builder_credential_deposit__kept(self, client, queue):
         # Act
@@ -200,7 +224,7 @@ def test_get_block_attestations_and_sync(consensus_client: ConsensusClient):
 def test_get_attestation_committees(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     attestation_committees = list(consensus_client.get_attestation_committees(blockstamp))
     assert attestation_committees
@@ -219,7 +243,7 @@ def test_get_attestation_committees(consensus_client: ConsensusClient):
 def test_get_sync_committee(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
     epoch = blockstamp.slot_number // 32
 
     sync_committee = consensus_client.get_sync_committee(blockstamp, epoch)
@@ -241,7 +265,7 @@ def test_get_sync_committee(consensus_client: ConsensusClient):
 def test_get_validators(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     validators: list[Validator] = consensus_client.get_validators(blockstamp)
     assert validators
@@ -255,7 +279,7 @@ def test_get_validators(consensus_client: ConsensusClient):
 def test_get_state_view(consensus_client: ConsensusClient):
     root = consensus_client.get_block_root('finalized').root
     block_details = consensus_client.get_block_details(root)
-    blockstamp = build_blockstamp(block_details)
+    blockstamp = _cl_blockstamp(block_details)
 
     state_view = consensus_client.get_state_view(blockstamp)
     assert state_view.slot == blockstamp.slot_number
@@ -314,17 +338,37 @@ def test_get_returns_nor_dict_nor_list(consensus_client: ConsensusClient):
         consensus_client._get_chain_id_with_provider(0)
 
 
+def _state_data(**overrides) -> dict:
+    return {
+        'slot': '42',
+        'validators': [],
+        'balances': [],
+        'slashings': [],
+        'exit_balance_to_consume': '0',
+        'earliest_exit_epoch': '0',
+        'pending_deposits': [],
+        'pending_partial_withdrawals': [],
+        'pending_consolidations': [],
+        **overrides,
+    }
+
+
+def _mock_state_response(client: ConsensusClient, data: dict, *, gloas: bool = False) -> None:
+    resp = requests.Response()
+    resp.status_code = 200
+    resp._content = json.dumps({'data': data}).encode()
+    client.session.get = Mock(return_value=resp)
+    client.is_gloas_slot = Mock(return_value=gloas)
+
+
 @pytest.mark.unit
 def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_state(
     consensus_client: ConsensusClient, caplog
 ):
     """Without this the call site can be dropped in a refactor and CI stays green."""
     caplog.set_level(logging.INFO)
-    resp = requests.Response()
-    resp.status_code = 200
-    resp._content = json.dumps({'data': {'slot': 42, 'validators': [], 'balances': [], 'slashings': []}}).encode()
-    consensus_client.session.get = Mock(return_value=resp)
-    bs = BlockStampFactory.build()
+    _mock_state_response(consensus_client, _state_data())
+    bs = BlockStampFactory.build(slot_number=SlotNumber(42))
 
     state = consensus_client.get_state_view_no_cache(bs)
 
@@ -337,12 +381,144 @@ def test_get_state_view_no_cache__state_fetched__logs_fingerprint_of_returned_st
 
 
 @pytest.mark.unit
-def test_get_proposer_duties_fails_on_root_check(consensus_client: ConsensusClient):
-    resp = requests.Response()
-    resp.status_code = 200
-    resp._content = b'{"data": [], "dependent_root": "0x01"}'
+@pytest.mark.parametrize(
+    'field',
+    [
+        'exit_balance_to_consume',
+        'earliest_exit_epoch',
+        'pending_deposits',
+        'pending_partial_withdrawals',
+        'pending_consolidations',
+    ],
+)
+def test_get_state_view_no_cache__electra_field_missing__raises(consensus_client: ConsensusClient, field: str):
+    # Arrange
+    data = _state_data()
+    del data[field]
+    _mock_state_response(consensus_client, data)
 
-    consensus_client.session.get = Mock(return_value=resp)
+    # Act / Assert
+    with pytest.raises(TypeError, match=field):
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
 
-    with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
-        consensus_client.get_proposer_duties(EpochNumber(0), "0x02")
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__pre_gloas_state_without_expected_withdrawals__returns_no_withdrawals(
+    consensus_client: ConsensusClient,
+):
+    # Arrange
+    _mock_state_response(consensus_client, _state_data(), gloas=False)
+
+    # Act
+    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
+
+    # Assert
+    assert state.payload_expected_withdrawals == []
+    consensus_client.is_gloas_slot.assert_called_once_with(SlotNumber(42))
+
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__gloas_state_without_expected_withdrawals__raises_inconsistent_data(
+    consensus_client: ConsensusClient,
+):
+    # Arrange
+    _mock_state_response(consensus_client, _state_data(), gloas=True)
+
+    # Act / Assert
+    with pytest.raises(InconsistentData, match='payload_expected_withdrawals'):
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
+
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__response_slot_differs_from_requested__raises_inconsistent_data(
+    consensus_client: ConsensusClient,
+):
+    # Arrange: a Gloas slot was requested, the response claims a pre-Gloas slot and omits the withdrawals.
+    _mock_state_response(consensus_client, _state_data(slot='41'))
+    consensus_client.is_gloas_slot = Mock(side_effect=lambda slot: slot >= 42)
+
+    # Act / Assert
+    with pytest.raises(InconsistentData, match='expected \\[42\\]'):
+        consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
+
+
+@pytest.mark.unit
+def test_get_state_view_no_cache__gloas_state_with_expected_withdrawals__adds_them_to_balances(
+    consensus_client: ConsensusClient,
+):
+    # Arrange
+    validator = {
+        'pubkey': '0x' + 'aa' * 48,
+        'withdrawal_credentials': '0x02' + '00' * 31,
+        'effective_balance': '32000000000',
+        'slashed': False,
+        'activation_eligibility_epoch': '0',
+        'activation_epoch': '0',
+        'exit_epoch': str(FAR_FUTURE_EPOCH),
+        'withdrawable_epoch': str(FAR_FUTURE_EPOCH),
+    }
+    data = _state_data(
+        validators=[validator],
+        balances=['32000000000'],
+        payload_expected_withdrawals=[{'validator_index': '0', 'amount': '5'}],
+    )
+    _mock_state_response(consensus_client, data, gloas=True)
+
+    # Act
+    state = consensus_client.get_state_view_no_cache(BlockStampFactory.build(slot_number=SlotNumber(42)))
+
+    # Assert
+    assert state.indexed_validators[0].balance == 32000000005
+
+
+@pytest.mark.unit
+class TestGetProposerDuties:
+    DUTY = {"pubkey": "0xaa", "validator_index": "7", "slot": "3200"}
+
+    @staticmethod
+    def _response(status: int, dependent_root: str = "", data: list | None = None) -> requests.Response:
+        resp = requests.Response()
+        resp.status_code = status
+        resp._content = json.dumps({"data": data or [], "dependent_root": dependent_root}).encode()
+        return resp
+
+    @pytest.fixture
+    def client(self):
+        return ConsensusClient(['http://a/'], 30)
+
+    def test_get_proposer_duties__root_matches__returns_duties_from_v2(self, client):
+        client.session.get = Mock(return_value=self._response(200, "0x02", [self.DUTY]))
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0x02")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 7)]
+        client.session.get.assert_called_once()
+        assert client.session.get.call_args.args[0] == 'http://a/eth/v2/validator/duties/proposer/100'
+
+    def test_get_proposer_duties__root_mismatch__raises(self, client):
+        client.session.get = Mock(return_value=self._response(200, "0x01"))
+
+        with pytest.raises(ValueError, match="Dependent root for proposer duties request mismatch"):
+            client.get_proposer_duties(EpochNumber(100), "0x02")
+
+    def test_get_proposer_duties__not_found__raises_without_v1_fallback(self, client):
+        client.session.get = Mock(return_value=self._response(404))
+
+        with pytest.raises(NotOkResponse):
+            client.get_proposer_duties(EpochNumber(100), "0x02")
+        client.session.get.assert_called_once()
+
+    def test_get_proposer_duties__forked_host__returns_duties_of_synced_host(self):
+        client = ConsensusClient(['http://forked/', 'http://synced/'], 30)
+        synced_duty = {**self.DUTY, "validator_index": "8"}
+        client.session.get = Mock(
+            side_effect=lambda url, **_: (
+                self._response(200, "0xfork", [self.DUTY])
+                if url.startswith('http://forked/')
+                else self._response(200, "0x02", [synced_duty])
+            )
+        )
+
+        duties = client.get_proposer_duties(EpochNumber(100), "0x02")
+
+        assert [(d.slot, d.validator_index) for d in duties] == [(3200, 8)]

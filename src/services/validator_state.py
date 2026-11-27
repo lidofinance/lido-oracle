@@ -62,7 +62,7 @@ class LidoValidatorStateService:
         """
         lido_validators_by_operator = self.w3.lido_validators.get_lido_validators_by_node_operators(blockstamp)
         recent_exit_requests = self.get_recently_requested_to_exit_validators_by_node_operator(
-            chain_config.seconds_per_slot,
+            chain_config,
             blockstamp,
         )
 
@@ -91,7 +91,7 @@ class LidoValidatorStateService:
     @lru_cache(maxsize=1)
     def get_recently_requested_to_exit_validators_by_node_operator(
         self,
-        seconds_per_slot: int,
+        chain_config: ChainConfig,
         blockstamp: ReferenceBlockStamp,
     ) -> dict[NodeOperatorGlobalIndex, set[int]]:
         """
@@ -105,7 +105,7 @@ class LidoValidatorStateService:
             self.w3.lido_contracts.validators_exit_bus_oracle.events.ValidatorExitRequest,  # type: ignore[arg-type]
             to_blockstamp=blockstamp,
             for_slots=lookup_window,
-            seconds_per_slot=seconds_per_slot,
+            chain_config=chain_config,
         )
 
         logger.info({'msg': f'Fetch exit events. Got {len(events)} events.'})

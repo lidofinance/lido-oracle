@@ -16,11 +16,14 @@ class TestGetBlockstampByState:
 
     @pytest.fixture
     def cc(self, block_details):
-        return Mock(get_block_details=Mock(return_value=block_details))
+        return Mock(
+            get_block_details=Mock(return_value=block_details),
+            get_config_spec=Mock(return_value=Mock(SLOTS_PER_EPOCH=32)),
+        )
 
     def test_get_blockstamp_by_state__finalized__returns_blockstamp(self, cc, block_details):
         # Act
-        bs = get_blockstamp_by_state(cc, 'finalized')
+        bs = get_blockstamp_by_state(cc, 'finalized', Mock())
 
         # Assert
         cc.get_block_root.assert_called_once_with('finalized')
@@ -32,11 +35,12 @@ class TestGetBlockstampByState:
             block_hash=add_0x_prefix(execution_payload.block_hash),
             block_number=execution_payload.block_number,
             block_timestamp=execution_payload.timestamp,
+            epoch_number=block_details.message.slot // 32,
         )
 
     def test_get_blockstamp_by_state__head__requests_head_block(self, cc):
         # Act
-        get_blockstamp_by_state(cc, 'head')
+        get_blockstamp_by_state(cc, 'head', Mock())
 
         # Assert
         cc.get_block_root.assert_called_once_with('head')

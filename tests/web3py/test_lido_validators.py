@@ -557,6 +557,7 @@ def _setup_pending_validators(web3, pending_lido_keys, pending_deposits):
     web3.lido_validators.get_lido_wc_list = Mock(return_value=[_LIDO_WC])
     web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version=_GENESIS_FORK_VERSION))
     web3.cc.get_all_pending_deposits = Mock(return_value=pending_deposits)
+    web3.cc.is_gloas_slot = Mock(return_value=False)
     web3.lido_validators._get_lido_validators_with_keys = Mock(return_value=([], pending_lido_keys))
 
 
@@ -625,20 +626,30 @@ def test_get_pending_lido_validators_second_deposit_appended(web3):
 
 
 @pytest.mark.unit
-def test_get_pending_lido_validators__builder_credential_deposit_after_lido_deposit__skipped(web3):
+@pytest.mark.parametrize(
+    ("is_gloas", "counted"),
+    [
+        pytest.param(False, False, id="before Gloas the fork moves it to a builder"),
+        pytest.param(True, True, id="after Gloas it tops up the validator"),
+    ],
+)
+def test_get_pending_lido_validators__builder_credential_deposit_after_lido_deposit__counted_only_after_gloas(
+    web3, is_gloas, counted
+):
     # Arrange — a pending Lido key gets a valid Lido deposit, then a builder-credential one
     lido_key = LidoKeyFactory.build(key=_PUBKEY)
     lido_deposit = _make_deposit(wc=_LIDO_WC)
     builder_deposit = _make_deposit(wc='0xb0' + '00' * 11 + 'ff' * 20)
     _setup_pending_validators(web3, [lido_key], [lido_deposit, builder_deposit])
+    web3.cc.is_gloas_slot = Mock(return_value=is_gloas)
 
     # Act
     with patch('src.web3py.extensions.lido_validators.is_valid_deposit_signature', return_value=True):
         result = web3.lido_validators._get_pending_lido_validators(ReferenceBlockStampFactory.build())
 
-    # Assert — only the Lido deposit counts towards the pending key
+    # Assert
     _, deposits = result[_PUBKEY]
-    assert deposits == [lido_deposit]
+    assert deposits == ([lido_deposit, builder_deposit] if counted else [lido_deposit])
 
 
 @pytest.mark.unit
@@ -808,6 +819,7 @@ def _setup_topup_scenario(web3, validators, lido_keys, pending_deposits):
     web3.kac.get_used_lido_keys = Mock(return_value=lido_keys)
     web3.cc.get_pending_deposits = Mock(return_value=pending_deposits)
     web3.cc.get_all_pending_deposits = Mock(return_value=pending_deposits)
+    web3.cc.is_gloas_slot = Mock(return_value=False)
     web3.cc.get_pending_consolidations = Mock(return_value=[])
     web3.cc.get_validators_by_indexes = Mock(return_value={v.index: v for v in validators})
     web3.cc.get_genesis = Mock(return_value=Mock(genesis_fork_version=_GENESIS_FORK_VERSION))

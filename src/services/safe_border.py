@@ -6,8 +6,9 @@ from eth_typing import HexStr
 from src.constants import EPOCHS_PER_SLASHINGS_VECTOR, MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 from src.metrics.prometheus.duration_meter import duration_meter
 from src.modules.oracles.common.consensus import ChainConfig, FrameConfig
-from src.types import EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
-from src.utils.slot import get_blockstamp
+from src.types import BlockStamp, EpochNumber, FrameNumber, ReferenceBlockStamp, SlotNumber
+from src.utils.blockstamp import build_blockstamp
+from src.utils.slot import get_prev_non_missed_slot
 from src.utils.web3converter import Web3Converter
 from src.web3py.extensions.lido_validators import Validator
 from src.web3py.types import Web3
@@ -242,8 +243,16 @@ class SafeBorder(Web3Converter):
 
         return self.get_epoch_by_timestamp(last_finalized_request_data.timestamp)
 
-    def _get_blockstamp(self, last_slot_in_frame: SlotNumber):
-        return get_blockstamp(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
+    def _get_blockstamp(self, last_slot_in_frame: SlotNumber) -> BlockStamp:
+        """
+        The state of the last block at or before `last_slot_in_frame`.
+
+        `get_blockstamp` resolves a Gloas slot to its child, whose state also includes the child's own block.
+        The slashed flag is set in block processing, so a slashing in the next frame's first block would be
+        attributed to this frame.
+        """
+        block = get_prev_non_missed_slot(self.w3.cc, last_slot_in_frame, self.blockstamp.ref_slot)
+        return build_blockstamp(block, self.chain_config.slots_per_epoch, self.w3.eth)
 
     def round_epoch_by_frame(self, epoch: EpochNumber) -> EpochNumber:
         return EpochNumber(

@@ -37,7 +37,7 @@ def test_get_sweep_delay_in_epochs_post_electra(monkeypatch):
             Mock(return_value=predicted_withdrawals),
         )
         # Calculate delay
-        result = get_sweep_delay_in_epochs(state, spec)
+        result = get_sweep_delay_in_epochs(state, spec.slots_per_epoch, is_gloas_active=False)
 
         # Assert the delay calculation is correct
         expected_delay = math.ceil(predicted_withdrawals / MAX_WITHDRAWALS_PER_PAYLOAD / spec.slots_per_epoch) // 2
@@ -58,7 +58,7 @@ def test_get_sweep_delay_in_epochs__odd_full_cycle__floors_half():
     with patch.object(
         sweep_module, "predict_withdrawals_number_in_sweep_cycle", Mock(return_value=predicted_withdrawals)
     ):
-        result = get_sweep_delay_in_epochs(state, spec)
+        result = get_sweep_delay_in_epochs(state, spec.slots_per_epoch, is_gloas_active=False)
 
     # Assert
     assert result == 2, "An odd full sweep cycle must floor when halved"
@@ -125,7 +125,7 @@ def test_only_validators_withdrawals():
         pending_partial_withdrawals=[],
         slashings=[],
     )
-    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32, is_gloas_active=False)
     assert result == 2
 
 
@@ -140,7 +140,7 @@ def test_combined_withdrawals():
         pending_partial_withdrawals=[],
         slashings=[],
     )
-    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32)
+    result = sweep_module.predict_withdrawals_number_in_sweep_cycle(mock_state, 32, is_gloas_active=False)
     assert result == 10
 
 
@@ -221,7 +221,7 @@ def test_predict_withdrawals_number_in_sweep_cycle__pending_partials_exceed_rati
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[Mock()] * num_pending_partials))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[Mock()] * num_validator_withdrawals))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
+        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_gloas_active=False)
 
     # ratio = MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP
     #       / (MAX_WITHDRAWALS_PER_PAYLOAD - MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP)
@@ -245,7 +245,7 @@ def test_predict_withdrawals_number_in_sweep_cycle__empty_state__returns_zero(mo
         m.setattr(sweep_module, "get_pending_partial_withdrawals", Mock(return_value=[]))
         m.setattr(sweep_module, "get_validators_withdrawals", Mock(return_value=[]))
 
-        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32)
+        result = sweep_module.predict_withdrawals_number_in_sweep_cycle(state, 32, is_gloas_active=False)
 
     assert result == 0
 

@@ -4,9 +4,11 @@ import pytest
 
 from src.constants import MIN_DEPOSIT_AMOUNT
 from src.modules.oracles.accounting.types import ValidatorStage
+from src.providers.consensus.types import ExpectedWithdrawal
 from src.services.staking_vaults import StakingVaultsService
-from src.types import Gwei, SlotNumber
+from src.types import Gwei, SlotNumber, ValidatorIndex
 from src.utils.units import gwei_to_wei
+from tests.factory.consensus import BeaconStateViewFactory
 from tests.modules.accounting.staking_vault.conftest import (
     PendingDepositFactory,
     TestPubkeys,
@@ -647,3 +649,52 @@ class TestCalculateVaultTotalValue:
 
         # Assert
         assert result == int(gwei_to_wei(MIN_DEPOSIT_AMOUNT))
+
+
+@pytest.mark.unit
+class TestGloasInFlightWithdrawalCorrection:
+    @staticmethod
+    def _validators(withdrawals: list[ExpectedWithdrawal]):
+        state = BeaconStateViewFactory.build(
+            validators=[
+                ValidatorStateFactory.build(
+                    pubkey=TestPubkeys.PUBKEY_0, withdrawal_credentials=WithdrawalCredentials.WC_0
+                )
+            ],
+            balances=[Gwei(32_000_000_000)],
+            slashings=[],
+            payload_expected_withdrawals=withdrawals,
+        )
+        return state.indexed_validators
+
+    def test_get_vaults_total_values__in_flight_withdrawal__included_via_validator_balance(
+        self, web3, default_vaults_map
+    ):
+        # Setup
+        validators = self._validators(
+            [ExpectedWithdrawal(validator_index=ValidatorIndex(0), amount=Gwei(1_000_000_000))]
+        )
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map, validators=validators, pending_deposits=[], block_identifier="latest"
+        )
+
+        # Assert: 32 ETH balance + 1 ETH vault EL balance + 1 ETH in flight
+        assert result[VaultAddresses.VAULT_0] == 34_000_000_000_000_000_000
+
+    def test_get_vaults_total_values__pre_fork__total_unchanged(self, web3, default_vaults_map):
+        # Setup
+        validators = self._validators([])
+        configure_validator_statuses(web3, {})
+        service = StakingVaultsService(web3)
+
+        # Act
+        result = service.get_vaults_total_values(
+            vaults=default_vaults_map, validators=validators, pending_deposits=[], block_identifier="latest"
+        )
+
+        # Assert
+        assert result[VaultAddresses.VAULT_0] == 33_000_000_000_000_000_000

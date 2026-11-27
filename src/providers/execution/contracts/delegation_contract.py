@@ -36,14 +36,6 @@ class DelegationContract(ContractInterface):
         )
         return tx
 
-    def get_owner(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
-        """Get delegate contract owner"""
-        response = self.functions.owner().call(block_identifier=block_identifier)
-        logger.info(
-            {'msg': 'Call owner()', 'value': response, 'block_identifier': repr(block_identifier), 'to': self.address}
-        )
-        return Web3.to_checksum_address(response)
-
     def get_delegate(self, block_identifier: BlockIdentifier = 'latest') -> ChecksumAddress:
         """Get the current delegate address"""
         response = self.functions.getDelegate().call(block_identifier=block_identifier)

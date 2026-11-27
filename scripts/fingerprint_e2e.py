@@ -73,6 +73,7 @@ def _kapi(args) -> dict:
         block_hash=snapshot['blockHash'],
         block_number=snapshot['blockNumber'],
         block_timestamp=snapshot['timestamp'],
+        epoch_number=0,
     )
 
     keys, fetch_s = _timed('keys api fetch', lambda: client.get_used_lido_keys(blockstamp))

@@ -38,7 +38,7 @@ class RewardsPredictionService:
             self.w3.lido_contracts.lido.events.TokenRebased,  # type: ignore[arg-type]
             blockstamp,
             prediction_duration_in_slots,
-            chain_configs.seconds_per_slot,
+            chain_configs,
             'reportTimestamp',
         )
 
@@ -46,7 +46,7 @@ class RewardsPredictionService:
             self.w3.lido_contracts.lido.events.ETHDistributed,  # type: ignore[arg-type]
             blockstamp,
             prediction_duration_in_slots,
-            chain_configs.seconds_per_slot,
+            chain_configs,
             'reportTimestamp',
         )
 

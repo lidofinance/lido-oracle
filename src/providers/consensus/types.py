@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Protocol
@@ -6,6 +7,8 @@ from eth_typing import BlockNumber, HexStr
 from hexbytes import HexBytes
 from web3.types import Timestamp
 
+from src.constants import FAR_FUTURE_EPOCH
+from src.providers.execution.exceptions import InconsistentData
 from src.types import (
     BlockHash,
     BlockRoot,
@@ -29,6 +32,7 @@ class BeaconSpecResponse(Nested, FromResponse):
     SLOTS_PER_HISTORICAL_ROOT: int
     SLOT_DURATION_MS: int = 0
     SECONDS_PER_SLOT: int = 0
+    GLOAS_FORK_EPOCH: EpochNumber = EpochNumber(FAR_FUTURE_EPOCH)
 
     class NeitherSlotDurationFieldPresent(Exception):
         pass
@@ -130,6 +134,16 @@ class ExecutionPayload(Nested, FromResponse):
 
 
 @dataclass
+class ExecutionPayloadBid(Nested, FromResponse):
+    parent_block_hash: BlockHash
+
+
+@dataclass
+class SignedExecutionPayloadBid(Nested, FromResponse):
+    message: ExecutionPayloadBid
+
+
+@dataclass
 class Checkpoint(Nested):
     epoch: EpochNumber
     root: BlockRoot
@@ -164,9 +178,26 @@ class SyncAggregate(FromResponse):
 
 @dataclass
 class BeaconBlockBody(Nested, FromResponse):
-    execution_payload: ExecutionPayload
     attestations: list[BlockAttestationResponse]
     sync_aggregate: SyncAggregate
+    execution_payload: ExecutionPayload | None = None
+    signed_execution_payload_bid: SignedExecutionPayloadBid | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Nested cannot resolve `X | None` fields.
+        self.execution_payload = _parse_optional(self.execution_payload, ExecutionPayload, 'execution_payload')
+        self.signed_execution_payload_bid = _parse_optional(
+            self.signed_execution_payload_bid, SignedExecutionPayloadBid, 'signed_execution_payload_bid'
+        )
+
+
+def _parse_optional[T: FromResponse](value: object, factory: type[T], name: str) -> T | None:
+    if value is None or isinstance(value, factory):
+        return value
+    if isinstance(value, dict):
+        return factory.from_response(**value)
+    raise InconsistentData(f'Block body field `{name}` is neither a dict nor null: {type(value).__name__}.')
 
 
 @dataclass
@@ -249,6 +280,14 @@ class PendingConsolidation(Nested):
 
 
 @dataclass
+class ExpectedWithdrawal(Nested, FromResponse):
+    """Taken off the CL validator balance, not yet paid out by the matching execution payload."""
+
+    validator_index: ValidatorIndex
+    amount: Gwei
+
+
+@dataclass
 class BeaconStateView(Nested, FromResponse):
     """
     A view to BeaconState with only the required keys presented.
@@ -260,19 +299,27 @@ class BeaconStateView(Nested, FromResponse):
     balances: list[Gwei]
     slashings: list[Gwei]
 
-    # These fields are new in Electra, so here are default values for backward compatibility.
-    exit_balance_to_consume: Gwei = Gwei(0)
-    earliest_exit_epoch: EpochNumber = EpochNumber(0)
-    pending_deposits: list[PendingDeposit] = field(default_factory=list)
-    pending_partial_withdrawals: list[PendingPartialWithdrawal] = field(default_factory=list)
-    pending_consolidations: list[PendingConsolidation] = field(default_factory=list)
+    exit_balance_to_consume: Gwei
+    earliest_exit_epoch: EpochNumber
+    pending_deposits: list[PendingDeposit]
+    pending_partial_withdrawals: list[PendingPartialWithdrawal]
+    pending_consolidations: list[PendingConsolidation]
+
+    # Gloas: withdrawals debited from `balances` but not yet paid out by the execution payload.
+    # Absent before Gloas; `ConsensusClient` rejects a Gloas state without it.
+    payload_expected_withdrawals: list[ExpectedWithdrawal] = field(default_factory=list)
 
     @cached_property
     def indexed_validators(self) -> list[Validator]:
+        """Balances with in-flight EIP-7732 withdrawals added back, so they match the EL anchor."""
+        in_flight: defaultdict[int, Gwei] = defaultdict(lambda: Gwei(0))
+        for withdrawal in self.payload_expected_withdrawals:
+            in_flight[withdrawal.validator_index] = Gwei(in_flight[withdrawal.validator_index] + withdrawal.amount)
+
         return [
             Validator(
                 index=ValidatorIndex(i),
-                balance=self.balances[i],
+                balance=Gwei(self.balances[i] + in_flight.get(i, Gwei(0))),
                 validator=v,
             )
             for (i, v) in enumerate(self.validators)

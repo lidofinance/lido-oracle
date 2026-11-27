@@ -50,7 +50,7 @@ from src.providers.ipfs import CID
 from src.types import FrameNumber, Gwei, ReferenceBlockStamp, SlotNumber
 from src.utils.apr import get_steth_by_shares
 from src.utils.block import get_block_timestamps
-from src.utils.slot import get_blockstamp
+from src.utils.blockstamp import get_blockstamp
 from src.utils.units import gwei_to_wei
 from src.utils.validator_state import has_far_future_activation_eligibility_epoch
 from src.web3py.types import Web3
@@ -388,7 +388,7 @@ class StakingVaultsService:
             vaults=vaults,
             bs=bs,
             prev_tree_cid=prev_tree_cid,
-            chain_config=chain_config,
+            timestamp=self.get_tree_timestamp(bs, chain_config),
             vaults_fee_map=vaults_fee_map,
         )
 
@@ -396,13 +396,17 @@ class StakingVaultsService:
 
         return self.w3.ipfs.publish(dumped_tree_str.encode('ascii'), MERKLE_TREE_VAULTS_FILENAME)
 
+    def get_tree_timestamp(self, bs: ReferenceBlockStamp, chain_config: ChainConfig) -> int:
+        slot = bs.ref_slot if self.w3.cc.is_gloas_slot(bs.ref_slot) else bs.slot_number
+        return self._get_report_timestamp(slot, chain_config)
+
     @staticmethod
     def get_dumped_tree(
         tree: StandardMerkleTree,
         vaults: VaultsMap,
         bs: ReferenceBlockStamp,
         prev_tree_cid: str,
-        chain_config: ChainConfig,
+        timestamp: int,
         vaults_fee_map: VaultFeeMap,
     ) -> dict[str, Any]:
         def stringify_values(data) -> list[dict[str, str | int]]:
@@ -433,7 +437,7 @@ class StakingVaultsService:
             "refSlot": bs.ref_slot,
             "blockHash": bs.block_hash,
             "blockNumber": bs.block_number,
-            "timestamp": chain_config.genesis_time + bs.slot_number * chain_config.seconds_per_slot,
+            "timestamp": timestamp,
             "extraValues": extra_values,
             "prevTreeCID": prev_tree_cid,
             "leafIndexToData": {k.value: v.value for k, v in MerkleValue.leaf_index_to_data().items()},
@@ -544,9 +548,9 @@ class StakingVaultsService:
         return liability_shares + shares_delta, new_fee  # type: ignore[return-value]
 
     @staticmethod
-    def _get_report_timestamp(ref_slot: SlotNumber, chain_config: ChainConfig) -> int:
-        """Convert a ref slot to a report timestamp (start of slot, in seconds)."""
-        return chain_config.genesis_time + int(ref_slot) * chain_config.seconds_per_slot
+    def _get_report_timestamp(slot: SlotNumber, chain_config: ChainConfig) -> int:
+        """Convert a slot to a report timestamp (start of slot, in seconds)."""
+        return chain_config.genesis_time + int(slot) * chain_config.seconds_per_slot
 
     @staticmethod
     def _calculate_liquidity_fee_by_events(
@@ -829,6 +833,7 @@ class StakingVaultsService:
             cc=self.w3.cc,
             slot=from_ref_slot,
             last_finalized_slot_number=blockstamp.slot_number,
+            el=self.w3.eth,
         ).block_number
 
         # Events are fetched forward over (event_start_block, current_block] and applied backward by timestamp.

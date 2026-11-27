@@ -11,7 +11,7 @@ from src.constants import COMPOUNDING_WITHDRAWAL_PREFIX, ETH1_ADDRESS_WITHDRAWAL
 from src.providers.consensus.types import PendingConsolidation, PendingDeposit, Validator
 from src.providers.keys.types import LidoKey
 from src.services.deposit_signature_verification import is_valid_deposit_signature
-from src.types import BlockStamp, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
+from src.types import BlockStamp, EpochNumber, Gwei, NodeOperatorGlobalIndex, NodeOperatorId, StakingModuleId
 from src.utils.cache import global_lru_cache as lru_cache
 from src.utils.dataclass import FromResponse, Nested
 from src.utils.types import hex_str_to_bytes
@@ -171,6 +171,8 @@ class LidoValidator(Validator):
 @dataclass
 class ConsolidationRequest(PendingConsolidation):
     amount: Gwei
+    # The balance moves to the target in the epoch processing that precedes this epoch.
+    source_withdrawable_epoch: EpochNumber
 
 
 class CountOfKeysDiffersException(Exception):
@@ -232,6 +234,7 @@ class LidoValidatorsProvider(Module):
                 target_index=consolidation.target_index,
                 # only 0x01 validators will be consolidated, so all incoming excess balances will be swept
                 amount=Gwei(min(source_validator.balance, get_max_effective_balance(source_validator.validator))),
+                source_withdrawable_epoch=source_validator.validator.withdrawable_epoch,
             )
             consolidation_by_source[consolidation.source_index] = req
             consolidation_by_target.setdefault(consolidation.target_index, []).append(req)
@@ -300,6 +303,7 @@ class LidoValidatorsProvider(Module):
             set(pending_keys.keys()),
             lido_wc_list,
             hex_str_to_bytes(genesis_config.genesis_fork_version),
+            skip_builder_deposits=not self.w3.cc.is_gloas_slot(blockstamp.slot_number),
         )
         result = {HexStr(pubkey): (pending_keys[pubkey], deposits) for pubkey, deposits in valid.items()}
         logger.info(
@@ -318,6 +322,8 @@ class LidoValidatorsProvider(Module):
         filter_pubkeys: set[str],
         lido_wc_list: list[HexStr],
         genesis_fork_version: bytes,
+        *,
+        skip_builder_deposits: bool,
     ) -> dict[str, list[PendingDeposit]]:
         """Core frontrun-detection loop.
 
@@ -326,6 +332,8 @@ class LidoValidatorsProvider(Module):
         frontrun and excluded entirely along with any subsequent deposits for that key.
 
         Takes the full queue, builder-credential deposits included, so a front-run with them is caught.
+        `skip_builder_deposits` leaves them out of the key's stake: before Gloas the fork moves a validly signed one
+        to a separate builder, after it they top up the validator like any other deposit.
         """
         result: dict[str, list[PendingDeposit]] = {}
         frontruned_keys: set[str] = set()
@@ -335,8 +343,7 @@ class LidoValidatorsProvider(Module):
                 continue
 
             if d.pubkey in result:
-                # Builder-credential deposits are seen here only to catch a front-run, never counted as the key's stake.
-                if not is_builder_withdrawal_credential(d.withdrawal_credentials):
+                if not (skip_builder_deposits and is_builder_withdrawal_credential(d.withdrawal_credentials)):
                     result[d.pubkey].append(d)
                 continue
 

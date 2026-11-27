@@ -101,7 +101,7 @@ Services and responsibilities:
 
 - `postgres` - persistent storage for performance and attestation data.
 - `init-db` - optional one-shot bootstrap for a local Postgres instance; creates the DB and user (`scripts/init_performance_db.sh`).
-- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres.
+- `performance-collector` - pulls duties/attestations from the Consensus client and writes processed data to Postgres. Also needs an Execution client (`EXECUTION_CLIENT_URI`): after EIP-7732 a blockstamp's execution anchor is an EL block hash that only the Execution client can resolve into a block.
 - `performance-web` - serves performance data from Postgres over HTTP for staking-module oracles.
 - `accounting-oracle` - reports protocol accounting data, withdrawals, bunker-related values and extra data.
 - `ejector-oracle` - reports validator exits required to satisfy withdrawal demand.
@@ -117,7 +117,7 @@ Health endpoints:
 
 Data flow (simplified):
 
-`Consensus node` → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` → `IPFS / chain`
+`Consensus node` (+ `Execution node`) → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` → `IPFS / chain`
 
 `Execution node` + `Consensus node` + `Keys API` → `accounting-oracle` / `ejector-oracle` → `chain`
 
@@ -290,8 +290,8 @@ the variables that have a `_FILE` row in the table and for `EXECUTION_CLIENT_URI
 | `EL_REQUESTS_BATCH_SIZE`                                 | The amount of entities that would be fetched in one request to EL                                                                                                           | False               | `1000`                                       | 
 | `ALLOW_REPORTING_IN_BUNKER_MODE`                         | Allow the Oracle to do report if bunker mode is active                                                                                                                      | False               | `True`                                       |
 | `DAEMON`                                                 | If False Oracle runs one cycle and ask for manual input to send report.                                                                                                     | False               | `True`                                       |
-| `TX_GAS_ADDITION`                                        | Used to modify gas parameter that used in transaction. (gas = min(TX_GAS_LIMIT, estimated_gas + TX_GAS_ADDITION))                                                           | False               | `100000`                                     |
-| `TX_GAS_LIMIT`                                           | Upper bound for the gas of a single transaction. The default is the EIP-7825 transaction gas cap (2^24).                                                                    | False               | `16777216`                                   |
+| `TX_GAS_ADDITION`                                        | Headroom added to the gas estimate: gas = min(estimated_gas + TX_GAS_ADDITION, cap). If the sum is above the cap, gas is set to the cap and the transaction is still sent.  | False               | `100000`                                     |
+| `TX_GAS_LIMIT`                                           | Optional gas upper bound per transaction; can only lower the fork cap (2^24 before Glamsterdam, 2^32-1 after). If the estimate alone is above the cap, the tx is not sent.  | False               | fork cap                                     |
 | `CYCLE_SLEEP_IN_SECONDS`                                 | The time between cycles of the oracle's activity                                                                                                                            | False               | `12`                                         |
 | `MAX_CYCLE_LIFETIME_IN_SECONDS`                          | The maximum time for a cycle to continue                                                                                                                                    | False               | `3000`                                       |
 | `SUBMIT_DATA_DELAY_IN_SLOTS`                             | The difference in slots between submit data transactions from Oracles. It is used to prevent simultaneous sending of transactions and, as a result, transactions revert.    | False               | `6`                                          |

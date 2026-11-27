@@ -46,6 +46,7 @@ def iterator(web3):
     it.w3.lido_contracts.oracle_report_sanity_checker.get_oracle_report_limits = Mock(
         return_value=Mock(max_balance_exit_requested_per_report_in_eth=100)
     )
+    it.w3.lido_contracts.validators_exit_bus_oracle.get_max_validators_per_report = Mock(return_value=500)
     it.w3.eth.contract = Mock()
     it._reset_iterator_data()
     it.max_exit_requests_per_report = 500
@@ -1467,6 +1468,22 @@ class TestFinalizeAndReportLimits:
         iterator._get_report_limits()
 
         assert iterator.exit_limit_in_gwei == Gwei(100 * 10**9)
+
+    def test_get_report_limits__vebo_value_set__uses_vebo_value(self, iterator):
+        vebo = iterator.w3.lido_contracts.validators_exit_bus_oracle
+        vebo.get_max_validators_per_report.return_value = 600
+
+        iterator._get_report_limits()
+
+        assert iterator.max_exit_requests_per_report == 600
+        vebo.get_max_validators_per_report.assert_called_once_with(iterator.blockstamp.block_hash)
+
+    def test_get_report_limits__vebo_value_zero__disables_exits(self, iterator):
+        iterator.w3.lido_contracts.validators_exit_bus_oracle.get_max_validators_per_report.return_value = 0
+
+        iterator._get_report_limits()
+
+        assert iterator.max_exit_requests_per_report == 0
 
 
 @pytest.mark.unit
