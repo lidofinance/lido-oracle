@@ -39,7 +39,7 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-cat
         url = f"{self.endpoint}/api/v0/cat"
         try:
-            resp = requests.post(url, timeout=self.timeout, params={"arg": str(cid)}, headers=self._headers())
+            resp = self._post(url, timeout=self.timeout, params={"arg": str(cid)}, headers=self._headers())
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
@@ -52,7 +52,7 @@ class Kubo(IPFSProvider):
         name = name or "file"  # The name doesn't make any difference.
 
         try:
-            resp = requests.post(
+            resp = self._post(
                 url,
                 files={name: (name, content, "application/octet-stream")},
                 params=self.RPC_UNIXFS_ADD_ARGS,
@@ -75,7 +75,7 @@ class Kubo(IPFSProvider):
         # @see https://docs.ipfs.tech/reference/kubo/rpc/#api-v0-pin-add
         url = f"{self.endpoint}/api/v0/pin/add"
         try:
-            resp = requests.post(url, params={"arg": str(cid)}, headers=self._headers(), timeout=self.timeout)
+            resp = self._post(url, params={"arg": str(cid)}, headers=self._headers(), timeout=self.timeout)
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})

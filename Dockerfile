@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.9.0
-FROM python:3.14-slim AS base
+FROM dhi.io/python:3.14.10-debian13-dev@sha256:331fffd6ff7fcf9bf5f7dbde8d48fad634375baa739d1db23f65e0ec83bcd198 AS base
 
 ARG POETRY_VERSION=2.3.2
 ARG SOURCE_DATE_EPOCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    libffi-dev=3.4.8-2 \
-    g++=4:14.2.0-1 \
+    libffi-dev=3.4.8-2+deb13u0+dhi2 \
+    g++=4:14.2.0-1+deb13u0+dhi0 \
     swig=4.3.0-1 \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
@@ -35,7 +35,9 @@ RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 WORKDIR /
 COPY pyproject.toml poetry.lock ./
 COPY scripts/build_blst.sh scripts/build_blst.sh
-COPY vendor/blst vendor/blst
+# The blst sources come from the commit of the vendor/blst submodule: a build context made
+# with `git archive` has no submodule content. tests/test_dockerfile.py keeps the two in sync.
+ADD https://github.com/supranational/blst.git#e7f90de551e8df682f3cc99067d204d8b90d27ad vendor/blst
 
 RUN python3 -m venv "$VENV_PATH" && \
     VIRTUAL_ENV="$VENV_PATH" poetry install --only main --no-root --no-cache && \
@@ -53,12 +55,12 @@ ARG POETRY_VERSION
 RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
 
 RUN apt-get update && apt-get install -y --no-install-recommends -qq \
-    git=1:2.47.3-0+deb13u1 \
-    htop=3.4.1-5 \
+    git=1:2.47.3-0+deb13u1+dhi3 \
+    htop=3.4.1-5+deb13u0+dhi0 \
     # curl is only used here in development. The Debian repo updates it
     # often, so a pinned version can disappear and break the build. The
     # development stage does not run in pipelines, so this is safe here.
-    curl=8.14.1-2+deb13u4 \
+    curl=8.14.1-2+deb13u7+dhi1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -70,26 +72,30 @@ COPY pyproject.toml poetry.lock ./
 RUN python3 -m venv "$VENV_PATH" && \
     VIRTUAL_ENV="$VENV_PATH" poetry install --no-root --with dev
 
-FROM base AS production
+# The runtime image has no shell and no package manager: every RUN belongs to the stages above.
+FROM dhi.io/python:3.14.10-debian13@sha256:d20d953b545c83acd9e1b6b6b6d27cf14de38e6a39689334f71454c33cf41893 AS production
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    VENV_PATH="/opt/venv"
+
+ENV PATH="$VENV_PATH/bin:$PATH"
 
 COPY --from=builder $VENV_PATH $VENV_PATH
 WORKDIR /app
-COPY . .
-
-RUN apt-get clean && find /var/lib/apt/lists/ -type f -delete && chown -R www-data /app/
+# 33 is www-data: the runtime image has no such name in /etc/passwd.
+COPY --chown=33:33 . .
 
 ENV PROMETHEUS_PORT=9000
 ENV HEALTHCHECK_SERVER_PORT=9010
 
 EXPOSE $PROMETHEUS_PORT
-USER www-data
+USER 33:33
 
 # The python probe spends ~0.5-1 CPU-second on interpreter startup alone.
 # Under a container CPU limit with a busy application this can stretch to
 # several seconds of wall time, so the timeout must stay generous.
 HEALTHCHECK --interval=10s --timeout=30s \
-    CMD /opt/venv/bin/python3 -m src.scripts.healthcheck "http://localhost:$HEALTHCHECK_SERVER_PORT/healthcheck" || exit 1
-
-WORKDIR /app/
+    CMD ["/opt/venv/bin/python3", "-m", "src.scripts.healthcheck"]
 
 ENTRYPOINT ["/opt/venv/bin/python3", "-m", "src.main"]

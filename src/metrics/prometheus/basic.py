@@ -112,6 +112,14 @@ KEYS_API_REQUESTS_DURATION = Histogram(
     buckets=requests_buckets,
 )
 
+EXTERNAL_API_REQUESTS_DURATION = Histogram(
+    'external_api_requests_duration',
+    'Duration of requests to external APIs (IPFS providers, OpsGenie)',
+    ['service', 'method', 'code'],
+    namespace=PROMETHEUS_PREFIX,
+    buckets=requests_buckets,
+)
+
 KEYS_API_LATEST_BLOCKNUMBER = Gauge(
     'keys_api_latest_blocknumber',
     'Latest blocknumber from Keys API metadata',

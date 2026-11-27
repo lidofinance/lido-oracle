@@ -9,6 +9,7 @@ from timeout_decorator import TimeoutError as DecoratorTimeoutError
 from web3_multi_provider.multi_http_provider import NoActiveProviderError
 
 from src import variables
+from src.metrics import healthcheck_server
 from src.metrics.prometheus.basic import (
     ACCOUNT_BALANCE,
     CYCLE_COUNT,
@@ -133,6 +134,26 @@ def test_run_as_daemon(oracle):
         oracle.run_as_daemon()
 
     assert oracle.cycle_handler.call_count == 3
+
+
+@pytest.mark.unit
+def test_run_as_daemon__initialized_module__ready_before_first_cycle(oracle):
+    healthcheck_server._ready.clear()
+    ready_in_first_cycle = []
+
+    def _record_and_stop():
+        ready_in_first_cycle.append(healthcheck_server._ready.is_set())
+        raise RuntimeError("Stop the loop")
+
+    oracle.cycle_handler = Mock(side_effect=_record_and_stop)
+
+    try:
+        with pytest.raises(RuntimeError, match="Stop the loop"):
+            oracle.run_as_daemon()
+    finally:
+        healthcheck_server._ready.clear()
+
+    assert ready_in_first_cycle == [True]
 
 
 @pytest.mark.unit

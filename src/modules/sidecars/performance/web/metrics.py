@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from prometheus_client import CollectorRegistry
+from prometheus_client import CollectorRegistry, GCCollector, PlatformCollector, ProcessCollector
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 from src import variables
@@ -11,6 +11,10 @@ from src.utils.build import get_build_info
 # TODO: once we achieve a proper metrics modules separation we can use the default registry.
 CUSTOM_REGISTRY = CollectorRegistry()
 CUSTOM_REGISTRY.register(BUILD_INFO)
+# The default registry gets these collectors on import; a custom registry needs them added by hand.
+ProcessCollector(registry=CUSTOM_REGISTRY)
+PlatformCollector(registry=CUSTOM_REGISTRY)
+GCCollector(registry=CUSTOM_REGISTRY)
 
 
 def attach_metrics(app: FastAPI):
@@ -18,7 +22,7 @@ def attach_metrics(app: FastAPI):
     BUILD_INFO.info(build_info)
 
     instrumentator = Instrumentator(
-        excluded_handlers=["/health", "/metrics"],
+        excluded_handlers=["/health", "/livez", "/metrics"],
         registry=CUSTOM_REGISTRY,
     )
     instrumentator.add(

@@ -1,8 +1,11 @@
 import dataclasses
-import json
 import logging
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
+
+from logmask import setup_logging
+
+from src import variables
 
 
 def convert_bytes_to_hex(data: Any) -> Any:
@@ -19,34 +22,30 @@ def convert_bytes_to_hex(data: Any) -> Any:
     return data
 
 
-class JsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        message = record.msg if isinstance(record.msg, dict) else {'msg': record.getMessage()}
+class ValueAsStringFilter(logging.Filter):
+    """Keeps the `value` field of a dict message a string, as the formatter of the oracle did before `logmask`.
 
-        message = convert_bytes_to_hex(message)
+    The `logmask` formatter writes a value in its own JSON type: a number, a list or an object. The oracle logs
+    contract responses in `value`, so without this filter the type of the field would change from line to line,
+    and a uint256 would become a JSON number, which many log tools round to a float. The filter runs on the
+    handler before the formatter and changes only this field; masking and the JSON line stay with `logmask`.
+    """
 
-        if 'value' in message:
-            message['value'] = str(message['value'])
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, dict) and 'value' in record.msg:
+            record.msg = {**record.msg, 'value': self._as_string(record.msg['value'])}
+        return True
 
-        to_json_msg = json.dumps(
-            {
-                'timestamp': int(record.created),
-                'name': record.name,
-                'levelname': record.levelname,
-                'funcName': record.funcName,
-                'lineno': record.lineno,
-                'module': record.module,
-                'pathname': record.pathname,
-                **message,
-            }
-        )
-        return to_json_msg
+    @staticmethod
+    def _as_string(value: Any) -> str:
+        try:
+            return str(convert_bytes_to_hex(value))
+        except Exception:  # an error here would reach the caller of the logger
+            return str(value)
 
 
-handler = logging.StreamHandler()
-handler.setFormatter(JsonFormatter())
+# JSON lines to stderr; every line, traceback and warning goes through the masker of the secrets.
+setup_logging(variables.PRIVATE_ENV_VARS, level=logging.INFO)
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[handler],
-)
+for handler in logging.getLogger().handlers:
+    handler.addFilter(ValueAsStringFilter())

@@ -75,6 +75,7 @@ class TestPinata:
 
         assert str(result) == "QmTvfdWcdo964nULYqsDtLfUV7Gj7Yrob8msaeVJZo58zc"
         assert len(responses.calls) == 1
+        assert responses.calls[0].request.headers["Authorization"] == pinata_provider.session.headers["Authorization"]
 
     @responses.activate
     def test_upload__request_fails__raises_upload_error(self, pinata_provider):

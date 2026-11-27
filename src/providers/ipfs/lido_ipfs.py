@@ -39,7 +39,7 @@ class LidoIPFS(IPFSProvider):
         """
         url = urljoin(self.host, f"/ipfs/{cid}")
         try:
-            resp = requests.get(url, headers=self._get_headers(), timeout=self.timeout)
+            resp = self._get(url, headers=self._get_headers(), timeout=self.timeout)
             resp.raise_for_status()
         except requests.RequestException as ex:
             logger.error({"msg": "Request has been failed", "error": str(ex)})
@@ -59,7 +59,7 @@ class LidoIPFS(IPFSProvider):
         }
 
         try:
-            response = requests.post(
+            response = self._post(
                 url, files={"file": content}, params=params, headers=self._get_headers(), timeout=self.timeout
             )
             response.raise_for_status()

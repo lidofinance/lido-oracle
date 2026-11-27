@@ -11,7 +11,7 @@ import responses
 
 import src.metrics.healthcheck_server
 from src import variables
-from src.metrics.healthcheck_server import PulseRequestHandler, pulse
+from src.metrics.healthcheck_server import PulseRequestHandler, mark_ready, pulse
 
 
 @pytest.mark.unit
@@ -84,3 +84,51 @@ class TestPulseRequestHandler(unittest.TestCase):
         handler.wfile.seek(0)
         response = handler.wfile.read().decode('utf-8')
         self.assertIn('{"metrics": "fail", "reason": "timeout exceeded"}', response)
+
+
+def _get(path: str) -> str:
+    handler = _create_mock_request_handler(path)
+    handler.wfile = BytesIO()
+    handler.do_GET()
+    return handler.wfile.getvalue().decode('utf-8')
+
+
+@pytest.mark.unit
+class TestReadiness:
+    @pytest.fixture(autouse=True)
+    def not_ready(self):
+        src.metrics.healthcheck_server._ready.clear()
+        yield
+        src.metrics.healthcheck_server._ready.clear()
+
+    @pytest.mark.parametrize('path', ['/ready', '/ready/'])
+    def test_ready__module_not_initialized__responds_503(self, path):
+        response = _get(path)
+
+        assert ' 503 ' in response.splitlines()[0]
+        assert '{"ready": false}' in response
+
+    def test_ready__after_mark_ready__responds_200(self):
+        mark_ready()
+
+        response = _get('/ready')
+
+        assert ' 200 ' in response.splitlines()[0]
+        assert '{"ready": true}' in response
+
+    def test_ready__stale_pulse__still_ready_and_pulse_not_refreshed(self):
+        stale = datetime.now() - timedelta(seconds=variables.MAX_CYCLE_LIFETIME_IN_SECONDS + 1)
+        src.metrics.healthcheck_server._last_pulse = stale
+        mark_ready()
+
+        response = _get('/ready')
+
+        assert ' 200 ' in response.splitlines()[0]
+        assert src.metrics.healthcheck_server._last_pulse == stale
+
+    def test_healthcheck__module_not_initialized__answers_by_pulse_only(self):
+        src.metrics.healthcheck_server._last_pulse = datetime.now()
+
+        response = _get('/healthcheck')
+
+        assert ' 200 ' in response.splitlines()[0]

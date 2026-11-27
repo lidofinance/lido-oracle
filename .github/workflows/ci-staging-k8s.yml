@@ -1,0 +1,25 @@
+name: "[K8S] Build and push lido-oracle to staging"
+
+run-name: "[K8S] Build and push lido-oracle:staging to staging"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '.github/**'
+      - 'tests/**'
+      - '**.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    uses: lidofinance/actions/.github/workflows/k8s-build-push-harbor.yml@04ea1810b5a3b52cc4ca815a9ad1aae80efb5601  # main
+    with:
+      target: staging
+      harbor_project: team-staking-core
+      image: lido-oracle
+    secrets: inherit

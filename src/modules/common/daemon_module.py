@@ -8,7 +8,7 @@ from timeout_decorator import timeout
 from web3.eth import Eth
 
 from src import variables
-from src.metrics.healthcheck_server import pulse
+from src.metrics.healthcheck_server import mark_ready, pulse
 from src.metrics.prometheus.basic import (
     CYCLE_COUNT,
     LAST_CYCLE_TIMESTAMP,
@@ -43,6 +43,7 @@ class DaemonModule(ABC):
     def run_as_daemon(self):
         """Starts module in daemon mode with infinite loop"""
         logger.info({'msg': 'Run module as daemon.'})
+        mark_ready()
         while True:
             logger.debug({'msg': 'Startup new cycle.'})
             self.cycle_handler()

@@ -5,6 +5,7 @@ from enum import Enum
 import requests
 
 from src import variables
+from src.utils.http_utils import send_external_api_request
 
 
 class OpsGenieAPI:
@@ -44,7 +45,10 @@ class OpsGenieAPI:
         }
 
         try:
-            response = requests.post(
+            response = send_external_api_request(
+                type(self).__name__,
+                'POST',
+                requests.post,
                 f'{self.api_url}/v2/alerts',
                 json=payload,
                 headers=headers,

@@ -110,6 +110,11 @@ Services and responsibilities:
   - query the performance API via `PERFORMANCE_COLLECTOR_URI` (in compose: `http://performance-web:9020/`)
   - publish report artifacts to IPFS (`LIDO_IPFS_*`, Pinata, Filebase or Kubo)
 
+Health endpoints:
+
+- The oracle modules and `performance-collector` serve them on `localhost:HEALTHCHECK_SERVER_PORT`, so a probe must run inside the container (`python3 -m src.scripts.healthcheck <url>`). `/healthcheck` answers 200 while the last pulse of the cycle is fresh (liveness). `/ready` answers 503 until the module finishes its initialization and 200 after (daemon mode only).
+- `performance-web` serves them on `PERFORMANCE_WEB_SERVER_API_PORT`. `/livez` answers without a database query (liveness). `/health` checks the database (readiness).
+
 Data flow (simplified):
 
 `Consensus node` (+ `Execution node`) → `performance-collector` → `postgres` ← `performance-web` ← `csm-oracle` / `csm-0x02-oracle` / `cm-oracle` → `IPFS / chain`
@@ -249,6 +254,13 @@ In manual mode all sleeps are disabled and `ALLOW_REPORTING_IN_BUNKER_MODE` is T
 
 ## Env variables
 
+A secret can be read from a file instead of the variable itself: set `<NAME>_FILE` to the path of a file with the
+value. The file takes precedence over the variable, and an empty file means that the value is not set. This works for
+the variables that have a `_FILE` row in the table and for `EXECUTION_CLIENT_URI`, `CONSENSUS_CLIENT_URI`,
+`KEYS_API_URI`, `TELEMETRY_DATA_BUS_RPC`, `PINATA_DEDICATED_GATEWAY_URL`, `PINATA_DEDICATED_GATEWAY_TOKEN`,
+`LIDO_IPFS_HOST`, `LIDO_IPFS_TOKEN`, `FILEBASE_IPFS_HOST`, `FILEBASE_IPFS_TOKEN`, `KUBO_HOST`, `OPSGENIE_API_KEY` and
+`PERFORMANCE_DB_PASSWORD`.
+
 | Name                                                     | Description                                                                                                                                                                 | Required            | Example value                                |
 |----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------|----------------------------------------------|
 | `EXECUTION_CLIENT_URI`                                   | URI of the Execution Layer client                                                                                                                                           | True                | `http://localhost:8545`                      |
@@ -368,6 +380,7 @@ The oracle exposes the following basic metrics:
 | functions_duration          | Histogram metric with duration of each main function in the app | name, status                                                                                                                                       |
 | cl_requests_duration        | Histogram metric with duration of each CL request               | endpoint, code, domain                                                                                                                             |
 | keys_api_requests_duration  | Histogram metric with duration of each KeysAPI request          | endpoint, code, domain                                                                                                                             |
+| external_api_requests_duration | Histogram metric with duration of each request to the IPFS providers and OpsGenie | service (class of the client), method, code (0 - no response) |
 | keys_api_latest_blocknumber | Latest block number from KeysAPI metadata                       |                                                                                                                                                    |
 | transactions_count          | Total count of transactions. Success or failure                 | status                                                                                                                                             |
 | member_info                 | Oracle member info                                              | is_report_member, is_submit_member, is_fast_lane                                                                                                   |
